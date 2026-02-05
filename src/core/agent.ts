@@ -18,7 +18,12 @@ import type { ChatMessage, ChannelCapabilities } from "./types";
 import { logger } from "./logger";
 
 /**
- * Build operator instructions based on available subagents
+ * Build operator system instructions from channel capabilities and available tools.
+ *
+ * @internal
+ * @param availableTools - Names of subagent tools (e.g. `["coder", "research"]`).
+ * @param capabilities - Channel capabilities (rich text, max length, etc.).
+ * @returns System instruction string for the operator.
  */
 function buildOperatorInstructions(
   availableTools: string[],
@@ -72,16 +77,19 @@ function buildOperatorInstructions(
 }
 
 /**
- * AI Agent using operator/subagent architecture
+ * AI Agent using operator/subagent architecture.
  *
- * The operator model (MiniMax by default) handles general chat and decides
- * when to delegate to specialized subagents.
+ * The operator model handles general chat and decides when to delegate to
+ * specialized subagents (coder, research) via tools.
  */
 export class Agent {
   private config: AIConfig;
   private tools: Record<string, Tool>;
   private availableToolNames: string[];
 
+  /**
+   * @param config - AI config (providers, operator, optional subagents).
+   */
   constructor(config: AIConfig) {
     this.config = config;
     this.tools = {};
@@ -103,7 +111,11 @@ export class Agent {
 
   /**
    * Generate a response given conversation history and channel capabilities.
-   * Creates a new operator agent instance per request to include channel-specific instructions.
+   * Creates a new operator agent instance per request with channel-specific instructions.
+   *
+   * @param history - Conversation history (user/assistant/system messages).
+   * @param capabilities - Channel capabilities (formatting, max length).
+   * @returns The assistant reply text.
    */
   async chat(
     history: ChatMessage[],

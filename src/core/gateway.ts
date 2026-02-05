@@ -13,15 +13,23 @@ import type { IMessageStore } from "../store";
 import type { Message, ChannelCapabilities, MessageHandler } from "./types";
 import { logger } from "./logger";
 
+/** Central hub: receives messages from channels, stores them, calls the agent, stores and returns the response. */
 export class Gateway {
+  /**
+   * @param store - Message store for conversation history.
+   * @param agent - AI agent for generating responses.
+   */
   constructor(
     private store: IMessageStore,
     private agent: Agent
   ) {}
 
   /**
-   * Handle an incoming message from a channel.
-   * Stores the message, gets history, generates response, stores response.
+   * Handle an incoming message: store user message, load history, generate reply, store reply.
+   *
+   * @param message - Incoming message from a channel.
+   * @param capabilities - Channel capabilities (passed to the agent).
+   * @returns The generated reply text.
    */
   async handleMessage(
     message: Message,
@@ -57,8 +65,9 @@ export class Gateway {
   }
 
   /**
-   * Get a message handler function that can be passed to channels.
-   * This creates a closure over the gateway instance.
+   * Get a message handler for channels. Channels call this with (message, capabilities).
+   *
+   * @returns Handler that processes messages through this gateway.
    */
   getHandler(): MessageHandler {
     return (message, capabilities) =>
@@ -66,7 +75,9 @@ export class Gateway {
   }
 
   /**
-   * Clear conversation history for a specific conversation
+   * Clear all messages for a conversation (e.g. when user sends /start).
+   *
+   * @param conversationId - Conversation/chat ID to clear.
    */
   async clearConversation(conversationId: string): Promise<void> {
     await this.store.clearHistory(conversationId);

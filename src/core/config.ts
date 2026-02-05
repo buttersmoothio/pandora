@@ -1,5 +1,5 @@
 /**
- * Configuration loader with YAML parsing, env var interpolation, and Zod validation
+ * Configuration loader with YAML parsing and Zod validation
  */
 
 import { parse as parseYaml } from "yaml";
@@ -74,55 +74,23 @@ const configSchema = z.object({
   storage: storageConfigSchema.optional().default({ type: "sqlite", path: "data/pandora.db" }),
 });
 
-/**
- * Inferred TypeScript type from the schema
- */
+/** Full config (ai, channels, storage). */
 export type Config = z.infer<typeof configSchema>;
+/** AI config: providers (API keys) and agents (operator, optional coder/research). */
 export type AIConfig = z.infer<typeof aiConfigSchema>;
+/** Single agent config: provider, model, optional description. */
 export type AgentConfig = z.infer<typeof agentConfigSchema>;
+/** Telegram channel config: enabled, token, ownerId. */
 export type TelegramConfig = z.infer<typeof telegramConfigSchema>;
+/** Storage config: type (`memory` | `sqlite`), path (for SQLite). */
 export type StorageConfig = z.infer<typeof storageConfigSchema>;
 
 /**
- * Interpolate environment variables in a string.
- * Supports ${VAR_NAME} syntax.
- */
-function interpolateEnvVars(value: string): string {
-  return value.replace(/\$\{([^}]+)\}/g, (_, envVar: string) => {
-    const envValue = process.env[envVar];
-    if (envValue === undefined) {
-      throw new Error(`Environment variable '${envVar}' is not defined`);
-    }
-    return envValue;
-  });
-}
-
-/**
- * Recursively interpolate environment variables in an object
- */
-function interpolateObject(obj: unknown): unknown {
-  if (typeof obj === "string") {
-    return interpolateEnvVars(obj);
-  }
-
-  if (Array.isArray(obj)) {
-    return obj.map(interpolateObject);
-  }
-
-  if (obj !== null && typeof obj === "object") {
-    const result: Record<string, unknown> = {};
-    for (const [key, value] of Object.entries(obj)) {
-      result[key] = interpolateObject(value);
-    }
-    return result;
-  }
-
-  return obj;
-}
-
-/**
  * Load and validate configuration from a YAML file.
- * Environment variables in ${VAR_NAME} format are interpolated.
+ *
+ * @param configPath - Path to the YAML config file (default: `"config.yaml"`).
+ * @returns Parsed and validated config.
+ * @throws {Error} If the file is missing or validation fails.
  */
 export async function loadConfig(
   configPath: string = "config.yaml"
@@ -136,11 +104,7 @@ export async function loadConfig(
   const content = await file.text();
   const rawConfig = parseYaml(content);
 
-  // Interpolate environment variables
-  const interpolatedConfig = interpolateObject(rawConfig);
-
-  // Validate with Zod
-  const result = configSchema.safeParse(interpolatedConfig);
+  const result = configSchema.safeParse(rawConfig);
 
   if (!result.success) {
     const errors = result.error.errors
@@ -154,7 +118,10 @@ export async function loadConfig(
 
 /**
  * Validate configuration after loading.
- * Ensures all configured agents have their required providers set up.
+ * Ensures all configured agents have their required providers and API keys set.
+ *
+ * @param config - Loaded config to validate.
+ * @throws {Error} If any agent's provider is missing or has no API key.
  */
 export function validateConfig(config: Config): void {
   const errors: string[] = [];

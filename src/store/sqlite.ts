@@ -12,9 +12,13 @@ import type { ChatMessage } from "../core/types";
 import type { IMessageStore } from "./types";
 import { logger } from "../core/logger";
 
+/** SQLite-backed message store. Persistent; uses WAL mode. */
 export class SqliteStore implements IMessageStore {
   private db: Database;
 
+  /**
+   * @param dbPath - Path to the SQLite database file (parent dir created if needed).
+   */
   constructor(dbPath: string) {
     // Ensure the parent directory exists
     const dir = dirname(dbPath);
@@ -63,6 +67,7 @@ export class SqliteStore implements IMessageStore {
     `);
   }
 
+  /** @inheritdoc */
   async addMessage(
     conversationId: string,
     message: ChatMessage
@@ -80,6 +85,7 @@ export class SqliteStore implements IMessageStore {
     );
   }
 
+  /** @inheritdoc */
   async getHistory(conversationId: string): Promise<ChatMessage[]> {
     const rows = this.db
       .query<{ role: string; content: string }, [string]>(
@@ -95,6 +101,7 @@ export class SqliteStore implements IMessageStore {
     }));
   }
 
+  /** @inheritdoc */
   async clearHistory(conversationId: string): Promise<void> {
     this.db.run(`DELETE FROM messages WHERE conversation_id = ?`, [
       conversationId,
@@ -102,6 +109,7 @@ export class SqliteStore implements IMessageStore {
     this.db.run(`DELETE FROM conversations WHERE id = ?`, [conversationId]);
   }
 
+  /** @inheritdoc */
   async close(): Promise<void> {
     this.db.close();
   }

@@ -15,8 +15,11 @@ import { MemoryStore } from "./memory";
 import { SqliteStore } from "./sqlite";
 
 /**
- * Create a message store based on configuration.
- * Add new backends here as they are implemented.
+ * Create a message store from storage config.
+ *
+ * @param config - Storage config (`type`: `"memory"` or `"sqlite"`, optional `path` for SQLite).
+ * @returns Store instance implementing {@link IMessageStore}.
+ * @throws {Error} If `config.type` is unknown.
  */
 export function createStore(config: StorageConfig): IMessageStore {
   switch (config.type) {

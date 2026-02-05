@@ -8,9 +8,11 @@
 import type { ChatMessage } from "../core/types";
 import type { IMessageStore } from "./types";
 
+/** In-memory message store. Ephemeral; conversations are lost on restart. */
 export class MemoryStore implements IMessageStore {
   private conversations = new Map<string, ChatMessage[]>();
 
+  /** @inheritdoc */
   async addMessage(
     conversationId: string,
     message: ChatMessage
@@ -20,15 +22,18 @@ export class MemoryStore implements IMessageStore {
     this.conversations.set(conversationId, history);
   }
 
+  /** @inheritdoc */
   async getHistory(conversationId: string): Promise<ChatMessage[]> {
     return this.conversations.get(conversationId) ?? [];
   }
 
+  /** @inheritdoc */
   async clearHistory(conversationId: string): Promise<void> {
     this.conversations.delete(conversationId);
   }
 
+  /** @inheritdoc */
   async close(): Promise<void> {
-    // Nothing to clean up for in-memory storage
+    // No-op for in-memory storage
   }
 }

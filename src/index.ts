@@ -1,7 +1,8 @@
 /**
- * Pandora AI Agent - Entry Point
+ * Pandora AI Agent - Entry point.
  *
- * Wires together the Gateway, Store, Agent, and channels.
+ * Loads config, creates store/agent/gateway, starts enabled channels (e.g. Telegram),
+ * and registers SIGINT/SIGTERM for graceful shutdown.
  */
 
 import { loadConfig, validateConfig } from "./core/config";
@@ -12,6 +13,7 @@ import { TelegramChannel } from "./channels/telegram";
 import { logger } from "./core/logger";
 import type { Channel } from "./core/types";
 
+/** Load config, init store/agent/gateway/channels, and run until shutdown. */
 async function main(): Promise<void> {
   logger.startup("Pandora AI Agent starting");
 

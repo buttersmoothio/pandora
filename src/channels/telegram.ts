@@ -27,6 +27,7 @@ const TELEGRAM_CAPABILITIES: ChannelCapabilities = {
   maxMessageLength: 4096,
 };
 
+/** Telegram channel: owner-only bot, text/photo/document/voice/audio/video, HTML replies, message splitting. */
 export class TelegramChannel implements Channel {
   readonly name = "telegram";
   readonly capabilities = TELEGRAM_CAPABILITIES;
@@ -36,6 +37,10 @@ export class TelegramChannel implements Channel {
   private gateway: Gateway;
   private messageHandler: MessageHandler;
 
+  /**
+   * @param config - Telegram config (token, ownerId).
+   * @param gateway - Gateway for handling messages.
+   */
   constructor(config: TelegramConfig, gateway: Gateway) {
     this.bot = new Bot(config.token);
     this.ownerId = config.ownerId;
@@ -45,9 +50,7 @@ export class TelegramChannel implements Channel {
     this.setupHandlers();
   }
 
-  /**
-   * Set up message handlers for the bot
-   */
+  /** Register Grammy handlers: /start, text, photo, document, voice, audio, video, errors. */
   private setupHandlers(): void {
     // Handle /start command (must be before text handler)
     this.bot.command("start", async (ctx) => {
@@ -171,9 +174,7 @@ export class TelegramChannel implements Channel {
     });
   }
 
-  /**
-   * Common handler for all message types
-   */
+  /** Validate owner, build Message, call gateway handler, send reply. */
   private async handleMessage(
     ctx: Context,
     content: string,
@@ -218,10 +219,7 @@ export class TelegramChannel implements Channel {
     }
   }
 
-  /**
-   * Send a response, splitting into multiple messages if too long.
-   * Uses HTML formatting and quotes the original message.
-   */
+  /** Send reply with HTML; split at max length; first chunk replies to user message. */
   private async sendResponse(
     ctx: Context,
     response: string,
@@ -255,9 +253,7 @@ export class TelegramChannel implements Channel {
     }
   }
 
-  /**
-   * Split a message into chunks at word/line boundaries
-   */
+  /** Split text at newline/space boundaries, each chunk ≤ maxLength. */
   private splitMessage(text: string, maxLength: number): string[] {
     if (text.length <= maxLength) {
       return [text];
@@ -288,9 +284,7 @@ export class TelegramChannel implements Channel {
     return chunks;
   }
 
-  /**
-   * Start the bot (begin polling for messages)
-   */
+  /** Connect to Telegram, set commands, start polling. */
   async start(): Promise<void> {
     logger.channel("telegram", "Starting bot");
 
@@ -307,9 +301,7 @@ export class TelegramChannel implements Channel {
     this.bot.start();
   }
 
-  /**
-   * Stop the bot gracefully
-   */
+  /** Stop polling and clean up. */
   async stop(): Promise<void> {
     logger.channel("telegram", "Stopping bot");
     await this.bot.stop();

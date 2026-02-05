@@ -43,17 +43,14 @@ function log(level: LogLevel, category: string, message: string, meta?: Record<s
   console.log(output);
 }
 
+/** Structured logger for message flow, agent, and channel events. Logs metadata only (no message content). */
 export const logger = {
-  /**
-   * Log message received from a channel
-   */
+  /** @param channel - Channel name. @param conversationId - Conversation ID. @param userId - User ID. */
   messageReceived(channel: string, conversationId: string, userId: string): void {
     log("info", "Gateway", "Message received", { channel, conversationId, userId });
   },
 
-  /**
-   * Log message sent back to channel
-   */
+  /** @param durationMs - Total time from receive to send. */
   messageSent(channel: string, conversationId: string, responseLength: number, durationMs: number): void {
     log("info", "Gateway", "Response sent", {
       channel,
@@ -63,23 +60,17 @@ export const logger = {
     });
   },
 
-  /**
-   * Log agent processing start
-   */
+  /** @param historyLength - Number of messages in conversation history. */
   agentStart(provider: string, model: string, historyLength: number): void {
     log("debug", "Agent", "Processing started", { provider, model, historyMessages: historyLength });
   },
 
-  /**
-   * Log agent processing complete
-   */
+  /** @param durationMs - Processing time. @param steps - Number of tool-call steps. */
   agentComplete(durationMs: number, steps: number): void {
     log("debug", "Agent", "Processing complete", { duration: formatDuration(durationMs), steps });
   },
 
-  /**
-   * Log tool call
-   */
+  /** @param toolName - Name of the tool called. @param durationMs - Optional duration. */
   toolCall(toolName: string, durationMs?: number): void {
     const meta: Record<string, unknown> = { tool: toolName };
     if (durationMs !== undefined) {
@@ -88,30 +79,22 @@ export const logger = {
     log("debug", "Agent", "Tool called", meta);
   },
 
-  /**
-   * Log subagent invocation
-   */
+  /** @param name - Subagent name (e.g. `coder`, `research`). */
   subagentStart(name: string, provider: string, model: string): void {
     log("debug", "Subagent", `${name} started`, { provider, model });
   },
 
-  /**
-   * Log subagent completion
-   */
+  /** @param durationMs - Subagent execution time. */
   subagentComplete(name: string, durationMs: number): void {
     log("debug", "Subagent", `${name} complete`, { duration: formatDuration(durationMs) });
   },
 
-  /**
-   * Log channel events
-   */
+  /** @param channel - Channel name. @param event - Event description. @param meta - Optional key-value meta. */
   channel(channel: string, event: string, meta?: Record<string, unknown>): void {
     log("debug", "Channel", `[${channel}] ${event}`, meta);
   },
 
-  /**
-   * Log errors
-   */
+  /** @param category - Log category. @param message - Error message. @param error - Optional error (message extracted if Error). */
   error(category: string, message: string, error?: unknown): void {
     const meta: Record<string, unknown> = {};
     if (error instanceof Error) {
@@ -120,9 +103,7 @@ export const logger = {
     log("error", category, message, meta);
   },
 
-  /**
-   * Log startup info
-   */
+  /** @param message - Startup message. @param meta - Optional key-value meta. */
   startup(message: string, meta?: Record<string, unknown>): void {
     log("info", "Startup", message, meta);
   },

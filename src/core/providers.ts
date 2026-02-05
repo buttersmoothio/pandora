@@ -10,7 +10,12 @@ import type { LanguageModel } from "ai";
 export type ProviderName = "openai" | "anthropic" | "minimax";
 
 /**
- * Create a language model instance from the specified provider
+ * Create a language model instance for the given provider and model.
+ *
+ * @param provider - Provider name (`openai`, `anthropic`, `minimax`).
+ * @param model - Model ID (e.g. `gpt-4o`, `claude-sonnet-4-20250514`, `MiniMax-M2`).
+ * @param apiKey - Provider API key.
+ * @returns Language model instance for the AI SDK.
  */
 export function createModel(
   provider: ProviderName,

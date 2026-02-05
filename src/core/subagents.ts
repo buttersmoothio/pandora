@@ -9,7 +9,10 @@ import type { AIConfig } from "./config";
 import { logger } from "./logger";
 
 /**
- * Create a coding subagent for programming tasks
+ * Create the coder subagent (programming, debugging, code review).
+ *
+ * @param config - AI config; must have `config.agents.coder` and provider set.
+ * @returns A ToolLoopAgent configured for coding tasks.
  */
 export function createCoderSubagent(config: AIConfig): ToolLoopAgent {
   const agentConfig = config.agents.coder!;
@@ -35,7 +38,11 @@ When finished, provide a clear summary of what you did or found.`,
 }
 
 /**
- * Create a tool that invokes the coder subagent
+ * Create the operator tool that delegates to the coder subagent.
+ *
+ * @param subagent - Coder subagent instance.
+ * @param config - AI config (used for logging).
+ * @returns Tool definition for the AI SDK.
  */
 export function createCoderTool(subagent: ToolLoopAgent, config: AIConfig) {
   const agentConfig = config.agents.coder!;
@@ -59,7 +66,10 @@ export function createCoderTool(subagent: ToolLoopAgent, config: AIConfig) {
 }
 
 /**
- * Create a research subagent for information gathering
+ * Create the research subagent (information gathering, explanations).
+ *
+ * @param config - AI config; must have `config.agents.research` and provider set.
+ * @returns A ToolLoopAgent configured for research tasks.
  */
 export function createResearchSubagent(config: AIConfig): ToolLoopAgent {
   const agentConfig = config.agents.research!;
@@ -84,7 +94,11 @@ Be thorough but concise. Cite sources when relevant.`,
 }
 
 /**
- * Create a tool that invokes the research subagent
+ * Create the operator tool that delegates to the research subagent.
+ *
+ * @param subagent - Research subagent instance.
+ * @param config - AI config (used for logging).
+ * @returns Tool definition for the AI SDK.
  */
 export function createResearchTool(subagent: ToolLoopAgent, config: AIConfig) {
   const agentConfig = config.agents.research!;

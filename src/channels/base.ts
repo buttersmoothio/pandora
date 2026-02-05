@@ -21,7 +21,11 @@ export interface BaseChannelConfig {
 }
 
 /**
- * Helper to check if a user is the owner
+ * Check if the user is the configured owner (e.g. for owner-only bots).
+ *
+ * @param userId - Channel user ID.
+ * @param ownerId - Configured owner ID from config.
+ * @returns `true` if `userId === ownerId`.
  */
 export function isOwner(userId: string, ownerId: string): boolean {
   return userId === ownerId;
