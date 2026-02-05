@@ -29,6 +29,11 @@ ai:
     #   model: gpt-4o
     #   description: "Handles research, information gathering"
 
+# Storage configuration
+storage:
+  type: sqlite           # "sqlite" or "memory"
+  path: data/pandora.db   # Path to SQLite database file
+
 # Channel configurations
 channels:
   telegram:

@@ -58,11 +58,20 @@ const channelsConfigSchema = z.object({
 });
 
 /**
+ * Schema for storage configuration
+ */
+const storageConfigSchema = z.object({
+  type: z.enum(["memory", "sqlite"]).default("sqlite"),
+  path: z.string().default("data/pandora.db"),
+});
+
+/**
  * Full configuration schema
  */
 const configSchema = z.object({
   ai: aiConfigSchema,
   channels: channelsConfigSchema,
+  storage: storageConfigSchema.optional().default({ type: "sqlite", path: "data/pandora.db" }),
 });
 
 /**
@@ -72,6 +81,7 @@ export type Config = z.infer<typeof configSchema>;
 export type AIConfig = z.infer<typeof aiConfigSchema>;
 export type AgentConfig = z.infer<typeof agentConfigSchema>;
 export type TelegramConfig = z.infer<typeof telegramConfigSchema>;
+export type StorageConfig = z.infer<typeof storageConfigSchema>;
 
 /**
  * Interpolate environment variables in a string.

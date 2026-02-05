@@ -31,13 +31,13 @@ function buildOperatorInstructions(
 
   // Add channel capability information
   if (capabilities.supportsRichText) {
-    parts.push("- You can use HTML formatting in your responses:");
+    parts.push("- You can use simple HTML formatting in your responses:");
     parts.push("  - <b>bold</b> for bold text");
     parts.push("  - <i>italic</i> for italic text");
     parts.push("  - <code>code</code> for inline code");
     parts.push("  - <pre>code block</pre> for code blocks");
     parts.push("  - <a href=\"URL\">link text</a> for links");
-    parts.push("  - Do NOT use markdown syntax like **bold** or *italic*");
+    parts.push("  - Do NOT use markdown syntax like **bold** or *italic*.");
   } else {
     parts.push("- Use plain text only, no formatting.");
   }

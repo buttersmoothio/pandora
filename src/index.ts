@@ -1,11 +1,11 @@
 /**
  * Pandora AI Agent - Entry Point
  *
- * Wires together the Gateway, MessageStore, Agent, and channels.
+ * Wires together the Gateway, Store, Agent, and channels.
  */
 
 import { loadConfig, validateConfig } from "./core/config";
-import { MessageStore } from "./core/message-store";
+import { createStore } from "./store";
 import { Agent } from "./core/agent";
 import { Gateway } from "./core/gateway";
 import { TelegramChannel } from "./channels/telegram";
@@ -30,7 +30,7 @@ async function main(): Promise<void> {
   });
 
   // Initialize core components
-  const store = new MessageStore();
+  const store = createStore(config.storage);
   const agent = new Agent(config.ai);
   const gateway = new Gateway(store, agent);
 
@@ -59,6 +59,8 @@ async function main(): Promise<void> {
     for (const channel of channels) {
       await channel.stop();
     }
+
+    await store.close();
 
     logger.startup("Shutdown complete");
     process.exit(0);

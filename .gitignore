@@ -15,6 +15,12 @@ logs
 _.log
 report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 
+# database
+data/
+*.db
+*.db-shm
+*.db-wal
+
 # config with secrets
 config.yaml
 

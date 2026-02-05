@@ -9,7 +9,7 @@
  */
 
 import type { Agent } from "./agent";
-import type { IMessageStore } from "./message-store";
+import type { IMessageStore } from "../store";
 import type { Message, ChannelCapabilities, MessageHandler } from "./types";
 import { logger } from "./logger";
 
