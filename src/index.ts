@@ -1,0 +1,78 @@
+/**
+ * Pandora AI Agent - Entry Point
+ *
+ * Wires together the Gateway, MessageStore, Agent, and channels.
+ */
+
+import { loadConfig, validateConfig } from "./core/config.ts";
+import { MessageStore } from "./core/message-store.ts";
+import { Agent } from "./core/agent.ts";
+import { Gateway } from "./core/gateway.ts";
+import { TelegramChannel } from "./channels/telegram.ts";
+import { logger } from "./core/logger.ts";
+import type { Channel } from "./core/types.ts";
+
+async function main(): Promise<void> {
+  logger.startup("Pandora AI Agent starting");
+
+  // Load and validate configuration
+  const config = await loadConfig();
+  validateConfig(config);
+
+  const operatorConfig = config.ai.agents.operator;
+  const subagents = Object.keys(config.ai.agents).filter(
+    (k) => k !== "operator" && config.ai.agents[k as keyof typeof config.ai.agents]
+  );
+
+  logger.startup("Configuration loaded", {
+    operator: `${operatorConfig.provider}/${operatorConfig.model}`,
+    subagents: subagents.length > 0 ? subagents.join(", ") : "none",
+  });
+
+  // Initialize core components
+  const store = new MessageStore();
+  const agent = new Agent(config.ai);
+  const gateway = new Gateway(store, agent);
+
+  // Track active channels for graceful shutdown
+  const channels: Channel[] = [];
+
+  // Initialize Telegram channel if enabled
+  if (config.channels.telegram?.enabled) {
+    const telegram = new TelegramChannel(
+      config.channels.telegram,
+      gateway.getHandler()
+    );
+    channels.push(telegram);
+    await telegram.start();
+  }
+
+  // Check if any channels are enabled
+  if (channels.length === 0) {
+    logger.error("Startup", "No channels enabled - please enable at least one channel in config.yaml");
+    process.exit(1);
+  }
+
+  logger.startup("Pandora is ready", { channels: channels.length });
+
+  // Handle graceful shutdown
+  const shutdown = async (signal: string): Promise<void> => {
+    logger.startup(`Shutdown requested (${signal})`);
+
+    for (const channel of channels) {
+      await channel.stop();
+    }
+
+    logger.startup("Shutdown complete");
+    process.exit(0);
+  };
+
+  process.on("SIGINT", () => shutdown("SIGINT"));
+  process.on("SIGTERM", () => shutdown("SIGTERM"));
+}
+
+// Run the main function
+main().catch((error) => {
+  logger.error("Startup", "Fatal error", error);
+  process.exit(1);
+});

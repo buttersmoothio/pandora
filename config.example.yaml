@@ -1,0 +1,37 @@
+# Pandora AI Agent Configuration
+# Copy this file to config.yaml and fill in your values
+
+# AI Configuration
+ai:
+  # Provider API keys (all optional - only configure what you use)
+  providers:
+    minimax:
+      apiKey: your-minimax-api-key  # Get from https://www.minimax.io/
+    # openai:
+    #   apiKey: your-openai-api-key
+    # anthropic:
+    #   apiKey: your-anthropic-api-key
+
+  # Agent configurations
+  agents:
+    # Main orchestrator - MiniMax by default
+    operator:
+      provider: minimax
+      model: MiniMax-M2
+
+    # Specialized subagents (optional - uncomment to enable)
+    # coder:
+    #   provider: anthropic
+    #   model: claude-sonnet-4-20250514
+    #   description: "Handles coding tasks, code review, debugging"
+    # research:
+    #   provider: openai
+    #   model: gpt-4o
+    #   description: "Handles research, information gathering"
+
+# Channel configurations
+channels:
+  telegram:
+    enabled: true
+    token: your-telegram-bot-token  # Get from @BotFather
+    ownerId: "your-telegram-user-id"  # Get from @userinfobot
