@@ -2,16 +2,18 @@
  * Telegram Channel implementation using grammy
  */
 
-import { Bot } from "grammy";
-import type { TelegramConfig } from "../core/config.ts";
+import { Bot, type Context } from "grammy";
+import type { TelegramConfig } from "../core/config";
+import type { Gateway } from "../core/gateway";
 import type {
+  Attachment,
   Channel,
   ChannelCapabilities,
   Message,
   MessageHandler,
-} from "../core/types.ts";
-import { isOwner } from "./base.ts";
-import { logger } from "../core/logger.ts";
+} from "../core/types";
+import { isOwner } from "./base";
+import { logger } from "../core/logger";
 
 /**
  * Telegram channel capabilities - hardcoded as they're fixed characteristics
@@ -19,7 +21,7 @@ import { logger } from "../core/logger.ts";
 const TELEGRAM_CAPABILITIES: ChannelCapabilities = {
   supportsImages: true,
   supportsFiles: true,
-  supportsRichText: true, // Telegram supports Markdown
+  supportsRichText: true, // Telegram supports Formatting
   supportsButtons: true, // Inline keyboards
   supportsStreaming: false, // Would need message editing
   maxMessageLength: 4096,
@@ -31,12 +33,14 @@ export class TelegramChannel implements Channel {
 
   private bot: Bot;
   private ownerId: string;
+  private gateway: Gateway;
   private messageHandler: MessageHandler;
 
-  constructor(config: TelegramConfig, messageHandler: MessageHandler) {
+  constructor(config: TelegramConfig, gateway: Gateway) {
     this.bot = new Bot(config.token);
     this.ownerId = config.ownerId;
-    this.messageHandler = messageHandler;
+    this.gateway = gateway;
+    this.messageHandler = gateway.getHandler();
 
     this.setupHandlers();
   }
@@ -45,69 +49,120 @@ export class TelegramChannel implements Channel {
    * Set up message handlers for the bot
    */
   private setupHandlers(): void {
-    // Handle text messages
-    this.bot.on("message:text", async (ctx) => {
-      const userId = ctx.from?.id.toString();
-      const chatId = ctx.chat.id.toString();
-      const text = ctx.message.text;
-
-      // Security check: only respond to owner
-      if (!userId || !isOwner(userId, this.ownerId)) {
-        logger.channel("telegram", "Ignored non-owner message", { userId });
-        return;
-      }
-
-      // Create a Message object for the gateway
-      const message: Message = {
-        channelName: this.name,
-        userId,
-        conversationId: chatId, // Use chat ID as conversation ID
-        content: text,
-        metadata: {
-          messageId: ctx.message.message_id,
-          chatType: ctx.chat.type,
-        },
-      };
-
-      try {
-        // Show typing indicator while processing
-        await ctx.replyWithChatAction("typing");
-
-        // Process through gateway
-        const response = await this.messageHandler(message, this.capabilities);
-
-        // Send response, splitting if necessary
-        await this.sendResponse(ctx, response);
-      } catch (error) {
-        logger.error("Telegram", "Error processing message", error);
-        await ctx.reply("Sorry, I encountered an error processing your message.");
-      }
-    });
-
-    // Handle /start command
+    // Handle /start command (must be before text handler)
     this.bot.command("start", async (ctx) => {
       const userId = ctx.from?.id.toString();
+      const chatId = ctx.chat?.id.toString();
 
-      if (!userId || !isOwner(userId, this.ownerId)) {
+      if (!userId || !chatId || !isOwner(userId, this.ownerId)) {
         await ctx.reply("Sorry, this bot is private.");
         return;
       }
 
+      // Clear conversation history
+      await this.gateway.clearConversation(chatId);
+      logger.channel("telegram", "Conversation cleared via /start", { chatId });
+
       await ctx.reply(
-        "Hello! I'm your AI assistant. Send me a message and I'll respond."
+        "Hello! I'm <i>Pandora</i>, your AI assistant. Send me a message and I'll respond.",
+        { parse_mode: "HTML" }
       );
     });
 
-    // Handle /clear command to reset conversation
-    this.bot.command("clear", async (ctx) => {
-      const userId = ctx.from?.id.toString();
+    // Handle text messages (non-commands)
+    this.bot.on("message:text", async (ctx) => {
+      await this.handleMessage(ctx, ctx.message.text);
+    });
 
-      if (!userId || !isOwner(userId, this.ownerId)) {
+    // Handle photo messages
+    this.bot.on("message:photo", async (ctx) => {
+      const photo = ctx.msg.photo;
+      // Get the largest photo (best quality - last in array)
+      const largest = photo[photo.length - 1];
+
+      if (!largest) {
+        logger.error("Telegram", "Photo message without photo data");
         return;
       }
 
-      // We'll need to expose a clear method - for now just acknowledge
-      await ctx.reply("Conversation cleared. Starting fresh!");
+      const attachment: Attachment = {
+        type: "image",
+        fileId: largest.file_id,
+        size: largest.file_size,
+        caption: ctx.msg.caption,
+      };
+
+      const content = ctx.msg.caption || "[Photo received]";
+      await this.handleMessage(ctx, content, [attachment]);
+    });
+
+    // Handle document messages
+    this.bot.on("message:document", async (ctx) => {
+      const doc = ctx.msg.document;
+
+      const attachment: Attachment = {
+        type: "file",
+        fileId: doc.file_id,
+        filename: doc.file_name,
+        mimeType: doc.mime_type,
+        size: doc.file_size,
+        caption: ctx.msg.caption,
+      };
+
+      const content = ctx.msg.caption || `[Document: ${doc.file_name || "unnamed"}]`;
+      await this.handleMessage(ctx, content, [attachment]);
+    });
+
+    // Handle voice messages
+    this.bot.on("message:voice", async (ctx) => {
+      const voice = ctx.msg.voice;
+
+      const attachment: Attachment = {
+        type: "audio",
+        fileId: voice.file_id,
+        mimeType: voice.mime_type,
+        size: voice.file_size,
+        duration: voice.duration,
+      };
+
+      const content = `[Voice message: ${voice.duration}s]`;
+      await this.handleMessage(ctx, content, [attachment]);
+    });
+
+    // Handle audio messages (music files)
+    this.bot.on("message:audio", async (ctx) => {
+      const audio = ctx.msg.audio;
+
+      const attachment: Attachment = {
+        type: "audio",
+        fileId: audio.file_id,
+        filename: audio.file_name,
+        mimeType: audio.mime_type,
+        size: audio.file_size,
+        duration: audio.duration,
+        caption: ctx.msg.caption,
+      };
+
+      const content = ctx.msg.caption || `[Audio: ${audio.title || audio.file_name || "unnamed"}]`;
+      await this.handleMessage(ctx, content, [attachment]);
+    });
+
+    // Handle video messages
+    this.bot.on("message:video", async (ctx) => {
+      const video = ctx.msg.video;
+
+      const attachment: Attachment = {
+        type: "video",
+        fileId: video.file_id,
+        filename: video.file_name,
+        mimeType: video.mime_type,
+        size: video.file_size,
+        duration: video.duration,
+        caption: ctx.msg.caption,
+      };
+
+      const content = ctx.msg.caption || `[Video: ${video.duration}s]`;
+      await this.handleMessage(ctx, content, [attachment]);
     });
 
     // Handle errors
@@ -117,22 +172,99 @@ export class TelegramChannel implements Channel {
   }
 
   /**
-   * Send a response, splitting into multiple messages if too long
+   * Common handler for all message types
    */
-  private async sendResponse(
-    ctx: { reply: (text: string) => Promise<unknown> },
-    response: string
+  private async handleMessage(
+    ctx: Context,
+    content: string,
+    attachments?: Attachment[]
   ): Promise<void> {
-    const maxLength = this.capabilities.maxMessageLength;
+    const userId = ctx.from?.id.toString();
+    const chatId = ctx.chat?.id.toString();
+    const messageId = ctx.msg?.message_id;
 
-    if (response.length <= maxLength) {
-      await ctx.reply(response);
+    // Security check: only respond to owner
+    if (!userId || !chatId || !isOwner(userId, this.ownerId)) {
+      logger.channel("telegram", "Ignored non-owner message", { userId });
       return;
     }
 
-    // Split into chunks at word boundaries
+    // Create a Message object for the gateway
+    const message: Message = {
+      channelName: this.name,
+      userId,
+      conversationId: chatId,
+      content,
+      attachments,
+      replyToMessageId: messageId,
+      metadata: {
+        messageId,
+        chatType: ctx.chat?.type,
+      },
+    };
+
+    try {
+      // Show typing indicator while processing
+      await ctx.replyWithChatAction("typing");
+
+      // Process through gateway
+      const response = await this.messageHandler(message, this.capabilities);
+
+      // Send response with Markdown and reply-to
+      await this.sendResponse(ctx, response, messageId);
+    } catch (error) {
+      logger.error("Telegram", "Error processing message", error);
+      await ctx.reply("Sorry, I encountered an error processing your message.");
+    }
+  }
+
+  /**
+   * Send a response, splitting into multiple messages if too long.
+   * Uses HTML formatting and quotes the original message.
+   */
+  private async sendResponse(
+    ctx: Context,
+    response: string,
+    replyToMessageId?: number
+  ): Promise<void> {
+    const maxLength = this.capabilities.maxMessageLength;
+    const chunks = this.splitMessage(response, maxLength);
+
+    // First chunk quotes the original message
+    let isFirst = true;
+    for (const chunk of chunks) {
+      try {
+        await ctx.reply(chunk, {
+          parse_mode: "HTML",
+          ...(isFirst && replyToMessageId
+            ? { reply_parameters: { message_id: replyToMessageId } }
+            : {}),
+        });
+      } catch (error) {
+        // Fallback to plain text if HTML parsing fails
+        logger.channel("telegram", "HTML parse failed, using plain text", { 
+          error: error instanceof Error ? error.message : String(error) 
+        });
+        await ctx.reply(chunk, {
+          ...(isFirst && replyToMessageId
+            ? { reply_parameters: { message_id: replyToMessageId } }
+            : {}),
+        });
+      }
+      isFirst = false;
+    }
+  }
+
+  /**
+   * Split a message into chunks at word/line boundaries
+   */
+  private splitMessage(text: string, maxLength: number): string[] {
+    if (text.length <= maxLength) {
+      return [text];
+    }
+
     const chunks: string[] = [];
-    let remaining = response;
+    let remaining = text;
 
     while (remaining.length > 0) {
       if (remaining.length <= maxLength) {
@@ -153,10 +285,7 @@ export class TelegramChannel implements Channel {
       remaining = remaining.slice(splitAt).trimStart();
     }
 
-    // Send each chunk
-    for (const chunk of chunks) {
-      await ctx.reply(chunk);
-    }
+    return chunks;
   }
 
   /**
@@ -168,6 +297,11 @@ export class TelegramChannel implements Channel {
     // Get bot info to verify token
     const botInfo = await this.bot.api.getMe();
     logger.channel("telegram", "Bot connected", { username: `@${botInfo.username}` });
+
+    // Register bot commands with Telegram
+    await this.bot.api.setMyCommands([
+      { command: "start", description: "Start a new conversation" },
+    ]);
 
     // Start polling
     this.bot.start();

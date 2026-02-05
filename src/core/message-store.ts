@@ -4,7 +4,7 @@
  * Interface designed to be swappable with persistent storage later.
  */
 
-import type { ChatMessage } from "./types.ts";
+import type { ChatMessage } from "./types";
 
 /**
  * Interface for message storage implementations.

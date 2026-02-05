@@ -8,10 +8,10 @@
  * - Stores response and returns it
  */
 
-import type { Agent } from "./agent.ts";
-import type { IMessageStore } from "./message-store.ts";
-import type { Message, ChannelCapabilities, MessageHandler } from "./types.ts";
-import { logger } from "./logger.ts";
+import type { Agent } from "./agent";
+import type { IMessageStore } from "./message-store";
+import type { Message, ChannelCapabilities, MessageHandler } from "./types";
+import { logger } from "./logger";
 
 export class Gateway {
   constructor(

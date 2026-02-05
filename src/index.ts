@@ -4,13 +4,13 @@
  * Wires together the Gateway, MessageStore, Agent, and channels.
  */
 
-import { loadConfig, validateConfig } from "./core/config.ts";
-import { MessageStore } from "./core/message-store.ts";
-import { Agent } from "./core/agent.ts";
-import { Gateway } from "./core/gateway.ts";
-import { TelegramChannel } from "./channels/telegram.ts";
-import { logger } from "./core/logger.ts";
-import type { Channel } from "./core/types.ts";
+import { loadConfig, validateConfig } from "./core/config";
+import { MessageStore } from "./core/message-store";
+import { Agent } from "./core/agent";
+import { Gateway } from "./core/gateway";
+import { TelegramChannel } from "./channels/telegram";
+import { logger } from "./core/logger";
+import type { Channel } from "./core/types";
 
 async function main(): Promise<void> {
   logger.startup("Pandora AI Agent starting");
@@ -39,10 +39,7 @@ async function main(): Promise<void> {
 
   // Initialize Telegram channel if enabled
   if (config.channels.telegram?.enabled) {
-    const telegram = new TelegramChannel(
-      config.channels.telegram,
-      gateway.getHandler()
-    );
+    const telegram = new TelegramChannel(config.channels.telegram, gateway);
     channels.push(telegram);
     await telegram.start();
   }

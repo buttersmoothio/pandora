@@ -4,7 +4,7 @@
 
 import { parse as parseYaml } from "yaml";
 import { z } from "zod";
-import type { ProviderName } from "./providers.ts";
+import type { ProviderName } from "./providers";
 
 /**
  * Schema for provider configuration (API key)

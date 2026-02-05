@@ -10,7 +10,7 @@ export type {
   ChannelCapabilities,
   Message,
   MessageHandler,
-} from "../core/types.ts";
+} from "../core/types";
 
 /**
  * Base configuration that all channels need

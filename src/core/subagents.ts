@@ -4,9 +4,9 @@
 
 import { ToolLoopAgent, tool } from "ai";
 import { z } from "zod";
-import { createModel } from "./providers.ts";
-import type { AIConfig } from "./config.ts";
-import { logger } from "./logger.ts";
+import { createModel } from "./providers";
+import type { AIConfig } from "./config";
+import { logger } from "./logger";
 
 /**
  * Create a coding subagent for programming tasks

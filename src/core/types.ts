@@ -26,10 +26,22 @@ export interface ChannelCapabilities {
  */
 export interface Attachment {
   type: "image" | "file" | "audio" | "video";
+  /** File identifier (channel-specific, e.g. Telegram file_id) */
+  fileId?: string;
+  /** Direct URL to the file */
   url?: string;
+  /** Raw file data */
   data?: Uint8Array;
+  /** MIME type of the file */
   mimeType?: string;
+  /** Original filename */
   filename?: string;
+  /** File size in bytes */
+  size?: number;
+  /** Duration in seconds (for audio/video) */
+  duration?: number;
+  /** Caption text (for images/files with captions) */
+  caption?: string;
 }
 
 /**
@@ -46,6 +58,8 @@ export interface Message {
   content: string;
   /** Optional attachments */
   attachments?: Attachment[];
+  /** Message ID to reply to (for quoting) */
+  replyToMessageId?: number;
   /** Channel-specific metadata */
   metadata?: Record<string, unknown>;
 }
