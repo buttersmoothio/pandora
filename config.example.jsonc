@@ -1,0 +1,77 @@
+{
+  // JSON Schema for IDE autocompletion (optional but recommended)
+  "$schema": "./config.schema.jsonc",
+
+  "ai": {
+    // AI Provider API keys - only configure what you use
+    "providers": {
+      "minimax": {
+        "apiKey": "your-minimax-api-key"
+      }
+      // "openai": {
+      //   "apiKey": "your-openai-api-key"
+      // },
+      // "anthropic": {
+      //   "apiKey": "your-anthropic-api-key"
+      // }
+    },
+
+    // Tool configurations - tools declare which agents they support in their code.
+    // Just enable + configure them here. The tool decides which agents get it.
+    "tools": {
+      // No config needed - available to all agents
+      "datetime": {},
+
+      // Requires apiKey from https://tavily.com/
+      // Restricted to operator and research agents (not coder)
+      // "tavilySearch": {
+      //   "apiKey": "your-tavily-api-key"
+      // }
+
+      // To add a new tool:
+      // 1. Create src/tools/my-tool.ts with a createMyTool() factory
+      // 2. Register it in src/tools/index.ts
+      // 3. Add it here with any required config
+      // 4. Optionally add `agents: ["operator", "coder", "research"]` in the tool file
+      //    to restrict which agents can use it (omit for all agents)
+    },
+
+    // Agent configurations
+    "agents": {
+      // Main orchestrator - required
+      "operator": {
+        "provider": "minimax",
+        "model": "MiniMax-M2"
+        // Tools are automatically assigned from the tools section above
+      },
+
+      // Optional specialized agents
+      // "coder": {
+      //   "provider": "anthropic",
+      //   "model": "claude-sonnet-4-20250514",
+      //   "description": "Handles coding tasks, code review, debugging"
+      // },
+
+      // "research": {
+      //   "provider": "openai",
+      //   "model": "gpt-4o",
+      //   "description": "Handles research, information gathering"
+      // }
+    }
+  },
+
+  // Message storage configuration
+  "storage": {
+    "type": "sqlite",
+    "path": "data/pandora.db"
+  },
+
+  // Channel configurations
+  "channels": {
+    "telegram": {
+      "enabled": true,
+      "token": "your-telegram-bot-token",
+      "ownerId": "your-telegram-user-id"
+    }
+  }
+}

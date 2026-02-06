@@ -1,8 +1,8 @@
 /**
- * Configuration loader with YAML parsing and Zod validation
+ * Configuration loader with JSONC (JSON with Comments) parsing and Zod validation
  */
 
-import { parse as parseYaml } from "yaml";
+import { parse } from "jsonc-parser";
 import { z } from "zod";
 import type { ProviderName } from "./providers";
 
@@ -23,7 +23,12 @@ const agentConfigSchema = z.object({
 });
 
 /**
- * Schema for AI configuration with providers and agents
+ * Schema for tool configuration (tool-specific settings like API keys)
+ */
+const toolConfigSchema: z.ZodType<Record<string, unknown>> = z.record(z.string(), z.unknown());
+
+/**
+ * Schema for AI configuration with providers, tools, and agents
  */
 const aiConfigSchema = z.object({
   providers: z
@@ -34,6 +39,7 @@ const aiConfigSchema = z.object({
     })
     .optional()
     .default({}),
+  tools: z.record(z.string(), toolConfigSchema).optional().default({}),
   agents: z.object({
     operator: agentConfigSchema, // Required - the main orchestrator
     coder: agentConfigSchema.optional(),
@@ -76,24 +82,26 @@ const configSchema = z.object({
 
 /** Full config (ai, channels, storage). */
 export type Config = z.infer<typeof configSchema>;
-/** AI config: providers (API keys) and agents (operator, optional coder/research). */
+/** AI config: providers, tools, and agents (operator, optional coder/research). */
 export type AIConfig = z.infer<typeof aiConfigSchema>;
 /** Single agent config: provider, model, optional description. */
 export type AgentConfig = z.infer<typeof agentConfigSchema>;
+/** Tool-specific configuration (varies per tool). */
+export type ToolConfig = z.infer<typeof toolConfigSchema>;
 /** Telegram channel config: enabled, token, ownerId. */
 export type TelegramConfig = z.infer<typeof telegramConfigSchema>;
 /** Storage config: type (`memory` | `sqlite`), path (for SQLite). */
 export type StorageConfig = z.infer<typeof storageConfigSchema>;
 
 /**
- * Load and validate configuration from a YAML file.
+ * Load and validate configuration from a JSONC file.
  *
- * @param configPath - Path to the YAML config file (default: `"config.yaml"`).
+ * @param configPath - Path to the JSONC config file (default: `"config.jsonc"`).
  * @returns Parsed and validated config.
  * @throws {Error} If the file is missing or validation fails.
  */
 export async function loadConfig(
-  configPath: string = "config.yaml"
+  configPath: string = "config.jsonc"
 ): Promise<Config> {
   const file = Bun.file(configPath);
 
@@ -102,7 +110,7 @@ export async function loadConfig(
   }
 
   const content = await file.text();
-  const rawConfig = parseYaml(content);
+  const rawConfig = parse(content);
 
   const result = configSchema.safeParse(rawConfig);
 
@@ -118,12 +126,16 @@ export async function loadConfig(
 
 /**
  * Validate configuration after loading.
- * Ensures all configured agents have their required providers and API keys set.
+ * Ensures all configured agents have their required providers set up.
  *
  * @param config - Loaded config to validate.
- * @throws {Error} If any agent's provider is missing or has no API key.
+ * @param availableToolNames - List of known tool names from the tool registry.
+ * @throws {Error} If any agent's provider is missing or tool is unknown.
  */
-export function validateConfig(config: Config): void {
+export function validateConfig(
+  config: Config,
+  availableToolNames: string[] = []
+): void {
   const errors: string[] = [];
 
   // Operator is required by schema, but double-check
@@ -145,6 +157,15 @@ export function validateConfig(config: Config): void {
     } else if (!provider.apiKey) {
       errors.push(
         `Agent '${agentName}' uses provider '${providerName}' but API key is missing`
+      );
+    }
+  }
+
+  // Check that each tool configured in ai.tools is a known tool
+  for (const toolName of Object.keys(config.ai.tools)) {
+    if (availableToolNames.length > 0 && !availableToolNames.includes(toolName)) {
+      errors.push(
+        `Tool '${toolName}' is configured in 'ai.tools' but is not a known tool`
       );
     }
   }

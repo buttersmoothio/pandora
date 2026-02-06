@@ -12,6 +12,7 @@ import { Gateway } from "./core/gateway";
 import { TelegramChannel } from "./channels/telegram";
 import { logger } from "./core/logger";
 import type { Channel } from "./core/types";
+import { getAvailableToolNames } from "./tools";
 
 /** Load config, init store/agent/gateway/channels, and run until shutdown. */
 async function main(): Promise<void> {
@@ -19,7 +20,7 @@ async function main(): Promise<void> {
 
   // Load and validate configuration
   const config = await loadConfig();
-  validateConfig(config);
+  validateConfig(config, getAvailableToolNames());
 
   const operatorConfig = config.ai.agents.operator;
   const subagents = Object.keys(config.ai.agents).filter(
@@ -48,7 +49,7 @@ async function main(): Promise<void> {
 
   // Check if any channels are enabled
   if (channels.length === 0) {
-    logger.error("Startup", "No channels enabled - please enable at least one channel in config.yaml");
+    logger.error("Startup", "No channels enabled - please enable at least one channel in config.json");
     process.exit(1);
   }
 

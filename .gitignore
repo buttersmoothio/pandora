@@ -22,7 +22,7 @@ data/
 *.db-wal
 
 # config with secrets
-config.yaml
+config.jsonc
 
 # dotenv environment variable files
 .env

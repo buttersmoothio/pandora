@@ -2,7 +2,7 @@
  * Subagent Definitions - Specialized agents that the operator can delegate to
  */
 
-import { ToolLoopAgent, tool } from "ai";
+import { ToolLoopAgent, tool, type Tool } from "ai";
 import { z } from "zod";
 import { createModel } from "./providers";
 import type { AIConfig } from "./config";
@@ -12,9 +12,13 @@ import { logger } from "./logger";
  * Create the coder subagent (programming, debugging, code review).
  *
  * @param config - AI config; must have `config.agents.coder` and provider set.
+ * @param tools - Optional action tools to give this subagent.
  * @returns A ToolLoopAgent configured for coding tasks.
  */
-export function createCoderSubagent(config: AIConfig): ToolLoopAgent {
+export function createCoderSubagent(
+  config: AIConfig,
+  tools: Record<string, Tool> = {}
+): ToolLoopAgent {
   const agentConfig = config.agents.coder!;
   const providerConfig = config.providers[agentConfig.provider]!;
 
@@ -31,9 +35,7 @@ export function createCoderSubagent(config: AIConfig): ToolLoopAgent {
 - Explaining code concepts
 
 When finished, provide a clear summary of what you did or found.`,
-    tools: {
-      // Future: code execution, file editing tools
-    },
+    tools,
   });
 }
 
@@ -69,9 +71,13 @@ export function createCoderTool(subagent: ToolLoopAgent, config: AIConfig) {
  * Create the research subagent (information gathering, explanations).
  *
  * @param config - AI config; must have `config.agents.research` and provider set.
+ * @param tools - Optional action tools to give this subagent.
  * @returns A ToolLoopAgent configured for research tasks.
  */
-export function createResearchSubagent(config: AIConfig): ToolLoopAgent {
+export function createResearchSubagent(
+  config: AIConfig,
+  tools: Record<string, Tool> = {}
+): ToolLoopAgent {
   const agentConfig = config.agents.research!;
   const providerConfig = config.providers[agentConfig.provider]!;
 
@@ -87,9 +93,7 @@ export function createResearchSubagent(config: AIConfig): ToolLoopAgent {
 - Providing information and summaries
 
 Be thorough but concise. Cite sources when relevant.`,
-    tools: {
-      // Future: web search, document analysis tools
-    },
+    tools,
   });
 }
 
