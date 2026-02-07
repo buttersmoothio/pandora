@@ -1,18 +1,27 @@
 /**
- * DateTime tool -- returns the current date and time
+ * DateTime tool - Returns the current date and time
+ *
+ * Useful for timestamps, scheduling, and time-sensitive queries.
  */
 
 import { tool } from "ai";
 import { z } from "zod";
-import type { ToolDefinition } from "./types";
+import { defineTool } from "../core/registries/tools";
 
-export function createDateTimeTool(): ToolDefinition {
-  return {
+export default defineTool({
+  name: "datetime",
+  factory: () => ({
     name: "datetime",
     tool: tool({
-      description: "Get the current date and time. Useful for timestamps, scheduling, and time-sensitive queries.",
+      description:
+        "Get the current date and time. Useful for timestamps, scheduling, and time-sensitive queries.",
       inputSchema: z.object({
-        timezone: z.string().optional().describe("IANA timezone (e.g., 'America/New_York', 'Asia/Tokyo'). Defaults to UTC if not provided."),
+        timezone: z
+          .string()
+          .optional()
+          .describe(
+            "IANA timezone (e.g., 'America/New_York', 'Asia/Tokyo'). Defaults to UTC if not provided."
+          ),
       }),
       execute: async ({ timezone }) => {
         const date = new Date();
@@ -35,5 +44,5 @@ export function createDateTimeTool(): ToolDefinition {
         };
       },
     }),
-  };
-}
+  }),
+});

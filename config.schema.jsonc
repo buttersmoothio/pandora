@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Pandora AI Agent Configuration",
-  "description": "Configuration schema for the Pandora AI Agent",
+  "description": "Configuration schema for the Pandora AI Agent. Agents, channels, and storage backends are auto-discovered at runtime.",
   "type": "object",
   "required": ["ai"],
   "properties": {
@@ -11,51 +11,23 @@
     },
     "ai": {
       "type": "object",
-      "required": ["providers", "agents"],
+      "required": ["gateway", "agents"],
       "properties": {
-        "providers": {
+        "gateway": {
           "type": "object",
-          "description": "AI provider configurations",
+          "description": "Vercel AI Gateway configuration",
+          "required": ["apiKey"],
           "properties": {
-            "openai": {
-              "type": "object",
-              "required": ["apiKey"],
-              "properties": {
-                "apiKey": {
-                  "type": "string",
-                  "description": "OpenAI API key"
-                }
-              },
-              "additionalProperties": false
-            },
-            "anthropic": {
-              "type": "object",
-              "required": ["apiKey"],
-              "properties": {
-                "apiKey": {
-                  "type": "string",
-                  "description": "Anthropic API key"
-                }
-              },
-              "additionalProperties": false
-            },
-            "minimax": {
-              "type": "object",
-              "required": ["apiKey"],
-              "properties": {
-                "apiKey": {
-                  "type": "string",
-                  "description": "MiniMax API key"
-                }
-              },
-              "additionalProperties": false
+            "apiKey": {
+              "type": "string",
+              "description": "Vercel AI Gateway API key"
             }
           },
           "additionalProperties": false
         },
         "tools": {
           "type": "object",
-          "description": "Tool configurations. Add entries here to enable tools.",
+          "description": "Tool configurations. Add entries here to enable tools. Tools are auto-discovered from src/tools/.",
           "additionalProperties": {
             "type": "object",
             "description": "Tool-specific configuration (e.g., API keys)"
@@ -71,90 +43,47 @@
         },
         "agents": {
           "type": "object",
-          "description": "Agent configurations",
+          "description": "Agent configurations. Subagents are auto-discovered from src/subagents/. Add any subagent by name with a model.",
           "required": ["operator"],
           "properties": {
             "operator": {
-              "type": "object",
-              "description": "Main orchestrator agent - handles general conversation and delegates to subagents",
-              "required": ["provider", "model"],
-              "properties": {
-                "provider": {
-                  "type": "string",
-                  "enum": ["openai", "anthropic", "minimax"],
-                  "description": "AI provider for this agent"
-                },
-                "model": {
-                  "type": "string",
-                  "description": "Model name for this agent"
-                },
-                "description": {
-                  "type": "string",
-                  "description": "Optional description of this agent's role"
-                }
-              },
-              "additionalProperties": false
+              "$ref": "#/$defs/agentConfig",
+              "description": "Main orchestrator agent - handles general conversation and delegates to subagents (required)"
             },
+            // Built-in subagents (for IDE autocompletion)
             "coder": {
-              "type": "object",
-              "description": "Specialized agent for coding tasks - activated when configured",
-              "required": ["provider", "model"],
-              "properties": {
-                "provider": {
-                  "type": "string",
-                  "enum": ["openai", "anthropic", "minimax"],
-                  "description": "AI provider for this agent"
-                },
-                "model": {
-                  "type": "string",
-                  "description": "Model name for this agent"
-                },
-                "description": {
-                  "type": "string",
-                  "description": "Optional description of this agent's role"
-                }
-              },
-              "additionalProperties": false
+              "$ref": "#/$defs/agentConfig",
+              "description": "Specialized agent for coding tasks"
             },
             "research": {
-              "type": "object",
-              "description": "Specialized agent for research tasks - activated when configured",
-              "required": ["provider", "model"],
-              "properties": {
-                "provider": {
-                  "type": "string",
-                  "enum": ["openai", "anthropic", "minimax"],
-                  "description": "AI provider for this agent"
-                },
-                "model": {
-                  "type": "string",
-                  "description": "Model name for this agent"
-                },
-                "description": {
-                  "type": "string",
-                  "description": "Optional description of this agent's role"
-                }
-              },
-              "additionalProperties": false
+              "$ref": "#/$defs/agentConfig",
+              "description": "Specialized agent for research tasks"
+            },
+            "webSearch": {
+              "$ref": "#/$defs/agentConfig",
+              "description": "Specialized agent for web search using search-enabled models"
             }
           },
-          "additionalProperties": false
+          // Allow any additional subagents
+          "additionalProperties": {
+            "$ref": "#/$defs/agentConfig"
+          }
         }
       },
       "additionalProperties": false
     },
     "channels": {
       "type": "object",
-      "description": "Channel configurations",
+      "description": "Channel configurations. Channels are auto-discovered from src/channels/.",
       "properties": {
+        // Built-in channels (for IDE autocompletion)
         "telegram": {
           "type": "object",
           "description": "Telegram channel configuration",
-          "required": ["enabled", "token", "ownerId"],
           "properties": {
             "enabled": {
               "type": "boolean",
-              "description": "Enable or disable Telegram channel"
+              "description": "Enable or disable this channel"
             },
             "token": {
               "type": "string",
@@ -162,29 +91,47 @@
             },
             "ownerId": {
               "type": "string",
-              "description": "Telegram user ID of the bot owner (to authorize commands)"
+              "description": "User ID of the bot owner (for authorization)"
             }
           },
-          "additionalProperties": false
+          "required": ["enabled", "token", "ownerId"]
         }
       },
-      "additionalProperties": false
+      // Allow any additional channels
+      "additionalProperties": {
+        "type": "object",
+        "description": "Channel-specific configuration",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "description": "Enable or disable this channel"
+          },
+          "ownerId": {
+            "type": "string",
+            "description": "User ID of the bot owner (for authorization)"
+          }
+        },
+        "required": ["enabled", "ownerId"]
+      }
     },
     "storage": {
       "type": "object",
-      "description": "Message storage configuration",
+      "description": "Message storage configuration. Storage backends are auto-discovered from src/store/.",
       "properties": {
         "type": {
           "type": "string",
-          "enum": ["memory", "sqlite"],
-          "description": "Storage backend type"
+          "description": "Storage backend type (e.g., 'memory', 'sqlite', or any registered backend)",
+          "default": "sqlite",
+          "examples": ["memory", "sqlite"]
         },
         "path": {
           "type": "string",
-          "description": "Path to SQLite database file (only for sqlite type)"
+          "description": "Path to database file (for file-based backends like sqlite)",
+          "default": "data/pandora.db"
         }
       },
-      "additionalProperties": false,
+      // Allow additional backend-specific properties
+      "additionalProperties": true,
       "default": {
         "type": "sqlite",
         "path": "data/pandora.db"
@@ -197,5 +144,25 @@
       "description": "Log level. 'normal' logs metadata (message flow, tool calls, durations). 'verbose' additionally logs full model prompts and responses."
     }
   },
-  "additionalProperties": false
+  "additionalProperties": false,
+  "$defs": {
+    "agentConfig": {
+      "type": "object",
+      "description": "Configuration for an agent (operator or subagent)",
+      "required": ["model"],
+      "properties": {
+        "model": {
+          "type": "string",
+          "description": "Gateway model ID (e.g. anthropic/claude-sonnet-4.5, openai/gpt-4o)",
+          "examples": [
+            "anthropic/claude-sonnet-4.5",
+            "openai/gpt-4o",
+            "google/gemini-2.0-flash",
+            "openai/gpt-4o-mini-search-preview"
+          ]
+        }
+      },
+      "additionalProperties": false
+    }
+  }
 }

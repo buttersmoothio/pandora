@@ -6,7 +6,7 @@
  */
 
 import type { ChatMessage } from "../core/types";
-import type { IMessageStore } from "./types";
+import { defineStore, type IMessageStore } from "../core/registries/store";
 
 /** In-memory message store. Ephemeral; conversations are lost on restart. */
 export class MemoryStore implements IMessageStore {
@@ -37,3 +37,9 @@ export class MemoryStore implements IMessageStore {
     // No-op for in-memory storage
   }
 }
+
+// Self-register the store
+export default defineStore({
+  type: "memory",
+  create: () => new MemoryStore(),
+});

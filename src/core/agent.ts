@@ -8,12 +8,11 @@
 import { ToolLoopAgent, type Tool } from "ai";
 import { createModel } from "./providers";
 import {
-  createCoderSubagent,
-  createCoderTool,
-  createResearchSubagent,
-  createResearchTool,
-} from "./subagents";
-import { createToolsForAgent } from "../tools";
+  getSubagentDefinitions,
+  createSubagentFromDefinition,
+  createSubagentTool,
+  createToolsForAgent,
+} from "./registries";
 import type { AIConfig } from "./config";
 import type { ChatMessage, ChannelCapabilities } from "./types";
 import { logger } from "./logger";
@@ -97,7 +96,7 @@ export class Agent {
   private subagentTools: Record<string, Tool>;
 
   /**
-   * @param config - AI config (providers, operator, optional subagents, tools).
+   * @param config - AI config (gateway, agents, tools).
    */
   constructor(config: AIConfig) {
     this.config = config;
@@ -106,28 +105,26 @@ export class Agent {
     this.subagentTools = {};
 
     // Resolve action tools from config (tools self-assign to agents via their `agents` field)
-    this.actionTools = createToolsForAgent(
-      "operator",
-      config.tools ?? {}
-    );
+    this.actionTools = createToolsForAgent("operator", config.tools ?? {});
 
-    // Build subagent delegation tools and pass action tools to them
-    if (config.agents.coder) {
-      const coderTools = createToolsForAgent(
-        "coder",
-        config.tools ?? {}
-      );
-      const coderSubagent = createCoderSubagent(config, coderTools);
-      this.subagentTools.coder = createCoderTool(coderSubagent, config);
-    }
+    // Build subagent delegation tools from registered definitions
+    for (const definition of getSubagentDefinitions()) {
+      // Check if this subagent is configured
+      const agentConfig = config.agents[definition.configKey as keyof typeof config.agents];
+      if (!agentConfig) {
+        continue; // Subagent not enabled in config
+      }
 
-    if (config.agents.research) {
-      const researchTools = createToolsForAgent(
-        "research",
-        config.tools ?? {}
-      );
-      const researchSubagent = createResearchSubagent(config, researchTools);
-      this.subagentTools.research = createResearchTool(researchSubagent, config);
+      // Get tools for this subagent (use custom getTools if provided)
+      const subagentTools = definition.getTools
+        ? definition.getTools(config)
+        : createToolsForAgent(definition.name, config.tools ?? {});
+
+      // Create the subagent and its delegation tool
+      const subagent = createSubagentFromDefinition(definition, config, subagentTools);
+      const delegationTool = createSubagentTool(definition, subagent, config);
+
+      this.subagentTools[definition.name] = delegationTool;
     }
 
     // Merge action tools and subagent tools into the operator's full tool set
@@ -147,11 +144,10 @@ export class Agent {
     capabilities: ChannelCapabilities
   ): Promise<string> {
     const operatorConfig = this.config.agents.operator;
-    const providerConfig = this.config.providers[operatorConfig.provider]!;
     const startTime = Date.now();
     let stepCount = 0;
 
-    logger.agentStart(operatorConfig.provider, operatorConfig.model, history.length);
+    logger.agentStart("gateway", operatorConfig.model, history.length);
 
     // Build instructions that include channel capabilities and available tools
     const instructions = buildOperatorInstructions(
@@ -162,11 +158,7 @@ export class Agent {
 
     // Create operator agent with configured model
     const operator = new ToolLoopAgent({
-      model: createModel(
-        operatorConfig.provider,
-        operatorConfig.model,
-        providerConfig.apiKey
-      ),
+      model: createModel(operatorConfig.model, this.config.gateway.apiKey),
       temperature: 0,
       instructions,
       tools: this.tools,

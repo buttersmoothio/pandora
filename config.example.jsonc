@@ -3,60 +3,57 @@
   "$schema": "./config.schema.jsonc",
 
   "ai": {
-    // AI Provider API keys - only configure what you use
-    "providers": {
-      "minimax": {
-        "apiKey": "your-minimax-api-key"
-      }
-      // "openai": {
-      //   "apiKey": "your-openai-api-key"
-      // },
-      // "anthropic": {
-      //   "apiKey": "your-anthropic-api-key"
-      // }
+    // Vercel AI Gateway - single API key for all providers
+    // Get your key at: https://vercel.com/docs/ai-gateway
+    "gateway": {
+      "apiKey": "your-ai-gateway-api-key"
     },
 
-    // Tool configurations - tools declare which agents they support in their code.
-    // Just enable + configure them here. The tool decides which agents get it.
+    // Tool configurations - tools are auto-discovered from src/tools/
+    // Just add config here to enable a tool
     "tools": {
       // No config needed - available to all agents
       "datetime": {},
 
       // Requires apiKey from https://tavily.com/
-      // Restricted to operator and research agents (not coder)
       // "tavilySearch": {
       //   "apiKey": "your-tavily-api-key"
       // }
 
       // To add a new tool:
-      // 1. Create src/tools/my-tool.ts with a createMyTool() factory
-      // 2. Register it in src/tools/index.ts
-      // 3. Add it here with any required config
-      // 4. Optionally add `agents: ["operator", "coder", "research"]` in the tool file
-      //    to restrict which agents can use it (omit for all agents)
+      // 1. Create src/tools/my-tool.ts with a defineTool() call
+      // 2. Add it here with any required config
+      // That's it! No index files to edit.
     },
 
-    // Agent configurations
+    // Agent configurations - use gateway model IDs like "provider/model-name"
+    // Available providers: anthropic, openai, google, mistral, etc.
+    // See: https://ai-sdk.dev/docs/getting-started/choosing-a-provider
     "agents": {
       // Main orchestrator - required
       "operator": {
-        "provider": "minimax",
-        "model": "MiniMax-M2"
-        // Tools are automatically assigned from the tools section above
-      },
+        "model": "anthropic/claude-sonnet-4.5"
+      }
 
-      // Optional specialized agents
+      // Optional subagents - auto-discovered from src/subagents/
+      // Uncomment to enable:
+
       // "coder": {
-      //   "provider": "anthropic",
-      //   "model": "claude-sonnet-4-20250514",
-      //   "description": "Handles coding tasks, code review, debugging"
+      //   "model": "anthropic/claude-sonnet-4.5"
       // },
 
       // "research": {
-      //   "provider": "openai",
-      //   "model": "gpt-4o",
-      //   "description": "Handles research, information gathering"
+      //   "model": "openai/gpt-4o"
+      // },
+
+      // "webSearch": {
+      //   "model": "openai/gpt-4o-mini-search-preview"
       // }
+
+      // To add a custom subagent:
+      // 1. Create src/subagents/my-agent.ts with a defineSubagent() call
+      // 2. Add "myAgent": { "model": "..." } here
+      // That's it! No index files to edit.
     }
   },
 
@@ -64,12 +61,14 @@
   // "logLevel": "verbose",
 
   // Message storage configuration
+  // Storage backends are auto-discovered from src/store/
   "storage": {
     "type": "sqlite",
     "path": "data/pandora.db"
   },
 
   // Channel configurations
+  // Channels are auto-discovered from src/channels/
   "channels": {
     "telegram": {
       "enabled": true,

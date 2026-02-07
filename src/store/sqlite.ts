@@ -9,7 +9,8 @@ import { Database } from "bun:sqlite";
 import { mkdirSync, existsSync } from "node:fs";
 import { dirname } from "node:path";
 import type { ChatMessage } from "../core/types";
-import type { IMessageStore } from "./types";
+import type { StorageConfig } from "../core/config";
+import { defineStore, type IMessageStore } from "../core/registries/store";
 import { logger } from "../core/logger";
 
 /** SQLite-backed message store. Persistent; uses WAL mode. */
@@ -114,3 +115,9 @@ export class SqliteStore implements IMessageStore {
     this.db.close();
   }
 }
+
+// Self-register the store
+export default defineStore({
+  type: "sqlite",
+  create: (config: StorageConfig) => new SqliteStore(config.path),
+});

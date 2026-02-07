@@ -5,14 +5,13 @@
 import { Bot, type Context } from "grammy";
 import type { TelegramConfig } from "../../core/config";
 import type { Gateway } from "../../core/gateway";
-import type {
-  Attachment,
-  Channel,
-  ChannelCapabilities,
-  Message,
-  MessageHandler,
-} from "../../core/types";
-import { isOwner } from "../base";
+import type { Attachment, Message, MessageHandler } from "../../core/types";
+import {
+  defineChannel,
+  isOwner,
+  type Channel,
+  type ChannelCapabilities,
+} from "../../core/registries/channels";
 import { markdownToHtml } from "./format";
 import { logger } from "../../core/logger";
 
@@ -309,3 +308,10 @@ export class TelegramChannel implements Channel {
     await this.bot.stop();
   }
 }
+
+// Self-register the channel
+export default defineChannel({
+  name: "telegram",
+  configKey: "telegram",
+  create: (config, gateway) => new TelegramChannel(config as TelegramConfig, gateway),
+});

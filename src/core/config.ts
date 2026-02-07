@@ -1,25 +1,25 @@
 /**
  * Configuration loader with JSONC (JSON with Comments) parsing and Zod validation
+ *
+ * The schema is intentionally permissive for dynamic sections (agents, channels, storage)
+ * to allow user-defined extensions without modifying this file.
  */
 
 import { parse } from "jsonc-parser";
 import { z } from "zod";
-import type { ProviderName } from "./providers";
 
 /**
- * Schema for provider configuration (API key)
+ * Schema for AI Gateway configuration
  */
-const providerConfigSchema = z.object({
-  apiKey: z.string().min(1, "API key is required"),
+const gatewayConfigSchema = z.object({
+  apiKey: z.string().min(1, "AI Gateway API key is required"),
 });
 
 /**
- * Schema for agent configuration
+ * Schema for agent configuration (applies to operator and all subagents)
  */
 const agentConfigSchema = z.object({
-  provider: z.enum(["openai", "anthropic", "minimax"]),
-  model: z.string(),
-  description: z.string().optional(),
+  model: z.string().describe("Gateway model ID (e.g. anthropic/claude-sonnet-4.5, openai/gpt-4o)"),
 });
 
 /**
@@ -28,48 +28,41 @@ const agentConfigSchema = z.object({
 const toolConfigSchema: z.ZodType<Record<string, unknown>> = z.record(z.string(), z.unknown());
 
 /**
- * Schema for AI configuration with providers, tools, and agents
+ * Schema for AI configuration with gateway, tools, and agents.
+ * Agents uses catchall to allow any subagent name beyond the required operator.
  */
 const aiConfigSchema = z.object({
-  providers: z
-    .object({
-      openai: providerConfigSchema.optional(),
-      anthropic: providerConfigSchema.optional(),
-      minimax: providerConfigSchema.optional(),
-    })
-    .optional()
-    .default({}),
+  gateway: gatewayConfigSchema,
   tools: z.record(z.string(), toolConfigSchema).optional().default({}),
-  agents: z.object({
-    operator: agentConfigSchema, // Required - the main orchestrator
-    coder: agentConfigSchema.optional(),
-    research: agentConfigSchema.optional(),
-  }),
+  agents: z
+    .object({
+      operator: agentConfigSchema, // Required - the main orchestrator
+    })
+    .catchall(agentConfigSchema.optional()), // Allow any additional subagents
 });
 
 /**
- * Schema for Telegram channel configuration
+ * Schema for base channel configuration (all channels need at least enabled + ownerId)
  */
-const telegramConfigSchema = z.object({
+const baseChannelConfigSchema = z.object({
   enabled: z.boolean().default(false),
-  token: z.string().min(1, "Telegram bot token is required"),
   ownerId: z.string().min(1, "Owner ID is required for authentication"),
-});
+}).passthrough(); // Allow additional channel-specific fields
 
 /**
- * Schema for channels configuration
+ * Schema for channels configuration.
+ * Uses record to allow any channel name.
  */
-const channelsConfigSchema = z.object({
-  telegram: telegramConfigSchema.optional(),
-});
+const channelsConfigSchema = z.record(z.string(), baseChannelConfigSchema.optional()).default({});
 
 /**
- * Schema for storage configuration
+ * Schema for storage configuration.
+ * Type is a string to allow user-defined storage backends.
  */
 const storageConfigSchema = z.object({
-  type: z.enum(["memory", "sqlite"]).default("sqlite"),
+  type: z.string().default("sqlite"),
   path: z.string().default("data/pandora.db"),
-});
+}).passthrough(); // Allow additional storage-specific fields
 
 /**
  * Schema for log level configuration
@@ -91,18 +84,21 @@ const configSchema = z.object({
 
 /** Full config (ai, channels, storage). */
 export type Config = z.infer<typeof configSchema>;
-/** AI config: providers, tools, and agents (operator, optional coder/research). */
+/** AI config: gateway, tools, and agents (operator required, others dynamic). */
 export type AIConfig = z.infer<typeof aiConfigSchema>;
-/** Single agent config: provider, model, optional description. */
+/** Single agent config: model. */
 export type AgentConfig = z.infer<typeof agentConfigSchema>;
 /** Tool-specific configuration (varies per tool). */
 export type ToolConfig = z.infer<typeof toolConfigSchema>;
-/** Telegram channel config: enabled, token, ownerId. */
-export type TelegramConfig = z.infer<typeof telegramConfigSchema>;
-/** Storage config: type (`memory` | `sqlite`), path (for SQLite). */
+/** Base channel config: enabled, ownerId, plus channel-specific fields. */
+export type ChannelConfig = z.infer<typeof baseChannelConfigSchema>;
+/** Storage config: type, path, plus backend-specific fields. */
 export type StorageConfig = z.infer<typeof storageConfigSchema>;
 /** Log level: `"normal"` (metadata only) or `"verbose"` (includes model prompts/responses). */
 export type LogLevel = z.infer<typeof logLevelSchema>;
+
+// Legacy type alias for backward compatibility
+export type TelegramConfig = ChannelConfig & { token: string };
 
 /**
  * Load and validate configuration from a JSONC file.
@@ -137,11 +133,11 @@ export async function loadConfig(
 
 /**
  * Validate configuration after loading.
- * Ensures all configured agents have their required providers set up.
+ * Ensures gateway is configured and tools are known.
  *
  * @param config - Loaded config to validate.
  * @param availableToolNames - List of known tool names from the tool registry.
- * @throws {Error} If any agent's provider is missing or tool is unknown.
+ * @throws {Error} If gateway is missing or tool is unknown.
  */
 export function validateConfig(
   config: Config,
@@ -154,22 +150,9 @@ export function validateConfig(
     errors.push("Operator agent must be configured");
   }
 
-  // Check each configured agent has its provider set up
-  for (const [agentName, agentConfig] of Object.entries(config.ai.agents)) {
-    if (!agentConfig) continue;
-
-    const providerName = agentConfig.provider as ProviderName;
-    const provider = config.ai.providers[providerName];
-
-    if (!provider) {
-      errors.push(
-        `Agent '${agentName}' uses provider '${providerName}' but it's not configured`
-      );
-    } else if (!provider.apiKey) {
-      errors.push(
-        `Agent '${agentName}' uses provider '${providerName}' but API key is missing`
-      );
-    }
+  // Check gateway is configured
+  if (!config.ai.gateway?.apiKey) {
+    errors.push("AI Gateway API key is required");
   }
 
   // Check that each tool configured in ai.tools is a known tool

@@ -5,18 +5,41 @@
  * and registers SIGINT/SIGTERM for graceful shutdown.
  */
 
-import { loadConfig, validateConfig } from "./core/config";
-import { createStore } from "./store";
-import { Agent } from "./core/agent";
-import { Gateway } from "./core/gateway";
-import { TelegramChannel } from "./channels/telegram/index";
-import { logger } from "./core/logger";
-import type { Channel } from "./core/types";
-import { getAvailableToolNames } from "./tools";
+import { resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+import { loadExtensions, loadChannels } from "./loader";
+import { loadConfig, validateConfig } from "./config";
+import {
+  createStore,
+  createChannels,
+  getAvailableToolNames,
+  type Channel,
+} from "./registries";
+import { Agent } from "./agent";
+import { Gateway } from "./gateway";
+import { logger } from "./logger";
+
+// Get the directory of this file for resolving extension paths
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const srcDir = resolve(__dirname, "..");
+
+/**
+ * Auto-discover and load all user extensions.
+ * This triggers self-registration for subagents, channels, tools, and stores.
+ */
+async function loadAllExtensions(): Promise<void> {
+  await loadExtensions(resolve(srcDir, "subagents"));
+  await loadChannels(resolve(srcDir, "channels"));
+  await loadExtensions(resolve(srcDir, "tools"));
+  await loadExtensions(resolve(srcDir, "store"));
+}
 
 /** Load config, init store/agent/gateway/channels, and run until shutdown. */
 async function main(): Promise<void> {
   logger.startup("Pandora AI Agent starting");
+
+  // Auto-discover and load all extensions before using registries
+  await loadAllExtensions();
 
   // Load and validate configuration
   const config = await loadConfig();
@@ -31,7 +54,7 @@ async function main(): Promise<void> {
   );
 
   logger.startup("Configuration loaded", {
-    operator: `${operatorConfig.provider}/${operatorConfig.model}`,
+    operator: operatorConfig.model,
     subagents: subagents.length > 0 ? subagents.join(", ") : "none",
   });
 
@@ -40,14 +63,12 @@ async function main(): Promise<void> {
   const agent = new Agent(config.ai);
   const gateway = new Gateway(store, agent);
 
-  // Track active channels for graceful shutdown
-  const channels: Channel[] = [];
+  // Create all enabled channels from registry
+  const channels: Channel[] = createChannels(config, gateway);
 
-  // Initialize Telegram channel if enabled
-  if (config.channels.telegram?.enabled) {
-    const telegram = new TelegramChannel(config.channels.telegram, gateway);
-    channels.push(telegram);
-    await telegram.start();
+  // Start all channels
+  for (const channel of channels) {
+    await channel.start();
   }
 
   // Check if any channels are enabled
