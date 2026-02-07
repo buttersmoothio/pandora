@@ -1,0 +1,239 @@
+# How Pandora Works
+
+This guide explains Pandora's architecture — useful if you want to understand what's happening under the hood or contribute to the project.
+
+## The big picture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         Your phone                               │
+│                    (Telegram, Discord, etc.)                     │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                          Channel                                 │
+│              Receives messages, sends responses                  │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                          Gateway                                 │
+│        Routes messages, manages history, calls AI                │
+└─────────────────────────────────────────────────────────────────┘
+                    │                   │
+                    ▼                   ▼
+┌────────────────────────┐   ┌────────────────────────┐
+│         Store          │   │         Agent          │
+│   Saves conversation   │   │  (Operator + Sub-agents) │
+│        history         │   │    Does the thinking   │
+└────────────────────────┘   └────────────────────────┘
+```
+
+## Components
+
+### Channels
+
+**What they do:** Connect to messaging platforms and translate between platform-specific formats and Pandora's internal format.
+
+**Examples:** Telegram, Discord, Slack
+
+**Responsibilities:**
+- Listen for incoming messages
+- Convert platform messages to Pandora's `Message` format
+- Send responses back to users
+- Handle platform-specific features (typing indicators, media, formatting)
+
+### Gateway
+
+**What it does:** The central hub that coordinates everything.
+
+**Flow:**
+1. Receive message from channel
+2. Save message to store
+3. Load conversation history
+4. Send history + message to agent
+5. Get response from agent
+6. Save response to store
+7. Return response to channel
+
+### Store
+
+**What it does:** Persists conversation history so the AI remembers previous messages.
+
+**Built-in options:**
+- **SQLite** — Saves to a file, survives restarts
+- **Memory** — In-memory only, lost on restart
+
+### Agent
+
+**What it does:** The AI brain. Processes messages and generates responses.
+
+**Structure:**
+- **Operator** — The main AI that handles conversations
+- **Sub-agents** — Specialists the operator can delegate to
+
+## The operator and sub-agents
+
+Pandora uses a delegation model:
+
+```
+User: "Can you help me fix this Python code?"
+         │
+         ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                          Operator                                │
+│                                                                  │
+│  "This is a coding question. I should delegate to the coder    │
+│   agent who specializes in programming."                        │
+│                                                                  │
+│  → Calls the "coder" tool with the task                         │
+└─────────────────────────────────────────────────────────────────┘
+         │
+         ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                       Coder Sub-agent                            │
+│                                                                  │
+│  Specialized instructions for programming                        │
+│  Has access to coding-specific tools                            │
+│  Returns detailed technical response                            │
+└─────────────────────────────────────────────────────────────────┘
+         │
+         ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                          Operator                                │
+│                                                                  │
+│  Receives coder's response, may refine it, sends to user        │
+└─────────────────────────────────────────────────────────────────┘
+         │
+         ▼
+User receives the response
+```
+
+### Why sub-agents?
+
+1. **Specialization** — Each agent has focused instructions and can be optimized for its task
+2. **Model flexibility** — Use powerful models for complex tasks, cheaper models for simple ones
+3. **Tool isolation** — Coding tools only go to the coder, search tools only to research agent
+4. **Cost efficiency** — The operator can handle simple questions directly without spinning up specialists
+
+## Auto-discovery
+
+Pandora automatically finds and loads your custom extensions at startup:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         Startup                                  │
+│                                                                  │
+│  1. Scan packages/pandora/src/subagents/*.ts → Register agents  │
+│  2. Scan packages/pandora/src/channels/*/index.ts → Channels    │
+│  3. Scan packages/pandora/src/tools/*.ts → Register tools       │
+│  4. Scan packages/pandora/src/store/*.ts → Storage backends     │
+│  5. Load config.jsonc from monorepo root                        │
+│  6. Create enabled components based on config                    │
+│  7. Start channels                                              │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+This means adding a new sub-agent is as simple as creating a file — no registration code needed.
+
+## Message flow (detailed)
+
+Here's exactly what happens when you send "Hello" to your Telegram bot:
+
+1. **Telegram servers** receive your message and send it to Pandora via webhook/polling
+
+2. **TelegramChannel.onMessage()**
+   - Extracts text, user ID, chat ID
+   - Builds a `Message` object
+   - Calls `gateway.handleMessage(message, capabilities)`
+
+3. **Gateway.handleMessage()**
+   - Saves user message to store
+   - Loads conversation history from store
+   - Calls `agent.chat(history, capabilities)`
+
+4. **Agent.chat()**
+   - Builds system prompt including capabilities and available tools
+   - Sends to operator model via Vercel AI Gateway
+   - Operator decides whether to respond directly or delegate
+   - If delegating: calls sub-agent tool, gets result, continues
+   - Returns final response text
+
+5. **Gateway.handleMessage()** (continued)
+   - Saves AI response to store
+   - Returns response text
+
+6. **TelegramChannel** (continued)
+   - Formats response for Telegram (HTML, chunking if needed)
+   - Sends via Telegram API
+
+7. **You see the response** on your phone
+
+## Configuration flow
+
+```
+config.jsonc
+     │
+     ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                      Zod Validation                              │
+│                                                                  │
+│  Validates structure, types, required fields                     │
+│  Throws helpful errors if invalid                                │
+└─────────────────────────────────────────────────────────────────┘
+     │
+     ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                    Component Creation                            │
+│                                                                  │
+│  - Creates store based on storage.type                          │
+│  - Creates agent with configured models                         │
+│  - Creates enabled channels with their configs                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+## Package structure
+
+Pandora is organized as a monorepo with two main packages:
+
+### @pandora/core (packages/core/)
+
+The framework package - provides the infrastructure for building AI agents.
+
+| File | Purpose |
+|------|---------|
+| `src/index.ts` | Public API exports |
+| `src/agent.ts` | Operator and sub-agent runtime |
+| `src/gateway.ts` | Message routing hub |
+| `src/config.ts` | Config loading and validation |
+| `src/loader.ts` | Auto-discovery of extensions |
+| `src/registries/` | Extension point definitions |
+
+### @pandora/app (packages/pandora/)
+
+The application package - contains your customizable extensions.
+
+| File | Purpose |
+|------|---------|
+| `src/index.ts` | Entry point, startup sequence |
+| `src/subagents/` | Sub-agent definitions |
+| `src/channels/` | Channel implementations |
+| `src/tools/` | Tool definitions |
+| `src/store/` | Storage backends |
+
+This separation means you can customize everything in `@pandora/app` without touching the core framework.
+
+## Vercel AI Gateway
+
+Pandora uses [Vercel AI Gateway](https://vercel.com/ai-gateway) to access AI models. Benefits:
+
+- **Single API key** for 50+ models from different providers
+- **Automatic fallbacks** if a provider is down
+- **Usage tracking** in one dashboard
+- **No vendor lock-in** — switch models by changing a string
+
+Model IDs follow the format `provider/model-name`:
+- `anthropic/claude-sonnet-4.5`
+- `openai/gpt-4o`
+- `google/gemini-1.5-pro`

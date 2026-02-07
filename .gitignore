@@ -1,10 +1,16 @@
 # dependencies (bun install)
 node_modules
 
+# turborepo
+.turbo
+
 # output
 out
 dist
 *.tgz
+
+# next.js
+.next
 
 # code coverage
 coverage

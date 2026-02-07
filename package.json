@@ -1,28 +1,14 @@
 {
-  "name": "pandora",
-  "module": "src/core/index.ts",
-  "type": "module",
+  "name": "pandora-monorepo",
   "private": true,
+  "packageManager": "bun@1.2.3",
+  "workspaces": ["packages/*"],
   "scripts": {
-    "start": "bun run src/core/index.ts",
-    "dev": "bun --watch run src/core/index.ts"
-  },
-  "dependencies": {
-    "@ai-sdk/gateway": "^3.0.39",
-    "@exalabs/ai-sdk": "^1.0.5",
-    "@perplexity-ai/ai-sdk": "^0.1.2",
-    "@tavily/ai-sdk": "^0.4.1",
-    "ai": "^6.0.71",
-    "grammy": "^1.39.3",
-    "jsonc-parser": "^3.3.1",
-    "rehype-stringify": "^10.0.1",
-    "remark-parse": "^11.0.0",
-    "remark-rehype": "^11.1.2",
-    "unified": "^11.0.5",
-    "zod": "^3.25.0"
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "start": "turbo start"
   },
   "devDependencies": {
-    "@types/bun": "latest",
-    "typescript": "^5.9.3"
+    "turbo": "^2.8.3"
   }
 }

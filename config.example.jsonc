@@ -4,7 +4,7 @@
 
   "ai": {
     // Your Vercel AI Gateway key
-    // Get one at: https://vercel.com/docs/ai-gateway
+    // Get one at: https://vercel.com/ai-gateway
     "gateway": {
       "apiKey": "your-ai-gateway-api-key"
     },

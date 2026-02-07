@@ -28,7 +28,7 @@ You'll need:
 
 | Service | What for | Where to get it |
 |---------|----------|-----------------|
-| **Vercel AI Gateway** | Access to AI models | [vercel.com/docs/ai-gateway](https://vercel.com/docs/ai-gateway) |
+| **Vercel AI Gateway** | Access to AI models | [vercel.com/ai-gateway](https://vercel.com/ai-gateway) |
 | **Telegram Bot** | Chat interface | [@BotFather](https://t.me/BotFather) on Telegram |
 | **Your Telegram ID** | Owner authorization | [@userinfobot](https://t.me/userinfobot) on Telegram |
 
@@ -73,20 +73,39 @@ bun run start
 
 That's it! Message your bot on Telegram.
 
-## Next steps
+## Documentation
+
+Run the docs site locally:
+
+```bash
+bun run dev --filter=@pandora/docs
+```
+
+Or read the docs directly:
 
 | I want to... | Read this |
 |--------------|-----------|
-| Configure everything in detail | [Configuration Guide](docs/CONFIGURATION.md) |
-| Add specialist sub-agents | [Customization Guide](docs/CUSTOMIZATION.md#sub-agents) |
-| Give AI new capabilities (tools) | [Customization Guide](docs/CUSTOMIZATION.md#tools) |
-| Connect Discord or other platforms | [Customization Guide](docs/CUSTOMIZATION.md#channels) |
-| Understand how it works | [How Pandora Works](docs/HOW-IT-WORKS.md) |
-| Set up Telegram bot properly | [Telegram Setup](docs/TELEGRAM.md) |
+| Configure everything in detail | [packages/docs/content/configuration.mdx](packages/docs/content/configuration.mdx) |
+| Add specialist sub-agents | [packages/docs/content/customization.mdx](packages/docs/content/customization.mdx) |
+| Give AI new capabilities (tools) | [packages/docs/content/tools.mdx](packages/docs/content/tools.mdx) |
+| Connect Discord or other platforms | [packages/docs/content/customization.mdx](packages/docs/content/customization.mdx) |
+| Understand how it works | [packages/docs/content/how-it-works.mdx](packages/docs/content/how-it-works.mdx) |
+| Set up Telegram bot properly | [packages/docs/content/telegram.mdx](packages/docs/content/telegram.mdx) |
+
+## Project Structure
+
+This is a monorepo with three packages:
+
+```
+packages/
+├── core/       # @pandora/core - Framework (agent, gateway, registries)
+├── pandora/    # @pandora/app  - Your extensions (subagents, tools, channels)
+└── docs/       # @pandora/docs - Documentation site (Nextra)
+```
 
 ## Supported AI models
 
-Pandora uses [Vercel AI Gateway](https://vercel.com/docs/ai-gateway), giving you access to 50+ models from:
+Pandora uses [Vercel AI Gateway](https://vercel.com/ai-gateway), giving you access to 50+ models from:
 
 - **Anthropic** — Claude 4, Claude Sonnet, Claude Haiku
 - **OpenAI** — GPT-4o, GPT-4, GPT-3.5
