@@ -1,71 +1,278 @@
-# Configuration
+# Configuration Guide
 
-Pandora uses a JSONC file (`config.jsonc` by default). Copy `config.example.jsonc` to `config.jsonc` and fill in your values. Config types and validation are documented in `src/core/config.ts` (JSDoc and Zod schemas).
+Pandora uses a single configuration file: `config.jsonc`. This guide covers every setting.
 
-JSONC supports comments (`//` and `/* */`) and trailing commas for easier configuration.
+## Config file basics
 
-For IDE autocompletion, add `"$schema": "./config.schema.jsonc"` at the top of your `config.jsonc` file.
+The config file uses JSONC format, which means you can use:
+- Comments with `//` or `/* */`
+- Trailing commas
 
-## Schema summary
+For IDE autocompletion, add this as the first line:
 
-| Section | Description |
-|---------|-------------|
-| **ai.gateway** | Vercel AI Gateway configuration with `apiKey`. Single key for all providers. |
-| **ai.tools** | Tool configurations. Add entries here to enable tools. Tools are auto-discovered from `src/tools/`. |
-| **ai.agents** | **operator** (required), plus any subagents (e.g., `coder`, `research`, `webSearch`, or custom). Each agent has `model` (gateway model ID like `anthropic/claude-sonnet-4.5`). |
-| **storage** | Optional. `type`: any registered backend (default `sqlite`). `path`: DB path for file-based backends. |
-| **channels** | Channel configurations. Channels are auto-discovered from `src/channels/`. Each channel has `enabled`, `ownerId`, and channel-specific fields. |
-| **logLevel** | Optional. `"normal"` (default) or `"verbose"` (logs full model prompts and responses). |
+```jsonc
+{
+  "$schema": "./config.schema.jsonc",
+  // ... rest of config
+}
+```
 
-## Dynamic configuration
+## Complete configuration reference
 
-The config schema is intentionally permissive for extensibility:
+### AI Gateway
 
-- **Agents**: Any subagent name is accepted (maps to files in `src/subagents/`)
-- **Channels**: Any channel name is accepted (maps to directories in `src/channels/`)
-- **Storage**: Any type string is accepted (maps to files in `src/store/`)
-- **Tools**: Any tool name is accepted (maps to files in `src/tools/`)
+```jsonc
+"ai": {
+  "gateway": {
+    "apiKey": "your-vercel-ai-gateway-key"
+  }
+}
+```
 
-This means you can add custom extensions without modifying the config schema.
+| Field | Required | Description |
+|-------|----------|-------------|
+| `apiKey` | Yes | Your Vercel AI Gateway API key. Get one at [vercel.com/docs/ai-gateway](https://vercel.com/docs/ai-gateway) |
 
-## How tools work with agents
+The gateway gives you access to 50+ AI models with a single API key — no need to manage keys for each provider.
 
-Each tool declares which agents it supports in its code (the `agents` field). This keeps tool-agent relationships centralized rather than scattered across agent configs.
+### Agents
 
-**General-purpose tools** (like `datetime`) have no `agents` restriction and are available to all agents.
+The `agents` section configures your AI assistants.
 
-**Specialized tools** (like `tavilySearch`) can restrict themselves to specific agents by setting `agents: ["operator", "research"]` in their definition.
+```jsonc
+"ai": {
+  "agents": {
+    "operator": {
+      "model": "anthropic/claude-sonnet-4.5"
+    },
+    "coder": {
+      "model": "anthropic/claude-sonnet-4.5"
+    },
+    "research": {
+      "model": "openai/gpt-4o"
+    },
+    "webSearchNative": {
+      "model": "perplexity/sonar-pro"
+    }
+  }
+}
+```
 
-## Built-in tools
+#### Operator (required)
 
-| Tool | Config required | Description | Default agents |
-|------|-----------------|-------------|----------------|
-| `datetime` | No | Returns current date and time | All |
-| `tavilySearch` | `apiKey` | Web search using Tavily API | All |
+The main AI that handles your conversations. This is the only required agent.
 
-## Built-in subagents
+```jsonc
+"operator": {
+  "model": "anthropic/claude-sonnet-4.5"
+}
+```
 
-| Subagent | Description | Recommended model |
-|----------|-------------|-------------------|
-| **coder** | Programming, debugging, code review | Any capable model (e.g. `anthropic/claude-sonnet-4.5`) |
-| **research** | Information gathering, explanations, fact-checking | Any capable model |
-| **webSearch** | Live internet searches, current events, real-time info | Search-enabled model (e.g. `openai/gpt-4o-mini-search-preview`) |
+#### Sub-agents (optional)
 
-## Adding new components
+Sub-agents are specialists that the operator can delegate tasks to. When you ask a coding question, the operator can hand it off to the `coder` agent. When you need research, it goes to `research`.
 
-Extensions are auto-discovered. Just create a file:
+| Sub-agent | Purpose | Recommended model |
+|-----------|---------|-------------------|
+| `coder` | Programming, debugging, code review | Any capable model |
+| `research` | Information gathering, explanations, fact-checking | Any capable model |
+| `webSearchNative` | Live internet searches using native model search | Search-enabled model (see below) |
+| `webSearchTool` | Web search using external API (Tavily, Exa, etc.) | Any model + search backend |
 
-| Component | Create file | Add to config |
-|-----------|-------------|---------------|
-| Subagent | `src/subagents/my-agent.ts` | `ai.agents.myAgent: { model: "..." }` |
-| Channel | `src/channels/discord/index.ts` | `channels.discord: { enabled: true, ... }` |
-| Tool | `src/tools/my-tool.ts` | `ai.tools.myTool: { ... }` |
-| Storage | `src/store/postgres.ts` | `storage.type: "postgres"` |
+#### Web search options
 
-See [Development](DEVELOPMENT.md) for code examples.
+Pandora offers two approaches to web search:
 
-## Validation errors
+**Option 1: Native search models** (`webSearchNative`)
 
-- Missing config file, invalid JSON/JSONC, or Zod validation errors (path + message).
-- Gateway API key is missing.
-- Configured tool is not a known tool (not in the registry).
+Uses models with built-in web search. Faster and no extra API costs beyond the model.
+
+```jsonc
+"agents": {
+  "webSearchNative": { "model": "perplexity/sonar-pro" }
+}
+```
+
+Supported models:
+- `perplexity/sonar-pro` — Best quality, grounded responses
+- `perplexity/sonar` — Faster, good for simple queries  
+- `openai/gpt-4o-mini-search-preview` — OpenAI's search preview
+- `google/gemini-2.0-flash` — Google's Gemini with Google Search
+
+**Option 2: External search tools** (`webSearchTool`)
+
+Uses an external search API. Works with **any** model — you choose both the model and the search backend.
+
+```jsonc
+"tools": {
+  "tavilySearch": { "apiKey": "your-tavily-key" }
+},
+"agents": {
+  "webSearchTool": { 
+    "model": "anthropic/claude-sonnet-4.5",
+    "searchBackend": "tavilySearch"
+  }
+}
+```
+
+Available search backends:
+
+| Backend | Get API Key | Description |
+|---------|-------------|-------------|
+| `tavilySearch` | [tavily.com](https://tavily.com/) | AI-powered search with high-quality results |
+| `exaSearch` | [dashboard.exa.ai](https://dashboard.exa.ai/api-keys) | Advanced search with content extraction |
+| `perplexitySearch` | [perplexity.ai](https://www.perplexity.ai/account/api/keys) | Real-time search with filtering options |
+
+**Comparison:**
+
+| Approach | Pros | Cons |
+|----------|------|------|
+| Native (`webSearchNative`) | Faster, no extra API cost | Limited to specific models |
+| Tool-based (`webSearchTool`) | Works with any model, choice of backends | Requires search API key, slightly slower |
+
+**Tip:** You don't need all sub-agents. Start with just `operator` and add specialists as needed.
+
+**Tip:** Sub-agents can use different models. Use a powerful model for `coder` and a cheaper one for simple tasks.
+
+### Tools
+
+Tools are capabilities you give to your AI agents — like web search, getting the current time, or calling external APIs.
+
+```jsonc
+"ai": {
+  "tools": {
+    "datetime": {},
+    "tavilySearch": {
+      "apiKey": "your-tavily-api-key"
+    }
+  }
+}
+```
+
+#### Built-in tools
+
+| Tool | Config | Description |
+|------|--------|-------------|
+| `datetime` | `{}` (none needed) | Returns current date and time |
+
+#### Search backends
+
+These tools can be used with the `webSearchTool` agent. Configure one and set it as the `searchBackend`.
+
+| Tool | Config | Description |
+|------|--------|-------------|
+| `tavilySearch` | `{ "apiKey": "..." }` | Web search via [Tavily API](https://tavily.com/) |
+| `exaSearch` | `{ "apiKey": "..." }` | Web search via [Exa](https://exa.ai/) with content extraction |
+| `perplexitySearch` | `{ "apiKey": "..." }` | Web search via [Perplexity Search API](https://docs.perplexity.ai/) |
+
+#### Tool availability
+
+By default, tools are available to all agents. Tool authors can restrict which agents can use a tool (e.g., a coding tool might only be available to the `coder` agent).
+
+### Storage
+
+Where conversation history is stored.
+
+```jsonc
+"storage": {
+  "type": "sqlite",
+  "path": "data/pandora.db"
+}
+```
+
+| Field | Default | Description |
+|-------|---------|-------------|
+| `type` | `sqlite` | Storage backend: `sqlite` or `memory` |
+| `path` | `data/pandora.db` | Database file path (for sqlite) |
+
+**Options:**
+
+- **sqlite** — Persistent storage. Conversations survive restarts. Recommended for production.
+- **memory** — In-memory only. All history lost on restart. Good for testing.
+
+### Channels
+
+Channels are how users interact with Pandora (Telegram, Discord, etc.).
+
+```jsonc
+"channels": {
+  "telegram": {
+    "enabled": true,
+    "token": "your-bot-token",
+    "ownerId": "your-user-id"
+  }
+}
+```
+
+#### Telegram
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `enabled` | Yes | Set to `true` to enable |
+| `token` | Yes | Bot token from [@BotFather](https://t.me/BotFather) |
+| `ownerId` | Yes | Your Telegram user ID from [@userinfobot](https://t.me/userinfobot) |
+
+See [Telegram Setup](TELEGRAM.md) for detailed instructions.
+
+### Log level
+
+Control how much detail is logged.
+
+```jsonc
+"logLevel": "normal"
+```
+
+| Value | Description |
+|-------|-------------|
+| `normal` | Standard logging (default) |
+| `verbose` | Includes full AI prompts and responses — useful for debugging |
+
+## Minimal config
+
+The smallest working configuration:
+
+```jsonc
+{
+  "$schema": "./config.schema.jsonc",
+  "ai": {
+    "gateway": { "apiKey": "YOUR_KEY" },
+    "agents": {
+      "operator": { "model": "anthropic/claude-sonnet-4.5" }
+    }
+  },
+  "channels": {
+    "telegram": {
+      "enabled": true,
+      "token": "YOUR_BOT_TOKEN",
+      "ownerId": "YOUR_USER_ID"
+    }
+  }
+}
+```
+
+## Full example config
+
+See `config.example.jsonc` in the project root for a complete, commented example.
+
+## Troubleshooting
+
+### "Config validation failed"
+
+The config file has invalid values. The error message shows which field has the problem:
+
+```
+Config validation error:
+  ai.gateway.apiKey: Required
+```
+
+Fix: Add the missing or invalid field.
+
+### "Unknown store type"
+
+You set `storage.type` to something that doesn't exist.
+
+Fix: Use `sqlite` or `memory`, or [create a custom storage backend](CUSTOMIZATION.md#storage-backends).
+
+### "Script not found"
+
+Make sure you're in the project directory and have run `bun install`.

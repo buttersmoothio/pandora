@@ -9,6 +9,8 @@
   },
   "dependencies": {
     "@ai-sdk/gateway": "^1.0.13",
+    "@exalabs/ai-sdk": "^0.0.26",
+    "@perplexity-ai/ai-sdk": "^1.0.8",
     "@tavily/ai-sdk": "^0.4.1",
     "ai": "^6.0.71",
     "grammy": "^1.39.3",

@@ -1,28 +1,96 @@
-# Pandora documentation
+# Pandora Documentation
 
-High-level docs only; API and implementation details are in **JSDoc** in the source (`src/`).
+## Getting Started
 
-| Document | Description |
-|----------|-------------|
-| [**Architecture**](ARCHITECTURE.md) | Overview, data flow, operator/subagents, extension system. |
-| [**Configuration**](CONFIGURATION.md) | Config schema, dynamic settings, built-in components. |
-| [**Development**](DEVELOPMENT.md) | Adding subagents, channels, tools, storage backends. |
-| [**Telegram**](TELEGRAM.md) | Telegram channel setup and behavior. |
+| Guide | Description |
+|-------|-------------|
+| [**Configuration**](CONFIGURATION.md) | Complete reference for all settings |
+| [**How Pandora Works**](HOW-IT-WORKS.md) | Architecture and concepts |
 
-## Quick reference
+## Feature Guides
 
-| To add... | Create file | Config key |
-|-----------|-------------|------------|
-| Subagent | `src/subagents/my-agent.ts` | `ai.agents.myAgent` |
-| Channel | `src/channels/discord/index.ts` | `channels.discord` |
-| Tool | `src/tools/my-tool.ts` | `ai.tools.myTool` |
-| Storage | `src/store/postgres.ts` | `storage.type: "postgres"` |
+| Guide | Description |
+|-------|-------------|
+| [**Agents**](AGENTS.md) | Set up the operator and sub-agents (coder, research) |
+| [**Tools**](TOOLS.md) | Enable tools like datetime and search |
+| [**Web Search**](WEB-SEARCH.md) | Configure web search with native or tool-based approaches |
+| [**Storage**](STORAGE.md) | Choose between SQLite and memory storage |
+| [**Telegram Setup**](TELEGRAM.md) | Connect to Telegram |
 
-All extensions are **auto-discovered** — no index files to edit.
+## Extending Pandora
 
-## Code documentation
+| Guide | Description |
+|-------|-------------|
+| [**Customization**](CUSTOMIZATION.md) | Create your own agents, tools, channels, and storage backends |
 
-- **Getting started** — [Main README](../README.md)
-- **Core framework** — `src/core/` (agent, gateway, config, registries, loader)
-- **Extension examples** — `src/subagents/`, `src/channels/`, `src/tools/`, `src/store/`
-- **Types & interfaces** — JSDoc in `src/core/types.ts`, `src/core/registries/`
+## Common tasks
+
+### I want to change AI models
+
+Edit `config.jsonc` and set the `model` field for any agent:
+
+```jsonc
+"agents": {
+  "operator": { "model": "openai/gpt-4o" }
+}
+```
+
+See [Configuration → AI Models](CONFIGURATION.md#ai-models) for the full list.
+
+### I want to enable sub-agents
+
+Sub-agents are specialists the main AI can delegate to:
+
+```jsonc
+"agents": {
+  "operator": { "model": "anthropic/claude-sonnet-4.5" },
+  "coder": { "model": "anthropic/claude-sonnet-4.5" },
+  "research": { "model": "openai/gpt-4o" }
+}
+```
+
+See the [Agents Guide](AGENTS.md) for details on each agent.
+
+### I want to add web search
+
+**Option 1: Native search models** (faster, no extra API cost)
+
+```jsonc
+"agents": {
+  "operator": { "model": "anthropic/claude-sonnet-4.5" },
+  "webSearchNative": { "model": "perplexity/sonar-pro" }
+}
+```
+
+**Option 2: External search API** (works with any model)
+
+```jsonc
+"tools": {
+  "tavilySearch": { "apiKey": "your-tavily-api-key" }
+},
+"agents": {
+  "operator": { "model": "anthropic/claude-sonnet-4.5" },
+  "webSearchTool": {
+    "model": "anthropic/claude-sonnet-4.5",
+    "searchBackend": "tavilySearch"
+  }
+}
+```
+
+See [Web Search Guide](WEB-SEARCH.md) for full details on all search backends.
+
+### I want to use tools (datetime, etc.)
+
+See the [Tools Guide](TOOLS.md) for available tools and how to enable them.
+
+### I want to change storage settings
+
+See the [Storage Guide](STORAGE.md) for SQLite vs memory options.
+
+### I want to create my own tool
+
+See [Customization → Tools](CUSTOMIZATION.md#tools).
+
+### I want to add Discord or Slack
+
+See [Customization → Channels](CUSTOMIZATION.md#channels).

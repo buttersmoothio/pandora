@@ -35,9 +35,9 @@
           "examples": [
             {
               "datetime": {},
-              "tavilySearch": {
-                "apiKey": "tvly-..."
-              }
+              "tavilySearch": { "apiKey": "tvly-..." },
+              "exaSearch": { "apiKey": "exa-..." },
+              "perplexitySearch": { "apiKey": "pplx-..." }
             }
           ]
         },
@@ -59,9 +59,13 @@
               "$ref": "#/$defs/agentConfig",
               "description": "Specialized agent for research tasks"
             },
-            "webSearch": {
+            "webSearchNative": {
               "$ref": "#/$defs/agentConfig",
-              "description": "Specialized agent for web search using search-enabled models"
+              "description": "Web search using models with built-in search (perplexity/sonar-pro, openai/gpt-4o-mini-search-preview, google/gemini-2.0-flash)"
+            },
+            "webSearchTool": {
+              "$ref": "#/$defs/agentConfigWithSearchBackend",
+              "description": "Web search using external search API (Tavily, Exa, Perplexity Search) - works with any model"
             }
           },
           // Allow any additional subagents
@@ -158,7 +162,34 @@
             "anthropic/claude-sonnet-4.5",
             "openai/gpt-4o",
             "google/gemini-2.0-flash",
+            "perplexity/sonar-pro",
             "openai/gpt-4o-mini-search-preview"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "agentConfigWithSearchBackend": {
+      "type": "object",
+      "description": "Configuration for webSearchTool agent with search backend selection",
+      "required": ["model", "searchBackend"],
+      "properties": {
+        "model": {
+          "type": "string",
+          "description": "Gateway model ID - can be any model (e.g. anthropic/claude-sonnet-4.5, openai/gpt-4o)",
+          "examples": [
+            "anthropic/claude-sonnet-4.5",
+            "openai/gpt-4o",
+            "google/gemini-2.0-flash"
+          ]
+        },
+        "searchBackend": {
+          "type": "string",
+          "description": "Search backend tool to use (must be configured in ai.tools)",
+          "examples": [
+            "tavilySearch",
+            "exaSearch",
+            "perplexitySearch"
           ]
         }
       },

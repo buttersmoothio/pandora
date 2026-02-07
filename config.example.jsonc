@@ -1,42 +1,48 @@
 {
-  // JSON Schema for IDE autocompletion (optional but recommended)
+  // Enable IDE autocompletion
   "$schema": "./config.schema.jsonc",
 
   "ai": {
-    // Vercel AI Gateway - single API key for all providers
-    // Get your key at: https://vercel.com/docs/ai-gateway
+    // Your Vercel AI Gateway key
+    // Get one at: https://vercel.com/docs/ai-gateway
     "gateway": {
       "apiKey": "your-ai-gateway-api-key"
     },
 
-    // Tool configurations - tools are auto-discovered from src/tools/
-    // Just add config here to enable a tool
+    // Tools give your AI extra capabilities
+    // See docs/CONFIGURATION.md for all options
     "tools": {
-      // No config needed - available to all agents
-      "datetime": {},
+      // Current date/time - no config needed
+      "datetime": {}
 
-      // Requires apiKey from https://tavily.com/
+      // Web search backends (choose one for webSearchTool agent):
+      
+      // Tavily - AI-powered search (get key at tavily.com)
       // "tavilySearch": {
       //   "apiKey": "your-tavily-api-key"
       // }
-
-      // To add a new tool:
-      // 1. Create src/tools/my-tool.ts with a defineTool() call
-      // 2. Add it here with any required config
-      // That's it! No index files to edit.
+      
+      // Exa - Advanced search with content extraction (get key at dashboard.exa.ai)
+      // "exaSearch": {
+      //   "apiKey": "your-exa-api-key"
+      // }
+      
+      // Perplexity Search API (get key at perplexity.ai/account/api/keys)
+      // "perplexitySearch": {
+      //   "apiKey": "your-perplexity-api-key"
+      // }
     },
 
-    // Agent configurations - use gateway model IDs like "provider/model-name"
-    // Available providers: anthropic, openai, google, mistral, etc.
-    // See: https://ai-sdk.dev/docs/getting-started/choosing-a-provider
+    // AI agents - the brains of the operation
+    // Models: anthropic/claude-sonnet-4.5, openai/gpt-4o, google/gemini-1.5-pro, etc.
     "agents": {
-      // Main orchestrator - required
+      // Main AI that handles your conversations (required)
       "operator": {
         "model": "anthropic/claude-sonnet-4.5"
       }
 
-      // Optional subagents - auto-discovered from src/subagents/
-      // Uncomment to enable:
+      // Specialists the operator can delegate to (optional)
+      // Uncomment any you want:
 
       // "coder": {
       //   "model": "anthropic/claude-sonnet-4.5"
@@ -46,34 +52,38 @@
       //   "model": "openai/gpt-4o"
       // },
 
-      // "webSearch": {
-      //   "model": "openai/gpt-4o-mini-search-preview"
+      // Web search - choose ONE of these approaches:
+
+      // Option 1: Native search (faster, no extra API cost)
+      // Uses models with built-in search capabilities
+      // "webSearchNative": {
+      //   "model": "perplexity/sonar-pro"  // or "openai/gpt-4o-mini-search-preview"
       // }
 
-      // To add a custom subagent:
-      // 1. Create src/subagents/my-agent.ts with a defineSubagent() call
-      // 2. Add "myAgent": { "model": "..." } here
-      // That's it! No index files to edit.
+      // Option 2: Tool-based search (works with any model)
+      // Requires a search tool configured above (tavilySearch, exaSearch, or perplexitySearch)
+      // "webSearchTool": {
+      //   "model": "anthropic/claude-sonnet-4.5",  // Any model works
+      //   "searchBackend": "tavilySearch"          // Which search tool to use
+      // }
     }
   },
 
-  // Log level: "normal" (default) or "verbose" (logs full model prompts and responses)
-  // "logLevel": "verbose",
-
-  // Message storage configuration
-  // Storage backends are auto-discovered from src/store/
+  // Where to save conversation history
   "storage": {
-    "type": "sqlite",
-    "path": "data/pandora.db"
+    "type": "sqlite",           // "sqlite" (persistent) or "memory" (temporary)
+    "path": "data/pandora.db"   // Database file location
   },
 
-  // Channel configurations
-  // Channels are auto-discovered from src/channels/
+  // Chat platforms
   "channels": {
     "telegram": {
       "enabled": true,
-      "token": "your-telegram-bot-token",
-      "ownerId": "your-telegram-user-id"
+      "token": "your-telegram-bot-token",    // From @BotFather
+      "ownerId": "your-telegram-user-id"     // From @userinfobot
     }
   }
+
+  // Uncomment for detailed logging (shows full AI prompts/responses)
+  // "logLevel": "verbose"
 }

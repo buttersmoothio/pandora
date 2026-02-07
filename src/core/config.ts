@@ -20,6 +20,8 @@ const gatewayConfigSchema = z.object({
  */
 const agentConfigSchema = z.object({
   model: z.string().describe("Gateway model ID (e.g. anthropic/claude-sonnet-4.5, openai/gpt-4o)"),
+  /** Search backend for webSearchTool agent (e.g. tavilySearch, exaSearch, perplexitySearch) */
+  searchBackend: z.string().optional().describe("Search backend tool name for webSearchTool agent"),
 });
 
 /**

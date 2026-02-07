@@ -1,92 +1,100 @@
 # Pandora
 
-A multi-channel AI agent with an **operator + subagent** architecture. The main operator handles general conversation and can delegate specialized tasks (coding, research, web search) to subagents. Messages are received from channels (e.g. Telegram), stored, and processed by the AI; responses are stored and sent back.
+Your personal AI assistant that lives in your chat apps. Connect any AI model to Telegram, Discord, or other platforms — with the ability to delegate specialized tasks to expert sub-agents.
 
-## Features
+## What can Pandora do?
 
-- **Operator / subagent model** — One main AI orchestrates chat and delegates to optional subagents (coder, research, webSearch, or your own).
-- **Multi-provider AI** — Access any provider (OpenAI, Anthropic, Google, Mistral, etc.) through [Vercel AI Gateway](https://vercel.com/docs/ai-gateway) with a single API key.
-- **Channels** — Telegram today; designed for more (Discord, Slack, etc.).
-- **Storage** — SQLite (persistent) or in-memory (ephemeral), or add your own.
-- **Auto-discovery** — Add subagents, channels, tools, or storage backends by creating a single file. No registration code needed.
-- **Config** — JSONC configuration file with IDE autocompletion support.
-
-## Prerequisites
-
-- [Bun](https://bun.sh/) (runtime and package manager)
+- **Chat anywhere** — Talk to AI through Telegram (more platforms coming)
+- **Use any AI model** — Claude, GPT-4, Gemini, Mistral, and 50+ others through a single API key
+- **Delegate to specialists** — The main AI can hand off coding questions to a "coder" agent, research tasks to a "research" agent, etc.
+- **Remember conversations** — Persistent chat history stored in SQLite
+- **Add your own capabilities** — Create custom tools, agents, or connect new platforms
 
 ## Quick start
 
-1. **Install dependencies**
+**Prerequisites:** [Bun](https://bun.sh/) runtime
 
-   ```bash
-   bun install
-   ```
+### 1. Install
 
-2. **Configure**
-
-   Copy the example config and set your values:
-
-   ```bash
-   cp config.example.jsonc config.jsonc
-   ```
-
-   Edit `config.jsonc`:
-
-   - **AI Gateway**: Set your `apiKey` from [Vercel AI Gateway](https://vercel.com/docs/ai-gateway). Configure `operator` agent with a model ID (e.g. `anthropic/claude-sonnet-4.5`); optionally add `coder`, `research`, or `webSearch` subagents.
-   - **Storage**: `type: sqlite` and `path: data/pandora.db` (or `memory` for no persistence).
-   - **Telegram**: `enabled: true`, `token` from [@BotFather](https://t.me/BotFather), `ownerId` from [@userinfobot](https://t.me/userinfobot).
-
-3. **Run**
-
-   ```bash
-   bun run start
-   ```
-
-   Or with watch (restart on file changes):
-
-   ```bash
-   bun run dev
-   ```
-
-## Project structure
-
-```
-pandora/
-├── config.example.jsonc  # Example configuration (copy to config.jsonc)
-├── config.schema.jsonc   # JSON schema for IDE autocompletion
-├── src/
-│   ├── core/             # Framework (don't modify)
-│   │   ├── index.ts      # Entry point
-│   │   ├── registries/   # Extension registries
-│   │   ├── agent.ts      # Operator runtime
-│   │   ├── gateway.ts    # Message routing
-│   │   ├── config.ts     # Config loading
-│   │   ├── loader.ts     # Auto-discovery
-│   │   └── ...
-│   ├── subagents/        # User-defined subagents (auto-discovered)
-│   ├── channels/         # User-defined channels (auto-discovered)
-│   ├── tools/            # User-defined tools (auto-discovered)
-│   └── store/            # User-defined storage backends (auto-discovered)
-└── docs/                 # Documentation
+```bash
+git clone <repo-url> pandora
+cd pandora
+bun install
 ```
 
-## Scripts
+### 2. Get your API keys
 
-| Script   | Command              | Description                    |
-|----------|----------------------|--------------------------------|
-| Start    | `bun run start`      | Run the agent                  |
-| Dev      | `bun run dev`        | Run with watch (auto-restart)  |
+You'll need:
 
-## Documentation
+| Service | What for | Where to get it |
+|---------|----------|-----------------|
+| **Vercel AI Gateway** | Access to AI models | [vercel.com/docs/ai-gateway](https://vercel.com/docs/ai-gateway) |
+| **Telegram Bot** | Chat interface | [@BotFather](https://t.me/BotFather) on Telegram |
+| **Your Telegram ID** | Owner authorization | [@userinfobot](https://t.me/userinfobot) on Telegram |
 
-- [**Docs index**](docs/README.md) — Overview of all docs
-- [**Architecture**](docs/ARCHITECTURE.md) — Data flow, operator/subagents
-- [**Configuration**](docs/CONFIGURATION.md) — Config schema summary
-- [**Development**](docs/DEVELOPMENT.md) — Adding channels, subagents, tools, storage
-- [**Telegram**](docs/TELEGRAM.md) — Telegram channel setup and behavior
+### 3. Configure
 
-Function and type details are in **JSDoc** in the source (`src/`).
+```bash
+cp config.example.jsonc config.jsonc
+```
+
+Edit `config.jsonc`:
+
+```jsonc
+{
+  "$schema": "./config.schema.jsonc",
+  
+  "ai": {
+    "gateway": {
+      "apiKey": "YOUR_VERCEL_AI_GATEWAY_KEY"
+    },
+    "agents": {
+      "operator": {
+        "model": "anthropic/claude-sonnet-4.5"
+      }
+    }
+  },
+  
+  "channels": {
+    "telegram": {
+      "enabled": true,
+      "token": "YOUR_TELEGRAM_BOT_TOKEN",
+      "ownerId": "YOUR_TELEGRAM_USER_ID"
+    }
+  }
+}
+```
+
+### 4. Run
+
+```bash
+bun run start
+```
+
+That's it! Message your bot on Telegram.
+
+## Next steps
+
+| I want to... | Read this |
+|--------------|-----------|
+| Configure everything in detail | [Configuration Guide](docs/CONFIGURATION.md) |
+| Add specialist sub-agents | [Customization Guide](docs/CUSTOMIZATION.md#sub-agents) |
+| Give AI new capabilities (tools) | [Customization Guide](docs/CUSTOMIZATION.md#tools) |
+| Connect Discord or other platforms | [Customization Guide](docs/CUSTOMIZATION.md#channels) |
+| Understand how it works | [How Pandora Works](docs/HOW-IT-WORKS.md) |
+| Set up Telegram bot properly | [Telegram Setup](docs/TELEGRAM.md) |
+
+## Supported AI models
+
+Pandora uses [Vercel AI Gateway](https://vercel.com/docs/ai-gateway), giving you access to 50+ models from:
+
+- **Anthropic** — Claude 4, Claude Sonnet, Claude Haiku
+- **OpenAI** — GPT-4o, GPT-4, GPT-3.5
+- **Google** — Gemini Pro, Gemini Flash
+- **Mistral** — Mistral Large, Mistral Medium
+- **And more** — Cohere, Perplexity, Groq, etc.
+
+Use model IDs like `anthropic/claude-sonnet-4.5` or `openai/gpt-4o` in your config.
 
 ## License
 
