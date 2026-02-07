@@ -1,27 +1,29 @@
 # Pandora Documentation
 
+Welcome to the Pandora documentation. Pandora is an extensible AI assistant that you can customize with your own agents, tools, and integrations.
+
 ## Getting Started
 
 | Guide | Description |
 |-------|-------------|
-| [**Configuration**](CONFIGURATION.md) | Complete reference for all settings |
-| [**How Pandora Works**](HOW-IT-WORKS.md) | Architecture and concepts |
+| [**Configuration**](/configuration) | Complete reference for all settings |
+| [**How Pandora Works**](/how-it-works) | Architecture and concepts |
 
 ## Feature Guides
 
 | Guide | Description |
 |-------|-------------|
-| [**Agents**](AGENTS.md) | Set up the operator and sub-agents (coder, research) |
-| [**Tools**](TOOLS.md) | Enable tools like datetime and search |
-| [**Web Search**](WEB-SEARCH.md) | Configure web search with native or tool-based approaches |
-| [**Storage**](STORAGE.md) | Choose between SQLite and memory storage |
-| [**Telegram Setup**](TELEGRAM.md) | Connect to Telegram |
+| [**Agents**](/agents) | Set up the operator and sub-agents (coder, research) |
+| [**Tools**](/tools) | Enable tools like datetime and search |
+| [**Web Search**](/web-search) | Configure web search with native or tool-based approaches |
+| [**Storage**](/storage) | Choose between SQLite and memory storage |
+| [**Telegram Setup**](/telegram) | Connect to Telegram |
 
 ## Extending Pandora
 
 | Guide | Description |
 |-------|-------------|
-| [**Customization**](CUSTOMIZATION.md) | Create your own agents, tools, channels, and storage backends |
+| [**Customization**](/customization) | Create your own agents, tools, channels, and storage backends |
 
 ## Common tasks
 
@@ -35,7 +37,7 @@ Edit `config.jsonc` and set the `model` field for any agent:
 }
 ```
 
-See [Configuration → AI Models](CONFIGURATION.md#ai-models) for the full list.
+See [Configuration](/configuration) for the full list of options.
 
 ### I want to enable sub-agents
 
@@ -49,7 +51,7 @@ Sub-agents are specialists the main AI can delegate to:
 }
 ```
 
-See the [Agents Guide](AGENTS.md) for details on each agent.
+See the [Agents Guide](/agents) for details on each agent.
 
 ### I want to add web search
 
@@ -77,20 +79,20 @@ See the [Agents Guide](AGENTS.md) for details on each agent.
 }
 ```
 
-See [Web Search Guide](WEB-SEARCH.md) for full details on all search backends.
+See [Web Search Guide](/web-search) for full details on all search backends.
 
 ### I want to use tools (datetime, etc.)
 
-See the [Tools Guide](TOOLS.md) for available tools and how to enable them.
+See the [Tools Guide](/tools) for available tools and how to enable them.
 
 ### I want to change storage settings
 
-See the [Storage Guide](STORAGE.md) for SQLite vs memory options.
+See the [Storage Guide](/storage) for SQLite vs memory options.
 
 ### I want to create my own tool
 
-See [Customization → Tools](CUSTOMIZATION.md#tools).
+See [Customization → Tools](/customization#tools).
 
 ### I want to add Discord or Slack
 
-See [Customization → Channels](CUSTOMIZATION.md#channels).
+See [Customization → Channels](/customization#channels).
