@@ -9,7 +9,7 @@ import { loadConfig, validateConfig } from "./core/config";
 import { createStore } from "./store";
 import { Agent } from "./core/agent";
 import { Gateway } from "./core/gateway";
-import { TelegramChannel } from "./channels/telegram";
+import { TelegramChannel } from "./channels/telegram/index";
 import { logger } from "./core/logger";
 import type { Channel } from "./core/types";
 import { getAvailableToolNames } from "./tools";
@@ -21,6 +21,9 @@ async function main(): Promise<void> {
   // Load and validate configuration
   const config = await loadConfig();
   validateConfig(config, getAvailableToolNames());
+
+  // Apply log level from config
+  logger.setLevel(config.logLevel);
 
   const operatorConfig = config.ai.agents.operator;
   const subagents = Object.keys(config.ai.agents).filter(

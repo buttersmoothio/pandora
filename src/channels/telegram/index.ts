@@ -3,17 +3,18 @@
  */
 
 import { Bot, type Context } from "grammy";
-import type { TelegramConfig } from "../core/config";
-import type { Gateway } from "../core/gateway";
+import type { TelegramConfig } from "../../core/config";
+import type { Gateway } from "../../core/gateway";
 import type {
   Attachment,
   Channel,
   ChannelCapabilities,
   Message,
   MessageHandler,
-} from "../core/types";
-import { isOwner } from "./base";
-import { logger } from "../core/logger";
+} from "../../core/types";
+import { isOwner } from "../base";
+import { markdownToHtml } from "./format";
+import { logger } from "../../core/logger";
 
 /**
  * Telegram channel capabilities - hardcoded as they're fixed characteristics
@@ -219,14 +220,15 @@ export class TelegramChannel implements Channel {
     }
   }
 
-  /** Send reply with HTML; split at max length; first chunk replies to user message. */
+  /** Convert markdown to HTML, split at max length, send with reply-to on the first chunk. */
   private async sendResponse(
     ctx: Context,
     response: string,
     replyToMessageId?: number
   ): Promise<void> {
+    const html = markdownToHtml(response);
     const maxLength = this.capabilities.maxMessageLength;
-    const chunks = this.splitMessage(response, maxLength);
+    const chunks = this.splitMessage(html, maxLength);
 
     // First chunk quotes the original message
     let isFirst = true;

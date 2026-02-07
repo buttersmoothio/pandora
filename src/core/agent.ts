@@ -22,30 +22,26 @@ import { logger } from "./logger";
  * Build operator system instructions from channel capabilities and available tools.
  *
  * @internal
- * @param actionToolNames - Names of action tools available to this agent.
- * @param subagentToolNames - Names of subagent delegation tools (e.g. `["coder", "research"]`).
+ * @param actionTools - Action tools available to this agent (name → Tool).
+ * @param subagentTools - Subagent delegation tools (name → Tool, e.g. `coder`, `research`).
  * @param capabilities - Channel capabilities (rich text, max length, etc.).
  * @returns System instruction string for the operator.
  */
 function buildOperatorInstructions(
-  actionToolNames: string[],
-  subagentToolNames: string[],
+  actionTools: Record<string, Tool>,
+  subagentTools: Record<string, Tool>,
   capabilities: ChannelCapabilities
 ): string {
   const parts: string[] = [
     "You are a helpful AI assistant.",
     "",
+    `Current time: ${new Date().toISOString()}`,
+    "",
   ];
 
   // Add channel capability information
   if (capabilities.supportsRichText) {
-    parts.push("- You can use simple HTML formatting in your responses:");
-    parts.push("  - <b>bold</b> for bold text");
-    parts.push("  - <i>italic</i> for italic text");
-    parts.push("  - <code>code</code> for inline code");
-    parts.push("  - <pre>code block</pre> for code blocks");
-    parts.push("  - <a href=\"URL\">link text</a> for links");
-    parts.push("  - Do NOT use markdown syntax like **bold** or *italic*.");
+    parts.push("- You may use markdown formatting in your responses.");
   } else {
     parts.push("- Use plain text only, no formatting.");
   }
@@ -58,24 +54,24 @@ function buildOperatorInstructions(
 
   parts.push("");
 
-  // Add action tools section
+  // Add action tools section with descriptions
+  const actionToolNames = Object.keys(actionTools);
   if (actionToolNames.length > 0) {
     parts.push("You have access to tools:");
-    for (const toolName of actionToolNames) {
-      parts.push(`- Use '${toolName}' tool when appropriate`);
+    for (const name of actionToolNames) {
+      const desc = actionTools[name]?.description;
+      parts.push(desc ? `- '${name}': ${desc}` : `- '${name}'`);
     }
     parts.push("");
   }
 
   // Add delegation instructions if subagents are available
+  const subagentToolNames = Object.keys(subagentTools);
   if (subagentToolNames.length > 0) {
     parts.push("For specialized tasks, delegate to the appropriate tool:");
-
-    if (subagentToolNames.includes("coder")) {
-      parts.push("- Use 'coder' for programming tasks, debugging, code review");
-    }
-    if (subagentToolNames.includes("research")) {
-      parts.push("- Use 'research' for information gathering, fact-checking");
+    for (const name of subagentToolNames) {
+      const desc = subagentTools[name]?.description;
+      parts.push(desc ? `- '${name}': ${desc}` : `- '${name}'`);
     }
 
     parts.push("");
@@ -97,8 +93,8 @@ function buildOperatorInstructions(
 export class Agent {
   private config: AIConfig;
   private tools: Record<string, Tool>;
-  private actionToolNames: string[];
-  private subagentToolNames: string[];
+  private actionTools: Record<string, Tool>;
+  private subagentTools: Record<string, Tool>;
 
   /**
    * @param config - AI config (providers, operator, optional subagents, tools).
@@ -106,15 +102,14 @@ export class Agent {
   constructor(config: AIConfig) {
     this.config = config;
     this.tools = {};
-    this.actionToolNames = [];
-    this.subagentToolNames = [];
+    this.actionTools = {};
+    this.subagentTools = {};
 
     // Resolve action tools from config (tools self-assign to agents via their `agents` field)
-    const operatorTools = createToolsForAgent(
+    this.actionTools = createToolsForAgent(
       "operator",
       config.tools ?? {}
     );
-    this.actionToolNames = Object.keys(operatorTools);
 
     // Build subagent delegation tools and pass action tools to them
     if (config.agents.coder) {
@@ -123,8 +118,7 @@ export class Agent {
         config.tools ?? {}
       );
       const coderSubagent = createCoderSubagent(config, coderTools);
-      this.tools.coder = createCoderTool(coderSubagent, config);
-      this.subagentToolNames.push("coder");
+      this.subagentTools.coder = createCoderTool(coderSubagent, config);
     }
 
     if (config.agents.research) {
@@ -133,12 +127,11 @@ export class Agent {
         config.tools ?? {}
       );
       const researchSubagent = createResearchSubagent(config, researchTools);
-      this.tools.research = createResearchTool(researchSubagent, config);
-      this.subagentToolNames.push("research");
+      this.subagentTools.research = createResearchTool(researchSubagent, config);
     }
 
-    // Merge action tools into the operator's tool set
-    this.tools = { ...operatorTools, ...this.tools };
+    // Merge action tools and subagent tools into the operator's full tool set
+    this.tools = { ...this.actionTools, ...this.subagentTools };
   }
 
   /**
@@ -162,8 +155,8 @@ export class Agent {
 
     // Build instructions that include channel capabilities and available tools
     const instructions = buildOperatorInstructions(
-      this.actionToolNames,
-      this.subagentToolNames,
+      this.actionTools,
+      this.subagentTools,
       capabilities
     );
 
@@ -174,15 +167,37 @@ export class Agent {
         operatorConfig.model,
         providerConfig.apiKey
       ),
+      temperature: 0,
       instructions,
       tools: this.tools,
-      onStepFinish: ({ toolCalls }) => {
+      onStepFinish: ({ toolCalls, toolResults, text, finishReason, usage }) => {
         stepCount++;
+
+        // Log each tool call with full args and results when verbose
         if (toolCalls && toolCalls.length > 0) {
           for (const call of toolCalls) {
-            logger.toolCall(call.toolName);
+            // Find the matching result for this tool call
+            const matchingResult = toolResults?.find(
+              (r: { toolCallId: string }) => r.toolCallId === call.toolCallId
+            );
+
+            logger.toolCall(call.toolName, {
+              args: (call as Record<string, unknown>).input ?? (call as Record<string, unknown>).args,
+              result: (matchingResult as Record<string, unknown> | undefined)?.output ?? (matchingResult as Record<string, unknown> | undefined)?.result,
+              agentName: "operator",
+            });
           }
         }
+
+        // Log step-level details (intermediate text, finish reason, token usage)
+        logger.stepFinish(
+          "operator",
+          stepCount,
+          finishReason ?? "unknown",
+          text,
+          toolCalls?.length,
+          usage
+        );
       },
     });
 
@@ -192,7 +207,14 @@ export class Agent {
       content: msg.content,
     }));
 
+    // Log full model input when verbose
+    logger.modelInstructions("operator", instructions);
+    logger.modelInput("operator", messages);
+
     const result = await operator.generate({ messages });
+
+    // Log full model output when verbose
+    logger.modelOutput("operator", result.text);
 
     const durationMs = Date.now() - startTime;
     logger.agentComplete(durationMs, stepCount);

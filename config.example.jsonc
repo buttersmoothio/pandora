@@ -60,6 +60,9 @@
     }
   },
 
+  // Log level: "normal" (default) or "verbose" (logs full model prompts and responses)
+  // "logLevel": "verbose",
+
   // Message storage configuration
   "storage": {
     "type": "sqlite",

@@ -72,12 +72,21 @@ const storageConfigSchema = z.object({
 });
 
 /**
+ * Schema for log level configuration
+ *
+ * - `"normal"` — default; logs metadata (message flow, tool calls, durations).
+ * - `"verbose"` — additionally logs full model prompts and responses.
+ */
+const logLevelSchema = z.enum(["normal", "verbose"]).default("normal");
+
+/**
  * Full configuration schema
  */
 const configSchema = z.object({
   ai: aiConfigSchema,
   channels: channelsConfigSchema,
   storage: storageConfigSchema.optional().default({ type: "sqlite", path: "data/pandora.db" }),
+  logLevel: logLevelSchema.optional().default("normal"),
 });
 
 /** Full config (ai, channels, storage). */
@@ -92,6 +101,8 @@ export type ToolConfig = z.infer<typeof toolConfigSchema>;
 export type TelegramConfig = z.infer<typeof telegramConfigSchema>;
 /** Storage config: type (`memory` | `sqlite`), path (for SQLite). */
 export type StorageConfig = z.infer<typeof storageConfigSchema>;
+/** Log level: `"normal"` (metadata only) or `"verbose"` (includes model prompts/responses). */
+export type LogLevel = z.infer<typeof logLevelSchema>;
 
 /**
  * Load and validate configuration from a JSONC file.

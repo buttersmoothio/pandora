@@ -22,6 +22,8 @@ export function createCoderSubagent(
   const agentConfig = config.agents.coder!;
   const providerConfig = config.providers[agentConfig.provider]!;
 
+  let stepCount = 0;
+
   return new ToolLoopAgent({
     model: createModel(
       agentConfig.provider,
@@ -36,6 +38,31 @@ export function createCoderSubagent(
 
 When finished, provide a clear summary of what you did or found.`,
     tools,
+    onStepFinish: ({ toolCalls, toolResults, text, finishReason, usage }) => {
+      stepCount++;
+
+      if (toolCalls && toolCalls.length > 0) {
+        for (const call of toolCalls) {
+          const matchingResult = toolResults?.find(
+            (r: { toolCallId: string }) => r.toolCallId === call.toolCallId
+          );
+          logger.toolCall(call.toolName, {
+            args: (call as Record<string, unknown>).input ?? (call as Record<string, unknown>).args,
+            result: (matchingResult as Record<string, unknown> | undefined)?.output ?? (matchingResult as Record<string, unknown> | undefined)?.result,
+            agentName: "coder",
+          });
+        }
+      }
+
+      logger.stepFinish(
+        "coder",
+        stepCount,
+        finishReason ?? "unknown",
+        text,
+        toolCalls?.length,
+        usage
+      );
+    },
   });
 }
 
@@ -59,8 +86,11 @@ export function createCoderTool(subagent: ToolLoopAgent, config: AIConfig) {
       const startTime = Date.now();
       logger.subagentStart("coder", agentConfig.provider, agentConfig.model);
 
+      logger.modelInput("coder", [{ role: "user", content: task }]);
+
       const result = await subagent.generate({ prompt: task, abortSignal });
 
+      logger.modelOutput("coder", result.text);
       logger.subagentComplete("coder", Date.now() - startTime);
       return result.text;
     },
@@ -81,6 +111,8 @@ export function createResearchSubagent(
   const agentConfig = config.agents.research!;
   const providerConfig = config.providers[agentConfig.provider]!;
 
+  let stepCount = 0;
+
   return new ToolLoopAgent({
     model: createModel(
       agentConfig.provider,
@@ -94,6 +126,31 @@ export function createResearchSubagent(
 
 Be thorough but concise. Cite sources when relevant.`,
     tools,
+    onStepFinish: ({ toolCalls, toolResults, text, finishReason, usage }) => {
+      stepCount++;
+
+      if (toolCalls && toolCalls.length > 0) {
+        for (const call of toolCalls) {
+          const matchingResult = toolResults?.find(
+            (r: { toolCallId: string }) => r.toolCallId === call.toolCallId
+          );
+          logger.toolCall(call.toolName, {
+            args: (call as Record<string, unknown>).input ?? (call as Record<string, unknown>).args,
+            result: (matchingResult as Record<string, unknown> | undefined)?.output ?? (matchingResult as Record<string, unknown> | undefined)?.result,
+            agentName: "research",
+          });
+        }
+      }
+
+      logger.stepFinish(
+        "research",
+        stepCount,
+        finishReason ?? "unknown",
+        text,
+        toolCalls?.length,
+        usage
+      );
+    },
   });
 }
 
@@ -117,8 +174,11 @@ export function createResearchTool(subagent: ToolLoopAgent, config: AIConfig) {
       const startTime = Date.now();
       logger.subagentStart("research", agentConfig.provider, agentConfig.model);
 
+      logger.modelInput("research", [{ role: "user", content: query }]);
+
       const result = await subagent.generate({ prompt: query, abortSignal });
 
+      logger.modelOutput("research", result.text);
       logger.subagentComplete("research", Date.now() - startTime);
       return result.text;
     },

@@ -189,6 +189,12 @@
         "type": "sqlite",
         "path": "data/pandora.db"
       }
+    },
+    "logLevel": {
+      "type": "string",
+      "enum": ["normal", "verbose"],
+      "default": "normal",
+      "description": "Log level. 'normal' logs metadata (message flow, tool calls, durations). 'verbose' additionally logs full model prompts and responses."
     }
   },
   "additionalProperties": false
