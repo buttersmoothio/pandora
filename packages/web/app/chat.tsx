@@ -1,10 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { nanoid } from "nanoid";
 import { usePandoraChat } from "@/hooks/use-pandora-chat";
 import { useConversations } from "@/hooks/use-conversations";
-import type { ChatMessage } from "@/hooks/use-pandora-chat";
+import type { ChatMessage, ConnectionStatus } from "@/hooks/use-pandora-chat";
 import {
   Conversation,
   ConversationContent,
@@ -56,6 +56,36 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+
+function ConnectionIndicator({ status }: { status: ConnectionStatus }) {
+  if (status === "connected") return null;
+
+  const isReconnecting = status === "reconnecting";
+  const label = isReconnecting ? "Reconnecting..." : "Disconnected";
+
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span
+            className={`inline-block size-2.5 rounded-full ${
+              isReconnecting
+                ? "animate-pulse bg-yellow-500"
+                : "bg-destructive"
+            }`}
+          />
+        </TooltipTrigger>
+        <TooltipContent side="bottom">{label}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
 
 const DEFAULT_WS_URL =
   process.env.NEXT_PUBLIC_PANDORA_WS_URL ?? "ws://localhost:3000/ws";
@@ -231,21 +261,31 @@ function ChatInterface({
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const {
-    messages,
-    setMessages,
-    status,
-    input,
-    setInput,
-    sendMessage,
-    clearConversation,
-  } = usePandoraChat({ url: wsUrl, token, conversationId });
-
-  const {
     conversations,
     refresh: refreshConversations,
     deleteConversation,
     loadHistory,
   } = useConversations({ baseUrl, token });
+
+  // Debounced refresh for conversation updates from other channels
+  const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const debouncedRefresh = useCallback(() => {
+    if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+    refreshTimerRef.current = setTimeout(() => {
+      refreshConversations();
+    }, 500);
+  }, [refreshConversations]);
+
+  const {
+    messages,
+    setMessages,
+    status,
+    connectionStatus,
+    input,
+    setInput,
+    sendMessage,
+    clearConversation,
+  } = usePandoraChat({ url: wsUrl, token, conversationId, onConversationUpdate: debouncedRefresh });
 
   // Refresh conversation list when a message completes
   useEffect(() => {
@@ -268,15 +308,34 @@ function ChatInterface({
     [sendMessage]
   );
 
+  const pendingConversationRef = useRef(conversationId);
+
   const handleNewConversation = useCallback(() => {
-    setConversationId(`web-${nanoid()}`);
+    const id = `web-${nanoid()}`;
+    pendingConversationRef.current = id;
+    setConversationId(id);
   }, []);
 
   const handleSelectConversation = useCallback(
     async (id: string) => {
+      pendingConversationRef.current = id;
       setConversationId(id);
       const history = await loadHistory(id);
-      setMessages(history);
+      // Skip if user switched to a different conversation while loading
+      if (pendingConversationRef.current !== id) return;
+      // If there's an active stream (from stream-state), prepend history to keep in-progress messages
+      setMessages((prev) => {
+        if (prev.length > 0 && prev[0]?.role === "user") {
+          // Stream-state arrived before history - prepend history but skip the last user message
+          // (it's duplicated in stream-state since it triggered the stream)
+          const historyWithoutLastUser =
+            history.length > 0 && history[history.length - 1]?.role === "user"
+              ? history.slice(0, -1)
+              : history;
+          return [...historyWithoutLastUser, ...prev];
+        }
+        return history;
+      });
     },
     [loadHistory, setMessages]
   );
@@ -378,6 +437,7 @@ function ChatInterface({
               <PanelLeftIcon className="size-4" />
             </Button>
             <h1 className="text-sm font-semibold">Pandora</h1>
+            <ConnectionIndicator status={connectionStatus} />
           </div>
           <Button
             variant="ghost"

@@ -37,6 +37,8 @@ export class TelegramChannel implements Channel {
   private ownerId: string;
   private gateway: Gateway;
   private messageHandler: MessageHandler;
+  /** Current active conversation ID (single-user, one conversation at a time). */
+  private activeConversationId: string | null = null;
 
   /**
    * @param config - Telegram config (token, ownerId).
@@ -51,21 +53,44 @@ export class TelegramChannel implements Channel {
     this.setupHandlers();
   }
 
+  /**
+   * Get or resume the active conversation ID.
+   * On restart, resumes the most recent conversation (cross-channel continuity).
+   */
+  private async getActiveConversationId(): Promise<string> {
+    if (!this.activeConversationId) {
+      const conversations = await this.gateway.listConversations();
+      const latest = conversations[0];
+      if (latest) {
+        this.activeConversationId = latest.id;
+        logger.channel("telegram", "Resumed conversation", {
+          conversationId: this.activeConversationId,
+        });
+      } else {
+        this.activeConversationId = `conv-${Date.now()}`;
+        logger.channel("telegram", "Created new conversation", {
+          conversationId: this.activeConversationId,
+        });
+      }
+    }
+    return this.activeConversationId;
+  }
+
   /** Register Grammy handlers: /start, text, photo, document, voice, audio, video, errors. */
   private setupHandlers(): void {
-    // Handle /start command (must be before text handler)
+    // Handle /start command - welcome message and start new conversation
     this.bot.command("start", async (ctx) => {
       const userId = ctx.from?.id.toString();
-      const chatId = ctx.chat?.id.toString();
 
-      if (!userId || !chatId || userId !== this.ownerId) {
+      if (!userId || userId !== this.ownerId) {
         await ctx.reply("Sorry, this bot is private.");
         return;
       }
 
-      // Clear conversation history
-      await this.gateway.clearConversation(chatId);
-      logger.channel("telegram", "Conversation cleared via /start", { chatId });
+      this.activeConversationId = `conv-${Date.now()}`;
+      logger.channel("telegram", "Started new conversation via /start", {
+        conversationId: this.activeConversationId,
+      });
 
       await ctx.reply(
         "Hello! I'm <i>Pandora</i>, your AI assistant. Send me a message and I'll respond.",
@@ -191,16 +216,20 @@ export class TelegramChannel implements Channel {
       return;
     }
 
+    // Get active conversation (may resume from restart or cross-channel)
+    const conversationId = await this.getActiveConversationId();
+
     // Create a Message object for the gateway
     const message: Message = {
       channelName: this.name,
       userId,
-      conversationId: chatId,
+      conversationId,
       content,
       attachments,
       replyToMessageId: messageId,
       metadata: {
         messageId,
+        chatId,
         chatType: ctx.chat?.type,
       },
     };

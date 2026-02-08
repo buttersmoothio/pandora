@@ -20,9 +20,14 @@ interface ConversationMeta {
   updatedAt: number;
 }
 
+/** Stored message with source channel tracking. */
+interface StoredMessage extends ChatMessage {
+  channelName?: string;
+}
+
 /** In-memory message store. Ephemeral; conversations are lost on restart. */
 export class MemoryStore implements IMessageStore {
-  private conversations = new Map<string, ChatMessage[]>();
+  private conversations = new Map<string, StoredMessage[]>();
   private metadata = new Map<string, ConversationMeta>();
 
   /** @inheritdoc */
@@ -32,7 +37,8 @@ export class MemoryStore implements IMessageStore {
     meta?: MessageMeta
   ): Promise<void> {
     const history = this.conversations.get(conversationId) ?? [];
-    history.push(message);
+    // Store with source channel for cross-channel tracking
+    history.push({ ...message, channelName: meta?.channelName });
     this.conversations.set(conversationId, history);
 
     const now = Math.floor(Date.now() / 1000);
@@ -51,7 +57,10 @@ export class MemoryStore implements IMessageStore {
 
   /** @inheritdoc */
   async getHistory(conversationId: string): Promise<ChatMessage[]> {
-    return this.conversations.get(conversationId) ?? [];
+    // Return only role and content (strip channelName metadata)
+    return (this.conversations.get(conversationId) ?? []).map(
+      ({ role, content }) => ({ role, content })
+    );
   }
 
   /** @inheritdoc */

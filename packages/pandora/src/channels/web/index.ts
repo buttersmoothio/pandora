@@ -35,7 +35,7 @@ const WEB_CAPABILITIES: ChannelCapabilities = {
   maxMessageLength: -1,
 };
 
-type WebSocketData = { token: string; unsubscribe?: () => void; processing?: boolean };
+type WebSocketData = { token: string; unsubscribe?: () => void; unsubscribeAll?: () => void; processing?: boolean };
 
 /** CORS headers for cross-origin requests (web UI on port 3001). */
 function corsHeaders(): Record<string, string> {
@@ -184,6 +184,13 @@ export class WebChannel implements Channel {
             const wsData = ws.data as WebSocketData;
             // Unsubscribe from any previous watch
             wsData.unsubscribe?.();
+
+            // Send current stream state if there's an active stream (for late-joining)
+            const activeState = channel.gateway.getActiveStreamState(conversationId);
+            if (activeState) {
+              ws.send(JSON.stringify({ type: "stream-state", ...activeState }));
+            }
+
             wsData.unsubscribe = channel.gateway.subscribe(conversationId, (event: GatewayEvent) => {
               // Skip events during self-processing to avoid duplicates
               // (the message handler sends events directly for web-initiated messages)
@@ -197,6 +204,26 @@ export class WebChannel implements Channel {
             const wsData = ws.data as WebSocketData;
             wsData.unsubscribe?.();
             wsData.unsubscribe = undefined;
+            return;
+          }
+
+          if (data.type === "watch-all") {
+            const wsData = ws.data as WebSocketData;
+            wsData.unsubscribeAll?.();
+            wsData.unsubscribeAll = channel.gateway.subscribeAll((event: GatewayEvent) => {
+              if ((ws.data as WebSocketData).processing) return;
+              // Only forward lightweight events for sidebar updates
+              if (event.type === "user-message" || event.type === "done") {
+                ws.send(JSON.stringify({ type: "conversation-update", conversationId: event.conversationId }));
+              }
+            });
+            return;
+          }
+
+          if (data.type === "unwatch-all") {
+            const wsData = ws.data as WebSocketData;
+            wsData.unsubscribeAll?.();
+            wsData.unsubscribeAll = undefined;
             return;
           }
 
@@ -221,7 +248,7 @@ export class WebChannel implements Channel {
             wsData.processing = true;
             try {
               const onEvent = (event: StreamEvent) => {
-                ws.send(JSON.stringify(event));
+                ws.send(JSON.stringify({ ...event, conversationId }));
               };
 
               const stream = channel.streamingHandlerWithEvents(
@@ -230,7 +257,7 @@ export class WebChannel implements Channel {
                 onEvent
               );
               for await (const delta of stream) {
-                ws.send(JSON.stringify({ type: "delta", text: delta }));
+                ws.send(JSON.stringify({ type: "delta", text: delta, conversationId }));
               }
               ws.send(JSON.stringify({ type: "done", conversationId }));
             } catch (error) {
@@ -259,6 +286,7 @@ export class WebChannel implements Channel {
         close(ws) {
           const wsData = ws.data as WebSocketData;
           wsData.unsubscribe?.();
+          wsData.unsubscribeAll?.();
           logger.channel("web", "WebSocket disconnected");
         },
       },

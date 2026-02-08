@@ -61,6 +61,7 @@ export class SqliteStore implements IMessageStore {
         conversation_id TEXT NOT NULL,
         role TEXT NOT NULL,
         content TEXT NOT NULL,
+        channel_name TEXT,
         created_at INTEGER NOT NULL DEFAULT (unixepoch()),
         FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
       )
@@ -71,6 +72,21 @@ export class SqliteStore implements IMessageStore {
       CREATE INDEX IF NOT EXISTS idx_messages_conversation
       ON messages (conversation_id, created_at)
     `);
+
+    // Migration: add channel_name column if missing (for existing databases)
+    this.migrateAddChannelName();
+  }
+
+  /** Add channel_name column to messages table if it doesn't exist. */
+  private migrateAddChannelName(): void {
+    const columns = this.db
+      .query<{ name: string }, []>("PRAGMA table_info(messages)")
+      .all();
+    const hasChannelName = columns.some((col) => col.name === "channel_name");
+    if (!hasChannelName) {
+      this.db.run("ALTER TABLE messages ADD COLUMN channel_name TEXT");
+      logger.startup("SQLite migration: added channel_name to messages");
+    }
   }
 
   /** @inheritdoc */
@@ -86,9 +102,10 @@ export class SqliteStore implements IMessageStore {
       [conversationId, meta?.channelName ?? null, meta?.userId ?? null]
     );
 
+    // Store message with source channel (may differ from conversation origin)
     this.db.run(
-      `INSERT INTO messages (conversation_id, role, content) VALUES (?, ?, ?)`,
-      [conversationId, message.role, message.content]
+      `INSERT INTO messages (conversation_id, role, content, channel_name) VALUES (?, ?, ?, ?)`,
+      [conversationId, message.role, message.content, meta?.channelName ?? null]
     );
   }
 

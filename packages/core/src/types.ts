@@ -121,4 +121,5 @@ export type GatewayEvent =
   | { type: "user-message"; conversationId: string; channelName: string; content: string }
   | { type: "delta"; conversationId: string; text: string }
   | { type: "done"; conversationId: string }
+  | { type: "cleared"; conversationId: string }
   | (StreamEvent & { conversationId: string });

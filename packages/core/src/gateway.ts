@@ -22,9 +22,22 @@ import { logger } from "./logger";
 
 type GatewayListener = (event: GatewayEvent) => void;
 
+/** State of an active stream for late-joining subscribers. */
+export interface ActiveStreamState {
+  conversationId: string;
+  channelName: string;
+  userContent: string;
+  partialText: string;
+  toolCalls: Array<{ toolCallId: string; toolName: string; args: unknown; result?: unknown }>;
+  sources: Array<{ sourceType: string; id: string; url?: string; title?: string }>;
+  reasoning: string;
+}
+
 /** Central hub: receives messages from channels, stores them, calls the agent, stores and returns the response. */
 export class Gateway {
   private listeners = new Map<string, Set<GatewayListener>>();
+  private globalListeners = new Set<GatewayListener>();
+  private activeStreams = new Map<string, ActiveStreamState>();
 
   /**
    * @param store - Message store for conversation history.
@@ -49,13 +62,30 @@ export class Gateway {
     };
   }
 
-  /** Emit an event to all subscribers of a conversation. */
+  /** Subscribe to events for all conversations. Returns unsubscribe function. */
+  subscribeAll(listener: GatewayListener): () => void {
+    this.globalListeners.add(listener);
+    return () => {
+      this.globalListeners.delete(listener);
+    };
+  }
+
+  /** Emit an event to all subscribers of a conversation and global subscribers. */
   private emit(conversationId: string, event: GatewayEvent): void {
     const set = this.listeners.get(conversationId);
-    if (!set) return;
-    for (const listener of set) {
+    if (set) {
+      for (const listener of set) {
+        listener(event);
+      }
+    }
+    for (const listener of this.globalListeners) {
       listener(event);
     }
+  }
+
+  /** Get active stream state for a conversation (for late-joining subscribers). */
+  getActiveStreamState(conversationId: string): ActiveStreamState | undefined {
+    return this.activeStreams.get(conversationId);
   }
 
   /**
@@ -111,6 +141,18 @@ export class Gateway {
 
     logger.messageReceived(channelName, conversationId, userId);
 
+    // Initialize active stream state for late-joining subscribers
+    const streamState: ActiveStreamState = {
+      conversationId,
+      channelName,
+      userContent: content,
+      partialText: "",
+      toolCalls: [],
+      sources: [],
+      reasoning: "",
+    };
+    this.activeStreams.set(conversationId, streamState);
+
     // Emit user-message for subscribers (e.g. other web tabs watching this conversation)
     this.emit(conversationId, { type: "user-message", conversationId, channelName, content });
 
@@ -123,6 +165,26 @@ export class Gateway {
     const history = await this.store.getHistory(conversationId);
 
     const stream = this.agent.chatStream(history, capabilities, (event) => {
+      // Track state for late-joiners
+      if (event.type === "tool-call") {
+        streamState.toolCalls.push({
+          toolCallId: event.toolCallId,
+          toolName: event.toolName,
+          args: event.args,
+        });
+      } else if (event.type === "tool-result") {
+        const tc = streamState.toolCalls.find((t) => t.toolCallId === event.toolCallId);
+        if (tc) tc.result = event.result;
+      } else if (event.type === "source") {
+        streamState.sources.push({
+          sourceType: event.sourceType,
+          id: event.id,
+          url: event.url,
+          title: event.title,
+        });
+      } else if (event.type === "reasoning-delta") {
+        streamState.reasoning += event.text ?? "";
+      }
       onEvent?.(event);
       this.emit(conversationId, { ...event, conversationId });
     });
@@ -134,9 +196,13 @@ export class Gateway {
         fullText = value; // Return value of the generator is the full text
         break;
       }
+      streamState.partialText += value;
       this.emit(conversationId, { type: "delta", conversationId, text: value });
       yield value;
     }
+
+    // Clear active stream state
+    this.activeStreams.delete(conversationId);
 
     await this.store.addMessage(conversationId, {
       role: "assistant",
@@ -183,6 +249,7 @@ export class Gateway {
    */
   async clearConversation(conversationId: string): Promise<void> {
     await this.store.clearHistory(conversationId);
+    this.emit(conversationId, { type: "cleared", conversationId });
   }
 
   /** List conversations, optionally filtered by channel name. */
