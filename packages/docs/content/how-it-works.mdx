@@ -57,6 +57,10 @@ This guide explains Pandora's architecture — useful if you want to understand 
 6. Save response to store
 7. Return response to channel
 
+**Pub/sub event system:** The Gateway emits `GatewayEvent`s for every conversation — including `user-message`, `delta`, `tool-call`, `tool-result`, and `done`. Any component can subscribe to a conversation's events via `gateway.subscribe(conversationId, listener)`. This powers cross-channel streaming: the web UI subscribes to Telegram conversations and receives live token-by-token updates as the agent responds.
+
+All messages — from any channel — go through the streaming path internally (`handleMessageStream`), ensuring events are always emitted regardless of whether the originating channel supports streaming.
+
 ### Store
 
 **What it does:** Persists conversation history so the AI remembers previous messages.

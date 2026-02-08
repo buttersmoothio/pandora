@@ -112,3 +112,13 @@ export type StreamEvent =
   | { type: "source"; sourceType: string; id: string; url?: string; title?: string; providerMetadata?: Record<string, unknown> }
   | { type: "reasoning-delta"; text: string }
   | { type: "step-finish"; usage: { inputTokens?: number; outputTokens?: number; totalTokens?: number }; finishReason: string };
+
+/**
+ * Events emitted by the Gateway's pub/sub system for cross-channel streaming.
+ * Subscribers receive these for real-time visibility into any conversation.
+ */
+export type GatewayEvent =
+  | { type: "user-message"; conversationId: string; channelName: string; content: string }
+  | { type: "delta"; conversationId: string; text: string }
+  | { type: "done"; conversationId: string }
+  | (StreamEvent & { conversationId: string });

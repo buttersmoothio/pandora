@@ -109,6 +109,33 @@ ws.onmessage = (event) => {
 };
 ```
 
+### Watch a conversation (cross-channel streaming)
+
+The web UI shows conversations from **all channels** (Telegram, web, etc.). To receive live streaming events for any conversation — including those from other channels — send a `watch` message:
+
+```json
+{ "type": "watch", "conversationId": "telegram-123456" }
+```
+
+While watching, you'll receive real-time events as they happen:
+
+```json
+{ "type": "user-message", "conversationId": "telegram-123456", "channelName": "telegram", "content": "Hello" }
+{ "type": "delta", "conversationId": "telegram-123456", "text": "Hi" }
+{ "type": "delta", "conversationId": "telegram-123456", "text": " there!" }
+{ "type": "tool-call", "conversationId": "telegram-123456", "toolCallId": "...", "toolName": "...", "args": {} }
+{ "type": "tool-result", "conversationId": "telegram-123456", "toolCallId": "...", "toolName": "...", "result": "..." }
+{ "type": "done", "conversationId": "telegram-123456" }
+```
+
+To stop watching:
+
+```json
+{ "type": "unwatch" }
+```
+
+Watching automatically switches when you send a new `watch` — the previous subscription is replaced. The subscription is also cleaned up when the WebSocket disconnects.
+
 ## HTTP API (non-streaming)
 
 For clients that don't need streaming, a simple REST endpoint is available.

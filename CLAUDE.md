@@ -25,9 +25,9 @@ bun run --filter @pandora/docs dev     # Docs only (port 8080)
 ## Where Things Live
 
 ### Core (`packages/core/src/`)
-- `types.ts` — Message, ChatMessage, Channel, ChannelCapabilities, StreamEvent
+- `types.ts` — Message, ChatMessage, Channel, ChannelCapabilities, StreamEvent, GatewayEvent
 - `agent.ts` — Agent with `chat()` and `chatStream(history, capabilities, onEvent?)`
-- `gateway.ts` — Routes messages between channels, store, and agent
+- `gateway.ts` — Routes messages between channels, store, and agent; pub/sub for cross-channel streaming
 - `registries/` — Extension registries (channels, subagents, tools, store, search-tools)
 - `config.ts` — Zod schema + JSONC loader
 - `loader.ts` — Auto-discovery via Bun Glob
@@ -71,18 +71,21 @@ Files starting with `_` are skipped. To add a new extension: create the file, ca
 Channel → Gateway → Agent → Gateway → Channel
 
 - **Streaming** (web): `chatStream()` yields text deltas + `onEvent` callback for tool-call/tool-result events
-- **Non-streaming** (telegram): `chat()` returns complete response
+- **Non-streaming** (telegram): `handleMessage()` delegates to streaming internally
+- **Cross-channel**: Gateway pub/sub emits events for all conversations; web UI subscribes via `watch`/`unwatch`
 
 ## Web Channel Protocol
 
 Backend serves HTTP REST + WebSocket on port 3000:
 - `GET /api/validate` — token validation
-- `GET /api/conversations` — list conversations
+- `GET /api/conversations` — list all conversations (all channels)
 - `GET /api/conversations/:id/history` — conversation messages
 - `DELETE /api/conversations/:id` — delete conversation
 - `WS /ws?token=...` — streaming chat (messages include `conversationId`)
 
-WebSocket message types: `message`, `clear`, `delta`, `done`, `tool-call`, `tool-result`, `error`
+WebSocket message types: `message`, `clear`, `watch`, `unwatch`, `delta`, `done`, `tool-call`, `tool-result`, `user-message`, `error`
+
+The `watch`/`unwatch` messages subscribe to Gateway events for cross-channel streaming. When watching a conversation, the client receives live `delta`, `tool-call`, `tool-result`, `user-message`, and `done` events from any channel processing that conversation.
 
 ## Tech Stack
 

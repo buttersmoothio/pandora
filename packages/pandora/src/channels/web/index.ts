@@ -21,6 +21,7 @@ import {
   type Message,
   type MessageHandler,
   type StreamEvent,
+  type GatewayEvent,
 } from "@pandora/core";
 
 type WebConfig = ChannelConfig & { token: string; port?: number };
@@ -34,7 +35,7 @@ const WEB_CAPABILITIES: ChannelCapabilities = {
   maxMessageLength: -1,
 };
 
-type WebSocketData = { token: string };
+type WebSocketData = { token: string; unsubscribe?: () => void; processing?: boolean };
 
 /** CORS headers for cross-origin requests (web UI on port 3001). */
 function corsHeaders(): Record<string, string> {
@@ -100,7 +101,7 @@ export class WebChannel implements Channel {
               return jsonResponse({ error: "Unauthorized" }, 401);
             }
 
-            const conversations = await channel.gateway.listConversations("web");
+            const conversations = await channel.gateway.listConversations();
             return jsonResponse({ conversations });
           },
         },
@@ -179,6 +180,26 @@ export class WebChannel implements Channel {
             return;
           }
 
+          if (data.type === "watch") {
+            const wsData = ws.data as WebSocketData;
+            // Unsubscribe from any previous watch
+            wsData.unsubscribe?.();
+            wsData.unsubscribe = channel.gateway.subscribe(conversationId, (event: GatewayEvent) => {
+              // Skip events during self-processing to avoid duplicates
+              // (the message handler sends events directly for web-initiated messages)
+              if ((ws.data as WebSocketData).processing) return;
+              ws.send(JSON.stringify(event));
+            });
+            return;
+          }
+
+          if (data.type === "unwatch") {
+            const wsData = ws.data as WebSocketData;
+            wsData.unsubscribe?.();
+            wsData.unsubscribe = undefined;
+            return;
+          }
+
           if (data.type === "message") {
             if (!data.content) {
               ws.send(
@@ -187,13 +208,17 @@ export class WebChannel implements Channel {
               return;
             }
 
+            const wsData = ws.data as WebSocketData;
             const message: Message = {
               channelName: channel.name,
-              userId: (ws.data as WebSocketData).token,
+              userId: wsData.token,
               conversationId,
               content: data.content,
             };
 
+            // Mark as processing so the watch subscription skips events
+            // (we send them directly below to avoid duplicates)
+            wsData.processing = true;
             try {
               const onEvent = (event: StreamEvent) => {
                 ws.send(JSON.stringify(event));
@@ -217,6 +242,8 @@ export class WebChannel implements Channel {
                     error instanceof Error ? error.message : "Internal error",
                 })
               );
+            } finally {
+              wsData.processing = false;
             }
             return;
           }
@@ -230,6 +257,8 @@ export class WebChannel implements Channel {
         },
 
         close(ws) {
+          const wsData = ws.data as WebSocketData;
+          wsData.unsubscribe?.();
           logger.channel("web", "WebSocket disconnected");
         },
       },

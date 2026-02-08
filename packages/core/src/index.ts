@@ -42,6 +42,7 @@ export type {
   ChannelCapabilities,
   Channel,
   StreamEvent,
+  GatewayEvent,
 } from "./types";
 
 // Registries - all extension points

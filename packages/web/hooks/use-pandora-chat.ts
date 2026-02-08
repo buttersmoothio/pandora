@@ -66,11 +66,17 @@ export function usePandoraChat({
   // Keep ref in sync
   conversationIdRef.current = conversationId;
 
-  // Reset messages when conversation changes
+  // Reset messages and watch the new conversation when it changes
   useEffect(() => {
     setMessages([]);
     streamingIdRef.current = null;
     setStatus("ready");
+
+    // Send watch when WebSocket is open
+    const ws = wsRef.current;
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: "watch", conversationId }));
+    }
   }, [conversationId]);
 
   // Connect WebSocket
@@ -82,14 +88,18 @@ export function usePandoraChat({
 
     ws.onopen = () => {
       setStatus("ready");
+      // Watch the current conversation for cross-channel events
+      ws.send(JSON.stringify({ type: "watch", conversationId: conversationIdRef.current }));
     };
 
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data) as {
         type: string;
         text?: string;
+        content?: string;
         message?: string;
         conversationId?: string;
+        channelName?: string;
         toolCallId?: string;
         toolName?: string;
         args?: unknown;
@@ -101,6 +111,24 @@ export function usePandoraChat({
       };
 
       switch (data.type) {
+        case "user-message": {
+          // A message arrived from another channel (e.g. Telegram)
+          const userMsg: ChatMessage = {
+            id: nextId(),
+            role: "user",
+            content: data.content ?? "",
+          };
+          const asstId = nextId();
+          const asstMsg: ChatMessage = {
+            id: asstId,
+            role: "assistant",
+            content: "",
+          };
+          streamingIdRef.current = asstId;
+          setMessages((prev) => [...prev, userMsg, asstMsg]);
+          setStatus("submitted");
+          break;
+        }
         case "delta": {
           const id = streamingIdRef.current;
           if (!id) break;

@@ -323,6 +323,11 @@ function ChatInterface({
                   <span className="min-w-0 flex-1 truncate">
                     {c.preview || "New conversation"}
                   </span>
+                  {c.channelName && c.channelName !== "web" && (
+                    <span className="ml-1 shrink-0 rounded bg-muted px-1 py-0.5 text-[10px] text-muted-foreground">
+                      {c.channelName}
+                    </span>
+                  )}
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button

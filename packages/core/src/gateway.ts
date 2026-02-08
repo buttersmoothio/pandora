@@ -16,11 +16,16 @@ import type {
   ChannelCapabilities,
   MessageHandler,
   StreamEvent,
+  GatewayEvent,
 } from "./types";
 import { logger } from "./logger";
 
+type GatewayListener = (event: GatewayEvent) => void;
+
 /** Central hub: receives messages from channels, stores them, calls the agent, stores and returns the response. */
 export class Gateway {
+  private listeners = new Map<string, Set<GatewayListener>>();
+
   /**
    * @param store - Message store for conversation history.
    * @param agent - AI agent for generating responses.
@@ -29,6 +34,29 @@ export class Gateway {
     private store: IMessageStore,
     private agent: Agent
   ) {}
+
+  /** Subscribe to events for a conversation. Returns unsubscribe function. */
+  subscribe(conversationId: string, listener: GatewayListener): () => void {
+    let set = this.listeners.get(conversationId);
+    if (!set) {
+      set = new Set();
+      this.listeners.set(conversationId, set);
+    }
+    set.add(listener);
+    return () => {
+      set!.delete(listener);
+      if (set!.size === 0) this.listeners.delete(conversationId);
+    };
+  }
+
+  /** Emit an event to all subscribers of a conversation. */
+  private emit(conversationId: string, event: GatewayEvent): void {
+    const set = this.listeners.get(conversationId);
+    if (!set) return;
+    for (const listener of set) {
+      listener(event);
+    }
+  }
 
   /**
    * Handle an incoming message: store user message, load history, generate reply, store reply.
@@ -41,34 +69,17 @@ export class Gateway {
     message: Message,
     capabilities: ChannelCapabilities
   ): Promise<string> {
-    const { channelName, conversationId, userId, content } = message;
-    const startTime = Date.now();
+    // Delegate to streaming path — it handles store, logging, and event emission
+    const stream = this.handleMessageStream(message, capabilities);
 
-    logger.messageReceived(channelName, conversationId, userId);
+    let fullText = "";
+    while (true) {
+      const { value, done } = await stream.next();
+      if (done) break;
+      fullText += value;
+    }
 
-    // Store the incoming user message
-    await this.store.addMessage(
-      conversationId,
-      { role: "user", content },
-      { channelName, userId }
-    );
-
-    // Get full conversation history
-    const history = await this.store.getHistory(conversationId);
-
-    // Generate AI response
-    const response = await this.agent.chat(history, capabilities);
-
-    // Store the assistant's response
-    await this.store.addMessage(conversationId, {
-      role: "assistant",
-      content: response,
-    });
-
-    const durationMs = Date.now() - startTime;
-    logger.messageSent(channelName, conversationId, response.length, durationMs);
-
-    return response;
+    return fullText;
   }
 
   /**
@@ -100,6 +111,9 @@ export class Gateway {
 
     logger.messageReceived(channelName, conversationId, userId);
 
+    // Emit user-message for subscribers (e.g. other web tabs watching this conversation)
+    this.emit(conversationId, { type: "user-message", conversationId, channelName, content });
+
     await this.store.addMessage(
       conversationId,
       { role: "user", content },
@@ -108,7 +122,10 @@ export class Gateway {
 
     const history = await this.store.getHistory(conversationId);
 
-    const stream = this.agent.chatStream(history, capabilities, onEvent);
+    const stream = this.agent.chatStream(history, capabilities, (event) => {
+      onEvent?.(event);
+      this.emit(conversationId, { ...event, conversationId });
+    });
 
     let fullText = "";
     while (true) {
@@ -117,6 +134,7 @@ export class Gateway {
         fullText = value; // Return value of the generator is the full text
         break;
       }
+      this.emit(conversationId, { type: "delta", conversationId, text: value });
       yield value;
     }
 
@@ -124,6 +142,8 @@ export class Gateway {
       role: "assistant",
       content: fullText,
     });
+
+    this.emit(conversationId, { type: "done", conversationId });
 
     const durationMs = Date.now() - startTime;
     logger.messageSent(channelName, conversationId, fullText.length, durationMs);
