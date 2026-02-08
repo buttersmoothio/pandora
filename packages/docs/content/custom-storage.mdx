@@ -1,0 +1,282 @@
+# Custom Storage
+
+Storage backends persist conversation history. This guide walks you through creating one.
+
+## Example: PostgreSQL backend
+
+Let's build a Postgres storage backend.
+
+### Step 1: Install dependencies
+
+```bash
+bun add pg
+```
+
+### Step 2: Create the file
+
+Create `packages/pandora/src/store/postgres.ts`:
+
+```typescript
+import { defineStore, type IMessageStore, type ChatMessage } from "@pandora/core";
+import { Pool } from "pg";
+
+interface PostgresConfig {
+  type: string;
+  connectionString: string;
+}
+
+class PostgresStore implements IMessageStore {
+  private pool: Pool;
+
+  constructor(connectionString: string) {
+    this.pool = new Pool({ connectionString });
+  }
+
+  async addMessage(conversationId: string, message: ChatMessage): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO messages (conversation_id, role, content, created_at)
+       VALUES ($1, $2, $3, NOW())`,
+      [conversationId, message.role, JSON.stringify(message.content)]
+    );
+  }
+
+  async getHistory(conversationId: string): Promise<ChatMessage[]> {
+    const result = await this.pool.query(
+      `SELECT role, content FROM messages
+       WHERE conversation_id = $1
+       ORDER BY created_at`,
+      [conversationId]
+    );
+
+    return result.rows.map((row) => ({
+      role: row.role,
+      content: JSON.parse(row.content),
+    }));
+  }
+
+  async clearHistory(conversationId: string): Promise<void> {
+    await this.pool.query(
+      "DELETE FROM messages WHERE conversation_id = $1",
+      [conversationId]
+    );
+  }
+
+  async close(): Promise<void> {
+    await this.pool.end();
+  }
+}
+
+export default defineStore({
+  type: "postgres",
+  create: (config) =>
+    new PostgresStore((config as PostgresConfig).connectionString),
+});
+```
+
+### Step 3: Create the table
+
+Run this SQL on your Postgres database:
+
+```sql
+CREATE TABLE messages (
+  id SERIAL PRIMARY KEY,
+  conversation_id TEXT NOT NULL,
+  role TEXT NOT NULL,
+  content TEXT NOT NULL,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX idx_messages_conversation ON messages(conversation_id);
+```
+
+### Step 4: Add to config
+
+```jsonc
+"storage": {
+  "type": "postgres",
+  "connectionString": "postgresql://user:pass@localhost:5432/pandora"
+}
+```
+
+### Step 5: Done!
+
+Restart Pandora. Conversations are now stored in Postgres.
+
+---
+
+## The IMessageStore interface
+
+Your storage backend must implement:
+
+```typescript
+interface IMessageStore {
+  addMessage(conversationId: string, message: ChatMessage): Promise<void>;
+  getHistory(conversationId: string): Promise<ChatMessage[]>;
+  clearHistory(conversationId: string): Promise<void>;
+  close(): Promise<void>;
+}
+```
+
+| Method | Description |
+|--------|-------------|
+| `addMessage` | Save a new message |
+| `getHistory` | Get all messages for a conversation |
+| `clearHistory` | Delete all messages for a conversation |
+| `close` | Clean up connections on shutdown |
+
+---
+
+## ChatMessage format
+
+Messages have this structure:
+
+```typescript
+interface ChatMessage {
+  role: "user" | "assistant" | "system";
+  content: string | ContentPart[];  // Can be text or multimodal
+}
+```
+
+For simple text, `content` is a string. For messages with images or structured content, it's an array.
+
+Store `content` as JSON to handle both cases:
+
+```typescript
+// Storing
+await db.insert({
+  content: JSON.stringify(message.content),
+});
+
+// Reading
+return {
+  role: row.role,
+  content: JSON.parse(row.content),
+};
+```
+
+---
+
+## More examples
+
+### Redis backend
+
+```typescript
+import { createClient } from "redis";
+
+class RedisStore implements IMessageStore {
+  private client: ReturnType<typeof createClient>;
+
+  constructor(url: string) {
+    this.client = createClient({ url });
+  }
+
+  async addMessage(conversationId: string, message: ChatMessage): Promise<void> {
+    await this.client.connect();
+    await this.client.rPush(
+      `messages:${conversationId}`,
+      JSON.stringify(message)
+    );
+  }
+
+  async getHistory(conversationId: string): Promise<ChatMessage[]> {
+    await this.client.connect();
+    const messages = await this.client.lRange(`messages:${conversationId}`, 0, -1);
+    return messages.map((m) => JSON.parse(m));
+  }
+
+  async clearHistory(conversationId: string): Promise<void> {
+    await this.client.connect();
+    await this.client.del(`messages:${conversationId}`);
+  }
+
+  async close(): Promise<void> {
+    await this.client.quit();
+  }
+}
+
+export default defineStore({
+  type: "redis",
+  create: (config) => new RedisStore((config as { url: string }).url),
+});
+```
+
+Config:
+
+```jsonc
+"storage": {
+  "type": "redis",
+  "url": "redis://localhost:6379"
+}
+```
+
+### MongoDB backend
+
+```typescript
+import { MongoClient, Collection } from "mongodb";
+
+class MongoStore implements IMessageStore {
+  private client: MongoClient;
+  private collection: Collection;
+
+  constructor(uri: string, dbName: string) {
+    this.client = new MongoClient(uri);
+    this.collection = this.client.db(dbName).collection("messages");
+  }
+
+  async addMessage(conversationId: string, message: ChatMessage): Promise<void> {
+    await this.collection.insertOne({
+      conversationId,
+      ...message,
+      createdAt: new Date(),
+    });
+  }
+
+  async getHistory(conversationId: string): Promise<ChatMessage[]> {
+    const docs = await this.collection
+      .find({ conversationId })
+      .sort({ createdAt: 1 })
+      .toArray();
+
+    return docs.map((doc) => ({
+      role: doc.role,
+      content: doc.content,
+    }));
+  }
+
+  async clearHistory(conversationId: string): Promise<void> {
+    await this.collection.deleteMany({ conversationId });
+  }
+
+  async close(): Promise<void> {
+    await this.client.close();
+  }
+}
+
+export default defineStore({
+  type: "mongodb",
+  create: (config) => {
+    const { uri, database } = config as { uri: string; database: string };
+    return new MongoStore(uri, database);
+  },
+});
+```
+
+Config:
+
+```jsonc
+"storage": {
+  "type": "mongodb",
+  "uri": "mongodb://localhost:27017",
+  "database": "pandora"
+}
+```
+
+---
+
+## Tips
+
+- **Index by conversation_id** — Queries filter by this field
+- **Order by timestamp** — History should be chronological
+- **Handle JSON content** — Content can be string or array
+- **Connection pooling** — Reuse connections for performance
+- **Graceful cleanup** — Close connections properly in `close()`

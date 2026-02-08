@@ -1,0 +1,262 @@
+# Custom Tools
+
+Tools give your AI new capabilities. This guide walks you through creating one.
+
+## Example: Weather tool
+
+Let's build a weather tool that fetches current conditions.
+
+### Step 1: Create the file
+
+Create `packages/pandora/src/tools/weather.ts`:
+
+```typescript
+import { tool } from "ai";
+import { z } from "zod";
+import { defineTool } from "@pandora/core";
+
+export default defineTool({
+  name: "weather",
+
+  factory: (config) => ({
+    name: "weather",
+
+    tool: tool({
+      description: "Get current weather for a location",
+
+      parameters: z.object({
+        location: z.string().describe("City name, e.g. 'London' or 'New York'"),
+      }),
+
+      execute: async ({ location }) => {
+        const apiKey = (config as { apiKey?: string })?.apiKey;
+
+        const response = await fetch(
+          `https://api.weatherapi.com/v1/current.json?key=${apiKey}&q=${location}`
+        );
+        const data = await response.json();
+
+        return `Weather in ${location}: ${data.current.temp_c}°C, ${data.current.condition.text}`;
+      },
+    }),
+  }),
+});
+```
+
+### Step 2: Add to config
+
+Edit `config.jsonc`:
+
+```jsonc
+"tools": {
+  "weather": {
+    "apiKey": "your-weather-api-key"
+  }
+}
+```
+
+### Step 3: Done!
+
+Restart Pandora. Now you can ask "What's the weather in Tokyo?"
+
+---
+
+## How it works
+
+```typescript
+export default defineTool({
+  name: "weather",        // Unique name, matches config key
+
+  factory: (config) => ({ // Config from config.jsonc
+    name: "weather",      // Name for logging
+    tool: tool({ ... }),  // AI SDK tool definition
+  }),
+});
+```
+
+The `factory` function receives your tool's config (e.g., `{ apiKey: "..." }`).
+
+The `tool()` function comes from Vercel AI SDK and defines:
+- `description` — What the AI sees when deciding to use this tool
+- `parameters` — Zod schema for input validation
+- `execute` — The actual implementation
+
+---
+
+## Returning data
+
+Tools can return:
+
+**Strings** — Simple text results
+
+```typescript
+execute: async ({ location }) => {
+  return `Weather in ${location}: 72°F, Sunny`;
+}
+```
+
+**Objects** — Structured data (AI will summarize)
+
+```typescript
+execute: async ({ location }) => {
+  return {
+    location,
+    temperature: 72,
+    conditions: "Sunny",
+    humidity: 45,
+  };
+}
+```
+
+---
+
+## Restricting to specific agents
+
+By default, tools are available to all agents. To restrict:
+
+```typescript
+factory: (config) => ({
+  name: "codeRunner",
+  tool: tool({ ... }),
+
+  // Only the coder agent can use this
+  agents: ["coder"],
+}),
+```
+
+---
+
+## Tools without config
+
+If your tool doesn't need configuration:
+
+```typescript
+import { tool } from "ai";
+import { z } from "zod";
+import { defineTool } from "@pandora/core";
+
+export default defineTool({
+  name: "coinFlip",
+
+  factory: () => ({
+    name: "coinFlip",
+
+    tool: tool({
+      description: "Flip a coin",
+      parameters: z.object({}),
+
+      execute: async () => {
+        return Math.random() > 0.5 ? "Heads" : "Tails";
+      },
+    }),
+  }),
+});
+```
+
+Config:
+
+```jsonc
+"tools": {
+  "coinFlip": {}
+}
+```
+
+---
+
+## Error handling
+
+Throw errors to signal failure. The AI will see the error message:
+
+```typescript
+execute: async ({ ticker }) => {
+  const response = await fetch(`https://api.stocks.com/${ticker}`);
+
+  if (!response.ok) {
+    throw new Error(`Could not find stock: ${ticker}`);
+  }
+
+  const data = await response.json();
+  return `${ticker}: $${data.price}`;
+}
+```
+
+---
+
+## More examples
+
+### Database query
+
+```typescript
+export default defineTool({
+  name: "queryDatabase",
+
+  factory: (config) => ({
+    name: "queryDatabase",
+    agents: ["coder"],  // Only coder can query
+
+    tool: tool({
+      description: "Run a read-only SQL query",
+
+      parameters: z.object({
+        query: z.string().describe("SQL SELECT query"),
+      }),
+
+      execute: async ({ query }) => {
+        // Validate it's a SELECT
+        if (!query.trim().toLowerCase().startsWith("select")) {
+          throw new Error("Only SELECT queries allowed");
+        }
+
+        const db = new Database((config as { path: string }).path);
+        const results = db.query(query).all();
+        return JSON.stringify(results, null, 2);
+      },
+    }),
+  }),
+});
+```
+
+### HTTP API call
+
+```typescript
+export default defineTool({
+  name: "translateText",
+
+  factory: (config) => ({
+    name: "translateText",
+
+    tool: tool({
+      description: "Translate text to another language",
+
+      parameters: z.object({
+        text: z.string().describe("Text to translate"),
+        targetLang: z.string().describe("Target language code (e.g., 'es', 'fr')"),
+      }),
+
+      execute: async ({ text, targetLang }) => {
+        const response = await fetch("https://api.translate.com/v1/translate", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${(config as { apiKey: string }).apiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ text, target: targetLang }),
+        });
+
+        const data = await response.json();
+        return data.translation;
+      },
+    }),
+  }),
+});
+```
+
+---
+
+## Tips
+
+- **Keep tools focused** — One tool, one purpose
+- **Good descriptions** — Help the AI know when to use it
+- **Validate inputs** — Zod schemas catch bad input early
+- **Handle errors** — Throw meaningful error messages
+- **Test incrementally** — Add one tool at a time

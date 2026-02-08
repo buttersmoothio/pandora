@@ -1,24 +1,29 @@
 export default {
   index: "Introduction",
-  "-- Getting Started": {
+  quickstart: "Quickstart",
+  "-- Using Pandora": {
     type: "separator",
-    title: "Getting Started"
+    title: "Using Pandora"
   },
   configuration: "Configuration",
-  "how-it-works": "How It Works",
-  "-- Features": {
-    type: "separator",
-    title: "Features"
-  },
   agents: "Agents",
   tools: "Tools",
-  "web-search": "Web Search",
+  channels: "Channels",
   storage: "Storage",
-  telegram: "Telegram",
-  web: "Web",
-  "-- Extending": {
+  "-- Building Extensions": {
     type: "separator",
-    title: "Extending"
+    title: "Building Extensions"
   },
-  customization: "Customization"
+  extensions: "Overview",
+  "custom-tools": "Custom Tools",
+  "custom-agents": "Custom Agents",
+  "custom-channels": "Custom Channels",
+  "custom-storage": "Custom Storage",
+  "-- Reference": {
+    type: "separator",
+    title: "Reference"
+  },
+  architecture: "Architecture",
+  security: "Security",
+  comparison: "Pandora vs Others"
 }

@@ -297,8 +297,9 @@ function ChatInterface({
   const handleSubmit = useCallback(
     (message: PromptInputMessage) => {
       sendMessage(message.text);
+      setInput("");
     },
-    [sendMessage]
+    [sendMessage, setInput]
   );
 
   const handleSuggestion = useCallback(

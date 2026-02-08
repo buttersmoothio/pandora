@@ -1,0 +1,254 @@
+# Custom Agents
+
+Sub-agents are specialists that the operator can delegate to. This guide walks you through creating one.
+
+## Example: Translator agent
+
+Let's build a translator that handles language translation tasks.
+
+### Step 1: Create the file
+
+Create `packages/pandora/src/subagents/translator.ts`:
+
+```typescript
+import { z } from "zod";
+import { defineSubagent } from "@pandora/core";
+
+export default defineSubagent({
+  name: "translator",
+  configKey: "translator",
+
+  instructions: `You are an expert translator. Translate text between languages
+accurately while preserving tone, idioms, and cultural context.
+
+When translating:
+1. Identify the source language if not specified
+2. Translate to the requested target language
+3. Note any idioms or cultural references that don't translate directly
+4. Maintain the original meaning and tone`,
+
+  toolDescription: "Translate text between languages with cultural awareness",
+
+  inputSchema: z.object({
+    text: z.string().describe("The text to translate"),
+    targetLanguage: z.string().describe("The language to translate to"),
+  }),
+
+  inputField: "text",
+});
+```
+
+### Step 2: Add to config
+
+Edit `config.jsonc`:
+
+```jsonc
+"agents": {
+  "operator": { "model": "anthropic/claude-sonnet-4.5" },
+  "translator": { "model": "anthropic/claude-sonnet-4.5" }
+}
+```
+
+### Step 3: Done!
+
+Restart Pandora. Now you can ask "Translate 'Hello, how are you?' to Japanese."
+
+The operator will recognize this as a translation task and delegate to your translator agent.
+
+---
+
+## How it works
+
+```typescript
+export default defineSubagent({
+  name: "translator",        // Unique identifier for logging
+  configKey: "translator",   // Key in config.ai.agents
+
+  instructions: `...`,       // System prompt for this agent
+  toolDescription: "...",    // What the operator sees when delegating
+
+  inputSchema: z.object({    // What input this agent accepts
+    text: z.string(),
+    targetLanguage: z.string(),
+  }),
+
+  inputField: "text",        // Which field has the main content
+});
+```
+
+The operator sees your agent as a tool it can call. When the user asks something that matches your `toolDescription`, the operator delegates.
+
+---
+
+## Input schema
+
+The `inputSchema` defines what the operator passes to your agent:
+
+```typescript
+inputSchema: z.object({
+  text: z.string().describe("The text to translate"),
+  targetLanguage: z.string().describe("Target language"),
+}),
+```
+
+The `.describe()` calls help the operator understand what to provide.
+
+### inputField
+
+The `inputField` tells Pandora which schema field contains the main prompt:
+
+```typescript
+inputField: "text",  // The 'text' field is the primary input
+```
+
+If not specified, uses the first field.
+
+---
+
+## Writing good instructions
+
+Instructions are the system prompt for your agent. Be specific:
+
+**Good:**
+```typescript
+instructions: `You are a code reviewer. Analyze code for:
+- Bugs and potential issues
+- Security vulnerabilities
+- Performance problems
+- Style and readability
+
+Be specific and actionable in your feedback. Include line numbers.`,
+```
+
+**Not as good:**
+```typescript
+instructions: `You review code.`,
+```
+
+---
+
+## Giving agents tools
+
+By default, sub-agents have access to all configured tools. To customize:
+
+### No tools (for search-enabled models)
+
+```typescript
+export default defineSubagent({
+  name: "webSearchNative",
+  // ...
+
+  getTools: () => ({}),  // No tools - model has built-in search
+});
+```
+
+### Specific tools only
+
+```typescript
+import { createToolsForAgent } from "@pandora/core";
+
+export default defineSubagent({
+  name: "coder",
+  // ...
+
+  getTools: (config) => {
+    // Only get tools available to 'coder'
+    return createToolsForAgent("coder", config.tools ?? {});
+  },
+});
+```
+
+---
+
+## More examples
+
+### Writing assistant
+
+```typescript
+export default defineSubagent({
+  name: "writer",
+  configKey: "writer",
+
+  instructions: `You are a writing assistant. Help with:
+- Drafting content (emails, articles, documentation)
+- Editing and proofreading
+- Improving clarity and flow
+- Adjusting tone for different audiences
+
+Ask clarifying questions if the request is ambiguous.`,
+
+  toolDescription: "Help with writing, editing, and improving text",
+
+  inputSchema: z.object({
+    task: z.string().describe("What kind of writing help is needed"),
+    content: z.string().optional().describe("Existing content to edit, if any"),
+  }),
+
+  inputField: "task",
+});
+```
+
+### Data analyst
+
+```typescript
+export default defineSubagent({
+  name: "analyst",
+  configKey: "analyst",
+
+  instructions: `You are a data analyst. Help with:
+- Analyzing datasets
+- Creating visualizations
+- Statistical analysis
+- Data cleaning suggestions
+- Interpreting results
+
+Be precise with numbers and explain your methodology.`,
+
+  toolDescription: "Analyze data, create visualizations, and provide insights",
+
+  inputSchema: z.object({
+    question: z.string().describe("What to analyze or understand"),
+    data: z.string().optional().describe("Data to analyze, if provided"),
+  }),
+
+  inputField: "question",
+});
+```
+
+### Summarizer
+
+```typescript
+export default defineSubagent({
+  name: "summarizer",
+  configKey: "summarizer",
+
+  instructions: `You summarize content concisely. Rules:
+- Keep the key points
+- Use bullet points for clarity
+- Maintain accuracy
+- Note what was omitted if significant
+
+Adjust length based on the content - short for simple topics,
+longer for complex ones.`,
+
+  toolDescription: "Summarize articles, documents, or long text",
+
+  inputSchema: z.object({
+    content: z.string().describe("The content to summarize"),
+    format: z.enum(["bullets", "paragraph", "tldr"]).optional()
+      .describe("Output format preference"),
+  }),
+
+  inputField: "content",
+});
+```
+
+---
+
+## Tips
+
+- **Focused purpose** — Each agent should do one thing well
+- **Clear instructions** — Be specific about what the agent should do
+- **Good tool description** — Help the operator know when to delegate
+- **Use the right model** — Powerful model for complex tasks, fast model for simple ones
+- **Test the delegation** — Ask questions that should trigger your agent

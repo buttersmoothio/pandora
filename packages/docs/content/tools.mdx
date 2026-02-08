@@ -1,18 +1,6 @@
-# Tools Guide
+# Tools
 
-Tools give your AI agents extra capabilities beyond conversation — like getting the current time, searching the web, or calling external APIs.
-
-## Quick start
-
-Enable tools in `config.jsonc`:
-
-```jsonc
-"tools": {
-  "datetime": {}
-}
-```
-
-Tools are then available to all agents automatically.
+Tools give your AI agents extra capabilities — like getting the current time, searching the web, or calling APIs.
 
 ## How tools work
 
@@ -21,28 +9,34 @@ User: "What time is it?"
          ↓
      Operator decides to use datetime tool
          ↓
-     Tool returns: "Saturday, February 7, 2026 at 2:30 PM EST"
+     Tool returns: "2026-02-08T14:30:00Z"
          ↓
-     Operator: "It's currently 2:30 PM EST on Saturday, February 7th, 2026."
+     Operator: "It's 2:30 PM on February 8th, 2026."
 ```
 
-1. User asks a question
-2. The AI decides if a tool would help
-3. AI calls the tool with appropriate parameters
-4. Tool returns data
-5. AI incorporates the result into its response
+The AI decides when to use tools — you don't need to ask explicitly.
 
-The AI decides when to use tools — you don't need to explicitly ask.
+## Configuration
+
+Enable tools in `config.jsonc`:
+
+```jsonc
+"ai": {
+  "tools": {
+    "datetime": {}
+  }
+}
+```
+
+Tools are then available to all agents automatically.
 
 ---
 
-## Available Tools
+## Built-in Tools
 
 ### datetime
 
-Returns the current date and time.
-
-**Configuration:**
+Returns the current date and time. No API key needed.
 
 ```jsonc
 "tools": {
@@ -50,44 +44,118 @@ Returns the current date and time.
 }
 ```
 
-No API key required.
-
-**What it provides:**
-- Current date and time
-- Day of week
-- Timezone information
-
-**Example uses:**
-- "What time is it?"
-- "What's today's date?"
-- "What day of the week is it?"
-- Scheduling and time-sensitive tasks
+**Example uses:** "What time is it?", "What's today's date?", "What day is it?"
 
 ---
 
-### Search backends
+## Web Search Tools
 
-These tools provide web search capabilities for the `webSearchTool` agent:
+These tools power the `webSearchTool` agent. Configure one, then set it as the `searchBackend`.
 
-| Tool | Description | API Key |
-|------|-------------|---------|
-| `tavilySearch` | AI-powered web search | [tavily.com](https://tavily.com/) |
-| `exaSearch` | Semantic search with content extraction | [dashboard.exa.ai](https://dashboard.exa.ai/api-keys) |
-| `perplexitySearch` | Real-time search with filtering | [perplexity.ai](https://www.perplexity.ai/account/api/keys) |
+### Tavily
 
-See the [Web Search Guide](/web-search) for detailed setup instructions.
-
-**Example configuration:**
+AI-optimized web search with high-quality results.
 
 ```jsonc
 "tools": {
-  "tavilySearch": { "apiKey": "tvly-your-key" }
+  "tavilySearch": { "apiKey": "tvly-..." }
+},
+"agents": {
+  "webSearchTool": {
+    "model": "anthropic/claude-sonnet-4.5",
+    "searchBackend": "tavilySearch"
+  }
+}
+```
+
+| | |
+|--|--|
+| Get API key | [tavily.com](https://tavily.com/) |
+| Free tier | Yes |
+| Best for | General search, news, current events |
+
+### Exa
+
+Semantic search that finds conceptually similar content.
+
+```jsonc
+"tools": {
+  "exaSearch": { "apiKey": "exa-..." }
+},
+"agents": {
+  "webSearchTool": {
+    "model": "anthropic/claude-sonnet-4.5",
+    "searchBackend": "exaSearch"
+  }
+}
+```
+
+| | |
+|--|--|
+| Get API key | [dashboard.exa.ai](https://dashboard.exa.ai/api-keys) |
+| Free tier | Yes |
+| Best for | Research, finding related content |
+
+### Perplexity Search
+
+Real-time search with filtering options.
+
+```jsonc
+"tools": {
+  "perplexitySearch": { "apiKey": "pplx-..." }
+},
+"agents": {
+  "webSearchTool": {
+    "model": "anthropic/claude-sonnet-4.5",
+    "searchBackend": "perplexitySearch"
+  }
+}
+```
+
+| | |
+|--|--|
+| Get API key | [perplexity.ai/account/api/keys](https://www.perplexity.ai/account/api/keys) |
+| Free tier | No |
+| Best for | Time-sensitive queries |
+
+---
+
+## Native vs Tool-based Web Search
+
+Pandora offers two approaches to web search:
+
+| | Native Search | Tool-based Search |
+|--|---------------|-------------------|
+| Config | `webSearchNative` agent | `webSearchTool` agent + search tool |
+| Models | Search-enabled only (Perplexity, Gemini) | Any model |
+| Extra cost | None | Search API costs |
+| Speed | Faster | Slightly slower |
+
+**Use Native** for simplicity — just set a search model:
+
+```jsonc
+"agents": {
+  "webSearchNative": { "model": "perplexity/sonar-pro" }
+}
+```
+
+**Use Tool-based** when you want a specific model (like Claude) to analyze results:
+
+```jsonc
+"tools": {
+  "tavilySearch": { "apiKey": "..." }
+},
+"agents": {
+  "webSearchTool": {
+    "model": "anthropic/claude-sonnet-4.5",
+    "searchBackend": "tavilySearch"
+  }
 }
 ```
 
 ---
 
-## Full configuration example
+## Full example
 
 ```jsonc
 {
@@ -95,7 +163,7 @@ See the [Web Search Guide](/web-search) for detailed setup instructions.
     "gateway": { "apiKey": "your-gateway-key" },
     "tools": {
       "datetime": {},
-      "tavilySearch": { "apiKey": "tvly-your-key" }
+      "tavilySearch": { "apiKey": "tvly-..." }
     },
     "agents": {
       "operator": { "model": "anthropic/claude-sonnet-4.5" },
@@ -110,94 +178,8 @@ See the [Web Search Guide](/web-search) for detailed setup instructions.
 
 ---
 
-## Tool availability
+## Create your own
 
-By default, tools are available to **all agents** (operator and sub-agents).
+Want weather, stock prices, or custom API integrations?
 
-Some tools restrict themselves to specific agents. Tool authors can set this when creating tools.
-
-For example, a code execution tool might only be available to the `coder` agent:
-
-```typescript
-// In the tool definition
-agents: ["coder"]  // Only coder can use this
-```
-
----
-
-## Creating custom tools
-
-Want to add weather, stock prices, or your own API integrations?
-
-See [Customization → Tools](/customization#tools) for a complete guide.
-
-**Basic structure:**
-
-```typescript
-// packages/pandora/src/tools/weather.ts
-import { tool } from "ai";
-import { z } from "zod";
-import { defineTool } from "@pandora/core";
-
-export default defineTool({
-  name: "weather",
-  factory: (config) => ({
-    name: "weather",
-    tool: tool({
-      description: "Get current weather for a location",
-      inputSchema: z.object({
-        location: z.string().describe("City name"),
-      }),
-      execute: async ({ location }) => {
-        // Your implementation
-        return `Weather in ${location}: 72°F, Sunny`;
-      },
-    }),
-  }),
-});
-```
-
-Then configure it:
-
-```jsonc
-"tools": {
-  "weather": { "apiKey": "optional-if-needed" }
-}
-```
-
----
-
-## Troubleshooting
-
-### Tool not being used
-
-The AI decides when tools are helpful. To encourage tool use:
-- Ask questions the tool can answer: "What time is it?" for datetime
-- Be explicit if needed: "Use the datetime tool to..."
-
-### "Tool not configured"
-
-The tool exists but isn't in your config:
-
-```jsonc
-"tools": {
-  "datetime": {}  // Add the tool here
-}
-```
-
-### "API key required"
-
-Some tools need credentials:
-
-```jsonc
-"tools": {
-  "tavilySearch": { "apiKey": "your-actual-key" }
-}
-```
-
-### Tool returning errors
-
-Check:
-1. API key is valid
-2. Network connectivity (for external APIs)
-3. Tool-specific requirements in the tool's documentation
+See [Custom Tools](/custom-tools) to build your own.

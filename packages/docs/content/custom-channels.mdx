@@ -1,0 +1,335 @@
+# Custom Channels
+
+Channels connect Pandora to messaging platforms. This guide walks you through creating one.
+
+## Example: Discord channel
+
+Let's build a Discord channel that lets you chat with Pandora from Discord.
+
+### Step 1: Install dependencies
+
+```bash
+bun add discord.js
+```
+
+### Step 2: Create the file
+
+Create `packages/pandora/src/channels/discord/index.ts`:
+
+```typescript
+import {
+  defineChannel,
+  Gateway,
+  type Channel,
+  type ChannelCapabilities,
+  type Message,
+} from "@pandora/core";
+import { Client, GatewayIntentBits } from "discord.js";
+
+// What config this channel needs
+interface DiscordConfig {
+  token: string;
+  ownerId: string;
+}
+
+// What formatting Discord supports
+const CAPABILITIES: ChannelCapabilities = {
+  markdown: true,
+  html: false,
+  maxLength: 2000,
+  supportedMedia: ["image", "file"],
+};
+
+class DiscordChannel implements Channel {
+  private client: Client;
+  private config: DiscordConfig;
+  private gateway: Gateway;
+
+  constructor(config: DiscordConfig, gateway: Gateway) {
+    this.config = config;
+    this.gateway = gateway;
+    this.client = new Client({
+      intents: [
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.MessageContent,
+      ],
+    });
+  }
+
+  async start(): Promise<void> {
+    // Handle incoming messages
+    this.client.on("messageCreate", async (msg) => {
+      // Ignore bots
+      if (msg.author.bot) return;
+
+      // Only respond to owner
+      if (msg.author.id !== this.config.ownerId) return;
+
+      // Build message for gateway
+      const message: Message = {
+        id: msg.id,
+        conversationId: `discord-${msg.channelId}`,
+        userId: msg.author.id,
+        text: msg.content,
+        timestamp: msg.createdAt,
+      };
+
+      // Show typing indicator
+      await msg.channel.sendTyping();
+
+      // Process through gateway
+      const response = await this.gateway.handleMessage(
+        message,
+        CAPABILITIES
+      );
+
+      // Send response
+      await msg.reply(response);
+    });
+
+    // Connect to Discord
+    await this.client.login(this.config.token);
+    console.log("[Channel] [discord] Started");
+  }
+
+  async stop(): Promise<void> {
+    this.client.destroy();
+  }
+}
+
+// Register this channel
+export default defineChannel({
+  name: "discord",
+  configKey: "discord",
+  create: (config, gateway) =>
+    new DiscordChannel(config as DiscordConfig, gateway),
+});
+```
+
+### Step 3: Add to config
+
+```jsonc
+"channels": {
+  "discord": {
+    "token": "your-discord-bot-token",
+    "ownerId": "your-discord-user-id"
+  }
+}
+```
+
+### Step 4: Done!
+
+Restart Pandora. Message your Discord bot!
+
+---
+
+## How channels work
+
+```
+User sends message on platform
+         ↓
+Channel receives it
+         ↓
+Channel calls gateway.handleMessage(message, capabilities)
+         ↓
+Gateway processes with AI
+         ↓
+Channel sends response back to user
+```
+
+---
+
+## The Channel interface
+
+Your channel class must implement:
+
+```typescript
+interface Channel {
+  start(): Promise<void>;  // Connect and start listening
+  stop(): Promise<void>;   // Disconnect gracefully
+}
+```
+
+---
+
+## Capabilities
+
+Tell the AI what formatting this platform supports:
+
+```typescript
+const CAPABILITIES: ChannelCapabilities = {
+  markdown: true,         // **bold**, *italic*, `code`
+  html: false,            // <b>, <i>, <code>
+  maxLength: 2000,        // Max message length
+  supportedMedia: ["image", "file"],  // What attachments work
+};
+```
+
+The AI uses this to format responses appropriately.
+
+---
+
+## Message format
+
+Convert platform messages to Pandora's format:
+
+```typescript
+const message: Message = {
+  id: msg.id,                              // Unique message ID
+  conversationId: `discord-${channelId}`,  // Unique per conversation
+  userId: msg.author.id,                   // User identifier
+  text: msg.content,                       // Message text
+  timestamp: msg.createdAt,                // When sent
+  media: [],                               // Optional attachments
+};
+```
+
+### Handling media
+
+If the platform supports attachments:
+
+```typescript
+const message: Message = {
+  // ... other fields
+  media: [
+    {
+      type: "image",
+      url: attachment.url,
+      mimeType: "image/png",
+    },
+  ],
+};
+```
+
+---
+
+## Streaming responses
+
+For platforms that support streaming (showing text as it arrives):
+
+```typescript
+this.client.on("messageCreate", async (msg) => {
+  // ... validation ...
+
+  const message: Message = { /* ... */ };
+
+  // Start typing
+  await msg.channel.sendTyping();
+
+  // Use streaming API
+  let fullText = "";
+
+  for await (const chunk of this.gateway.handleMessageStream(
+    message,
+    CAPABILITIES
+  )) {
+    fullText += chunk;
+    // Update message if platform supports editing
+  }
+
+  // Send final response
+  await msg.reply(fullText);
+});
+```
+
+---
+
+## More examples
+
+### Slack channel
+
+```typescript
+import { App } from "@slack/bolt";
+
+class SlackChannel implements Channel {
+  private app: App;
+  private gateway: Gateway;
+
+  constructor(config: SlackConfig, gateway: Gateway) {
+    this.gateway = gateway;
+    this.app = new App({
+      token: config.botToken,
+      signingSecret: config.signingSecret,
+    });
+  }
+
+  async start(): Promise<void> {
+    this.app.message(async ({ message, say }) => {
+      if (message.user !== this.config.ownerId) return;
+
+      const msg: Message = {
+        id: message.ts,
+        conversationId: `slack-${message.channel}`,
+        userId: message.user,
+        text: message.text,
+        timestamp: new Date(parseFloat(message.ts) * 1000),
+      };
+
+      const response = await this.gateway.handleMessage(msg, CAPABILITIES);
+      await say(response);
+    });
+
+    await this.app.start();
+  }
+
+  async stop(): Promise<void> {
+    await this.app.stop();
+  }
+}
+```
+
+### CLI channel
+
+```typescript
+import * as readline from "readline";
+
+class CLIChannel implements Channel {
+  private gateway: Gateway;
+  private rl: readline.Interface;
+
+  constructor(config: {}, gateway: Gateway) {
+    this.gateway = gateway;
+  }
+
+  async start(): Promise<void> {
+    this.rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout,
+    });
+
+    console.log("Pandora CLI - Type your message:");
+
+    this.rl.on("line", async (input) => {
+      const message: Message = {
+        id: Date.now().toString(),
+        conversationId: "cli",
+        userId: "cli-user",
+        text: input,
+        timestamp: new Date(),
+      };
+
+      const response = await this.gateway.handleMessage(
+        message,
+        { markdown: true, html: false, maxLength: Infinity }
+      );
+
+      console.log(`\nPandora: ${response}\n`);
+    });
+  }
+
+  async stop(): Promise<void> {
+    this.rl.close();
+  }
+}
+```
+
+---
+
+## Tips
+
+- **Owner check** — Restrict to your user ID to prevent unauthorized use
+- **Error handling** — Catch errors and send friendly messages
+- **Typing indicators** — Show the user something is happening
+- **Long messages** — Split responses that exceed platform limits
+- **Graceful shutdown** — Clean up connections in `stop()`

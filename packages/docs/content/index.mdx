@@ -1,98 +1,40 @@
-# Pandora Documentation
+# Pandora
 
-Welcome to the Pandora documentation. Pandora is an extensible AI assistant that you can customize with your own agents, tools, and integrations.
+Your personal AI assistant that you fully control.
 
-## Getting Started
+Pandora is an open-source AI assistant designed to be simple, hackable, and yours. Connect it to Telegram, use it from the web, or build your own integrations. Add custom tools, create specialized agents, or swap out any component.
 
-| Guide | Description |
-|-------|-------------|
-| [**Configuration**](/configuration) | Complete reference for all settings |
-| [**How Pandora Works**](/how-it-works) | Architecture and concepts |
+## Why Pandora?
 
-## Feature Guides
+**Simple** — A single config file gets you running. No complex setup, no accounts to manage, no cloud dependencies.
 
-| Guide | Description |
-|-------|-------------|
-| [**Agents**](/agents) | Set up the operator and sub-agents (coder, research) |
-| [**Tools**](/tools) | Enable tools like datetime and search |
-| [**Web Search**](/web-search) | Configure web search with native or tool-based approaches |
-| [**Storage**](/storage) | Choose between SQLite and memory storage |
-| [**Telegram Setup**](/telegram) | Connect to Telegram |
+**Hackable** — Every part is extensible. Add a tool in 20 lines of code. Create a new chat channel in under 100. The entire codebase is ~3k lines.
 
-## Extending Pandora
+**Yours** — Runs on your machine. Your conversations stay private. Use any AI model you want.
 
-| Guide | Description |
-|-------|-------------|
-| [**Customization**](/customization) | Create your own agents, tools, channels, and storage backends |
+## What can it do?
 
-## Common tasks
+Out of the box, Pandora comes with:
 
-### I want to change AI models
+- **Multi-agent system** — A main operator delegates to specialists (coder, research, web search)
+- **Any AI model** — Use Claude, GPT-4, Gemini, Llama, or 50+ others via Vercel AI Gateway
+- **Telegram & Web** — Chat from your phone or browser with streaming responses
+- **Web search** — Built-in support for Perplexity, Tavily, Exa, and more
+- **Extensible everything** — Tools, agents, channels, storage — all pluggable
 
-Edit `config.jsonc` and set the `model` field for any agent:
+## Ready to start?
 
-```jsonc
-"agents": {
-  "operator": { "model": "openai/gpt-4o" }
-}
-```
+<div className="mt-6 flex gap-3">
+  <a href="/quickstart" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 no-underline">
+    Quickstart Guide →
+  </a>
+</div>
 
-See [Configuration](/configuration) for the full list of options.
+## Learn more
 
-### I want to enable sub-agents
-
-Sub-agents are specialists the main AI can delegate to:
-
-```jsonc
-"agents": {
-  "operator": { "model": "anthropic/claude-sonnet-4.5" },
-  "coder": { "model": "anthropic/claude-sonnet-4.5" },
-  "research": { "model": "openai/gpt-4o" }
-}
-```
-
-See the [Agents Guide](/agents) for details on each agent.
-
-### I want to add web search
-
-**Option 1: Native search models** (faster, no extra API cost)
-
-```jsonc
-"agents": {
-  "operator": { "model": "anthropic/claude-sonnet-4.5" },
-  "webSearchNative": { "model": "perplexity/sonar-pro" }
-}
-```
-
-**Option 2: External search API** (works with any model)
-
-```jsonc
-"tools": {
-  "tavilySearch": { "apiKey": "your-tavily-api-key" }
-},
-"agents": {
-  "operator": { "model": "anthropic/claude-sonnet-4.5" },
-  "webSearchTool": {
-    "model": "anthropic/claude-sonnet-4.5",
-    "searchBackend": "tavilySearch"
-  }
-}
-```
-
-See [Web Search Guide](/web-search) for full details on all search backends.
-
-### I want to use tools (datetime, etc.)
-
-See the [Tools Guide](/tools) for available tools and how to enable them.
-
-### I want to change storage settings
-
-See the [Storage Guide](/storage) for SQLite vs memory options.
-
-### I want to create my own tool
-
-See [Customization → Tools](/customization#tools).
-
-### I want to add Discord or Slack
-
-See [Customization → Channels](/customization#channels).
+| Section | Description |
+|---------|-------------|
+| [Quickstart](/quickstart) | Get running in 5 minutes |
+| [Configuration](/configuration) | All the settings explained |
+| [Agents](/agents) | How the multi-agent system works |
+| [Building Extensions](/extensions) | Add your own tools, agents, and channels |

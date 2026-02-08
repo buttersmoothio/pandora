@@ -1,0 +1,149 @@
+# Quickstart
+
+Get Pandora running in 5 minutes.
+
+## Prerequisites
+
+- [Bun](https://bun.sh) installed (`curl -fsSL https://bun.sh/install | bash`)
+- A [Vercel AI Gateway](https://vercel.com/ai-gateway) API key (gives access to 50+ AI models)
+- For Telegram: A bot token from [@BotFather](https://t.me/BotFather)
+
+## 1. Clone and install
+
+```bash
+git clone https://github.com/pandora-ai/pandora.git
+cd pandora
+bun install
+```
+
+## 2. Create your config
+
+Copy the example config:
+
+```bash
+cp config.example.jsonc config.jsonc
+```
+
+Edit `config.jsonc` with your keys:
+
+```jsonc
+{
+  "$schema": "./config.schema.jsonc",
+  "ai": {
+    "gateway": {
+      "apiKey": "YOUR_VERCEL_AI_GATEWAY_KEY"
+    },
+    "agents": {
+      "operator": { "model": "anthropic/claude-sonnet-4.5" }
+    }
+  },
+  "channels": {
+    "telegram": {
+      "token": "YOUR_TELEGRAM_BOT_TOKEN",
+      "ownerId": "YOUR_TELEGRAM_USER_ID"
+    }
+  }
+}
+```
+
+**Getting your Telegram user ID:** Message [@userinfobot](https://t.me/userinfobot) on Telegram.
+
+## 3. Start Pandora
+
+```bash
+bun run dev
+```
+
+You should see:
+
+```
+[Pandora] Starting...
+[Channel] [telegram] Started (long polling mode)
+```
+
+## 4. Chat!
+
+Open Telegram and message your bot. That's it!
+
+---
+
+## Next steps
+
+### Add the web interface
+
+Edit `config.jsonc` to add the web channel:
+
+```jsonc
+"channels": {
+  "telegram": { /* ... */ },
+  "web": {
+    "port": 3000,
+    "token": "pick-a-secret-token"
+  }
+}
+```
+
+Run the web UI:
+
+```bash
+bun run dev  # Starts everything
+```
+
+Open `http://localhost:3001` and enter your token.
+
+### Add specialist agents
+
+Make your AI smarter with sub-agents:
+
+```jsonc
+"agents": {
+  "operator": { "model": "anthropic/claude-sonnet-4.5" },
+  "coder": { "model": "anthropic/claude-sonnet-4.5" },
+  "research": { "model": "openai/gpt-4o" }
+}
+```
+
+See [Agents](/agents) for all available specialists.
+
+### Add web search
+
+For live internet searches:
+
+```jsonc
+"agents": {
+  "operator": { "model": "anthropic/claude-sonnet-4.5" },
+  "webSearchNative": { "model": "perplexity/sonar-pro" }
+}
+```
+
+See [Tools](/tools) for more options.
+
+### Build your own extensions
+
+Want a custom tool? A Discord channel? Check out [Building Extensions](/extensions).
+
+---
+
+## Troubleshooting
+
+### "Config validation failed"
+
+Check that all required fields are present. The error message tells you which field is missing:
+
+```
+Config validation error:
+  ai.gateway.apiKey: Required
+```
+
+### Bot doesn't respond
+
+1. Check the token is correct (copy exactly from BotFather)
+2. Check your user ID matches `ownerId` exactly
+3. Try sending `/start` to the bot
+4. Check the console for errors
+
+### Need help?
+
+- Check the [Configuration](/configuration) reference
+- Look at `config.example.jsonc` for a complete example
+- Open an issue on GitHub

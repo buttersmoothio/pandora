@@ -1,26 +1,6 @@
-# Agents Guide
+# Agents
 
-Pandora uses a multi-agent architecture where a main **operator** can delegate tasks to specialized **sub-agents**.
-
-## Quick start
-
-Minimal setup (operator only):
-
-```jsonc
-"agents": {
-  "operator": { "model": "anthropic/claude-sonnet-4.5" }
-}
-```
-
-With specialists:
-
-```jsonc
-"agents": {
-  "operator": { "model": "anthropic/claude-sonnet-4.5" },
-  "coder": { "model": "anthropic/claude-sonnet-4.5" },
-  "research": { "model": "openai/gpt-4o" }
-}
-```
+Pandora uses a multi-agent system where a main **operator** can delegate tasks to specialized **sub-agents**.
 
 ## How it works
 
@@ -32,197 +12,27 @@ User Message → Operator → Response
               Sub-agent → Back to Operator → Response
 ```
 
-1. The **operator** receives all messages
-2. It decides whether to handle directly or delegate
-3. Sub-agents are specialists that handle specific types of tasks
-4. Results flow back through the operator to the user
+The **operator** is your main AI assistant. It handles most conversations directly, but when it recognizes a specialized task, it can delegate to a sub-agent:
 
-The operator acts like a project manager — it understands the request and routes it to the right specialist.
+- Coding question? → Delegates to `coder`
+- Need research? → Delegates to `research`
+- Need current info? → Delegates to `webSearchNative`
 
----
+Each sub-agent has focused instructions and can use different AI models.
 
-## Operator (required)
+## Configuration
 
-The main AI that handles all conversations. This is the only required agent.
-
-### Configuration
+### Operator only (minimal)
 
 ```jsonc
 "agents": {
-  "operator": {
-    "model": "anthropic/claude-sonnet-4.5"
-  }
+  "operator": { "model": "anthropic/claude-sonnet-4.5" }
 }
 ```
 
-### What the operator does
+The operator alone is quite capable for general use.
 
-- Handles general conversation
-- Decides when to delegate to specialists
-- Synthesizes responses from sub-agents
-- Uses tools directly when needed
-
-### Choosing an operator model
-
-The operator needs to be capable enough to:
-- Understand user intent
-- Know when to delegate
-- Coordinate multi-step tasks
-
-**Recommended models:**
-- `anthropic/claude-sonnet-4.5` — Great balance of capability and cost
-- `openai/gpt-4o` — Strong general performance
-- `google/gemini-2.0-flash` — Fast with good reasoning
-
-**Not recommended for operator:**
-- Very small models (may struggle with delegation decisions)
-- Specialized models (may lack general reasoning)
-
----
-
-## Coder Sub-agent
-
-A specialist for programming tasks.
-
-### Configuration
-
-```jsonc
-"agents": {
-  "operator": { "model": "anthropic/claude-sonnet-4.5" },
-  "coder": { "model": "anthropic/claude-sonnet-4.5" }
-}
-```
-
-### What the coder handles
-
-- Writing new code
-- Debugging existing code
-- Code review and suggestions
-- Explaining code concepts
-- Refactoring and optimization
-
-### When the operator delegates to coder
-
-- "Write a Python function that..."
-- "Debug this code..."
-- "Review this pull request..."
-- "How do I implement..."
-- "Refactor this to be more efficient..."
-
-### Choosing a coder model
-
-The coder benefits from strong coding capabilities:
-
-**Recommended:**
-- `anthropic/claude-sonnet-4.5` — Excellent at code generation and debugging
-- `openai/gpt-4o` — Strong coding with good explanations
-- `anthropic/claude-opus-4` — Best for complex architectural decisions
-
-**Cost-effective alternatives:**
-- `anthropic/claude-haiku` — Good for simpler tasks
-- `openai/gpt-4o-mini` — Fast and capable for basic coding
-
-### Example interaction
-
-```
-User: "Write a function to validate email addresses"
-
-Operator: (delegates to coder)
-
-Coder: Here's an email validation function:
-  
-  function isValidEmail(email) {
-    const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return regex.test(email);
-  }
-  
-  This checks for:
-  - No spaces
-  - Exactly one @ symbol
-  - At least one dot after @
-  ...
-```
-
----
-
-## Research Sub-agent
-
-A specialist for information gathering and explanations.
-
-### Configuration
-
-```jsonc
-"agents": {
-  "operator": { "model": "anthropic/claude-sonnet-4.5" },
-  "research": { "model": "openai/gpt-4o" }
-}
-```
-
-### What research handles
-
-- Answering factual questions
-- Explaining concepts
-- Summarizing topics
-- Comparing options
-- Providing background information
-
-### When the operator delegates to research
-
-- "Explain how..."
-- "What is the difference between..."
-- "Summarize..."
-- "What are the pros and cons of..."
-- "Tell me about..."
-
-### Choosing a research model
-
-Research benefits from broad knowledge:
-
-**Recommended:**
-- `openai/gpt-4o` — Broad knowledge, good at explanations
-- `anthropic/claude-sonnet-4.5` — Strong reasoning and clarity
-- `google/gemini-2.0-flash` — Fast with good knowledge base
-
-### Example interaction
-
-```
-User: "What's the difference between REST and GraphQL?"
-
-Operator: (delegates to research)
-
-Research: REST and GraphQL are both API paradigms, but differ in key ways:
-  
-  **REST:**
-  - Multiple endpoints for different resources
-  - Fixed data structures per endpoint
-  - Simpler to cache
-  ...
-  
-  **GraphQL:**
-  - Single endpoint
-  - Client specifies exact data needed
-  - More flexible queries
-  ...
-```
-
----
-
-## Web Search Sub-agents
-
-For live internet searches. See the dedicated [Web Search Guide](/web-search).
-
-**Quick summary:**
-
-| Agent | Use case |
-|-------|----------|
-| `webSearchNative` | Fast search with Perplexity/OpenAI search models |
-| `webSearchTool` | Flexible search with any model + Tavily/Exa/Perplexity API |
-
----
-
-## Configuring multiple sub-agents
-
-You can enable any combination:
+### With specialists
 
 ```jsonc
 "agents": {
@@ -233,15 +43,95 @@ You can enable any combination:
 }
 ```
 
-### Tips for choosing models
+You can enable any combination — just include the ones you want.
 
-| Strategy | Approach |
-|----------|----------|
-| **Same model everywhere** | Simplest; consistent behavior |
-| **Best model per task** | Coder gets coding-optimized, research gets knowledge-optimized |
-| **Cost optimization** | Expensive model for operator, cheaper for simple sub-agents |
+---
 
-### Example: Cost-optimized setup
+## Built-in Agents
+
+### Operator (required)
+
+The main AI that handles all conversations.
+
+| Field | Value |
+|-------|-------|
+| Config key | `operator` |
+| Purpose | General conversation, task routing |
+| Recommended models | `anthropic/claude-sonnet-4.5`, `openai/gpt-4o` |
+
+### Coder
+
+Programming specialist for code questions.
+
+| Field | Value |
+|-------|-------|
+| Config key | `coder` |
+| Purpose | Writing, debugging, reviewing code |
+| Recommended models | `anthropic/claude-sonnet-4.5`, `anthropic/claude-opus-4` |
+
+**Triggers on:** "Write a function...", "Debug this code...", "Review this PR..."
+
+### Research
+
+Information gathering and explanations.
+
+| Field | Value |
+|-------|-------|
+| Config key | `research` |
+| Purpose | Answering questions, explaining concepts |
+| Recommended models | `openai/gpt-4o`, `anthropic/claude-sonnet-4.5` |
+
+**Triggers on:** "Explain how...", "What is...", "Compare X and Y..."
+
+### Web Search (Native)
+
+Live internet searches using search-enabled models.
+
+| Field | Value |
+|-------|-------|
+| Config key | `webSearchNative` |
+| Purpose | Current information, news, real-time data |
+| Supported models | `perplexity/sonar-pro`, `perplexity/sonar`, `google/gemini-2.0-flash` |
+
+**Triggers on:** "What happened today...", "Current price of...", "Latest news about..."
+
+This is the simplest way to add web search — the model handles everything internally.
+
+### Web Search (Tool-based)
+
+Web search using external APIs (Tavily, Exa, Perplexity).
+
+| Field | Value |
+|-------|-------|
+| Config key | `webSearchTool` |
+| Purpose | Web search with any model |
+| Requires | A search tool configured (see [Tools](/tools)) |
+
+```jsonc
+"tools": {
+  "tavilySearch": { "apiKey": "your-key" }
+},
+"agents": {
+  "webSearchTool": {
+    "model": "anthropic/claude-sonnet-4.5",
+    "searchBackend": "tavilySearch"
+  }
+}
+```
+
+Use this when you want a specific model to process search results.
+
+---
+
+## Choosing models
+
+| Strategy | Example |
+|----------|---------|
+| Same everywhere | Use `claude-sonnet-4.5` for all agents |
+| Task-optimized | Best coding model for coder, fast model for research |
+| Cost-optimized | Expensive model for operator, cheaper for simple tasks |
+
+**Example: Cost-optimized**
 
 ```jsonc
 "agents": {
@@ -251,73 +141,21 @@ You can enable any combination:
 }
 ```
 
-### Example: Maximum capability
-
-```jsonc
-"agents": {
-  "operator": { "model": "anthropic/claude-opus-4" },
-  "coder": { "model": "anthropic/claude-opus-4" },
-  "research": { "model": "openai/gpt-4o" },
-  "webSearchNative": { "model": "perplexity/sonar-pro" }
-}
-```
-
 ---
 
 ## Do I need sub-agents?
 
-**Start without them** if:
-- You're just getting started
-- Your use case is simple (general chat)
-- You want to minimize complexity
+**Start without them** if you're just getting started. The operator handles most things well.
 
-**Add sub-agents** when:
-- You frequently ask coding questions → add `coder`
-- You need detailed explanations → add `research`
-- You need current information → add `webSearchNative` or `webSearchTool`
-
-The operator alone is quite capable. Sub-agents provide specialization for better results in specific domains.
+**Add sub-agents** when you frequently ask certain types of questions:
+- Lots of coding → add `coder`
+- Need explanations → add `research`
+- Need current info → add `webSearchNative`
 
 ---
 
-## Creating custom sub-agents
+## Create your own
 
-Want a translator? A writing assistant? A data analyst?
+Want a translator? Writing assistant? Data analyst?
 
-See [Customization → Sub-agents](/customization#sub-agents) for how to create your own specialists.
-
----
-
-## Troubleshooting
-
-### Sub-agent not being used
-
-The operator decides when to delegate. If a sub-agent isn't being used:
-
-1. **Check it's enabled** — Must be in `config.ai.agents`
-2. **Be explicit** — "Use the coder to..." or "Research this topic..."
-3. **Check logs** — Enable `"logLevel": "verbose"` to see delegation decisions
-
-### Wrong sub-agent chosen
-
-The operator makes judgment calls. You can:
-- Be more explicit: "This is a coding question..."
-- Adjust operator instructions (advanced, requires code changes)
-
-### Sub-agent responses are slow
-
-Each delegation adds latency. Options:
-- Use faster models for sub-agents
-- Handle simple tasks with operator only
-- Consider if you need all the sub-agents you've enabled
-
-### "No config found for subagent"
-
-The sub-agent file exists but isn't configured:
-
-```jsonc
-"agents": {
-  "operator": { "model": "..." },
-  "missingAgent": { "model": "..." }  // Add this
-}
-```
+See [Custom Agents](/custom-agents) to create your own specialist.
