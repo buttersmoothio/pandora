@@ -41,6 +41,8 @@ export {
 // Store registry
 export {
   type IMessageStore,
+  type ConversationInfo,
+  type MessageMeta,
   type StoreFactory,
   defineStore,
   getAvailableStoreTypes,

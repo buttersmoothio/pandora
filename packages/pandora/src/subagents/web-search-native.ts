@@ -46,6 +46,7 @@ async function getProviderTools(config: AIConfig): Promise<Record<string, Tool>>
   // OpenAI search models use the web_search tool
   if (model.startsWith("openai/") && model.includes("search")) {
     try {
+      // @ts-expect-error — optional peer dependency, resolved at runtime
       const { openai } = await import("@ai-sdk/openai");
       return {
         web_search: openai.tools.webSearch({}),
@@ -62,6 +63,7 @@ async function getProviderTools(config: AIConfig): Promise<Record<string, Tool>>
   // Google/Gemini models can use googleSearch tool
   if (model.startsWith("google/") || model.startsWith("gemini/")) {
     try {
+      // @ts-expect-error — optional peer dependency, resolved at runtime
       const { google } = await import("@ai-sdk/google");
       return {
         google_search: google.tools.googleSearch({}),
@@ -108,22 +110,8 @@ When answering:
 
   inputField: "query",
 
-  // Provider-specific tools based on model
-  getTools: (config: AIConfig) => {
-    // Note: This is sync but we need async for dynamic imports
-    // The registry will handle this - for now return empty and let model handle it
-    // TODO: Consider making getTools async in the subagent registry
-    
-    // For Perplexity models, no tools are needed
-    const agentConfig = config.agents.webSearchNative;
-    if (agentConfig?.model?.startsWith("perplexity/")) {
-      return {};
-    }
-
-    // For other providers, we'd need async loading
-    // For now, recommend using the appropriate model or webSearchTool
-    return {};
-  },
+  // Provider-specific tools based on model (async for dynamic imports)
+  getTools: (config: AIConfig) => getProviderTools(config),
 });
 
 // Export the async version for direct use if needed

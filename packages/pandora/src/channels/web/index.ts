@@ -2,6 +2,10 @@
  * Web Channel - HTTP + WebSocket API with streaming support
  *
  * Exposes a backend API that any frontend can connect to.
+ * - GET  /api/validate — validate Bearer token
+ * - GET  /api/conversations — list web conversations
+ * - GET  /api/conversations/:id/history — get conversation messages
+ * - DELETE /api/conversations/:id — delete a conversation
  * - POST /api/message — non-streaming request/response
  * - POST /api/clear — clear conversation history
  * - WebSocket /ws?token=... — streaming responses (token-by-token)
@@ -16,7 +20,7 @@ import {
   type ChannelCapabilities,
   type Message,
   type MessageHandler,
-  type StreamingMessageHandler,
+  type StreamEvent,
 } from "@pandora/core";
 
 type WebConfig = ChannelConfig & { token: string; port?: number };
@@ -30,9 +34,21 @@ const WEB_CAPABILITIES: ChannelCapabilities = {
   maxMessageLength: -1,
 };
 
-const CONVERSATION_ID = "web-default";
-
 type WebSocketData = { token: string };
+
+/** CORS headers for cross-origin requests (web UI on port 3001). */
+function corsHeaders(): Record<string, string> {
+  return {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+  };
+}
+
+/** JSON response with CORS headers. */
+function jsonResponse(data: unknown, status = 200): Response {
+  return Response.json(data, { status, headers: corsHeaders() });
+}
 
 /** Web channel: HTTP API + WebSocket streaming backed by Bun.serve(). */
 export class WebChannel implements Channel {
@@ -43,7 +59,11 @@ export class WebChannel implements Channel {
   private port: number;
   private gateway: Gateway;
   private messageHandler: MessageHandler;
-  private streamingHandler: StreamingMessageHandler;
+  private streamingHandlerWithEvents: (
+    message: Message,
+    capabilities: ChannelCapabilities,
+    onEvent?: (event: StreamEvent) => void
+  ) => AsyncGenerator<string, void>;
   private server: ReturnType<typeof Bun.serve> | null = null;
 
   constructor(config: WebConfig, gateway: Gateway) {
@@ -51,7 +71,7 @@ export class WebChannel implements Channel {
     this.port = config.port ?? 3000;
     this.gateway = gateway;
     this.messageHandler = gateway.getHandler();
-    this.streamingHandler = gateway.getStreamingHandler();
+    this.streamingHandlerWithEvents = gateway.getStreamingHandlerWithEvents();
   }
 
   async start(): Promise<void> {
@@ -63,31 +83,59 @@ export class WebChannel implements Channel {
       port: this.port,
 
       routes: {
+        "/api/validate": {
+          GET: async (req) => {
+            const token = extractBearerToken(req);
+            if (!token || token !== channel.token) {
+              return jsonResponse({ valid: false }, 401);
+            }
+            return jsonResponse({ valid: true });
+          },
+        },
+
+        "/api/conversations": {
+          GET: async (req) => {
+            const token = extractBearerToken(req);
+            if (!token || token !== channel.token) {
+              return jsonResponse({ error: "Unauthorized" }, 401);
+            }
+
+            const conversations = await channel.gateway.listConversations("web");
+            return jsonResponse({ conversations });
+          },
+        },
+
         "/api/message": {
           POST: async (req) => {
             const token = extractBearerToken(req);
             if (!token || token !== channel.token) {
-              return Response.json({ error: "Unauthorized" }, { status: 401 });
+              return jsonResponse({ error: "Unauthorized" }, 401);
             }
 
-            const body = await req.json() as { content?: string };
+            const body = (await req.json()) as {
+              content?: string;
+              conversationId?: string;
+            };
             if (!body.content) {
-              return Response.json({ error: "Missing content" }, { status: 400 });
+              return jsonResponse({ error: "Missing content" }, 400);
             }
 
             const message: Message = {
               channelName: channel.name,
               userId: token,
-              conversationId: CONVERSATION_ID,
+              conversationId: body.conversationId ?? `web-${Date.now()}`,
               content: body.content,
             };
 
             try {
-              const response = await channel.messageHandler(message, channel.capabilities);
-              return Response.json({ response });
+              const response = await channel.messageHandler(
+                message,
+                channel.capabilities
+              );
+              return jsonResponse({ response });
             } catch (error) {
               logger.error("Web", "Error processing message", error);
-              return Response.json({ error: "Internal error" }, { status: 500 });
+              return jsonResponse({ error: "Internal error" }, 500);
             }
           },
         },
@@ -96,12 +144,14 @@ export class WebChannel implements Channel {
           POST: async (req) => {
             const token = extractBearerToken(req);
             if (!token || token !== channel.token) {
-              return Response.json({ error: "Unauthorized" }, { status: 401 });
+              return jsonResponse({ error: "Unauthorized" }, 401);
             }
 
-            await channel.gateway.clearConversation(CONVERSATION_ID);
-            logger.channel("web", "Conversation cleared");
-            return Response.json({ ok: true });
+            const body = (await req.json()) as { conversationId?: string };
+            const conversationId = body.conversationId ?? "web-default";
+            await channel.gateway.clearConversation(conversationId);
+            logger.channel("web", "Conversation cleared", { conversationId });
+            return jsonResponse({ ok: true });
           },
         },
       },
@@ -112,45 +162,71 @@ export class WebChannel implements Channel {
         },
 
         async message(ws, raw) {
-          const data = JSON.parse(String(raw)) as { type: string; content?: string };
+          const data = JSON.parse(String(raw)) as {
+            type: string;
+            content?: string;
+            conversationId?: string;
+          };
+
+          const conversationId = data.conversationId ?? "web-default";
 
           if (data.type === "clear") {
-            await channel.gateway.clearConversation(CONVERSATION_ID);
-            logger.channel("web", "Conversation cleared via WebSocket");
-            ws.send(JSON.stringify({ type: "cleared" }));
+            await channel.gateway.clearConversation(conversationId);
+            logger.channel("web", "Conversation cleared via WebSocket", {
+              conversationId,
+            });
+            ws.send(JSON.stringify({ type: "cleared", conversationId }));
             return;
           }
 
           if (data.type === "message") {
             if (!data.content) {
-              ws.send(JSON.stringify({ type: "error", message: "Missing content" }));
+              ws.send(
+                JSON.stringify({ type: "error", message: "Missing content" })
+              );
               return;
             }
 
             const message: Message = {
               channelName: channel.name,
               userId: (ws.data as WebSocketData).token,
-              conversationId: CONVERSATION_ID,
+              conversationId,
               content: data.content,
             };
 
             try {
-              const stream = channel.streamingHandler(message, channel.capabilities);
+              const onEvent = (event: StreamEvent) => {
+                ws.send(JSON.stringify(event));
+              };
+
+              const stream = channel.streamingHandlerWithEvents(
+                message,
+                channel.capabilities,
+                onEvent
+              );
               for await (const delta of stream) {
                 ws.send(JSON.stringify({ type: "delta", text: delta }));
               }
-              ws.send(JSON.stringify({ type: "done" }));
+              ws.send(JSON.stringify({ type: "done", conversationId }));
             } catch (error) {
               logger.error("Web", "Error streaming response", error);
-              ws.send(JSON.stringify({
-                type: "error",
-                message: error instanceof Error ? error.message : "Internal error",
-              }));
+              ws.send(
+                JSON.stringify({
+                  type: "error",
+                  message:
+                    error instanceof Error ? error.message : "Internal error",
+                })
+              );
             }
             return;
           }
 
-          ws.send(JSON.stringify({ type: "error", message: `Unknown type: ${data.type}` }));
+          ws.send(
+            JSON.stringify({
+              type: "error",
+              message: `Unknown type: ${data.type}`,
+            })
+          );
         },
 
         close(ws) {
@@ -160,6 +236,11 @@ export class WebChannel implements Channel {
 
       fetch(req, server) {
         const url = new URL(req.url);
+
+        // Handle CORS preflight
+        if (req.method === "OPTIONS") {
+          return new Response(null, { status: 204, headers: corsHeaders() });
+        }
 
         // WebSocket upgrade at /ws
         if (url.pathname === "/ws") {
@@ -171,6 +252,35 @@ export class WebChannel implements Channel {
           const upgraded = server.upgrade(req, { data: { token } });
           if (upgraded) return undefined;
           return new Response("WebSocket upgrade failed", { status: 500 });
+        }
+
+        // Dynamic routes: /api/conversations/:id/history and /api/conversations/:id
+        const historyMatch = url.pathname.match(
+          /^\/api\/conversations\/([^/]+)\/history$/
+        );
+        if (historyMatch && req.method === "GET") {
+          const token = extractBearerToken(req);
+          if (!token || token !== channel.token) {
+            return jsonResponse({ error: "Unauthorized" }, 401);
+          }
+          const id = decodeURIComponent(historyMatch[1]!);
+          return channel.gateway
+            .getConversationHistory(id)
+            .then((messages) => jsonResponse({ messages }));
+        }
+
+        const deleteMatch = url.pathname.match(
+          /^\/api\/conversations\/([^/]+)$/
+        );
+        if (deleteMatch && req.method === "DELETE") {
+          const token = extractBearerToken(req);
+          if (!token || token !== channel.token) {
+            return jsonResponse({ error: "Unauthorized" }, 401);
+          }
+          const id = decodeURIComponent(deleteMatch[1]!);
+          return channel.gateway
+            .deleteConversation(id)
+            .then(() => jsonResponse({ ok: true }));
         }
 
         return new Response("Not found", { status: 404 });

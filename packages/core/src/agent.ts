@@ -5,7 +5,7 @@
  * specialized tasks to subagents (coding, research, etc.) via tools.
  */
 
-import { ToolLoopAgent, type Tool } from "ai";
+import { ToolLoopAgent, stepCountIs, type Tool, type ToolChoice } from "ai";
 import { createModel } from "./providers";
 import {
   getSubagentDefinitions,
@@ -14,7 +14,7 @@ import {
   createToolsForAgent,
 } from "./registries";
 import type { AIConfig } from "./config";
-import type { ChatMessage, ChannelCapabilities } from "./types";
+import type { ChatMessage, ChannelCapabilities, StreamEvent } from "./types";
 import { logger } from "./logger";
 
 /**
@@ -95,17 +95,24 @@ export class Agent {
   private actionTools: Record<string, Tool>;
   private subagentTools: Record<string, Tool>;
 
-  /**
-   * @param config - AI config (gateway, agents, tools).
-   */
-  constructor(config: AIConfig) {
+  /** Use `Agent.create()` instead of constructing directly. */
+  private constructor(config: AIConfig) {
     this.config = config;
     this.tools = {};
     this.actionTools = {};
     this.subagentTools = {};
+  }
+
+  /**
+   * Create and initialize an Agent, resolving async tool providers.
+   *
+   * @param config - AI config (gateway, agents, tools).
+   */
+  static async create(config: AIConfig): Promise<Agent> {
+    const agent = new Agent(config);
 
     // Resolve action tools from config (tools self-assign to agents via their `agents` field)
-    this.actionTools = createToolsForAgent("operator", config.tools ?? {});
+    agent.actionTools = createToolsForAgent("operator", config.tools ?? {});
 
     // Build subagent delegation tools from registered definitions
     for (const definition of getSubagentDefinitions()) {
@@ -115,20 +122,21 @@ export class Agent {
         continue; // Subagent not enabled in config
       }
 
-      // Get tools for this subagent (use custom getTools if provided)
+      // Get tools for this subagent (use custom getTools if provided, may be async)
       const subagentTools = definition.getTools
-        ? definition.getTools(config)
+        ? await definition.getTools(config)
         : createToolsForAgent(definition.name, config.tools ?? {});
 
       // Create the subagent and its delegation tool
       const subagent = createSubagentFromDefinition(definition, config, subagentTools);
       const delegationTool = createSubagentTool(definition, subagent, config);
 
-      this.subagentTools[definition.name] = delegationTool;
+      agent.subagentTools[definition.name] = delegationTool;
     }
 
     // Merge action tools and subagent tools into the operator's full tool set
-    this.tools = { ...this.actionTools, ...this.subagentTools };
+    agent.tools = { ...agent.actionTools, ...agent.subagentTools };
+    return agent;
   }
 
   /**
@@ -159,29 +167,28 @@ export class Agent {
     // Create operator agent with configured model
     const operator = new ToolLoopAgent({
       model: createModel(operatorConfig.model, this.config.gateway.apiKey),
-      temperature: 0,
+      temperature: operatorConfig.temperature ?? 0,
+      maxOutputTokens: operatorConfig.maxOutputTokens,
+      stopWhen: stepCountIs(operatorConfig.maxSteps ?? 20),
+      toolChoice: operatorConfig.toolChoice as ToolChoice<any> | undefined,
       instructions,
       tools: this.tools,
       onStepFinish: ({ toolCalls, toolResults, text, finishReason, usage }) => {
         stepCount++;
 
-        // Log each tool call with full args and results when verbose
         if (toolCalls && toolCalls.length > 0) {
           for (const call of toolCalls) {
-            // Find the matching result for this tool call
             const matchingResult = toolResults?.find(
-              (r: { toolCallId: string }) => r.toolCallId === call.toolCallId
+              (r) => r.toolCallId === call.toolCallId
             );
-
             logger.toolCall(call.toolName, {
-              args: (call as Record<string, unknown>).input ?? (call as Record<string, unknown>).args,
-              result: (matchingResult as Record<string, unknown> | undefined)?.output ?? (matchingResult as Record<string, unknown> | undefined)?.result,
+              args: call.input,
+              result: matchingResult?.output,
               agentName: "operator",
             });
           }
         }
 
-        // Log step-level details (intermediate text, finish reason, token usage)
         logger.stepFinish(
           "operator",
           stepCount,
@@ -220,12 +227,14 @@ export class Agent {
    *
    * @param history - Conversation history (user/assistant/system messages).
    * @param capabilities - Channel capabilities (formatting, max length).
+   * @param onEvent - Optional callback for stream events (tool calls, etc.).
    * @yields Text deltas as they stream in.
    * @returns The complete response text.
    */
   async *chatStream(
     history: ChatMessage[],
-    capabilities: ChannelCapabilities
+    capabilities: ChannelCapabilities,
+    onEvent?: (event: StreamEvent) => void
   ): AsyncGenerator<string, string> {
     const operatorConfig = this.config.agents.operator;
     const startTime = Date.now();
@@ -241,21 +250,24 @@ export class Agent {
 
     const operator = new ToolLoopAgent({
       model: createModel(operatorConfig.model, this.config.gateway.apiKey),
-      temperature: 0,
+      temperature: operatorConfig.temperature ?? 0,
+      maxOutputTokens: operatorConfig.maxOutputTokens,
+      stopWhen: stepCountIs(operatorConfig.maxSteps ?? 20),
+      toolChoice: operatorConfig.toolChoice as ToolChoice<any> | undefined,
       instructions,
       tools: this.tools,
       onStepFinish: ({ toolCalls, toolResults, text, finishReason, usage }) => {
         stepCount++;
 
+        // Logging only — events are emitted via fullStream below
         if (toolCalls && toolCalls.length > 0) {
           for (const call of toolCalls) {
             const matchingResult = toolResults?.find(
-              (r: { toolCallId: string }) => r.toolCallId === call.toolCallId
+              (r) => r.toolCallId === call.toolCallId
             );
-
             logger.toolCall(call.toolName, {
-              args: (call as Record<string, unknown>).input ?? (call as Record<string, unknown>).args,
-              result: (matchingResult as Record<string, unknown> | undefined)?.output ?? (matchingResult as Record<string, unknown> | undefined)?.result,
+              args: call.input,
+              result: matchingResult?.output,
               agentName: "operator",
             });
           }
@@ -283,9 +295,50 @@ export class Agent {
     const result = await operator.stream({ messages });
 
     let fullText = "";
-    for await (const delta of result.textStream) {
-      fullText += delta;
-      yield delta;
+    for await (const part of result.fullStream) {
+      switch (part.type) {
+        case "text-delta":
+          fullText += part.text;
+          yield part.text;
+          break;
+        case "tool-call":
+          onEvent?.({
+            type: "tool-call",
+            toolCallId: part.toolCallId,
+            toolName: part.toolName,
+            args: part.input,
+          });
+          break;
+        case "tool-result":
+          onEvent?.({
+            type: "tool-result",
+            toolCallId: part.toolCallId,
+            toolName: part.toolName,
+            result: part.output,
+          });
+          break;
+        case "source":
+          if (part.sourceType === "url") {
+            onEvent?.({
+              type: "source",
+              sourceType: part.sourceType,
+              id: part.id,
+              url: part.url,
+              title: part.title,
+            });
+          }
+          break;
+        case "reasoning-delta":
+          onEvent?.({ type: "reasoning-delta", text: part.text });
+          break;
+        case "finish-step":
+          onEvent?.({
+            type: "step-finish",
+            usage: part.usage,
+            finishReason: part.finishReason,
+          });
+          break;
+      }
     }
 
     logger.modelOutput("operator", fullText);

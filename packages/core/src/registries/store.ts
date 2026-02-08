@@ -8,6 +8,27 @@
 import type { ChatMessage } from "../types";
 import type { StorageConfig } from "../config";
 
+/** Summary information about a stored conversation. */
+export interface ConversationInfo {
+  id: string;
+  /** Channel that created this conversation */
+  channelName: string | null;
+  /** Unix epoch seconds */
+  createdAt: number;
+  /** Unix epoch seconds */
+  updatedAt: number;
+  /** First user message, truncated */
+  preview: string;
+  /** Total number of messages */
+  messageCount: number;
+}
+
+/** Optional metadata passed when storing messages. */
+export interface MessageMeta {
+  channelName?: string;
+  userId?: string;
+}
+
 /**
  * Storage interface for message persistence.
  *
@@ -16,13 +37,23 @@ import type { StorageConfig } from "../config";
  */
 export interface IMessageStore {
   /** Add a message to a conversation's history */
-  addMessage(conversationId: string, message: ChatMessage): Promise<void>;
+  addMessage(
+    conversationId: string,
+    message: ChatMessage,
+    meta?: MessageMeta
+  ): Promise<void>;
 
   /** Get the full conversation history for a conversation */
   getHistory(conversationId: string): Promise<ChatMessage[]>;
 
   /** Clear all messages in a conversation */
   clearHistory(conversationId: string): Promise<void>;
+
+  /** List conversations, optionally filtered by channel name. Ordered by most recently updated. */
+  listConversations(channelName?: string): Promise<ConversationInfo[]>;
+
+  /** Delete a conversation and all its messages. */
+  deleteConversation(conversationId: string): Promise<void>;
 
   /** Gracefully close the store (flush writes, release connections, etc.) */
   close(): Promise<void>;

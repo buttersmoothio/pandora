@@ -20,6 +20,10 @@ const gatewayConfigSchema = z.object({
  */
 const agentConfigSchema = z.object({
   model: z.string().describe("Gateway model ID (e.g. anthropic/claude-sonnet-4.5, openai/gpt-4o)"),
+  temperature: z.number().min(0).max(2).optional().describe("Sampling temperature (0 = deterministic, 2 = max creativity)"),
+  maxOutputTokens: z.number().positive().optional().describe("Maximum tokens in the response"),
+  maxSteps: z.number().positive().optional().describe("Maximum tool loop steps (default: 20)"),
+  toolChoice: z.enum(["auto", "required", "none"]).optional().describe("Tool calling strategy"),
   /** Search backend for webSearchTool agent (e.g. tavilySearch, exaSearch, perplexitySearch) */
   searchBackend: z.string().optional().describe("Search backend tool name for webSearchTool agent"),
 });

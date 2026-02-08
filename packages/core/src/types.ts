@@ -101,3 +101,14 @@ export type StreamingMessageHandler = (
   message: Message,
   capabilities: ChannelCapabilities
 ) => AsyncGenerator<string, void>;
+
+/**
+ * Events emitted during streaming for tool call visibility.
+ * Delivered via callback alongside the text stream.
+ */
+export type StreamEvent =
+  | { type: "tool-call"; toolCallId: string; toolName: string; args: unknown }
+  | { type: "tool-result"; toolCallId: string; toolName: string; result: unknown }
+  | { type: "source"; sourceType: string; id: string; url?: string; title?: string; providerMetadata?: Record<string, unknown> }
+  | { type: "reasoning-delta"; text: string }
+  | { type: "step-finish"; usage: { inputTokens?: number; outputTokens?: number; totalTokens?: number }; finishReason: string };

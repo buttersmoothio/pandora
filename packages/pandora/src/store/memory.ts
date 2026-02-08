@@ -5,20 +5,48 @@
  * Useful for development/testing or when persistence isn't needed.
  */
 
-import { defineStore, type IMessageStore, type ChatMessage } from "@pandora/core";
+import {
+  defineStore,
+  type IMessageStore,
+  type ConversationInfo,
+  type MessageMeta,
+  type ChatMessage,
+} from "@pandora/core";
+
+interface ConversationMeta {
+  channelName?: string;
+  userId?: string;
+  createdAt: number;
+  updatedAt: number;
+}
 
 /** In-memory message store. Ephemeral; conversations are lost on restart. */
 export class MemoryStore implements IMessageStore {
   private conversations = new Map<string, ChatMessage[]>();
+  private metadata = new Map<string, ConversationMeta>();
 
   /** @inheritdoc */
   async addMessage(
     conversationId: string,
-    message: ChatMessage
+    message: ChatMessage,
+    meta?: MessageMeta
   ): Promise<void> {
     const history = this.conversations.get(conversationId) ?? [];
     history.push(message);
     this.conversations.set(conversationId, history);
+
+    const now = Math.floor(Date.now() / 1000);
+    const existing = this.metadata.get(conversationId);
+    if (!existing) {
+      this.metadata.set(conversationId, {
+        channelName: meta?.channelName,
+        userId: meta?.userId,
+        createdAt: now,
+        updatedAt: now,
+      });
+    } else {
+      existing.updatedAt = now;
+    }
   }
 
   /** @inheritdoc */
@@ -29,6 +57,32 @@ export class MemoryStore implements IMessageStore {
   /** @inheritdoc */
   async clearHistory(conversationId: string): Promise<void> {
     this.conversations.delete(conversationId);
+    this.metadata.delete(conversationId);
+  }
+
+  /** @inheritdoc */
+  async listConversations(channelName?: string): Promise<ConversationInfo[]> {
+    const results: ConversationInfo[] = [];
+    for (const [id, messages] of this.conversations) {
+      const meta = this.metadata.get(id);
+      if (channelName && meta?.channelName !== channelName) continue;
+      const firstUserMsg = messages.find((m) => m.role === "user");
+      results.push({
+        id,
+        channelName: meta?.channelName ?? null,
+        createdAt: meta?.createdAt ?? 0,
+        updatedAt: meta?.updatedAt ?? 0,
+        preview: firstUserMsg?.content.slice(0, 100) ?? "",
+        messageCount: messages.length,
+      });
+    }
+    return results.sort((a, b) => b.updatedAt - a.updatedAt);
+  }
+
+  /** @inheritdoc */
+  async deleteConversation(conversationId: string): Promise<void> {
+    this.conversations.delete(conversationId);
+    this.metadata.delete(conversationId);
   }
 
   /** @inheritdoc */

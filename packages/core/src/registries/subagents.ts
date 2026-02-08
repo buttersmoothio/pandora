@@ -6,7 +6,7 @@
  * self-registers using defineSubagent().
  */
 
-import { ToolLoopAgent, tool, type Tool } from "ai";
+import { ToolLoopAgent, stepCountIs, tool, type Tool, type ToolChoice } from "ai";
 import type { z } from "zod";
 import { createModel } from "../providers";
 import type { AIConfig } from "../config";
@@ -33,8 +33,9 @@ export interface SubagentDefinition {
    * Optional: Override which tools this subagent receives.
    * If not provided, uses createToolsForAgent(name, config.tools).
    * Return empty object {} for no tools (e.g. search-enabled models).
+   * May be async (e.g. for dynamic provider tool imports).
    */
-  getTools?: (config: AIConfig) => Record<string, Tool>;
+  getTools?: (config: AIConfig) => Record<string, Tool> | Promise<Record<string, Tool>>;
 }
 
 /** Registry of all subagent definitions */
@@ -89,6 +90,10 @@ export function createSubagentFromDefinition(
 
   return new ToolLoopAgent({
     model: createModel(agentConfig.model, config.gateway.apiKey),
+    temperature: agentConfig.temperature,
+    maxOutputTokens: agentConfig.maxOutputTokens,
+    stopWhen: agentConfig.maxSteps ? stepCountIs(agentConfig.maxSteps) : undefined,
+    toolChoice: agentConfig.toolChoice as ToolChoice<any> | undefined,
     instructions: definition.instructions,
     tools,
     onStepFinish: ({ toolCalls, toolResults, text, finishReason, usage }) => {
@@ -97,11 +102,11 @@ export function createSubagentFromDefinition(
       if (toolCalls && toolCalls.length > 0) {
         for (const call of toolCalls) {
           const matchingResult = toolResults?.find(
-            (r: { toolCallId: string }) => r.toolCallId === call.toolCallId
+            (r) => r.toolCallId === call.toolCallId
           );
           logger.toolCall(call.toolName, {
-            args: (call as Record<string, unknown>).input ?? (call as Record<string, unknown>).args,
-            result: (matchingResult as Record<string, unknown> | undefined)?.output ?? (matchingResult as Record<string, unknown> | undefined)?.result,
+            args: call.input,
+            result: matchingResult?.output,
             agentName: definition.name,
           });
         }

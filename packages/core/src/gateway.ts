@@ -9,8 +9,14 @@
  */
 
 import type { Agent } from "./agent";
-import type { IMessageStore } from "./registries/store";
-import type { Message, ChannelCapabilities, MessageHandler } from "./types";
+import type { IMessageStore, ConversationInfo } from "./registries/store";
+import type {
+  Message,
+  ChatMessage,
+  ChannelCapabilities,
+  MessageHandler,
+  StreamEvent,
+} from "./types";
 import { logger } from "./logger";
 
 /** Central hub: receives messages from channels, stores them, calls the agent, stores and returns the response. */
@@ -41,10 +47,11 @@ export class Gateway {
     logger.messageReceived(channelName, conversationId, userId);
 
     // Store the incoming user message
-    await this.store.addMessage(conversationId, {
-      role: "user",
-      content,
-    });
+    await this.store.addMessage(
+      conversationId,
+      { role: "user", content },
+      { channelName, userId }
+    );
 
     // Get full conversation history
     const history = await this.store.getHistory(conversationId);
@@ -80,25 +87,28 @@ export class Gateway {
    *
    * @param message - Incoming message from a channel.
    * @param capabilities - Channel capabilities (passed to the agent).
+   * @param onEvent - Optional callback for stream events (tool calls, etc.).
    * @yields Text deltas as they stream in.
    */
   async *handleMessageStream(
     message: Message,
-    capabilities: ChannelCapabilities
+    capabilities: ChannelCapabilities,
+    onEvent?: (event: StreamEvent) => void
   ): AsyncGenerator<string, void> {
     const { channelName, conversationId, userId, content } = message;
     const startTime = Date.now();
 
     logger.messageReceived(channelName, conversationId, userId);
 
-    await this.store.addMessage(conversationId, {
-      role: "user",
-      content,
-    });
+    await this.store.addMessage(
+      conversationId,
+      { role: "user", content },
+      { channelName, userId }
+    );
 
     const history = await this.store.getHistory(conversationId);
 
-    const stream = this.agent.chatStream(history, capabilities);
+    const stream = this.agent.chatStream(history, capabilities, onEvent);
 
     let fullText = "";
     while (true) {
@@ -133,11 +143,42 @@ export class Gateway {
   }
 
   /**
+   * Get a streaming handler that also supports stream events (tool calls, etc.).
+   *
+   * @returns Streaming handler that accepts an onEvent callback.
+   */
+  getStreamingHandlerWithEvents(): (
+    message: Message,
+    capabilities: ChannelCapabilities,
+    onEvent?: (event: StreamEvent) => void
+  ) => AsyncGenerator<string, void> {
+    return (message, capabilities, onEvent) =>
+      this.handleMessageStream(message, capabilities, onEvent);
+  }
+
+  /**
    * Clear all messages for a conversation (e.g. when user sends /start).
    *
    * @param conversationId - Conversation/chat ID to clear.
    */
   async clearConversation(conversationId: string): Promise<void> {
     await this.store.clearHistory(conversationId);
+  }
+
+  /** List conversations, optionally filtered by channel name. */
+  async listConversations(channelName?: string): Promise<ConversationInfo[]> {
+    return this.store.listConversations(channelName);
+  }
+
+  /** Delete a conversation and all its messages. */
+  async deleteConversation(conversationId: string): Promise<void> {
+    await this.store.deleteConversation(conversationId);
+  }
+
+  /** Get conversation history for a specific conversation. */
+  async getConversationHistory(
+    conversationId: string
+  ): Promise<ChatMessage[]> {
+    return this.store.getHistory(conversationId);
   }
 }

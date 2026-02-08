@@ -12,6 +12,8 @@ import {
   defineStore,
   logger,
   type IMessageStore,
+  type ConversationInfo,
+  type MessageMeta,
   type ChatMessage,
   type StorageConfig,
 } from "@pandora/core";
@@ -74,13 +76,14 @@ export class SqliteStore implements IMessageStore {
   /** @inheritdoc */
   async addMessage(
     conversationId: string,
-    message: ChatMessage
+    message: ChatMessage,
+    meta?: MessageMeta
   ): Promise<void> {
-    // Ensure the conversation exists (upsert)
+    // Ensure the conversation exists (upsert with metadata)
     this.db.run(
-      `INSERT INTO conversations (id) VALUES (?)
+      `INSERT INTO conversations (id, channel_name, user_id) VALUES (?, ?, ?)
        ON CONFLICT(id) DO UPDATE SET updated_at = unixepoch()`,
-      [conversationId]
+      [conversationId, meta?.channelName ?? null, meta?.userId ?? null]
     );
 
     this.db.run(
@@ -110,6 +113,46 @@ export class SqliteStore implements IMessageStore {
     this.db.run(`DELETE FROM messages WHERE conversation_id = ?`, [
       conversationId,
     ]);
+    this.db.run(`DELETE FROM conversations WHERE id = ?`, [conversationId]);
+  }
+
+  /** @inheritdoc */
+  async listConversations(channelName?: string): Promise<ConversationInfo[]> {
+    const sql = `
+      SELECT c.id, c.channel_name, c.created_at, c.updated_at,
+        (SELECT content FROM messages WHERE conversation_id = c.id AND role = 'user'
+         ORDER BY created_at ASC, id ASC LIMIT 1) as preview,
+        (SELECT COUNT(*) FROM messages WHERE conversation_id = c.id) as message_count
+      FROM conversations c
+      ${channelName ? "WHERE c.channel_name = ?" : ""}
+      ORDER BY c.updated_at DESC`;
+
+    type Row = {
+      id: string;
+      channel_name: string | null;
+      created_at: number;
+      updated_at: number;
+      preview: string | null;
+      message_count: number;
+    };
+
+    const rows = channelName
+      ? this.db.query<Row, [string]>(sql).all(channelName)
+      : this.db.query<Row, []>(sql).all();
+
+    return rows.map((row) => ({
+      id: row.id,
+      channelName: row.channel_name,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+      preview: row.preview?.slice(0, 100) ?? "",
+      messageCount: row.message_count,
+    }));
+  }
+
+  /** @inheritdoc */
+  async deleteConversation(conversationId: string): Promise<void> {
+    // Messages cascade-delete due to FK constraint
     this.db.run(`DELETE FROM conversations WHERE id = ?`, [conversationId]);
   }
 

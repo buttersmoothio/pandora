@@ -64,7 +64,7 @@ async function main(): Promise<void> {
 
   // Initialize core components
   const store = createStore(config.storage);
-  const agent = new Agent(config.ai);
+  const agent = await Agent.create(config.ai);
   const gateway = new Gateway(store, agent);
 
   // Create all enabled channels from registry

@@ -41,6 +41,7 @@ export type {
   StreamingMessageHandler,
   ChannelCapabilities,
   Channel,
+  StreamEvent,
 } from "./types";
 
 // Registries - all extension points
