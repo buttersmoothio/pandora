@@ -35,7 +35,6 @@ export { createModel } from "./providers";
 // Types
 export type {
   Message,
-  ChatMessage,
   Attachment,
   MessageHandler,
   StreamingMessageHandler,
@@ -43,7 +42,21 @@ export type {
   Channel,
   StreamEvent,
   GatewayEvent,
+  MessageMeta,
+  // AI SDK UI types re-exported for convenience
+  UIMessage,
+  UIMessagePart,
+  TextUIPart,
+  ReasoningUIPart,
+  DynamicToolUIPart,
+  SourceUrlUIPart,
+  SourceDocumentUIPart,
+  FileUIPart,
+  StepStartUIPart,
 } from "./types";
+
+// AI SDK utilities
+export { generateId, convertToModelMessages } from "./types";
 
 // Registries - all extension points
 export * from "./registries";

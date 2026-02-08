@@ -3,6 +3,10 @@
  *
  * Uses Bun's native bun:sqlite for zero-dependency persistence.
  * Conversations survive restarts. WAL mode for better concurrency.
+ *
+ * Schema uses parts-based storage for UIMessage compatibility:
+ * - messages: metadata only (id, role, conversation_id, channel_name, created_at)
+ * - message_parts: ordered parts with JSON data
  */
 
 import { Database } from "bun:sqlite";
@@ -11,12 +15,33 @@ import { dirname } from "node:path";
 import {
   defineStore,
   logger,
+  generateId,
   type IMessageStore,
   type ConversationInfo,
   type MessageMeta,
-  type ChatMessage,
+  type UIMessage,
+  type UIMessagePart,
   type StorageConfig,
 } from "@pandora/core";
+
+/** Row type for messages table */
+interface MessageRow {
+  id: string;
+  conversation_id: string;
+  role: string;
+  channel_name: string | null;
+  created_at: number;
+}
+
+/** Row type for message_parts table */
+interface PartRow {
+  id: number;
+  message_id: string;
+  part_index: number;
+  part_type: string;
+  part_data: string;
+  created_at: number;
+}
 
 /** SQLite-backed message store. Persistent; uses WAL mode. */
 export class SqliteStore implements IMessageStore {
@@ -37,14 +62,13 @@ export class SqliteStore implements IMessageStore {
     logger.startup("SQLite store initialized", { path: dbPath });
   }
 
-  /**
-   * Set up the database schema and pragmas
-   */
+  /** Set up the database schema and pragmas */
   private initialize(): void {
     // Enable WAL mode for better concurrency
     this.db.run("PRAGMA journal_mode = WAL");
     this.db.run("PRAGMA foreign_keys = ON");
 
+    // Conversations table
     this.db.run(`
       CREATE TABLE IF NOT EXISTS conversations (
         id TEXT PRIMARY KEY,
@@ -55,78 +79,123 @@ export class SqliteStore implements IMessageStore {
       )
     `);
 
+    // Messages table - metadata only, no content column
     this.db.run(`
       CREATE TABLE IF NOT EXISTS messages (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id TEXT PRIMARY KEY,
         conversation_id TEXT NOT NULL,
         role TEXT NOT NULL,
-        content TEXT NOT NULL,
         channel_name TEXT,
         created_at INTEGER NOT NULL DEFAULT (unixepoch()),
         FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
       )
     `);
 
-    // Index for fast history retrieval
+    // Message parts table - ordered parts with JSON data
+    this.db.run(`
+      CREATE TABLE IF NOT EXISTS message_parts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        message_id TEXT NOT NULL,
+        part_index INTEGER NOT NULL,
+        part_type TEXT NOT NULL,
+        part_data TEXT NOT NULL,
+        created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+        FOREIGN KEY (message_id) REFERENCES messages(id) ON DELETE CASCADE
+      )
+    `);
+
+    // Indices for fast retrieval
     this.db.run(`
       CREATE INDEX IF NOT EXISTS idx_messages_conversation
       ON messages (conversation_id, created_at)
     `);
 
-    // Migration: add channel_name column if missing (for existing databases)
-    this.migrateAddChannelName();
+    this.db.run(`
+      CREATE INDEX IF NOT EXISTS idx_parts_message
+      ON message_parts (message_id, part_index)
+    `);
   }
 
-  /** Add channel_name column to messages table if it doesn't exist. */
-  private migrateAddChannelName(): void {
-    const columns = this.db
-      .query<{ name: string }, []>("PRAGMA table_info(messages)")
-      .all();
-    const hasChannelName = columns.some((col) => col.name === "channel_name");
-    if (!hasChannelName) {
-      this.db.run("ALTER TABLE messages ADD COLUMN channel_name TEXT");
-      logger.startup("SQLite migration: added channel_name to messages");
-    }
-  }
-
-  /** @inheritdoc */
-  async addMessage(
+  /** Ensure conversation exists, update timestamp */
+  private ensureConversation(
     conversationId: string,
-    message: ChatMessage,
     meta?: MessageMeta
-  ): Promise<void> {
-    // Ensure the conversation exists (upsert with metadata)
+  ): void {
     this.db.run(
       `INSERT INTO conversations (id, channel_name, user_id) VALUES (?, ?, ?)
        ON CONFLICT(id) DO UPDATE SET updated_at = unixepoch()`,
       [conversationId, meta?.channelName ?? null, meta?.userId ?? null]
     );
-
-    // Store message with source channel (may differ from conversation origin)
-    this.db.run(
-      `INSERT INTO messages (conversation_id, role, content, channel_name) VALUES (?, ?, ?, ?)`,
-      [conversationId, message.role, message.content, meta?.channelName ?? null]
-    );
   }
 
   /** @inheritdoc */
-  async getHistory(conversationId: string): Promise<ChatMessage[]> {
-    const rows = this.db
-      .query<{ role: string; content: string }, [string]>(
-        `SELECT role, content FROM messages
+  async addMessage(
+    conversationId: string,
+    message: Omit<UIMessage, "id">,
+    meta?: MessageMeta
+  ): Promise<string> {
+    const messageId = generateId();
+
+    this.ensureConversation(conversationId, meta);
+
+    // Insert message metadata
+    this.db.run(
+      `INSERT INTO messages (id, conversation_id, role, channel_name) VALUES (?, ?, ?, ?)`,
+      [messageId, conversationId, message.role, meta?.channelName ?? null]
+    );
+
+    // Insert all parts
+    for (let i = 0; i < message.parts.length; i++) {
+      const part = message.parts[i];
+      if (part) {
+        this.db.run(
+          `INSERT INTO message_parts (message_id, part_index, part_type, part_data) VALUES (?, ?, ?, ?)`,
+          [messageId, i, part.type, JSON.stringify(part)]
+        );
+      }
+    }
+
+    return messageId;
+  }
+
+  /** @inheritdoc */
+  async getHistory(conversationId: string): Promise<UIMessage[]> {
+    // Get all messages for this conversation
+    const messages = this.db
+      .query<MessageRow, [string]>(
+        `SELECT id, conversation_id, role, channel_name, created_at
+         FROM messages
          WHERE conversation_id = ?
          ORDER BY created_at ASC, id ASC`
       )
       .all(conversationId);
 
-    return rows.map((row) => ({
-      role: row.role as ChatMessage["role"],
-      content: row.content,
-    }));
+    // Build UIMessage objects with parts
+    const result: UIMessage[] = [];
+
+    for (const msg of messages) {
+      const parts = this.db
+        .query<PartRow, [string]>(
+          `SELECT id, message_id, part_index, part_type, part_data, created_at
+           FROM message_parts
+           WHERE message_id = ?
+           ORDER BY part_index ASC`
+        )
+        .all(msg.id);
+
+      result.push({
+        id: msg.id,
+        role: msg.role as "user" | "assistant",
+        parts: parts.map((p) => JSON.parse(p.part_data) as UIMessagePart),
+      });
+    }
+
+    return result;
   }
 
   /** @inheritdoc */
   async clearHistory(conversationId: string): Promise<void> {
+    // Messages and parts cascade-delete due to FK constraint
     this.db.run(`DELETE FROM messages WHERE conversation_id = ?`, [
       conversationId,
     ]);
@@ -134,11 +203,127 @@ export class SqliteStore implements IMessageStore {
   }
 
   /** @inheritdoc */
+  async createMessage(
+    conversationId: string,
+    role: "user" | "assistant",
+    meta?: MessageMeta
+  ): Promise<string> {
+    const messageId = generateId();
+
+    this.ensureConversation(conversationId, meta);
+
+    this.db.run(
+      `INSERT INTO messages (id, conversation_id, role, channel_name) VALUES (?, ?, ?, ?)`,
+      [messageId, conversationId, role, meta?.channelName ?? null]
+    );
+
+    return messageId;
+  }
+
+  /** @inheritdoc */
+  async appendPart(messageId: string, part: UIMessagePart): Promise<void> {
+    // Get next part index
+    const result = this.db
+      .query<{ max_index: number | null }, [string]>(
+        `SELECT MAX(part_index) as max_index FROM message_parts WHERE message_id = ?`
+      )
+      .get(messageId);
+
+    const nextIndex = (result?.max_index ?? -1) + 1;
+
+    this.db.run(
+      `INSERT INTO message_parts (message_id, part_index, part_type, part_data) VALUES (?, ?, ?, ?)`,
+      [messageId, nextIndex, part.type, JSON.stringify(part)]
+    );
+
+    // Update conversation timestamp
+    this.db.run(
+      `UPDATE conversations SET updated_at = unixepoch()
+       WHERE id = (SELECT conversation_id FROM messages WHERE id = ?)`,
+      [messageId]
+    );
+  }
+
+  /** @inheritdoc */
+  async updateToolResult(
+    messageId: string,
+    toolCallId: string,
+    result: unknown
+  ): Promise<void> {
+    // Find the tool part with matching toolCallId
+    const parts = this.db
+      .query<PartRow, [string]>(
+        `SELECT id, part_index, part_type, part_data FROM message_parts
+         WHERE message_id = ? AND part_type = 'dynamic-tool'
+         ORDER BY part_index ASC`
+      )
+      .all(messageId);
+
+    for (const partRow of parts) {
+      const partData = JSON.parse(partRow.part_data);
+      if (partData.toolCallId === toolCallId) {
+        // Update state and add output
+        partData.state = "output-available";
+        partData.output = result;
+
+        this.db.run(
+          `UPDATE message_parts SET part_data = ? WHERE id = ?`,
+          [JSON.stringify(partData), partRow.id]
+        );
+        break;
+      }
+    }
+  }
+
+  /** @inheritdoc */
+  async updateTextPart(messageId: string, text: string): Promise<void> {
+    // Find the last text part and update its content
+    const part = this.db
+      .query<PartRow, [string]>(
+        `SELECT id, part_data FROM message_parts
+         WHERE message_id = ? AND part_type = 'text'
+         ORDER BY part_index DESC
+         LIMIT 1`
+      )
+      .get(messageId);
+
+    if (part) {
+      const partData = JSON.parse(part.part_data);
+      partData.text = text;
+      this.db.run(
+        `UPDATE message_parts SET part_data = ? WHERE id = ?`,
+        [JSON.stringify(partData), part.id]
+      );
+    }
+  }
+
+  /** @inheritdoc */
+  async finalizeMessage(messageId: string): Promise<void> {
+    // Find all text parts that are streaming and finalize them
+    const parts = this.db
+      .query<PartRow, [string]>(
+        `SELECT id, part_data FROM message_parts
+         WHERE message_id = ? AND part_type = 'text'`
+      )
+      .all(messageId);
+
+    for (const partRow of parts) {
+      const partData = JSON.parse(partRow.part_data);
+      if (partData.state === "streaming") {
+        partData.state = "done";
+        this.db.run(
+          `UPDATE message_parts SET part_data = ? WHERE id = ?`,
+          [JSON.stringify(partData), partRow.id]
+        );
+      }
+    }
+  }
+
+  /** @inheritdoc */
   async listConversations(channelName?: string): Promise<ConversationInfo[]> {
+    // Get first text content from first user message for preview
     const sql = `
       SELECT c.id, c.channel_name, c.created_at, c.updated_at,
-        (SELECT content FROM messages WHERE conversation_id = c.id AND role = 'user'
-         ORDER BY created_at ASC, id ASC LIMIT 1) as preview,
         (SELECT COUNT(*) FROM messages WHERE conversation_id = c.id) as message_count
       FROM conversations c
       ${channelName ? "WHERE c.channel_name = ?" : ""}
@@ -149,7 +334,6 @@ export class SqliteStore implements IMessageStore {
       channel_name: string | null;
       created_at: number;
       updated_at: number;
-      preview: string | null;
       message_count: number;
     };
 
@@ -157,19 +341,55 @@ export class SqliteStore implements IMessageStore {
       ? this.db.query<Row, [string]>(sql).all(channelName)
       : this.db.query<Row, []>(sql).all();
 
-    return rows.map((row) => ({
-      id: row.id,
-      channelName: row.channel_name,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
-      preview: row.preview?.slice(0, 100) ?? "",
-      messageCount: row.message_count,
-    }));
+    // Get preview for each conversation (first text from first user message)
+    const results: ConversationInfo[] = [];
+
+    for (const row of rows) {
+      let preview = "";
+
+      // Get first user message
+      const firstUserMsg = this.db
+        .query<{ id: string }, [string]>(
+          `SELECT id FROM messages
+           WHERE conversation_id = ? AND role = 'user'
+           ORDER BY created_at ASC, id ASC
+           LIMIT 1`
+        )
+        .get(row.id);
+
+      if (firstUserMsg) {
+        // Get first text part from that message
+        const textPart = this.db
+          .query<{ part_data: string }, [string]>(
+            `SELECT part_data FROM message_parts
+             WHERE message_id = ? AND part_type = 'text'
+             ORDER BY part_index ASC
+             LIMIT 1`
+          )
+          .get(firstUserMsg.id);
+
+        if (textPart) {
+          const data = JSON.parse(textPart.part_data);
+          preview = (data.text ?? "").slice(0, 100);
+        }
+      }
+
+      results.push({
+        id: row.id,
+        channelName: row.channel_name,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+        preview,
+        messageCount: row.message_count,
+      });
+    }
+
+    return results;
   }
 
   /** @inheritdoc */
   async deleteConversation(conversationId: string): Promise<void> {
-    // Messages cascade-delete due to FK constraint
+    // Messages and parts cascade-delete due to FK constraint
     this.db.run(`DELETE FROM conversations WHERE id = ?`, [conversationId]);
   }
 

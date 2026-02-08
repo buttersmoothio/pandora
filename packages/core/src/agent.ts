@@ -5,7 +5,7 @@
  * specialized tasks to subagents (coding, research, etc.) via tools.
  */
 
-import { ToolLoopAgent, stepCountIs, type Tool, type ToolChoice } from "ai";
+import { ToolLoopAgent, stepCountIs, convertToModelMessages, type Tool, type ToolChoice } from "ai";
 import { createModel } from "./providers";
 import {
   getSubagentDefinitions,
@@ -14,7 +14,7 @@ import {
   createToolsForAgent,
 } from "./registries";
 import type { AIConfig } from "./config";
-import type { ChatMessage, ChannelCapabilities, StreamEvent } from "./types";
+import type { UIMessage, ChannelCapabilities, StreamEvent } from "./types";
 import { logger } from "./logger";
 
 /**
@@ -143,12 +143,12 @@ export class Agent {
    * Generate a response given conversation history and channel capabilities.
    * Creates a new operator agent instance per request with channel-specific instructions.
    *
-   * @param history - Conversation history (user/assistant/system messages).
+   * @param history - Conversation history (UIMessage array with parts).
    * @param capabilities - Channel capabilities (formatting, max length).
    * @returns The assistant reply text.
    */
   async chat(
-    history: ChatMessage[],
+    history: UIMessage[],
     capabilities: ChannelCapabilities
   ): Promise<string> {
     const operatorConfig = this.config.agents.operator;
@@ -200,11 +200,8 @@ export class Agent {
       },
     });
 
-    // Convert our ChatMessage format to AI SDK format
-    const messages = history.map((msg) => ({
-      role: msg.role as "user" | "assistant" | "system",
-      content: msg.content,
-    }));
+    // Convert UIMessage format to AI SDK model messages
+    const messages = await convertToModelMessages(history);
 
     // Log full model input when verbose
     logger.modelInstructions("operator", instructions);
@@ -225,14 +222,14 @@ export class Agent {
    * Stream a response token-by-token given conversation history and channel capabilities.
    * Yields text deltas as they arrive, returns the full collected text.
    *
-   * @param history - Conversation history (user/assistant/system messages).
+   * @param history - Conversation history (UIMessage array with parts).
    * @param capabilities - Channel capabilities (formatting, max length).
-   * @param onEvent - Optional callback for stream events (tool calls, etc.).
+   * @param onEvent - Optional callback for stream events (tool calls, sources, etc.).
    * @yields Text deltas as they stream in.
    * @returns The complete response text.
    */
   async *chatStream(
-    history: ChatMessage[],
+    history: UIMessage[],
     capabilities: ChannelCapabilities,
     onEvent?: (event: StreamEvent) => void
   ): AsyncGenerator<string, string> {
@@ -284,10 +281,8 @@ export class Agent {
       },
     });
 
-    const messages = history.map((msg) => ({
-      role: msg.role as "user" | "assistant" | "system",
-      content: msg.content,
-    }));
+    // Convert UIMessage format to AI SDK model messages
+    const messages = await convertToModelMessages(history);
 
     logger.modelInstructions("operator", instructions);
     logger.modelInput("operator", messages);
@@ -301,6 +296,7 @@ export class Agent {
           fullText += part.text;
           yield part.text;
           break;
+
         case "tool-call":
           onEvent?.({
             type: "tool-call",
@@ -309,6 +305,7 @@ export class Agent {
             args: part.input,
           });
           break;
+
         case "tool-result":
           onEvent?.({
             type: "tool-result",
@@ -317,25 +314,49 @@ export class Agent {
             result: part.output,
           });
           break;
+
         case "source":
+          // Handle both URL and document source types
           if (part.sourceType === "url") {
             onEvent?.({
-              type: "source",
-              sourceType: part.sourceType,
-              id: part.id,
+              type: "source-url",
+              sourceId: part.id,
               url: part.url,
               title: part.title,
             });
+          } else if (part.sourceType === "document") {
+            onEvent?.({
+              type: "source-document",
+              sourceId: part.id,
+              mediaType: part.mediaType,
+              title: part.title,
+              filename: part.filename,
+            });
           }
           break;
+
         case "reasoning-delta":
           onEvent?.({ type: "reasoning-delta", text: part.text });
           break;
+
+        case "start-step":
+          onEvent?.({ type: "step-start" });
+          break;
+
         case "finish-step":
           onEvent?.({
             type: "step-finish",
             usage: part.usage,
             finishReason: part.finishReason,
+          });
+          break;
+
+        case "file":
+          // File is wrapped in a GeneratedFile object
+          onEvent?.({
+            type: "file",
+            mediaType: part.file.mediaType,
+            url: `data:${part.file.mediaType};base64,${part.file.base64}`,
           });
           break;
       }

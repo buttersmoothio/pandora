@@ -2,6 +2,50 @@
  * Core types for the Pandora AI Agent
  */
 
+// Re-export AI SDK UI types for message parts
+export type {
+  UIMessage,
+  TextUIPart,
+  ReasoningUIPart,
+  DynamicToolUIPart,
+  SourceUrlUIPart,
+  SourceDocumentUIPart,
+  FileUIPart,
+  StepStartUIPart,
+  UIDataTypes,
+  UITools,
+} from "ai";
+
+// UIMessagePart with default type parameters for simpler usage
+import type {
+  UIMessagePart as AIUIMessagePart,
+  UIDataTypes,
+  UITools,
+} from "ai";
+
+/** Message part type with default generics for ease of use. */
+export type UIMessagePart = AIUIMessagePart<UIDataTypes, UITools>;
+
+export { generateId, convertToModelMessages } from "ai";
+
+/**
+ * Metadata attached to each Pandora message.
+ */
+export interface MessageMeta {
+  /** Which channel this message originated from */
+  channelName?: string;
+  /** User identifier (channel-specific format) */
+  userId?: string;
+  /** Unix epoch seconds when created */
+  createdAt?: number;
+}
+
+/**
+ * Pandora message type - AI SDK UIMessage with our metadata.
+ * Parts-based storage for tool calls, reasoning, sources, etc.
+ */
+export type { UIMessage as PandoraMessage } from "ai";
+
 /**
  * Capabilities that a channel supports.
  * These are fixed characteristics of each channel, defined in code.
@@ -64,13 +108,6 @@ export interface Message {
   metadata?: Record<string, unknown>;
 }
 
-/**
- * Chat message for conversation history (compatible with Vercel AI SDK)
- */
-export interface ChatMessage {
-  role: "user" | "assistant" | "system";
-  content: string;
-}
 
 /**
  * Channel interface that all channel implementations must follow
@@ -109,9 +146,12 @@ export type StreamingMessageHandler = (
 export type StreamEvent =
   | { type: "tool-call"; toolCallId: string; toolName: string; args: unknown }
   | { type: "tool-result"; toolCallId: string; toolName: string; result: unknown }
-  | { type: "source"; sourceType: string; id: string; url?: string; title?: string; providerMetadata?: Record<string, unknown> }
+  | { type: "source-url"; sourceId: string; url: string; title?: string; providerMetadata?: Record<string, unknown> }
+  | { type: "source-document"; sourceId: string; mediaType: string; title: string; filename?: string; providerMetadata?: Record<string, unknown> }
   | { type: "reasoning-delta"; text: string }
-  | { type: "step-finish"; usage: { inputTokens?: number; outputTokens?: number; totalTokens?: number }; finishReason: string };
+  | { type: "step-start" }
+  | { type: "step-finish"; usage: { inputTokens?: number; outputTokens?: number; totalTokens?: number }; finishReason: string }
+  | { type: "file"; mediaType: string; url: string; filename?: string };
 
 /**
  * Events emitted by the Gateway's pub/sub system for cross-channel streaming.

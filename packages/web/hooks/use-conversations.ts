@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import type { ChatMessage } from "./use-pandora-chat";
+import type { PandoraMessage, PandoraMessagePart } from "./use-pandora-chat";
 
 export interface ConversationInfo {
   id: string;
@@ -24,7 +24,7 @@ interface UseConversationsReturn {
   loading: boolean;
   refresh: () => Promise<void>;
   deleteConversation: (id: string) => Promise<void>;
-  loadHistory: (id: string) => Promise<ChatMessage[]>;
+  loadHistory: (id: string) => Promise<PandoraMessage[]>;
 }
 
 export function useConversations({
@@ -64,21 +64,24 @@ export function useConversations({
   );
 
   const loadHistory = useCallback(
-    async (id: string): Promise<ChatMessage[]> => {
+    async (id: string): Promise<PandoraMessage[]> => {
       const res = await fetch(
         `${baseUrl}/api/conversations/${encodeURIComponent(id)}/history`,
         { headers }
       );
       if (!res.ok) return [];
+
+      // API returns UIMessage[] with parts-based storage
       const data = (await res.json()) as {
-        messages: { role: "user" | "assistant"; content: string }[];
+        messages: Array<{
+          id: string;
+          role: "user" | "assistant";
+          parts: PandoraMessagePart[];
+        }>;
       };
-      let counter = 0;
-      return data.messages.map((m) => ({
-        id: `hist-${++counter}`,
-        role: m.role,
-        content: m.content,
-      }));
+
+      // Return messages directly - they're already in the right format
+      return data.messages;
     },
     [baseUrl, token]
   );

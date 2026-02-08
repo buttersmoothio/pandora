@@ -251,10 +251,15 @@ export const logger = {
    * @param agent - Agent name (e.g. `"operator"`, `"coder"`).
    * @param messages - The messages array sent to the model.
    */
-  modelInput(agent: string, messages: Array<{ role: string; content: string }>): void {
+  modelInput(agent: string, messages: Array<{ role: string; content: unknown }>): void {
     if (!verboseMode) return;
     const formatted = messages
-      .map((m) => `[${m.role}]\n${m.content}`)
+      .map((m) => {
+        const content = typeof m.content === "string"
+          ? m.content
+          : JSON.stringify(m.content, null, 2);
+        return `[${m.role}]\n${content}`;
+      })
       .join("\n\n");
     logVerbose("Model", `▶ ${agent} prompt`, formatted);
   },

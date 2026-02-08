@@ -1,31 +1,27 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { ChatStatus } from "ai";
+import type { ChatStatus, UIMessage, UIMessagePart } from "ai";
+import { generateId } from "ai";
 
-export interface ToolCallInfo {
-  toolCallId: string;
-  toolName: string;
-  args: unknown;
-  result?: unknown;
-  state: "input-available" | "output-available" | "output-error";
-}
+/**
+ * Extended UIMessagePart types for Pandora.
+ * These match the parts stored in the backend.
+ */
+export type PandoraMessagePart =
+  | { type: "text"; text: string; state?: "streaming" | "done" }
+  | { type: "reasoning"; text: string; state?: "streaming" | "done" }
+  | { type: "dynamic-tool"; toolName: string; toolCallId: string; state: "input-available" | "output-available" | "output-error"; input?: unknown; output?: unknown }
+  | { type: "source-url"; sourceId: string; url: string; title?: string }
+  | { type: "source-document"; sourceId: string; mediaType: string; title: string; filename?: string }
+  | { type: "file"; mediaType: string; url: string; filename?: string }
+  | { type: "step-start" };
 
-export interface SourceInfo {
-  sourceType: string;
-  id: string;
-  url?: string;
-  title?: string;
-}
-
-export interface ChatMessage {
+export type PandoraMessage = {
   id: string;
   role: "user" | "assistant";
-  content: string;
-  toolCalls?: ToolCallInfo[];
-  sources?: SourceInfo[];
-  reasoning?: string;
-}
+  parts: PandoraMessagePart[];
+};
 
 export type ConnectionStatus = "connected" | "disconnected" | "reconnecting";
 
@@ -41,19 +37,14 @@ interface UsePandoraChatOptions {
 }
 
 interface UsePandoraChatReturn {
-  messages: ChatMessage[];
-  setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>;
+  messages: PandoraMessage[];
+  setMessages: React.Dispatch<React.SetStateAction<PandoraMessage[]>>;
   status: ChatStatus;
   connectionStatus: ConnectionStatus;
   input: string;
   setInput: (value: string) => void;
   sendMessage: (content: string) => void;
   clearConversation: () => void;
-}
-
-let messageIdCounter = 0;
-function nextId(): string {
-  return `msg-${++messageIdCounter}`;
 }
 
 const MAX_RECONNECT_ATTEMPTS = 10;
@@ -66,7 +57,7 @@ export function usePandoraChat({
   conversationId,
   onConversationUpdate,
 }: UsePandoraChatOptions): UsePandoraChatReturn {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messages, setMessages] = useState<PandoraMessage[]>([]);
   const [status, setStatus] = useState<ChatStatus>("ready");
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>("disconnected");
   const [input, setInput] = useState("");
@@ -125,10 +116,11 @@ export function usePandoraChat({
           toolName?: string;
           args?: unknown;
           result?: unknown;
-          sourceType?: string;
-          id?: string;
+          sourceId?: string;
           url?: string;
           title?: string;
+          mediaType?: string;
+          filename?: string;
         };
 
         // Conversation-scoped check: ignore events for other conversations
@@ -143,8 +135,7 @@ export function usePandoraChat({
           }
           case "stream-state": {
             // Late-joining: received current state of an active stream
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const state = data as any as {
+            const state = data as unknown as {
               conversationId: string;
               channelName: string;
               userContent: string;
@@ -155,34 +146,58 @@ export function usePandoraChat({
             };
             if (state.conversationId !== conversationIdRef.current) break;
 
-            const asstId = nextId();
-            const asstMsg: ChatMessage = {
-              id: asstId,
-              role: "assistant",
-              content: state.partialText,
-              toolCalls: state.toolCalls.map((tc) => ({
-                toolCallId: tc.toolCallId,
+            const asstId = generateId();
+            const asstParts: PandoraMessagePart[] = [];
+
+            // Add reasoning if present
+            if (state.reasoning) {
+              asstParts.push({ type: "reasoning", text: state.reasoning, state: "streaming" });
+            }
+
+            // Add tool calls
+            for (const tc of state.toolCalls) {
+              asstParts.push({
+                type: "dynamic-tool",
                 toolName: tc.toolName,
-                args: tc.args,
-                result: tc.result,
-                state: tc.result !== undefined ? "output-available" as const : "input-available" as const,
-              })),
-              sources: state.sources,
-              reasoning: state.reasoning || undefined,
-            };
-            streamingIdRef.current = asstId;
-            setMessages((prev) => {
-              // Check if history already loaded (has the user message that triggered the stream)
-              const lastMsg = prev[prev.length - 1];
-              if (lastMsg?.role === "user" && lastMsg.content === state.userContent) {
-                // History loaded first - just append the assistant response
-                return [...prev, asstMsg];
+                toolCallId: tc.toolCallId,
+                state: tc.result !== undefined ? "output-available" : "input-available",
+                input: tc.args,
+                output: tc.result,
+              });
+            }
+
+            // Add sources
+            for (const src of state.sources) {
+              if (src.sourceType === "url") {
+                asstParts.push({
+                  type: "source-url",
+                  sourceId: src.id,
+                  url: src.url ?? "",
+                  title: src.title,
+                });
               }
-              // History hasn't loaded yet - add both user message and assistant response
-              const userMsg: ChatMessage = {
-                id: nextId(),
+            }
+
+            // Add text if present
+            if (state.partialText) {
+              asstParts.push({ type: "text", text: state.partialText, state: "streaming" });
+            }
+
+            const asstMsg: PandoraMessage = { id: asstId, role: "assistant", parts: asstParts };
+            streamingIdRef.current = asstId;
+
+            setMessages((prev) => {
+              const lastMsg = prev[prev.length - 1];
+              if (lastMsg?.role === "user") {
+                const userTextPart = lastMsg.parts.find((p) => p.type === "text");
+                if (userTextPart && userTextPart.type === "text" && userTextPart.text === state.userContent) {
+                  return [...prev, asstMsg];
+                }
+              }
+              const userMsg: PandoraMessage = {
+                id: generateId(),
                 role: "user",
-                content: state.userContent,
+                parts: [{ type: "text", text: state.userContent, state: "done" }],
               };
               return [...prev, userMsg, asstMsg];
             });
@@ -191,17 +206,16 @@ export function usePandoraChat({
           }
           case "user-message": {
             if (!isCurrentConversation) break;
-            // A message arrived from another channel (e.g. Telegram)
-            const userMsg: ChatMessage = {
-              id: nextId(),
+            const userMsg: PandoraMessage = {
+              id: generateId(),
               role: "user",
-              content: data.content ?? "",
+              parts: [{ type: "text", text: data.content ?? "", state: "done" }],
             };
-            const asstId = nextId();
-            const asstMsg: ChatMessage = {
+            const asstId = generateId();
+            const asstMsg: PandoraMessage = {
               id: asstId,
               role: "assistant",
-              content: "",
+              parts: [],
             };
             streamingIdRef.current = asstId;
             setMessages((prev) => [...prev, userMsg, asstMsg]);
@@ -213,11 +227,22 @@ export function usePandoraChat({
             const id = streamingIdRef.current;
             if (!id) break;
             setMessages((prev) =>
-              prev.map((msg) =>
-                msg.id === id
-                  ? { ...msg, content: msg.content + (data.text ?? "") }
-                  : msg
-              )
+              prev.map((msg) => {
+                if (msg.id !== id) return msg;
+                const parts = [...msg.parts];
+                const lastPart = parts[parts.length - 1];
+                if (lastPart?.type === "text") {
+                  // Append to existing text part
+                  parts[parts.length - 1] = {
+                    ...lastPart,
+                    text: lastPart.text + (data.text ?? ""),
+                  };
+                } else {
+                  // Create new text part
+                  parts.push({ type: "text", text: data.text ?? "", state: "streaming" });
+                }
+                return { ...msg, parts };
+              })
             );
             setStatus("streaming");
             break;
@@ -226,17 +251,16 @@ export function usePandoraChat({
             if (!isCurrentConversation) break;
             const id = streamingIdRef.current;
             if (!id) break;
-            const toolCall: ToolCallInfo = {
-              toolCallId: data.toolCallId!,
+            const toolPart: PandoraMessagePart = {
+              type: "dynamic-tool",
               toolName: data.toolName!,
-              args: data.args,
+              toolCallId: data.toolCallId!,
               state: "input-available",
+              input: data.args,
             };
             setMessages((prev) =>
               prev.map((msg) =>
-                msg.id === id
-                  ? { ...msg, toolCalls: [...(msg.toolCalls ?? []), toolCall] }
-                  : msg
+                msg.id === id ? { ...msg, parts: [...msg.parts, toolPart] } : msg
               )
             );
             break;
@@ -246,40 +270,68 @@ export function usePandoraChat({
             const id = streamingIdRef.current;
             if (!id) break;
             setMessages((prev) =>
+              prev.map((msg) => {
+                if (msg.id !== id) return msg;
+                return {
+                  ...msg,
+                  parts: msg.parts.map((part) =>
+                    part.type === "dynamic-tool" && part.toolCallId === data.toolCallId
+                      ? { ...part, state: "output-available" as const, output: data.result }
+                      : part
+                  ),
+                };
+              })
+            );
+            break;
+          }
+          case "source-url": {
+            if (!isCurrentConversation) break;
+            const id = streamingIdRef.current;
+            if (!id) break;
+            const sourcePart: PandoraMessagePart = {
+              type: "source-url",
+              sourceId: data.sourceId ?? generateId(),
+              url: data.url ?? "",
+              title: data.title,
+            };
+            setMessages((prev) =>
               prev.map((msg) =>
-                msg.id === id
-                  ? {
-                      ...msg,
-                      toolCalls: msg.toolCalls?.map((tc) =>
-                        tc.toolCallId === data.toolCallId
-                          ? {
-                              ...tc,
-                              result: data.result,
-                              state: "output-available" as const,
-                            }
-                          : tc
-                      ),
-                    }
-                  : msg
+                msg.id === id ? { ...msg, parts: [...msg.parts, sourcePart] } : msg
               )
             );
             break;
           }
-          case "source": {
+          case "source-document": {
             if (!isCurrentConversation) break;
             const id = streamingIdRef.current;
             if (!id) break;
+            const sourcePart: PandoraMessagePart = {
+              type: "source-document",
+              sourceId: data.sourceId ?? generateId(),
+              mediaType: data.mediaType ?? "",
+              title: data.title ?? "",
+              filename: data.filename,
+            };
             setMessages((prev) =>
               prev.map((msg) =>
-                msg.id === id
-                  ? {
-                      ...msg,
-                      sources: [
-                        ...(msg.sources ?? []),
-                        { sourceType: data.sourceType!, id: data.id!, url: data.url, title: data.title },
-                      ],
-                    }
-                  : msg
+                msg.id === id ? { ...msg, parts: [...msg.parts, sourcePart] } : msg
+              )
+            );
+            break;
+          }
+          case "file": {
+            if (!isCurrentConversation) break;
+            const id = streamingIdRef.current;
+            if (!id) break;
+            const filePart: PandoraMessagePart = {
+              type: "file",
+              mediaType: data.mediaType ?? "",
+              url: data.url ?? "",
+              filename: data.filename,
+            };
+            setMessages((prev) =>
+              prev.map((msg) =>
+                msg.id === id ? { ...msg, parts: [...msg.parts, filePart] } : msg
               )
             );
             break;
@@ -289,16 +341,48 @@ export function usePandoraChat({
             const id = streamingIdRef.current;
             if (!id) break;
             setMessages((prev) =>
+              prev.map((msg) => {
+                if (msg.id !== id) return msg;
+                const parts = [...msg.parts];
+                const reasoningIdx = parts.findIndex((p) => p.type === "reasoning");
+                if (reasoningIdx >= 0) {
+                  const existing = parts[reasoningIdx] as { type: "reasoning"; text: string };
+                  parts[reasoningIdx] = { ...existing, text: existing.text + (data.text ?? "") };
+                } else {
+                  parts.unshift({ type: "reasoning", text: data.text ?? "", state: "streaming" });
+                }
+                return { ...msg, parts };
+              })
+            );
+            break;
+          }
+          case "step-start": {
+            if (!isCurrentConversation) break;
+            const id = streamingIdRef.current;
+            if (!id) break;
+            setMessages((prev) =>
               prev.map((msg) =>
-                msg.id === id
-                  ? { ...msg, reasoning: (msg.reasoning ?? "") + (data.text ?? "") }
-                  : msg
+                msg.id === id ? { ...msg, parts: [...msg.parts, { type: "step-start" }] } : msg
               )
             );
             break;
           }
           case "done": {
             if (!isCurrentConversation) break;
+            // Finalize text parts
+            setMessages((prev) =>
+              prev.map((msg) => {
+                if (msg.id !== streamingIdRef.current) return msg;
+                return {
+                  ...msg,
+                  parts: msg.parts.map((part) =>
+                    part.type === "text" || part.type === "reasoning"
+                      ? { ...part, state: "done" as const }
+                      : part
+                  ),
+                };
+              })
+            );
             streamingIdRef.current = null;
             setStatus("ready");
             break;
@@ -357,17 +441,17 @@ export function usePandoraChat({
       const ws = wsRef.current;
       if (!ws || ws.readyState !== WebSocket.OPEN || !content.trim()) return;
 
-      const userMsg: ChatMessage = {
-        id: nextId(),
+      const userMsg: PandoraMessage = {
+        id: generateId(),
         role: "user",
-        content: content.trim(),
+        parts: [{ type: "text", text: content.trim(), state: "done" }],
       };
 
-      const assistantId = nextId();
-      const assistantMsg: ChatMessage = {
+      const assistantId = generateId();
+      const assistantMsg: PandoraMessage = {
         id: assistantId,
         role: "assistant",
-        content: "",
+        parts: [],
       };
 
       streamingIdRef.current = assistantId;

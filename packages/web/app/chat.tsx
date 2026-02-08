@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { nanoid } from "nanoid";
-import { usePandoraChat } from "@/hooks/use-pandora-chat";
+import { usePandoraChat, type PandoraMessage, type PandoraMessagePart } from "@/hooks/use-pandora-chat";
 import { useConversations } from "@/hooks/use-conversations";
-import type { ChatMessage, ConnectionStatus } from "@/hooks/use-pandora-chat";
+import type { ConnectionStatus } from "@/hooks/use-pandora-chat";
 import {
   Conversation,
   ConversationContent,
@@ -35,6 +35,13 @@ import {
   ChainOfThoughtContent,
   ChainOfThoughtStep,
 } from "@/components/ai-elements/chain-of-thought";
+import {
+  Sources,
+  SourcesTrigger,
+  SourcesContent,
+  Source,
+} from "@/components/ai-elements/sources";
+import { Image } from "@/components/ai-elements/image";
 import {
   Suggestions,
   Suggestion,
@@ -473,92 +480,14 @@ function ChatInterface({
                 </div>
               </ConversationEmptyState>
             ) : (
-              messages.map((msg, idx) => {
-                const isLastMessage = idx === messages.length - 1;
-                return (
-                  <Message from={msg.role} key={msg.id}>
-                    <MessageContent>
-                      {/* Reasoning block — extended thinking */}
-                      {msg.reasoning && (
-                        <Reasoning
-                          isStreaming={
-                            isLastMessage &&
-                            isStreaming &&
-                            !!msg.reasoning &&
-                            !msg.content
-                          }
-                        >
-                          <ReasoningTrigger />
-                          <ReasoningContent>{msg.reasoning}</ReasoningContent>
-                        </Reasoning>
-                      )}
-
-                      {/* Chain of Thought — tool call steps */}
-                      {msg.toolCalls && msg.toolCalls.length > 0 && (
-                        <ChainOfThought>
-                          <ChainOfThoughtHeader>
-                            Used {msg.toolCalls.length} tool
-                            {msg.toolCalls.length > 1 ? "s" : ""}
-                          </ChainOfThoughtHeader>
-                          <ChainOfThoughtContent>
-                            {msg.toolCalls.map((tc) => (
-                              <ChainOfThoughtStep
-                                key={tc.toolCallId}
-                                label={tc.toolName}
-                                description={
-                                  tc.args
-                                    ? typeof tc.args === "object"
-                                      ? Object.entries(
-                                          tc.args as Record<string, unknown>
-                                        )
-                                          .map(
-                                            ([k, v]) =>
-                                              `${k}: ${typeof v === "string" ? v : JSON.stringify(v)}`
-                                          )
-                                          .join(", ")
-                                      : String(tc.args)
-                                    : undefined
-                                }
-                                status={
-                                  tc.state === "output-available"
-                                    ? "complete"
-                                    : "active"
-                                }
-                              >
-                                {tc.state === "output-available" &&
-                                  tc.result != null && (
-                                    <pre className="mt-1 max-h-40 overflow-auto rounded bg-muted p-2 text-xs whitespace-pre-wrap">
-                                      {typeof tc.result === "string"
-                                        ? tc.result
-                                        : JSON.stringify(
-                                            tc.result,
-                                            null,
-                                            2
-                                          )}
-                                    </pre>
-                                  )}
-                              </ChainOfThoughtStep>
-                            ))}
-                          </ChainOfThoughtContent>
-                        </ChainOfThought>
-                      )}
-
-                      {/* Message text */}
-                      {msg.role === "assistant" && !msg.content ? (
-                        <Shimmer>
-                          {msg.toolCalls?.length
-                            ? "Working..."
-                            : msg.reasoning
-                              ? "Reasoning..."
-                              : "Thinking..."}
-                        </Shimmer>
-                      ) : (
-                        <MessageResponse>{msg.content}</MessageResponse>
-                      )}
-                    </MessageContent>
-                  </Message>
-                );
-              })
+              messages.map((msg, idx) => (
+                <MessageRenderer
+                  key={msg.id}
+                  message={msg}
+                  isLastMessage={idx === messages.length - 1}
+                  isStreaming={isStreaming}
+                />
+              ))
             )}
           </ConversationContent>
           <ConversationScrollButton />
@@ -581,5 +510,180 @@ function ChatInterface({
         </div>
       </div>
     </div>
+  );
+}
+
+/** Renders a single message by iterating over its parts */
+function MessageRenderer({
+  message,
+  isLastMessage,
+  isStreaming,
+}: {
+  message: PandoraMessage;
+  isLastMessage: boolean;
+  isStreaming: boolean;
+}) {
+  const { parts, role } = message;
+
+  // Group parts by type for organized rendering
+  const reasoningParts = parts.filter((p) => p.type === "reasoning");
+  const toolParts = parts.filter((p) => p.type === "dynamic-tool");
+  const sourceParts = parts.filter((p) => p.type === "source-url" || p.type === "source-document");
+  const fileParts = parts.filter((p) => p.type === "file");
+  const textParts = parts.filter((p) => p.type === "text");
+
+  // Check if we have text content
+  const hasText = textParts.some((p) => p.type === "text" && p.text);
+  const textContent = textParts
+    .filter((p): p is Extract<PandoraMessagePart, { type: "text" }> => p.type === "text")
+    .map((p) => p.text)
+    .join("");
+
+  // Check streaming state
+  const isTextStreaming = isLastMessage && isStreaming && textParts.some(
+    (p) => p.type === "text" && p.state === "streaming"
+  );
+  const isReasoningStreaming = isLastMessage && isStreaming && reasoningParts.some(
+    (p) => p.type === "reasoning" && p.state === "streaming"
+  );
+
+  return (
+    <Message from={role}>
+      <MessageContent>
+        {/* Reasoning block */}
+        {reasoningParts.length > 0 && (
+          <Reasoning isStreaming={isReasoningStreaming && !hasText}>
+            <ReasoningTrigger />
+            <ReasoningContent>
+              {reasoningParts
+                .filter((p): p is Extract<PandoraMessagePart, { type: "reasoning" }> => p.type === "reasoning")
+                .map((p) => p.text)
+                .join("")}
+            </ReasoningContent>
+          </Reasoning>
+        )}
+
+        {/* Tool calls */}
+        {toolParts.length > 0 && (
+          <ChainOfThought>
+            <ChainOfThoughtHeader>
+              Used {toolParts.length} tool{toolParts.length > 1 ? "s" : ""}
+            </ChainOfThoughtHeader>
+            <ChainOfThoughtContent>
+              {toolParts
+                .filter((p): p is Extract<PandoraMessagePart, { type: "dynamic-tool" }> => p.type === "dynamic-tool")
+                .map((tc) => (
+                  <ChainOfThoughtStep
+                    key={tc.toolCallId}
+                    label={tc.toolName}
+                    description={
+                      tc.input
+                        ? typeof tc.input === "object"
+                          ? Object.entries(tc.input as Record<string, unknown>)
+                              .map(([k, v]) => `${k}: ${typeof v === "string" ? v : JSON.stringify(v)}`)
+                              .join(", ")
+                          : String(tc.input)
+                        : undefined
+                    }
+                    status={tc.state === "output-available" ? "complete" : "active"}
+                  >
+                    {tc.state === "output-available" && tc.output != null && (
+                      <pre className="mt-1 max-h-40 overflow-auto rounded bg-muted p-2 text-xs whitespace-pre-wrap">
+                        {typeof tc.output === "string"
+                          ? tc.output
+                          : JSON.stringify(tc.output, null, 2)}
+                      </pre>
+                    )}
+                  </ChainOfThoughtStep>
+                ))}
+            </ChainOfThoughtContent>
+          </ChainOfThought>
+        )}
+
+        {/* Sources */}
+        {sourceParts.length > 0 && (
+          <Sources>
+            <SourcesTrigger count={sourceParts.length} />
+            <SourcesContent>
+              {sourceParts.map((part, i) => {
+                if (part.type === "source-url") {
+                  return (
+                    <Source
+                      key={part.sourceId}
+                      href={part.url}
+                      title={part.title || part.url}
+                    />
+                  );
+                }
+                if (part.type === "source-document") {
+                  return (
+                    <Source
+                      key={part.sourceId}
+                      title={part.title}
+                    />
+                  );
+                }
+                return null;
+              })}
+            </SourcesContent>
+          </Sources>
+        )}
+
+        {/* Files/Images */}
+        {fileParts.map((part, i) => {
+          if (part.type !== "file") return null;
+          // Check if it's an image
+          if (part.mediaType.startsWith("image/")) {
+            // Extract base64 from data URL
+            const base64Match = part.url.match(/^data:[^;]+;base64,(.+)$/);
+            if (base64Match) {
+              return (
+                <Image
+                  key={i}
+                  base64={base64Match[1]}
+                  uint8Array={new Uint8Array()} // Not used for display
+                  mediaType={part.mediaType}
+                  alt={part.filename || "Generated image"}
+                  className="max-w-sm rounded-lg"
+                />
+              );
+            }
+            // Regular URL
+            return (
+              <img
+                key={i}
+                src={part.url}
+                alt={part.filename || "Image"}
+                className="max-w-sm rounded-lg"
+              />
+            );
+          }
+          // Non-image file - show as download link
+          return (
+            <a
+              key={i}
+              href={part.url}
+              download={part.filename}
+              className="flex items-center gap-2 rounded bg-muted px-3 py-2 text-sm hover:bg-muted/80"
+            >
+              📎 {part.filename || "Download file"}
+            </a>
+          );
+        })}
+
+        {/* Text content */}
+        {role === "assistant" && !hasText ? (
+          <Shimmer>
+            {toolParts.length > 0
+              ? "Working..."
+              : reasoningParts.length > 0
+                ? "Reasoning..."
+                : "Thinking..."}
+          </Shimmer>
+        ) : (
+          textContent && <MessageResponse>{textContent}</MessageResponse>
+        )}
+      </MessageContent>
+    </Message>
   );
 }

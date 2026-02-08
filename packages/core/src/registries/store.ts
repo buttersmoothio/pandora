@@ -5,8 +5,11 @@
  * Each backend is defined in src/store/ and self-registers using defineStore().
  */
 
-import type { ChatMessage } from "../types";
+import type { UIMessage, UIMessagePart, MessageMeta } from "../types";
 import type { StorageConfig } from "../config";
+
+// Re-export MessageMeta for convenience
+export type { MessageMeta } from "../types";
 
 /** Summary information about a stored conversation. */
 export interface ConversationInfo {
@@ -23,31 +26,75 @@ export interface ConversationInfo {
   messageCount: number;
 }
 
-/** Optional metadata passed when storing messages. */
-export interface MessageMeta {
-  channelName?: string;
-  userId?: string;
-}
-
 /**
  * Storage interface for message persistence.
  *
  * All backends (memory, SQLite, Postgres, etc.) implement this interface.
  * Methods are async to support both in-memory and persistent backends.
+ *
+ * Supports streaming persistence: messages are created first, then parts
+ * are appended incrementally as they stream in.
  */
 export interface IMessageStore {
-  /** Add a message to a conversation's history */
+  // === Message Management ===
+
+  /**
+   * Add a complete message to a conversation's history.
+   * For non-streaming use cases or when message is already complete.
+   * @returns The generated message ID
+   */
   addMessage(
     conversationId: string,
-    message: ChatMessage,
+    message: Omit<UIMessage, "id">,
     meta?: MessageMeta
-  ): Promise<void>;
+  ): Promise<string>;
 
   /** Get the full conversation history for a conversation */
-  getHistory(conversationId: string): Promise<ChatMessage[]>;
+  getHistory(conversationId: string): Promise<UIMessage[]>;
 
   /** Clear all messages in a conversation */
   clearHistory(conversationId: string): Promise<void>;
+
+  // === Streaming Persistence ===
+
+  /**
+   * Create a new message shell before streaming begins.
+   * @returns The generated message ID
+   */
+  createMessage(
+    conversationId: string,
+    role: "user" | "assistant",
+    meta?: MessageMeta
+  ): Promise<string>;
+
+  /**
+   * Append a part to an existing message.
+   * For text parts, this creates a new text part with state: "streaming".
+   */
+  appendPart(messageId: string, part: UIMessagePart): Promise<void>;
+
+  /**
+   * Update a tool part with its result (state: input-available -> output-available).
+   */
+  updateToolResult(
+    messageId: string,
+    toolCallId: string,
+    result: unknown
+  ): Promise<void>;
+
+  /**
+   * Update the last text part with new content.
+   * Used during streaming to accumulate text.
+   */
+  updateTextPart(messageId: string, text: string): Promise<void>;
+
+  /**
+   * Finalize a message (text part state: streaming -> done).
+   * Called when streaming for the message is complete.
+   */
+  finalizeMessage(messageId: string): Promise<void>;
+
+  // === Conversation Management ===
 
   /** List conversations, optionally filtered by channel name. Ordered by most recently updated. */
   listConversations(channelName?: string): Promise<ConversationInfo[]>;

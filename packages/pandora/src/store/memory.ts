@@ -3,14 +3,19 @@
  *
  * Fast, ephemeral storage. Conversations are lost on restart.
  * Useful for development/testing or when persistence isn't needed.
+ *
+ * Uses parts-based storage for UIMessage compatibility.
  */
 
 import {
   defineStore,
+  generateId,
   type IMessageStore,
   type ConversationInfo,
   type MessageMeta,
-  type ChatMessage,
+  type UIMessage,
+  type UIMessagePart,
+  type TextUIPart,
 } from "@pandora/core";
 
 interface ConversationMeta {
@@ -20,29 +25,23 @@ interface ConversationMeta {
   updatedAt: number;
 }
 
-/** Stored message with source channel tracking. */
-interface StoredMessage extends ChatMessage {
-  channelName?: string;
-}
-
 /** In-memory message store. Ephemeral; conversations are lost on restart. */
 export class MemoryStore implements IMessageStore {
-  private conversations = new Map<string, StoredMessage[]>();
+  /** Map of conversationId -> messages in order */
+  private conversations = new Map<string, UIMessage[]>();
+  /** Map of messageId -> message for fast lookup */
+  private messagesById = new Map<string, UIMessage>();
+  /** Map of conversationId -> metadata */
   private metadata = new Map<string, ConversationMeta>();
 
-  /** @inheritdoc */
-  async addMessage(
+  /** Helper to get or initialize conversation metadata */
+  private ensureConversation(
     conversationId: string,
-    message: ChatMessage,
     meta?: MessageMeta
-  ): Promise<void> {
-    const history = this.conversations.get(conversationId) ?? [];
-    // Store with source channel for cross-channel tracking
-    history.push({ ...message, channelName: meta?.channelName });
-    this.conversations.set(conversationId, history);
-
+  ): void {
     const now = Math.floor(Date.now() / 1000);
     const existing = this.metadata.get(conversationId);
+
     if (!existing) {
       this.metadata.set(conversationId, {
         channelName: meta?.channelName,
@@ -50,46 +49,189 @@ export class MemoryStore implements IMessageStore {
         createdAt: now,
         updatedAt: now,
       });
+      this.conversations.set(conversationId, []);
     } else {
       existing.updatedAt = now;
     }
   }
 
   /** @inheritdoc */
-  async getHistory(conversationId: string): Promise<ChatMessage[]> {
-    // Return only role and content (strip channelName metadata)
-    return (this.conversations.get(conversationId) ?? []).map(
-      ({ role, content }) => ({ role, content })
-    );
+  async addMessage(
+    conversationId: string,
+    message: Omit<UIMessage, "id">,
+    meta?: MessageMeta
+  ): Promise<string> {
+    this.ensureConversation(conversationId, meta);
+
+    const messageId = generateId();
+    const fullMessage: UIMessage = {
+      id: messageId,
+      role: message.role,
+      parts: [...message.parts],
+    };
+
+    this.conversations.get(conversationId)!.push(fullMessage);
+    this.messagesById.set(messageId, fullMessage);
+
+    return messageId;
+  }
+
+  /** @inheritdoc */
+  async getHistory(conversationId: string): Promise<UIMessage[]> {
+    return this.conversations.get(conversationId) ?? [];
   }
 
   /** @inheritdoc */
   async clearHistory(conversationId: string): Promise<void> {
+    const messages = this.conversations.get(conversationId);
+    if (messages) {
+      for (const msg of messages) {
+        this.messagesById.delete(msg.id);
+      }
+    }
     this.conversations.delete(conversationId);
     this.metadata.delete(conversationId);
   }
 
   /** @inheritdoc */
+  async createMessage(
+    conversationId: string,
+    role: "user" | "assistant",
+    meta?: MessageMeta
+  ): Promise<string> {
+    this.ensureConversation(conversationId, meta);
+
+    const messageId = generateId();
+    const message: UIMessage = {
+      id: messageId,
+      role,
+      parts: [],
+    };
+
+    this.conversations.get(conversationId)!.push(message);
+    this.messagesById.set(messageId, message);
+
+    return messageId;
+  }
+
+  /** @inheritdoc */
+  async appendPart(messageId: string, part: UIMessagePart): Promise<void> {
+    const message = this.messagesById.get(messageId);
+    if (!message) {
+      throw new Error(`Message not found: ${messageId}`);
+    }
+
+    message.parts.push(part);
+
+    // Update conversation timestamp
+    for (const [convId, messages] of this.conversations) {
+      if (messages.includes(message)) {
+        const meta = this.metadata.get(convId);
+        if (meta) {
+          meta.updatedAt = Math.floor(Date.now() / 1000);
+        }
+        break;
+      }
+    }
+  }
+
+  /** @inheritdoc */
+  async updateToolResult(
+    messageId: string,
+    toolCallId: string,
+    result: unknown
+  ): Promise<void> {
+    const message = this.messagesById.get(messageId);
+    if (!message) {
+      throw new Error(`Message not found: ${messageId}`);
+    }
+
+    // Find the tool part with matching toolCallId
+    for (const part of message.parts) {
+      if (
+        part.type === "dynamic-tool" &&
+        (part as any).toolCallId === toolCallId
+      ) {
+        (part as any).state = "output-available";
+        (part as any).output = result;
+        break;
+      }
+    }
+  }
+
+  /** @inheritdoc */
+  async updateTextPart(messageId: string, text: string): Promise<void> {
+    const message = this.messagesById.get(messageId);
+    if (!message) {
+      throw new Error(`Message not found: ${messageId}`);
+    }
+
+    // Find the last text part and update it
+    for (let i = message.parts.length - 1; i >= 0; i--) {
+      const part = message.parts[i];
+      if (part && part.type === "text") {
+        (part as TextUIPart).text = text;
+        break;
+      }
+    }
+  }
+
+  /** @inheritdoc */
+  async finalizeMessage(messageId: string): Promise<void> {
+    const message = this.messagesById.get(messageId);
+    if (!message) {
+      throw new Error(`Message not found: ${messageId}`);
+    }
+
+    // Finalize any streaming text parts
+    for (const part of message.parts) {
+      if (part.type === "text" && (part as TextUIPart).state === "streaming") {
+        (part as TextUIPart).state = "done";
+      }
+    }
+  }
+
+  /** @inheritdoc */
   async listConversations(channelName?: string): Promise<ConversationInfo[]> {
     const results: ConversationInfo[] = [];
+
     for (const [id, messages] of this.conversations) {
       const meta = this.metadata.get(id);
       if (channelName && meta?.channelName !== channelName) continue;
+
+      // Find first user message's first text part for preview
+      let preview = "";
       const firstUserMsg = messages.find((m) => m.role === "user");
+      if (firstUserMsg) {
+        const textPart = firstUserMsg.parts.find(
+          (p) => p.type === "text"
+        ) as TextUIPart | undefined;
+        if (textPart) {
+          preview = textPart.text.slice(0, 100);
+        }
+      }
+
       results.push({
         id,
         channelName: meta?.channelName ?? null,
         createdAt: meta?.createdAt ?? 0,
         updatedAt: meta?.updatedAt ?? 0,
-        preview: firstUserMsg?.content.slice(0, 100) ?? "",
+        preview,
         messageCount: messages.length,
       });
     }
+
     return results.sort((a, b) => b.updatedAt - a.updatedAt);
   }
 
   /** @inheritdoc */
   async deleteConversation(conversationId: string): Promise<void> {
+    const messages = this.conversations.get(conversationId);
+    if (messages) {
+      for (const msg of messages) {
+        this.messagesById.delete(msg.id);
+      }
+    }
     this.conversations.delete(conversationId);
     this.metadata.delete(conversationId);
   }
