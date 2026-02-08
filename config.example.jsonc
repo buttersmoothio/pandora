@@ -75,12 +75,15 @@
     "path": "data/pandora.db"   // Database file location
   },
 
-  // Chat platforms
+  // Chat platforms (present in config = enabled)
   "channels": {
     "telegram": {
-      "enabled": true,
       "token": "your-telegram-bot-token",    // From @BotFather
       "ownerId": "your-telegram-user-id"     // From @userinfobot
+    },
+    "web": {
+      "port": 3000,
+      "token": "your-secret-auth-token"      // Clients must provide this to connect
     }
   }
 

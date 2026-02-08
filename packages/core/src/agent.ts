@@ -213,4 +213,86 @@ export class Agent {
 
     return result.text;
   }
+
+  /**
+   * Stream a response token-by-token given conversation history and channel capabilities.
+   * Yields text deltas as they arrive, returns the full collected text.
+   *
+   * @param history - Conversation history (user/assistant/system messages).
+   * @param capabilities - Channel capabilities (formatting, max length).
+   * @yields Text deltas as they stream in.
+   * @returns The complete response text.
+   */
+  async *chatStream(
+    history: ChatMessage[],
+    capabilities: ChannelCapabilities
+  ): AsyncGenerator<string, string> {
+    const operatorConfig = this.config.agents.operator;
+    const startTime = Date.now();
+    let stepCount = 0;
+
+    logger.agentStart("gateway", operatorConfig.model, history.length);
+
+    const instructions = buildOperatorInstructions(
+      this.actionTools,
+      this.subagentTools,
+      capabilities
+    );
+
+    const operator = new ToolLoopAgent({
+      model: createModel(operatorConfig.model, this.config.gateway.apiKey),
+      temperature: 0,
+      instructions,
+      tools: this.tools,
+      onStepFinish: ({ toolCalls, toolResults, text, finishReason, usage }) => {
+        stepCount++;
+
+        if (toolCalls && toolCalls.length > 0) {
+          for (const call of toolCalls) {
+            const matchingResult = toolResults?.find(
+              (r: { toolCallId: string }) => r.toolCallId === call.toolCallId
+            );
+
+            logger.toolCall(call.toolName, {
+              args: (call as Record<string, unknown>).input ?? (call as Record<string, unknown>).args,
+              result: (matchingResult as Record<string, unknown> | undefined)?.output ?? (matchingResult as Record<string, unknown> | undefined)?.result,
+              agentName: "operator",
+            });
+          }
+        }
+
+        logger.stepFinish(
+          "operator",
+          stepCount,
+          finishReason ?? "unknown",
+          text,
+          toolCalls?.length,
+          usage
+        );
+      },
+    });
+
+    const messages = history.map((msg) => ({
+      role: msg.role as "user" | "assistant" | "system",
+      content: msg.content,
+    }));
+
+    logger.modelInstructions("operator", instructions);
+    logger.modelInput("operator", messages);
+
+    const result = await operator.stream({ messages });
+
+    let fullText = "";
+    for await (const delta of result.textStream) {
+      fullText += delta;
+      yield delta;
+    }
+
+    logger.modelOutput("operator", fullText);
+
+    const durationMs = Date.now() - startTime;
+    logger.agentComplete(durationMs, stepCount);
+
+    return fullText;
+  }
 }

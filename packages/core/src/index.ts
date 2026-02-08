@@ -38,6 +38,7 @@ export type {
   ChatMessage,
   Attachment,
   MessageHandler,
+  StreamingMessageHandler,
   ChannelCapabilities,
   Channel,
 } from "./types";

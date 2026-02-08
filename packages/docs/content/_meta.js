@@ -15,6 +15,7 @@ export default {
   "web-search": "Web Search",
   storage: "Storage",
   telegram: "Telegram",
+  web: "Web",
   "-- Extending": {
     type: "separator",
     title: "Extending"

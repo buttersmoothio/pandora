@@ -5,7 +5,6 @@
 import { Bot, type Context } from "grammy";
 import {
   defineChannel,
-  isOwner,
   logger,
   Gateway,
   type TelegramConfig,
@@ -59,7 +58,7 @@ export class TelegramChannel implements Channel {
       const userId = ctx.from?.id.toString();
       const chatId = ctx.chat?.id.toString();
 
-      if (!userId || !chatId || !isOwner(userId, this.ownerId)) {
+      if (!userId || !chatId || userId !== this.ownerId) {
         await ctx.reply("Sorry, this bot is private.");
         return;
       }
@@ -187,7 +186,7 @@ export class TelegramChannel implements Channel {
     const messageId = ctx.msg?.message_id;
 
     // Security check: only respond to owner
-    if (!userId || !chatId || !isOwner(userId, this.ownerId)) {
+    if (!userId || !chatId || userId !== this.ownerId) {
       logger.channel("telegram", "Ignored non-owner message", { userId });
       return;
     }

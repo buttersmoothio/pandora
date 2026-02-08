@@ -13,12 +13,10 @@ import type { Channel, ChannelCapabilities } from "../types";
 export type { Channel, ChannelCapabilities } from "../types";
 
 /**
- * Base configuration that all channels need
+ * Base configuration for channels.
+ * A channel is enabled by being present in the config.
  */
-export interface BaseChannelConfig {
-  enabled: boolean;
-  ownerId: string;
-}
+export interface BaseChannelConfig {}
 
 /**
  * Factory definition for a channel.
@@ -56,7 +54,8 @@ export function getChannelFactories(): ChannelFactory[] {
 }
 
 /**
- * Create all enabled channels from config.
+ * Create all configured channels.
+ * A channel is enabled by being present in the config.
  *
  * @param config - Full application config
  * @param gateway - Gateway instance for message handling
@@ -66,11 +65,9 @@ export function createChannels(config: Config, gateway: Gateway): Channel[] {
   const channels: Channel[] = [];
 
   for (const factory of registry.values()) {
-    const channelConfig = (config.channels as Record<string, unknown>)[factory.configKey] as
-      | (BaseChannelConfig & Record<string, unknown>)
-      | undefined;
+    const channelConfig = (config.channels as Record<string, unknown>)[factory.configKey];
 
-    if (channelConfig?.enabled) {
+    if (channelConfig) {
       channels.push(factory.create(channelConfig, gateway));
     }
   }
@@ -78,13 +75,3 @@ export function createChannels(config: Config, gateway: Gateway): Channel[] {
   return channels;
 }
 
-/**
- * Check if the user is the configured owner (e.g. for owner-only bots).
- *
- * @param userId - Channel user ID.
- * @param ownerId - Configured owner ID from config.
- * @returns `true` if `userId === ownerId`.
- */
-export function isOwner(userId: string, ownerId: string): boolean {
-  return userId === ownerId;
-}

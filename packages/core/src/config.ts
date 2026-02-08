@@ -44,12 +44,10 @@ const aiConfigSchema = z.object({
 });
 
 /**
- * Schema for base channel configuration (all channels need at least enabled + ownerId)
+ * Schema for base channel configuration.
+ * A channel is enabled by being present in the config.
  */
-const baseChannelConfigSchema = z.object({
-  enabled: z.boolean().default(false),
-  ownerId: z.string().min(1, "Owner ID is required for authentication"),
-}).passthrough(); // Allow additional channel-specific fields
+const baseChannelConfigSchema = z.object({}).passthrough(); // Allow channel-specific fields
 
 /**
  * Schema for channels configuration.
@@ -92,15 +90,15 @@ export type AIConfig = z.infer<typeof aiConfigSchema>;
 export type AgentConfig = z.infer<typeof agentConfigSchema>;
 /** Tool-specific configuration (varies per tool). */
 export type ToolConfig = z.infer<typeof toolConfigSchema>;
-/** Base channel config: enabled, ownerId, plus channel-specific fields. */
+/** Base channel config (presence in config = enabled). Channel-specific fields via passthrough. */
 export type ChannelConfig = z.infer<typeof baseChannelConfigSchema>;
 /** Storage config: type, path, plus backend-specific fields. */
 export type StorageConfig = z.infer<typeof storageConfigSchema>;
 /** Log level: `"normal"` (metadata only) or `"verbose"` (includes model prompts/responses). */
 export type LogLevel = z.infer<typeof logLevelSchema>;
 
-// Legacy type alias for backward compatibility
-export type TelegramConfig = ChannelConfig & { token: string };
+// Channel-specific config types
+export type TelegramConfig = ChannelConfig & { token: string; ownerId: string };
 
 /**
  * Load and validate configuration from a JSONC file.

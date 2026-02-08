@@ -93,3 +93,11 @@ export type MessageHandler = (
   message: Message,
   capabilities: ChannelCapabilities
 ) => Promise<string>;
+
+/**
+ * Streaming handler that yields text deltas as they arrive from the agent.
+ */
+export type StreamingMessageHandler = (
+  message: Message,
+  capabilities: ChannelCapabilities
+) => AsyncGenerator<string, void>;

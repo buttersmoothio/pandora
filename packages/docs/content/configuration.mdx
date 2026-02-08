@@ -192,14 +192,17 @@ Where conversation history is stored.
 
 ### Channels
 
-Channels are how users interact with Pandora (Telegram, Discord, etc.).
+Channels are how users interact with Pandora (Telegram, Web, Discord, etc.). A channel is enabled by being present in the config — remove it to disable.
 
 ```jsonc
 "channels": {
   "telegram": {
-    "enabled": true,
     "token": "your-bot-token",
     "ownerId": "your-user-id"
+  },
+  "web": {
+    "port": 3000,
+    "token": "your-secret-token"
   }
 }
 ```
@@ -208,9 +211,15 @@ Channels are how users interact with Pandora (Telegram, Discord, etc.).
 
 | Field | Required | Description |
 |-------|----------|-------------|
-| `enabled` | Yes | Set to `true` to enable |
 | `token` | Yes | Bot token from [@BotFather](https://t.me/BotFather) |
 | `ownerId` | Yes | Your Telegram user ID from [@userinfobot](https://t.me/userinfobot) |
+
+#### Web
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `token` | Yes | Auth token that clients must provide |
+| `port` | No | HTTP/WebSocket port (default: `3000`) |
 
 See [Telegram Setup](/telegram) for detailed instructions.
 
@@ -242,7 +251,6 @@ The smallest working configuration:
   },
   "channels": {
     "telegram": {
-      "enabled": true,
       "token": "YOUR_BOT_TOKEN",
       "ownerId": "YOUR_USER_ID"
     }

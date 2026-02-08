@@ -24,7 +24,6 @@ export {
   defineChannel,
   getChannelFactories,
   createChannels,
-  isOwner,
 } from "./channels";
 
 // Tool registry

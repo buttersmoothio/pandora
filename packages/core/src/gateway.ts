@@ -75,6 +75,64 @@ export class Gateway {
   }
 
   /**
+   * Handle an incoming message with streaming: store user message, load history,
+   * stream reply deltas, store the complete reply.
+   *
+   * @param message - Incoming message from a channel.
+   * @param capabilities - Channel capabilities (passed to the agent).
+   * @yields Text deltas as they stream in.
+   */
+  async *handleMessageStream(
+    message: Message,
+    capabilities: ChannelCapabilities
+  ): AsyncGenerator<string, void> {
+    const { channelName, conversationId, userId, content } = message;
+    const startTime = Date.now();
+
+    logger.messageReceived(channelName, conversationId, userId);
+
+    await this.store.addMessage(conversationId, {
+      role: "user",
+      content,
+    });
+
+    const history = await this.store.getHistory(conversationId);
+
+    const stream = this.agent.chatStream(history, capabilities);
+
+    let fullText = "";
+    while (true) {
+      const { value, done } = await stream.next();
+      if (done) {
+        fullText = value; // Return value of the generator is the full text
+        break;
+      }
+      yield value;
+    }
+
+    await this.store.addMessage(conversationId, {
+      role: "assistant",
+      content: fullText,
+    });
+
+    const durationMs = Date.now() - startTime;
+    logger.messageSent(channelName, conversationId, fullText.length, durationMs);
+  }
+
+  /**
+   * Get a streaming message handler for channels that support streaming.
+   *
+   * @returns Streaming handler that yields text deltas.
+   */
+  getStreamingHandler(): (
+    message: Message,
+    capabilities: ChannelCapabilities
+  ) => AsyncGenerator<string, void> {
+    return (message, capabilities) =>
+      this.handleMessageStream(message, capabilities);
+  }
+
+  /**
    * Clear all messages for a conversation (e.g. when user sends /start).
    *
    * @param conversationId - Conversation/chat ID to clear.

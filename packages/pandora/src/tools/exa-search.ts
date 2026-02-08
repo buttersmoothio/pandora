@@ -9,6 +9,7 @@
  */
 
 import { webSearch } from "@exalabs/ai-sdk";
+import type { Tool } from "ai";
 import { defineTool, defineSearchTool, type ToolConfig } from "@pandora/core";
 
 // Register as a regular tool
@@ -23,7 +24,7 @@ export default defineTool({
 
     return {
       name: "exaSearch",
-      tool: webSearch({ apiKey }),
+      tool: webSearch({ apiKey }) as unknown as Tool,
     };
   },
 });
@@ -37,6 +38,6 @@ defineSearchTool({
     if (!apiKey) {
       throw new Error("exaSearch requires 'apiKey' in config");
     }
-    return webSearch({ apiKey });
+    return webSearch({ apiKey }) as unknown as Tool;
   },
 });

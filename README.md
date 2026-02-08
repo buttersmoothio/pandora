@@ -57,7 +57,6 @@ Edit `config.jsonc`:
   
   "channels": {
     "telegram": {
-      "enabled": true,
       "token": "YOUR_TELEGRAM_BOT_TOKEN",
       "ownerId": "YOUR_TELEGRAM_USER_ID"
     }

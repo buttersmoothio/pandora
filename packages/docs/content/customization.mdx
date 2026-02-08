@@ -205,11 +205,10 @@ Channels are more complex than other extensions because they handle real-time me
 Create `packages/pandora/src/channels/discord/index.ts`:
 
 ```typescript
-import { 
-  defineChannel, 
-  isOwner,
+import {
+  defineChannel,
   Gateway,
-  type Channel, 
+  type Channel,
   type ChannelCapabilities,
   type Message,
 } from "@pandora/core";
@@ -218,7 +217,6 @@ import {
 import { Client, GatewayIntentBits } from "discord.js";
 
 interface DiscordConfig {
-  enabled: boolean;
   ownerId: string;
   token: string;
 }
@@ -247,7 +245,7 @@ class DiscordChannel implements Channel {
     this.client.on("messageCreate", async (msg) => {
       // Ignore bots and non-owners
       if (msg.author.bot) return;
-      if (!isOwner(msg.author.id, this.config.ownerId)) return;
+      if (msg.author.id !== this.config.ownerId) return;
 
       // Build message for gateway
       const message: Message = {
@@ -290,7 +288,6 @@ export default defineChannel({
 ```jsonc
 "channels": {
   "discord": {
-    "enabled": true,
     "token": "your-discord-bot-token",
     "ownerId": "your-discord-user-id"
   }

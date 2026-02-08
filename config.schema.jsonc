@@ -81,41 +81,43 @@
       "description": "Channel configurations. Channels are auto-discovered from src/channels/.",
       "properties": {
         // Built-in channels (for IDE autocompletion)
+        // A channel is enabled by being present in the config.
         "telegram": {
           "type": "object",
-          "description": "Telegram channel configuration",
+          "description": "Telegram channel. Present in config = enabled.",
           "properties": {
-            "enabled": {
-              "type": "boolean",
-              "description": "Enable or disable this channel"
-            },
             "token": {
               "type": "string",
               "description": "Telegram bot token from @BotFather"
             },
             "ownerId": {
               "type": "string",
-              "description": "User ID of the bot owner (for authorization)"
+              "description": "Telegram user ID of the bot owner (for authorization)"
             }
           },
-          "required": ["enabled", "token", "ownerId"]
+          "required": ["token", "ownerId"]
+        },
+        "web": {
+          "type": "object",
+          "description": "Web channel (HTTP + WebSocket API). Present in config = enabled.",
+          "properties": {
+            "port": {
+              "type": "number",
+              "description": "HTTP/WebSocket server port",
+              "default": 3000
+            },
+            "token": {
+              "type": "string",
+              "description": "Auth token that clients must provide to connect"
+            }
+          },
+          "required": ["token"]
         }
       },
       // Allow any additional channels
       "additionalProperties": {
         "type": "object",
-        "description": "Channel-specific configuration",
-        "properties": {
-          "enabled": {
-            "type": "boolean",
-            "description": "Enable or disable this channel"
-          },
-          "ownerId": {
-            "type": "string",
-            "description": "User ID of the bot owner (for authorization)"
-          }
-        },
-        "required": ["enabled", "ownerId"]
+        "description": "Channel-specific configuration. Present in config = enabled."
       }
     },
     "storage": {
