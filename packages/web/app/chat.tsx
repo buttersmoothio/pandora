@@ -25,17 +25,22 @@ import {
 } from "@/components/ai-elements/prompt-input";
 import { Shimmer } from "@/components/ai-elements/shimmer";
 import {
+  Reasoning,
+  ReasoningTrigger,
+  ReasoningContent,
+} from "@/components/ai-elements/reasoning";
+import {
+  ChainOfThought,
+  ChainOfThoughtHeader,
+  ChainOfThoughtContent,
+  ChainOfThoughtStep,
+} from "@/components/ai-elements/chain-of-thought";
+import {
   Suggestions,
   Suggestion,
 } from "@/components/ai-elements/suggestion";
 import {
-  Tool,
-  ToolHeader,
-  ToolContent,
-  ToolInput,
-  ToolOutput,
-} from "@/components/ai-elements/tool";
-import {
+  EllipsisIcon,
   MessageSquareIcon,
   MoonIcon,
   PlusIcon,
@@ -45,7 +50,12 @@ import {
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const DEFAULT_WS_URL =
   process.env.NEXT_PUBLIC_PANDORA_WS_URL ?? "ws://localhost:3000/ws";
@@ -288,7 +298,7 @@ function ChatInterface({
     <div className="flex h-full">
       {/* Sidebar */}
       {sidebarOpen && (
-        <aside className="flex w-64 shrink-0 flex-col border-r">
+        <aside className="flex w-64 shrink-0 flex-col overflow-hidden border-r">
           <div className="flex items-center justify-between border-b px-3 py-2">
             <span className="text-sm font-medium">Conversations</span>
             <Button
@@ -300,12 +310,12 @@ function ChatInterface({
               <PlusIcon className="size-4" />
             </Button>
           </div>
-          <ScrollArea className="flex-1">
+          <div className="flex-1 overflow-y-auto overflow-x-hidden">
             <div className="flex flex-col gap-0.5 p-1">
               {conversations.map((c) => (
                 <div
                   key={c.id}
-                  className={`group/item flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent ${
+                  className={`group/item flex cursor-pointer items-center rounded-md px-2 py-1.5 text-sm hover:bg-accent ${
                     c.id === conversationId ? "bg-accent" : ""
                   }`}
                   onClick={() => handleSelectConversation(c.id)}
@@ -313,17 +323,30 @@ function ChatInterface({
                   <span className="min-w-0 flex-1 truncate">
                     {c.preview || "New conversation"}
                   </span>
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    className="size-6 shrink-0 opacity-0 group-hover/item:opacity-100"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDeleteConversation(c.id);
-                    }}
-                  >
-                    <Trash2Icon className="size-3" />
-                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        className="ml-1 size-6 shrink-0 opacity-0 group-hover/item:opacity-100 data-[state=open]:opacity-100"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <EllipsisIcon className="size-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" side="right">
+                      <DropdownMenuItem
+                        className="text-destructive"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteConversation(c.id);
+                        }}
+                      >
+                        <Trash2Icon className="size-4" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               ))}
               {conversations.length === 0 && (
@@ -332,7 +355,7 @@ function ChatInterface({
                 </p>
               )}
             </div>
-          </ScrollArea>
+          </div>
         </aside>
       )}
 
@@ -351,26 +374,15 @@ function ChatInterface({
             </Button>
             <h1 className="text-sm font-semibold">Pandora</h1>
           </div>
-          <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
-              title="Toggle theme"
-            >
-              <SunIcon className="size-4 rotate-0 scale-100 transition-transform dark:rotate-90 dark:scale-0" />
-              <MoonIcon className="absolute size-4 rotate-90 scale-0 transition-transform dark:rotate-0 dark:scale-100" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={clearConversation}
-              disabled={isStreaming}
-              title="Clear conversation"
-            >
-              <Trash2Icon className="size-4" />
-            </Button>
-          </div>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
+            title="Toggle theme"
+          >
+            <SunIcon className="size-4 rotate-0 scale-100 transition-transform dark:rotate-90 dark:scale-0" />
+            <MoonIcon className="absolute size-4 rotate-90 scale-0 transition-transform dark:rotate-0 dark:scale-100" />
+          </Button>
         </header>
 
         {/* Messages */}
@@ -395,39 +407,92 @@ function ChatInterface({
                 </div>
               </ConversationEmptyState>
             ) : (
-              messages.map((msg) => (
-                <Message from={msg.role} key={msg.id}>
-                  <MessageContent>
-                    {/* Tool calls */}
-                    {msg.toolCalls?.map((tc) => (
-                      <Tool key={tc.toolCallId}>
-                        <ToolHeader
-                          type="dynamic-tool"
-                          state={tc.state}
-                          toolName={tc.toolName}
-                        />
-                        <ToolContent>
-                          <ToolInput input={tc.args} />
-                          {tc.state === "output-available" && (
-                            <ToolOutput
-                              output={tc.result}
-                              errorText={undefined}
-                            />
-                          )}
-                        </ToolContent>
-                      </Tool>
-                    ))}
-                    {/* Message text */}
-                    {msg.role === "assistant" && !msg.content ? (
-                      <Shimmer>
-                        {msg.toolCalls?.length ? "Working..." : "Thinking..."}
-                      </Shimmer>
-                    ) : (
-                      <MessageResponse>{msg.content}</MessageResponse>
-                    )}
-                  </MessageContent>
-                </Message>
-              ))
+              messages.map((msg, idx) => {
+                const isLastMessage = idx === messages.length - 1;
+                return (
+                  <Message from={msg.role} key={msg.id}>
+                    <MessageContent>
+                      {/* Reasoning block — extended thinking */}
+                      {msg.reasoning && (
+                        <Reasoning
+                          isStreaming={
+                            isLastMessage &&
+                            isStreaming &&
+                            !!msg.reasoning &&
+                            !msg.content
+                          }
+                        >
+                          <ReasoningTrigger />
+                          <ReasoningContent>{msg.reasoning}</ReasoningContent>
+                        </Reasoning>
+                      )}
+
+                      {/* Chain of Thought — tool call steps */}
+                      {msg.toolCalls && msg.toolCalls.length > 0 && (
+                        <ChainOfThought>
+                          <ChainOfThoughtHeader>
+                            Used {msg.toolCalls.length} tool
+                            {msg.toolCalls.length > 1 ? "s" : ""}
+                          </ChainOfThoughtHeader>
+                          <ChainOfThoughtContent>
+                            {msg.toolCalls.map((tc) => (
+                              <ChainOfThoughtStep
+                                key={tc.toolCallId}
+                                label={tc.toolName}
+                                description={
+                                  tc.args
+                                    ? typeof tc.args === "object"
+                                      ? Object.entries(
+                                          tc.args as Record<string, unknown>
+                                        )
+                                          .map(
+                                            ([k, v]) =>
+                                              `${k}: ${typeof v === "string" ? v : JSON.stringify(v)}`
+                                          )
+                                          .join(", ")
+                                      : String(tc.args)
+                                    : undefined
+                                }
+                                status={
+                                  tc.state === "output-available"
+                                    ? "complete"
+                                    : "active"
+                                }
+                              >
+                                {tc.state === "output-available" &&
+                                  tc.result != null && (
+                                    <pre className="mt-1 max-h-40 overflow-auto rounded bg-muted p-2 text-xs whitespace-pre-wrap">
+                                      {typeof tc.result === "string"
+                                        ? tc.result
+                                        : JSON.stringify(
+                                            tc.result,
+                                            null,
+                                            2
+                                          )}
+                                    </pre>
+                                  )}
+                              </ChainOfThoughtStep>
+                            ))}
+                          </ChainOfThoughtContent>
+                        </ChainOfThought>
+                      )}
+
+                      {/* Message text */}
+                      {msg.role === "assistant" && !msg.content ? (
+                        <Shimmer>
+                          {msg.toolCalls?.length
+                            ? "Working..."
+                            : msg.reasoning
+                              ? "Reasoning..."
+                              : "Thinking..."}
+                        </Shimmer>
+                      ) : (
+                        <MessageResponse>{msg.content}</MessageResponse>
+                      )}
+                    </MessageContent>
+                  </Message>
+                );
+              })
             )}
           </ConversationContent>
           <ConversationScrollButton />
