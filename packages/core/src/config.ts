@@ -77,12 +77,23 @@ const storageConfigSchema = z.object({
 const logLevelSchema = z.enum(["normal", "verbose"]).default("normal");
 
 /**
+ * Schema for memory configuration.
+ * Enables persistent vector-based memory (episodic + semantic).
+ */
+const memoryConfigSchema = z.object({
+  type: z.string().default("sqlite"),
+  path: z.string().default("data/memory.db"),
+  embeddingModel: z.string().default("openai/text-embedding-3-small"),
+}).passthrough(); // Allow additional provider-specific fields
+
+/**
  * Full configuration schema
  */
 const configSchema = z.object({
   ai: aiConfigSchema,
   channels: channelsConfigSchema,
   storage: storageConfigSchema.optional().default({ type: "sqlite", path: "data/pandora.db" }),
+  memory: memoryConfigSchema.optional(),
   logLevel: logLevelSchema.optional().default("normal"),
 });
 
@@ -98,6 +109,8 @@ export type ToolConfig = z.infer<typeof toolConfigSchema>;
 export type ChannelConfig = z.infer<typeof baseChannelConfigSchema>;
 /** Storage config: type, path, plus backend-specific fields. */
 export type StorageConfig = z.infer<typeof storageConfigSchema>;
+/** Memory config: type, path, embeddingModel, plus apiKey (injected at runtime). */
+export type MemoryConfig = z.infer<typeof memoryConfigSchema> & { apiKey?: string };
 /** Log level: `"normal"` (metadata only) or `"verbose"` (includes model prompts/responses). */
 export type LogLevel = z.infer<typeof logLevelSchema>;
 

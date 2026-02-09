@@ -9,7 +9,7 @@
  */
 
 import type { Agent } from "./agent";
-import type { IMessageStore, ConversationInfo, SubagentContext } from "./registries";
+import type { IMessageStore, ConversationInfo, SubagentContext, IMemoryProvider } from "./registries";
 import type {
   Message,
   ChannelCapabilities,
@@ -67,15 +67,21 @@ export class Gateway {
   private activeStreams = new Map<string, ActiveStreamState>();
   /** Per-conversation locks to serialize message processing. */
   private conversationLocks = new Map<string, Promise<void>>();
+  /** Optional memory provider for auto-recall and auto-episode. */
+  private memory: IMemoryProvider | null;
 
   /**
    * @param store - Message store for conversation history.
    * @param agent - AI agent for generating responses.
+   * @param memory - Optional memory provider for auto-recall and auto-episode.
    */
   constructor(
     private store: IMessageStore,
-    private agent: Agent
-  ) { }
+    private agent: Agent,
+    memory?: IMemoryProvider | null
+  ) {
+    this.memory = memory ?? null;
+  }
 
   /**
    * Acquire a lock for a conversation. Ensures only one message is processed at a time per conversation.
@@ -233,6 +239,41 @@ export class Gateway {
 
       // Load history for agent
       const history = await this.store.getHistory(conversationId);
+
+      // Auto-recall: search memory for relevant context (if memory is available)
+      let memoryContext: string | undefined;
+      if (this.memory) {
+        try {
+          const results = await this.memory.search(content, { limit: 5, minScore: 0.6 });
+          const contextParts: string[] = [];
+
+          // Add relevant episodes
+          if (results.episodes.length > 0) {
+            contextParts.push("Past interactions:");
+            for (const r of results.episodes) {
+              const timestamp = new Date(r.item.timestamp * 1000).toLocaleDateString();
+              contextParts.push(`- [${timestamp}] ${r.item.content}`);
+            }
+          }
+
+          // Add relevant facts
+          if (results.facts.length > 0) {
+            if (contextParts.length > 0) contextParts.push("");
+            contextParts.push("Stored knowledge:");
+            for (const r of results.facts) {
+              contextParts.push(`- [${r.item.category}] ${r.item.content}`);
+            }
+          }
+
+          if (contextParts.length > 0) {
+            memoryContext = contextParts.join("\n");
+            logger.info("Gateway", `Auto-recalled ${results.episodes.length} episodes and ${results.facts.length} facts`);
+          }
+        } catch (err) {
+          // Memory failure should never break chat
+          logger.warn("Gateway", `Auto-recall failed: ${err instanceof Error ? err.message : String(err)}`);
+        }
+      }
 
       // Create assistant message shell before streaming
       assistantMessageId = await this.store.createMessage(conversationId, "assistant", meta);
@@ -506,7 +547,7 @@ export class Gateway {
         this.emit(conversationId, { ...event, conversationId });
       };
 
-      const stream = this.agent.chatStream(history, capabilities, handleStreamEvent, subagentCtx);
+      const stream = this.agent.chatStream(history, capabilities, handleStreamEvent, subagentCtx, memoryContext);
 
       // Text persistence is handled by handleStreamEvent (text-delta case).
       // This loop only yields deltas to the caller and tracks total text for logging.
@@ -518,6 +559,26 @@ export class Gateway {
 
       // Finalize the assistant message (set text part state to done)
       await this.store.finalizeMessage(assistantMessageId);
+
+      // Auto-episode: store an episode for this interaction (fire-and-forget)
+      if (this.memory?.episodic && fullText) {
+        const truncatedResponse = fullText.length > 200 ? fullText.slice(0, 200) + "..." : fullText;
+        const episodeContent = `User: ${content}\nAssistant: ${truncatedResponse}`;
+
+        // Fire-and-forget - don't await or block on episode storage
+        this.memory.episodic.addEpisode({
+          content: episodeContent,
+          vector: [], // Will be computed by provider
+          conversationId,
+          channelName,
+          userId,
+          timestamp: Math.floor(Date.now() / 1000),
+          importance: 0.5,
+          tags: [],
+        }).catch((err) => {
+          logger.warn("Gateway", `Auto-episode failed: ${err instanceof Error ? err.message : String(err)}`);
+        });
+      }
 
       this.emit(conversationId, { type: "done", conversationId });
 
@@ -586,7 +647,17 @@ export class Gateway {
 
   /** Delete a conversation and all its messages. */
   async deleteConversation(conversationId: string): Promise<void> {
+    // Delete conversation from store
     await this.store.deleteConversation(conversationId);
+
+    // Also delete any episodic memories for this conversation
+    if (this.memory?.episodic) {
+      try {
+        await this.memory.episodic.deleteEpisodesForConversation(conversationId);
+      } catch (err) {
+        logger.warn("Gateway", `Failed to delete episodic memories: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
   }
 
   /** Get conversation history for a specific conversation. */

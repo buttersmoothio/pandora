@@ -37,6 +37,12 @@ export interface SubagentDefinition {
    * May be async (e.g. for dynamic provider tool imports).
    */
   getTools?: (config: AIConfig) => Record<string, Tool> | Promise<Record<string, Tool>>;
+  /**
+   * Whether this subagent should have access to memory tools.
+   * Defaults to true. Set to false for subagents that shouldn't store/recall memories
+   * (e.g., web search subagents that only fetch external data).
+   */
+  useMemory?: boolean;
 }
 
 /** Registry of all subagent definitions */

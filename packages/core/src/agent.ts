@@ -18,6 +18,9 @@ import type { AIConfig } from "./config";
 import type { UIMessage, ChannelCapabilities, StreamEvent } from "./types";
 import { logger } from "./logger";
 
+/** Memory tool names for subagent opt-out filtering */
+const MEMORY_TOOL_NAMES = ["remember", "recall", "forget", "recallConversation"];
+
 /**
  * Build operator system instructions from channel capabilities and available tools.
  *
@@ -25,12 +28,14 @@ import { logger } from "./logger";
  * @param actionTools - Action tools available to this agent (name → Tool).
  * @param subagentTools - Subagent delegation tools (name → Tool, e.g. `coder`, `research`).
  * @param capabilities - Channel capabilities (rich text, max length, etc.).
+ * @param memoryContext - Optional recalled memories to include in context.
  * @returns System instruction string for the operator.
  */
 function buildOperatorInstructions(
   actionTools: Record<string, Tool>,
   subagentTools: Record<string, Tool>,
-  capabilities: ChannelCapabilities
+  capabilities: ChannelCapabilities,
+  memoryContext?: string
 ): string {
   const parts: string[] = [
     "You are a helpful AI assistant.",
@@ -53,6 +58,14 @@ function buildOperatorInstructions(
   }
 
   parts.push("");
+
+  // Add recalled memories if available
+  if (memoryContext) {
+    parts.push("## Relevant Memories");
+    parts.push("");
+    parts.push(memoryContext);
+    parts.push("");
+  }
 
   // Add action tools section with descriptions
   const actionToolNames = Object.keys(actionTools);
@@ -78,6 +91,42 @@ function buildOperatorInstructions(
     parts.push("Otherwise, handle the conversation directly.");
   }
 
+  // Add memory usage instructions if memory tools are available
+  const hasMemoryTools = MEMORY_TOOL_NAMES.some((name) => name in actionTools);
+  if (hasMemoryTools) {
+    parts.push("");
+    parts.push("## Memory Guidelines");
+    parts.push("");
+    parts.push("You have long-term memory that persists across conversations.");
+    parts.push("");
+    parts.push("**When to remember:**");
+    parts.push("- User explicitly states a preference: 'I prefer...', 'I always...', 'Don't...'");
+    parts.push("- User corrects you: store the correction as an instruction");
+    parts.push("- Important facts about the user's context: their job, projects, tech stack, constraints");
+    parts.push("- Recurring patterns: if user asks the same type of question twice, remember their preference");
+    parts.push("- Decisions made: when user chooses between options, remember their choice for next time");
+    parts.push("");
+    parts.push("**When to recall:**");
+    parts.push("- When user references something from the past: 'like before', 'that thing', 'as we discussed'");
+    parts.push("- Before answering questions that might relate to past context or preferences");
+    parts.push("- When starting a new topic that might have relevant history");
+    parts.push("- When user asks about their preferences or past decisions");
+    parts.push("");
+    parts.push("**IMPORTANT**: When the user references the past or asks about their preferences,");
+    parts.push("call `recall` BEFORE answering. Don't guess based on the current conversation alone.");
+    parts.push("");
+    parts.push("**Categories for `remember`:**");
+    parts.push("- `user_preference`: personal preferences, communication style, tool/language choices");
+    parts.push("- `knowledge`: facts about their projects, tech stack, team, constraints");
+    parts.push("- `instruction`: standing orders ('always do X', 'never do Y', 'format code as...')");
+    parts.push("");
+    parts.push("**Tools:**");
+    parts.push("- `remember`: store a fact, preference, or instruction for future reference");
+    parts.push("- `recall`: search memories by query (searches both past interactions and stored facts)");
+    parts.push("- `recallConversation`: fetch full message history of a past conversation by ID");
+    parts.push("- `forget`: delete an outdated or incorrect fact by ID");
+  }
+
   parts.push("");
   parts.push("Be concise and helpful.");
 
@@ -98,6 +147,8 @@ export class Agent {
   private actionTools: Record<string, Tool>;
   private subagentToolFactories: Record<string, SubagentToolFactory>;
   private subagentNames: Set<string>;
+  /** Subagents that opted out of memory tools */
+  private subagentsWithoutMemory: Set<string>;
 
   /** Use `Agent.create()` instead of constructing directly. */
   private constructor(config: AIConfig) {
@@ -105,6 +156,7 @@ export class Agent {
     this.actionTools = {};
     this.subagentToolFactories = {};
     this.subagentNames = new Set();
+    this.subagentsWithoutMemory = new Set();
   }
 
   /**
@@ -131,8 +183,17 @@ export class Agent {
         ? await definition.getTools(config)
         : createToolsForAgent(definition.name, config.tools ?? {});
 
+      // Filter out memory tools if subagent opts out
+      let finalSubagentTools = subagentTools;
+      if (definition.useMemory === false) {
+        agent.subagentsWithoutMemory.add(definition.name);
+        finalSubagentTools = Object.fromEntries(
+          Object.entries(subagentTools).filter(([name]) => !MEMORY_TOOL_NAMES.includes(name))
+        );
+      }
+
       // Create the subagent and store its tool factory (not instantiated tool)
-      const subagent = createSubagentFromDefinition(definition, config, subagentTools);
+      const subagent = createSubagentFromDefinition(definition, config, finalSubagentTools);
       const toolFactory = createStreamingSubagentTool(definition, subagent, config);
 
       agent.subagentToolFactories[definition.name] = toolFactory;
@@ -140,6 +201,16 @@ export class Agent {
     }
 
     return agent;
+  }
+
+  /**
+   * Add tools to the action tools set.
+   * Used to inject memory tools after agent creation.
+   *
+   * @param tools - Tools to add (merged with existing tools)
+   */
+  addActionTools(tools: Record<string, Tool>): void {
+    this.actionTools = { ...this.actionTools, ...tools };
   }
 
   /**
@@ -180,15 +251,17 @@ export class Agent {
    * @param history - Conversation history (UIMessage array with parts).
    * @param capabilities - Channel capabilities (formatting, max length).
    * @param subagentCtx - Optional subagent context for thread management.
+   * @param memoryContext - Optional recalled memories to inject into system prompt.
    * @returns The assistant reply text.
    */
   async chat(
     history: UIMessage[],
     capabilities: ChannelCapabilities,
-    subagentCtx?: SubagentContext
+    subagentCtx?: SubagentContext,
+    memoryContext?: string
   ): Promise<string> {
     // Delegate to chatStream and collect the full response
-    const stream = this.chatStream(history, capabilities, undefined, subagentCtx);
+    const stream = this.chatStream(history, capabilities, undefined, subagentCtx, memoryContext);
 
     let fullText = "";
     while (true) {
@@ -212,6 +285,7 @@ export class Agent {
    * @param capabilities - Channel capabilities (formatting, max length).
    * @param onEvent - Optional callback for stream events (tool calls, sources, etc.).
    * @param subagentCtx - Optional subagent context for thread management.
+   * @param memoryContext - Optional recalled memories to inject into system prompt.
    * @yields Text deltas as they stream in.
    * @returns The complete response text.
    */
@@ -219,7 +293,8 @@ export class Agent {
     history: UIMessage[],
     capabilities: ChannelCapabilities,
     onEvent?: (event: StreamEvent) => void,
-    subagentCtx?: SubagentContext
+    subagentCtx?: SubagentContext,
+    memoryContext?: string
   ): AsyncGenerator<string, string> {
     const operatorConfig = this.config.agents.operator;
     const startTime = Date.now();
@@ -246,7 +321,8 @@ export class Agent {
     const instructions = buildOperatorInstructions(
       this.actionTools,
       subagentToolsForInstructions,
-      capabilities
+      capabilities,
+      memoryContext
     );
 
     const operator = new ToolLoopAgent({

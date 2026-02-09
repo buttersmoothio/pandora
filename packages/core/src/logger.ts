@@ -232,6 +232,11 @@ export const logger = {
     log("debug", "Channel", `[${channel}] ${event}`, meta);
   },
 
+  /** @param category - Log category. @param message - Info message. @param meta - Optional key-value meta. */
+  info(category: string, message: string, meta?: Record<string, unknown>): void {
+    log("info", category, message, meta);
+  },
+
   /** @param category - Log category. @param message - Warning message. @param meta - Optional key-value meta. */
   warn(category: string, message: string, meta?: Record<string, unknown>): void {
     log("warn", category, message, meta);

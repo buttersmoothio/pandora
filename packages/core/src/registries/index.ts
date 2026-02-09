@@ -61,3 +61,20 @@ export {
   getSearchBackendDescription,
   validateSearchBackend,
 } from "./search-tools";
+
+// Memory registry
+export {
+  type Episode,
+  type Fact,
+  type MemorySearchResult,
+  type MemorySearchResults,
+  type IEpisodicMemory,
+  type ISemanticMemory,
+  type IMemoryProvider,
+  type MemoryFactory,
+  type MemoryFactoryRegistration,
+  defineMemory,
+  getAvailableMemoryTypes,
+  createMemory,
+  getMemoryProvider,
+} from "./memory";

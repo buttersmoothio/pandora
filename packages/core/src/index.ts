@@ -19,6 +19,7 @@ export {
   type ToolConfig,
   type ChannelConfig,
   type StorageConfig,
+  type MemoryConfig,
   type LogLevel,
   type TelegramConfig,
 } from "./config";
@@ -30,7 +31,7 @@ export { loadExtensions, loadChannels } from "./loader";
 export { logger } from "./logger";
 
 // AI providers
-export { createModel } from "./providers";
+export { createModel, createEmbeddingModel } from "./providers";
 
 // Types
 export type {

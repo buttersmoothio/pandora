@@ -13,13 +13,16 @@ import {
   loadConfig,
   validateConfig,
   createStore,
+  createMemory,
   createChannels,
   getAvailableToolNames,
   Agent,
   Gateway,
   logger,
   type Channel,
+  type IMemoryProvider,
 } from "@pandora/core";
+import { createMemoryTools } from "./tools/memory";
 
 // Get the directory of this file for resolving extension paths
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -29,13 +32,14 @@ const configPath = resolve(rootDir, "config.jsonc");
 
 /**
  * Auto-discover and load all user extensions.
- * This triggers self-registration for subagents, channels, tools, and stores.
+ * This triggers self-registration for subagents, channels, tools, stores, and memory providers.
  */
 async function loadAllExtensions(): Promise<void> {
   await loadExtensions(resolve(srcDir, "subagents"));
   await loadChannels(resolve(srcDir, "channels"));
   await loadExtensions(resolve(srcDir, "tools"));
   await loadExtensions(resolve(srcDir, "store"));
+  await loadExtensions(resolve(srcDir, "memory"));
 }
 
 /** Load config, init store/agent/gateway/channels, and run until shutdown. */
@@ -65,7 +69,27 @@ async function main(): Promise<void> {
   // Initialize core components
   const store = createStore(config.storage);
   const agent = await Agent.create(config.ai);
-  const gateway = new Gateway(store, agent);
+
+  // Initialize memory if configured (auto-injects tools into agent)
+  let memory: IMemoryProvider | null = null;
+  if (config.memory) {
+    memory = await createMemory({
+      ...config.memory,
+      apiKey: config.ai.gateway.apiKey, // Reuse gateway API key for embeddings
+    });
+
+    if (memory) {
+      const memoryTools = createMemoryTools(memory, store);
+      agent.addActionTools(memoryTools);
+      logger.startup("Memory initialized", {
+        type: config.memory.type,
+        episodic: memory.episodic ? "enabled" : "disabled",
+        semantic: memory.semantic ? "enabled" : "disabled",
+      });
+    }
+  }
+
+  const gateway = new Gateway(store, agent, memory);
 
   // Create all enabled channels from registry
   const channels: Channel[] = createChannels(config, gateway);
@@ -89,6 +113,10 @@ async function main(): Promise<void> {
 
     for (const channel of channels) {
       await channel.stop();
+    }
+
+    if (memory) {
+      await memory.close();
     }
 
     await store.close();

@@ -75,6 +75,15 @@
     "path": "data/pandora.db"   // Database file location
   },
 
+  // Long-term memory (optional)
+  // Enables episodic (automatic) and semantic (agent-controlled) memory
+  // Uses hybrid search: vector similarity + BM25 keyword matching
+  "memory": {
+    "type": "sqlite",                                 // Memory backend
+    "path": "data/memory.db",                         // Separate from conversation store
+    "embeddingModel": "openai/text-embedding-3-small" // Model for vector embeddings
+  },
+
   // Chat platforms (present in config = enabled)
   "channels": {
     "telegram": {

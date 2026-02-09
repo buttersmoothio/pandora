@@ -143,6 +143,35 @@
         "path": "data/pandora.db"
       }
     },
+    "memory": {
+      "type": "object",
+      "description": "Long-term memory configuration (optional). Enables episodic (automatic interaction logging) and semantic (agent-controlled facts/preferences) memory. SQLite provider uses hybrid search (vector similarity + BM25 keyword matching).",
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "Memory backend type",
+          "default": "sqlite",
+          "examples": ["sqlite"]
+        },
+        "path": {
+          "type": "string",
+          "description": "Path to memory database file (separate from conversation store)",
+          "default": "data/memory.db"
+        },
+        "embeddingModel": {
+          "type": "string",
+          "description": "Gateway embedding model ID for vector embeddings",
+          "default": "openai/text-embedding-3-small",
+          "examples": [
+            "openai/text-embedding-3-small",
+            "openai/text-embedding-3-large",
+            "openai/text-embedding-ada-002"
+          ]
+        }
+      },
+      // Allow additional provider-specific properties
+      "additionalProperties": true
+    },
     "logLevel": {
       "type": "string",
       "enum": ["normal", "verbose"],
