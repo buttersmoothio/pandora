@@ -102,6 +102,15 @@ export interface IMessageStore {
    */
   finalizeMessage(messageId: string): Promise<void>;
 
+  /**
+   * Accumulate token usage for a message.
+   * Called on each step-finish to add tokens to running totals.
+   */
+  accumulateUsage(
+    messageId: string,
+    usage: { inputTokens?: number; outputTokens?: number; totalTokens?: number }
+  ): Promise<void>;
+
   // === Conversation Management ===
 
   /** List conversations, optionally filtered by channel name. Ordered by most recently updated. */

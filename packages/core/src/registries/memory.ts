@@ -16,8 +16,6 @@ export interface Episode {
   id: string;
   /** Summary of the interaction (user message + truncated assistant response) */
   content: string;
-  /** Embedding vector */
-  vector: number[];
   /** Source conversation ID */
   conversationId?: string;
   /** Channel where this occurred */
@@ -37,8 +35,6 @@ export interface Fact {
   id: string;
   /** The fact/preference/knowledge content */
   content: string;
-  /** Embedding vector */
-  vector: number[];
   /** Category: user_preference, knowledge, instruction */
   category: string;
   /** Unix timestamp (seconds) */
@@ -51,17 +47,42 @@ export interface Fact {
   confidence: number;
 }
 
-/** Search result with score */
+/** A memory chunk from search results */
+export interface MemoryChunk {
+  /** Chunk ID */
+  chunkId: string;
+  /** Chunk text content */
+  content: string;
+  /** Parent record ID */
+  parentId: string;
+  /** Parent record type */
+  parentType: "episode" | "fact";
+  /** Hybrid search score (0-1) */
+  score: number;
+  /** Chunk index within parent (0-based) */
+  chunkIndex: number;
+  // Parent metadata (varies by type)
+  /** Unix timestamp - episodes only */
+  timestamp?: number;
+  /** Conversation ID - episodes only */
+  conversationId?: string;
+  /** Category - facts only */
+  category?: string;
+}
+
+/** Search result with score (legacy, for backward compatibility) */
 export interface MemorySearchResult<T> {
   item: T;
   /** Cosine similarity score (0-1) */
   score: number;
 }
 
-/** Combined search results from both memory types */
+/** Combined chunk search results from both memory types */
 export interface MemorySearchResults {
-  episodes: MemorySearchResult<Episode>[];
-  facts: MemorySearchResult<Fact>[];
+  /** Matching chunks from episodic memory */
+  episodes: MemoryChunk[];
+  /** Matching chunks from semantic memory */
+  facts: MemoryChunk[];
 }
 
 // ============================================================================
@@ -73,11 +94,14 @@ export interface IEpisodicMemory {
   /** Add an episode (gateway calls this automatically after each turn) */
   addEpisode(episode: Omit<Episode, "id">): Promise<string>;
 
-  /** Search episodes by semantic similarity */
+  /** Search episodes by semantic similarity (returns matching chunks) */
   searchEpisodes(
     query: string,
     opts?: { limit?: number; minScore?: number; since?: number }
-  ): Promise<MemorySearchResult<Episode>[]>;
+  ): Promise<MemoryChunk[]>;
+
+  /** Get a specific episode by ID */
+  getEpisode(id: string): Promise<Episode | null>;
 
   /** Delete a specific episode */
   deleteEpisode(id: string): Promise<void>;
@@ -91,11 +115,11 @@ export interface ISemanticMemory {
   /** Create or update a fact (deduplicates by similarity) */
   upsertFact(fact: Omit<Fact, "id" | "createdAt" | "updatedAt">): Promise<string>;
 
-  /** Search facts by semantic similarity */
+  /** Search facts by semantic similarity (returns matching chunks) */
   searchFacts(
     query: string,
     opts?: { limit?: number; minScore?: number; category?: string }
-  ): Promise<MemorySearchResult<Fact>[]>;
+  ): Promise<MemoryChunk[]>;
 
   /** Delete a specific fact */
   deleteFact(id: string): Promise<void>;

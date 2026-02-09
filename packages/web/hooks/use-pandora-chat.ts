@@ -22,8 +22,7 @@ export type PandoraMessagePart =
   | { type: "dynamic-tool"; toolName: string; toolCallId: string; state: "input-available" | "output-available" | "output-error"; input?: unknown; output?: unknown; threadId?: string }
   | { type: "source-url"; sourceId: string; url: string; title?: string }
   | { type: "source-document"; sourceId: string; mediaType: string; title: string; filename?: string }
-  | { type: "file"; mediaType: string; url: string; filename?: string }
-  | { type: "step-start" };
+  | { type: "file"; mediaType: string; url: string; filename?: string };
 
 export type PandoraMessage = {
   id: string;
@@ -31,6 +30,8 @@ export type PandoraMessage = {
   parts: PandoraMessagePart[];
   /** Channel this message originated from (for cross-channel visibility) */
   channelName?: string;
+  /** Token usage for this message (persisted) */
+  usage?: TokenUsage;
 };
 
 /** State for an active subagent thread */
@@ -43,6 +44,13 @@ export interface SubagentThread {
 }
 
 export type ConnectionStatus = "connected" | "disconnected" | "reconnecting";
+
+/** Token usage for a response */
+export interface TokenUsage {
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+}
 
 interface UsePandoraChatOptions {
   /** WebSocket URL, e.g. "ws://localhost:3000/ws" */
@@ -70,6 +78,8 @@ interface UsePandoraChatReturn {
   threads: Map<string, SubagentThread>;
   /** Set threads (for loading from history) */
   setThreads: React.Dispatch<React.SetStateAction<Map<string, SubagentThread>>>;
+  /** Token usage for the current/last response */
+  usage: TokenUsage | null;
 }
 
 const MAX_RECONNECT_ATTEMPTS = 10;
@@ -87,6 +97,7 @@ export function usePandoraChat({
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>("disconnected");
   const [input, setInput] = useState("");
   const [threads, setThreads] = useState<Map<string, SubagentThread>>(new Map());
+  const [usage, setUsage] = useState<TokenUsage | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const streamingIdRef = useRef<string | null>(null);
   const conversationIdRef = useRef(conversationId);
@@ -103,6 +114,7 @@ export function usePandoraChat({
   useEffect(() => {
     setMessages([]);
     setThreads(new Map());
+    setUsage(null);
     streamingIdRef.current = null;
     setStatus("ready");
   }, [conversationId]);
@@ -144,6 +156,7 @@ export function usePandoraChat({
           filename?: string;
           threadId?: string;
           subagentName?: string;
+          usage?: { inputTokens?: number; outputTokens?: number; totalTokens?: number };
         };
 
         // Conversation-scoped check: ignore events for other conversations
@@ -238,8 +251,7 @@ export function usePandoraChat({
           }
           case "source-url":
           case "source-document":
-          case "file":
-          case "step-start": {
+          case "file": {
             if (!isCurrentConversation) break;
             const id = streamingIdRef.current;
             if (!id) break;
@@ -260,6 +272,42 @@ export function usePandoraChat({
                 msg.id === id ? appendReasoningDelta(msg, data.text ?? "") : msg
               )
             );
+            break;
+          }
+          case "step-finish": {
+            if (!isCurrentConversation) break;
+            const id = streamingIdRef.current;
+            // Accumulate token usage across steps
+            if (data.usage) {
+              const delta = {
+                inputTokens: data.usage.inputTokens ?? 0,
+                outputTokens: data.usage.outputTokens ?? 0,
+                totalTokens: data.usage.totalTokens ?? 0,
+              };
+              // Update current response usage state (for live display)
+              setUsage((prev) => ({
+                inputTokens: (prev?.inputTokens ?? 0) + delta.inputTokens,
+                outputTokens: (prev?.outputTokens ?? 0) + delta.outputTokens,
+                totalTokens: (prev?.totalTokens ?? 0) + delta.totalTokens,
+              }));
+              // Also update the message's usage field (for persistence)
+              if (id) {
+                setMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.id === id
+                      ? {
+                          ...msg,
+                          usage: {
+                            inputTokens: (msg.usage?.inputTokens ?? 0) + delta.inputTokens,
+                            outputTokens: (msg.usage?.outputTokens ?? 0) + delta.outputTokens,
+                            totalTokens: (msg.usage?.totalTokens ?? 0) + delta.totalTokens,
+                          },
+                        }
+                      : msg
+                  )
+                );
+              }
+            }
             break;
           }
           case "done": {
@@ -467,6 +515,7 @@ export function usePandoraChat({
 
       streamingIdRef.current = assistantId;
       setMessages((prev) => [...prev, userMsg, assistantMsg]);
+      setUsage(null); // Reset usage for new response
       setStatus("submitted");
 
       ws.send(
@@ -509,5 +558,6 @@ export function usePandoraChat({
     sendWatch,
     threads,
     setThreads,
+    usage,
   };
 }

@@ -45,8 +45,7 @@ export function createPartFromEvent(
         url: (data.url as string) ?? "",
         filename: data.filename as string | undefined,
       };
-    case "step-start":
-      return { type: "step-start" };
+    // step-start is not stored as a part
     default:
       return null;
   }

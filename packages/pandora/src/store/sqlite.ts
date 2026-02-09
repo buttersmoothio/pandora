@@ -30,6 +30,9 @@ interface MessageRow {
   conversation_id: string;
   role: string;
   channel_name: string | null;
+  input_tokens: number;
+  output_tokens: number;
+  total_tokens: number;
   created_at: number;
 }
 
@@ -97,6 +100,9 @@ export class SqliteStore implements IMessageStore {
         conversation_id TEXT NOT NULL,
         role TEXT NOT NULL,
         channel_name TEXT,
+        input_tokens INTEGER NOT NULL DEFAULT 0,
+        output_tokens INTEGER NOT NULL DEFAULT 0,
+        total_tokens INTEGER NOT NULL DEFAULT 0,
         created_at INTEGER NOT NULL DEFAULT (unixepoch()),
         FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
       )
@@ -175,7 +181,7 @@ export class SqliteStore implements IMessageStore {
     // Use rowid for ordering to preserve insertion order (random IDs don't sort correctly)
     const messages = this.db
       .query<MessageRow, [string]>(
-        `SELECT id, conversation_id, role, channel_name, created_at
+        `SELECT id, conversation_id, role, channel_name, input_tokens, output_tokens, total_tokens, created_at
          FROM messages
          WHERE conversation_id = ?
          ORDER BY rowid ASC`
@@ -195,12 +201,18 @@ export class SqliteStore implements IMessageStore {
         )
         .all(msg.id);
 
+      // Include usage if present (assistant messages with token counts)
+      const usage = msg.total_tokens > 0
+        ? { inputTokens: msg.input_tokens, outputTokens: msg.output_tokens, totalTokens: msg.total_tokens }
+        : undefined;
+
       result.push({
         id: msg.id,
         role: msg.role as "user" | "assistant",
         parts: parts.map((p) => JSON.parse(p.part_data) as UIMessagePart),
         channelName: msg.channel_name ?? undefined,
-      } as UIMessage & { channelName?: string });
+        usage,
+      } as UIMessage & { channelName?: string; usage?: { inputTokens: number; outputTokens: number; totalTokens: number } });
     }
 
     return result;
@@ -330,6 +342,26 @@ export class SqliteStore implements IMessageStore {
         );
       }
     }
+  }
+
+  /** @inheritdoc */
+  async accumulateUsage(
+    messageId: string,
+    usage: { inputTokens?: number; outputTokens?: number; totalTokens?: number }
+  ): Promise<void> {
+    this.db.run(
+      `UPDATE messages SET
+        input_tokens = input_tokens + ?,
+        output_tokens = output_tokens + ?,
+        total_tokens = total_tokens + ?
+       WHERE id = ?`,
+      [
+        usage.inputTokens ?? 0,
+        usage.outputTokens ?? 0,
+        usage.totalTokens ?? 0,
+        messageId,
+      ]
+    );
   }
 
   /** @inheritdoc */

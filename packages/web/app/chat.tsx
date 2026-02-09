@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { nanoid } from "nanoid";
-import { usePandoraChat, type PandoraMessage, type SubagentThread } from "@/hooks/use-pandora-chat";
+import { usePandoraChat, type PandoraMessage, type SubagentThread, type TokenUsage } from "@/hooks/use-pandora-chat";
 import { SubagentPanel } from "@/components/subagent-panel";
 import { MessagePartsRenderer } from "@/components/message-parts-renderer";
 import { useConversations } from "@/hooks/use-conversations";
@@ -68,6 +68,36 @@ function ConnectionIndicator({ status }: { status: ConnectionStatus }) {
           />
         </TooltipTrigger>
         <TooltipContent side="bottom">{label}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
+/** Format token count with K suffix for thousands */
+function formatTokens(count: number): string {
+  if (count >= 1000) {
+    return `${(count / 1000).toFixed(1)}K`;
+  }
+  return count.toString();
+}
+
+function TokenUsageDisplay({ usage }: { usage: TokenUsage | null }) {
+  if (!usage || usage.totalTokens === 0) return null;
+
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="text-xs text-muted-foreground">
+            {formatTokens(usage.totalTokens)} tokens
+          </span>
+        </TooltipTrigger>
+        <TooltipContent side="top">
+          <div className="text-xs">
+            <div>Input: {formatTokens(usage.inputTokens)}</div>
+            <div>Output: {formatTokens(usage.outputTokens)}</div>
+          </div>
+        </TooltipContent>
       </Tooltip>
     </TooltipProvider>
   );
@@ -276,6 +306,7 @@ function ChatInterface({
     sendWatch,
     threads,
     setThreads,
+    usage,
   } = usePandoraChat({ url: wsUrl, token, conversationId, onConversationUpdate: debouncedRefresh });
 
   // Get the selected thread
@@ -519,7 +550,7 @@ function ChatInterface({
               disabled={isStreaming}
             />
             <PromptInputFooter>
-              <div />
+              <TokenUsageDisplay usage={usage} />
               <PromptInputSubmit status={status} />
             </PromptInputFooter>
           </PromptInput>

@@ -3,12 +3,13 @@
  *
  * These tools are auto-injected when memory is configured (not via defineTool).
  * Episodic memory is automatic (gateway-managed), so tools handle semantic memory.
- * The recall tool searches both episodic and semantic memories.
+ * The recall tool searches both episodic and semantic memories (returns chunks).
+ * The getMemory tool fetches full records when needed.
  */
 
 import { tool, type Tool } from "ai";
 import { z } from "zod";
-import type { IMemoryProvider, IMessageStore } from "@pandora/core";
+import type { IMemoryProvider } from "@pandora/core";
 
 /** Memory category options */
 const CATEGORIES = ["user_preference", "knowledge", "instruction"] as const;
@@ -18,13 +19,9 @@ const CATEGORIES = ["user_preference", "knowledge", "instruction"] as const;
  * Called from index.ts when memory is available, then injected into the Agent.
  *
  * @param provider - Memory provider instance
- * @param store - Message store (for recallConversation)
  * @returns Record of memory tools
  */
-export function createMemoryTools(
-  provider: IMemoryProvider,
-  store: IMessageStore
-): Record<string, Tool> {
+export function createMemoryTools(provider: IMemoryProvider): Record<string, Tool> {
   const tools: Record<string, Tool> = {};
 
   // Only add remember tool if semantic memory is available
@@ -49,7 +46,6 @@ export function createMemoryTools(
       execute: async ({ content, category }) => {
         const id = await provider.semantic!.upsertFact({
           content,
-          vector: [], // Will be computed by provider
           category: category ?? "knowledge",
           confidence: 1.0,
         });
@@ -63,12 +59,12 @@ export function createMemoryTools(
     });
   }
 
-  // Recall tool always available (searches both types)
+  // Recall tool - searches both memory types, returns matching chunks
   tools.recall = tool({
     description:
       "Search your memories for relevant information. " +
-      "Use this to find past interactions, stored facts, and preferences. " +
-      "Returns both episodic memories (past interactions) and semantic memories (stored facts).",
+      "Returns matching chunks from past interactions (episodes) and stored facts. " +
+      "Use getMemory to fetch the full content of a memory record if needed.",
     inputSchema: z.object({
       query: z.string().describe("What to search for in memory"),
       type: z
@@ -88,28 +84,32 @@ export function createMemoryTools(
       const opts = { limit: limit ?? 5, minScore: 0.5 };
 
       if (type === "episodes" && provider.episodic) {
-        const episodes = await provider.episodic.searchEpisodes(query, opts);
+        const chunks = await provider.episodic.searchEpisodes(query, opts);
         return {
-          episodes: episodes.map((r) => ({
-            id: r.item.id,
-            content: r.item.content,
-            score: r.score.toFixed(3),
-            timestamp: new Date(r.item.timestamp * 1000).toISOString(),
-            conversationId: r.item.conversationId,
+          episodes: chunks.map((c) => ({
+            chunkId: c.chunkId,
+            content: c.content,
+            score: c.score.toFixed(3),
+            parentId: c.parentId,
+            chunkIndex: c.chunkIndex,
+            timestamp: c.timestamp ? new Date(c.timestamp * 1000).toISOString() : undefined,
+            conversationId: c.conversationId,
           })),
           facts: [],
         };
       }
 
       if (type === "facts" && provider.semantic) {
-        const facts = await provider.semantic.searchFacts(query, opts);
+        const chunks = await provider.semantic.searchFacts(query, opts);
         return {
           episodes: [],
-          facts: facts.map((r) => ({
-            id: r.item.id,
-            content: r.item.content,
-            score: r.score.toFixed(3),
-            category: r.item.category,
+          facts: chunks.map((c) => ({
+            chunkId: c.chunkId,
+            content: c.content,
+            score: c.score.toFixed(3),
+            parentId: c.parentId,
+            chunkIndex: c.chunkIndex,
+            category: c.category,
           })),
         };
       }
@@ -117,20 +117,77 @@ export function createMemoryTools(
       // Search all
       const results = await provider.search(query, opts);
       return {
-        episodes: results.episodes.map((r) => ({
-          id: r.item.id,
-          content: r.item.content,
-          score: r.score.toFixed(3),
-          timestamp: new Date(r.item.timestamp * 1000).toISOString(),
-          conversationId: r.item.conversationId,
+        episodes: results.episodes.map((c) => ({
+          chunkId: c.chunkId,
+          content: c.content,
+          score: c.score.toFixed(3),
+          parentId: c.parentId,
+          chunkIndex: c.chunkIndex,
+          timestamp: c.timestamp ? new Date(c.timestamp * 1000).toISOString() : undefined,
+          conversationId: c.conversationId,
         })),
-        facts: results.facts.map((r) => ({
-          id: r.item.id,
-          content: r.item.content,
-          score: r.score.toFixed(3),
-          category: r.item.category,
+        facts: results.facts.map((c) => ({
+          chunkId: c.chunkId,
+          content: c.content,
+          score: c.score.toFixed(3),
+          parentId: c.parentId,
+          chunkIndex: c.chunkIndex,
+          category: c.category,
         })),
       };
+    },
+  });
+
+  // GetMemory tool - fetch full episode or fact by ID
+  tools.getMemory = tool({
+    description:
+      "Fetch the full content of a memory record by its ID. " +
+      "Use this when you need the complete context from a recall result. " +
+      "The parentId comes from recall search results.",
+    inputSchema: z.object({
+      id: z.string().describe("The parent ID of the memory to fetch"),
+      type: z
+        .enum(["episode", "fact"])
+        .describe("Type of memory: 'episode' or 'fact'"),
+    }),
+    execute: async ({ id, type }) => {
+      if (type === "episode" && provider.episodic) {
+        const episode = await provider.episodic.getEpisode(id);
+        if (!episode) {
+          return { success: false, message: `Episode not found: ${id}` };
+        }
+        return {
+          success: true,
+          type: "episode",
+          id: episode.id,
+          content: episode.content,
+          timestamp: new Date(episode.timestamp * 1000).toISOString(),
+          conversationId: episode.conversationId,
+          channelName: episode.channelName,
+          importance: episode.importance,
+          tags: episode.tags,
+        };
+      }
+
+      if (type === "fact" && provider.semantic) {
+        const fact = await provider.semantic.getFact(id);
+        if (!fact) {
+          return { success: false, message: `Fact not found: ${id}` };
+        }
+        return {
+          success: true,
+          type: "fact",
+          id: fact.id,
+          content: fact.content,
+          category: fact.category,
+          createdAt: new Date(fact.createdAt * 1000).toISOString(),
+          updatedAt: new Date(fact.updatedAt * 1000).toISOString(),
+          confidence: fact.confidence,
+          source: fact.source,
+        };
+      }
+
+      return { success: false, message: `Memory type not available: ${type}` };
     },
   });
 
@@ -143,7 +200,7 @@ export function createMemoryTools(
         "Use this to delete outdated or incorrect facts/preferences/knowledge. " +
         "Note: Episodic memories (past interactions) cannot be deleted directly - they are cleaned up when conversations are deleted.",
       inputSchema: z.object({
-        id: z.string().describe("The ID of the fact to delete (from recall results)"),
+        id: z.string().describe("The parent ID of the fact to delete (from recall results)"),
       }),
       execute: async ({ id }) => {
         await provider.semantic!.deleteFact(id);
@@ -152,50 +209,8 @@ export function createMemoryTools(
     });
   }
 
-  // RecallConversation tool - fetch full history for a past conversation
-  tools.recallConversation = tool({
-    description:
-      "Fetch the full message history for a past conversation. " +
-      "Use this when an episodic memory references a conversation you want to review in detail. " +
-      "The conversationId comes from episodic memory search results.",
-    inputSchema: z.object({
-      conversationId: z.string().describe("The conversation ID to fetch history for"),
-    }),
-    execute: async ({ conversationId }) => {
-      const history = await store.getHistory(conversationId);
-
-      if (history.length === 0) {
-        return {
-          success: false,
-          message: `No messages found for conversation: ${conversationId}`,
-        };
-      }
-
-      // Format messages for the agent
-      const messages = history.map((msg) => {
-        // Extract text content from parts
-        const textParts = msg.parts
-          .filter((p) => p.type === "text")
-          .map((p) => (p as { text: string }).text)
-          .join("\n");
-
-        return {
-          role: msg.role,
-          content: textParts || "[non-text content]",
-        };
-      });
-
-      return {
-        success: true,
-        conversationId,
-        messageCount: messages.length,
-        messages,
-      };
-    },
-  });
-
   return tools;
 }
 
 /** Names of memory tools (for subagent opt-out filtering) */
-export const MEMORY_TOOL_NAMES = ["remember", "recall", "forget", "recallConversation"] as const;
+export const MEMORY_TOOL_NAMES = ["remember", "recall", "getMemory", "forget"] as const;

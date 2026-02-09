@@ -1,15 +1,11 @@
 import {
   SearchIcon,
-  GlobeIcon,
-  CodeIcon,
-  FileTextIcon,
-  ImageIcon,
-  DatabaseIcon,
+  ClockIcon,
+  BrainIcon,
+  BookOpenIcon,
+  Trash2Icon,
   BotIcon,
   WrenchIcon,
-  CalculatorIcon,
-  MailIcon,
-  CalendarIcon,
   type LucideIcon,
 } from "lucide-react";
 
@@ -20,40 +16,19 @@ export interface ToolDisplayInfo {
 }
 
 const toolMap: Record<string, ToolDisplayInfo> = {
-  // Search tools
-  webSearchNative: { label: "Web Search", icon: SearchIcon, color: "text-blue-500" },
-  webSearch: { label: "Web Search", icon: GlobeIcon, color: "text-blue-500" },
-  searchWeb: { label: "Web Search", icon: SearchIcon, color: "text-blue-500" },
+  // Search tools (actual tools in this project)
+  tavilySearch: { label: "Web Search", icon: SearchIcon, color: "text-blue-500" },
+  exaSearch: { label: "Web Search", icon: SearchIcon, color: "text-blue-500" },
+  perplexitySearch: { label: "Web Search", icon: SearchIcon, color: "text-blue-500" },
 
-  // Code tools
-  executeCode: { label: "Run Code", icon: CodeIcon, color: "text-green-500" },
-  codeInterpreter: { label: "Code Interpreter", icon: CodeIcon, color: "text-green-500" },
-  runCode: { label: "Run Code", icon: CodeIcon, color: "text-green-500" },
+  // Utility tools
+  datetime: { label: "Date & Time", icon: ClockIcon, color: "text-cyan-500" },
 
-  // File tools
-  readFile: { label: "Read File", icon: FileTextIcon, color: "text-amber-500" },
-  writeFile: { label: "Write File", icon: FileTextIcon, color: "text-amber-500" },
-  listFiles: { label: "List Files", icon: FileTextIcon, color: "text-amber-500" },
-
-  // Image tools
-  generateImage: { label: "Generate Image", icon: ImageIcon, color: "text-purple-500" },
-  analyzeImage: { label: "Analyze Image", icon: ImageIcon, color: "text-purple-500" },
-
-  // Database tools
-  queryDatabase: { label: "Query Database", icon: DatabaseIcon, color: "text-orange-500" },
-  sqlQuery: { label: "SQL Query", icon: DatabaseIcon, color: "text-orange-500" },
-
-  // Math/calculation
-  calculator: { label: "Calculator", icon: CalculatorIcon, color: "text-cyan-500" },
-  compute: { label: "Compute", icon: CalculatorIcon, color: "text-cyan-500" },
-
-  // Communication
-  sendEmail: { label: "Send Email", icon: MailIcon, color: "text-red-500" },
-  email: { label: "Email", icon: MailIcon, color: "text-red-500" },
-
-  // Calendar
-  checkCalendar: { label: "Check Calendar", icon: CalendarIcon, color: "text-teal-500" },
-  calendar: { label: "Calendar", icon: CalendarIcon, color: "text-teal-500" },
+  // Memory tools
+  recall: { label: "Recall Memory", icon: BrainIcon, color: "text-pink-500" },
+  remember: { label: "Remember", icon: BrainIcon, color: "text-pink-500" },
+  getMemory: { label: "Get Memory", icon: BookOpenIcon, color: "text-pink-500" },
+  forget: { label: "Forget", icon: Trash2Icon, color: "text-pink-500" },
 };
 
 /**

@@ -8,14 +8,15 @@
     "dev": "bun --watch run src/index.ts"
   },
   "dependencies": {
-    "@pandora/core": "workspace:*",
     "@exalabs/ai-sdk": "^1.0.5",
+    "@pandora/core": "workspace:*",
     "@perplexity-ai/ai-sdk": "^0.1.2",
     "@tavily/ai-sdk": "^0.4.1",
     "grammy": "^1.39.3",
     "rehype-stringify": "^10.0.1",
     "remark-parse": "^11.0.0",
     "remark-rehype": "^11.1.2",
+    "tiktoken": "^1.0.22",
     "unified": "^11.0.5"
   },
   "devDependencies": {

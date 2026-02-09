@@ -66,6 +66,7 @@ export {
 export {
   type Episode,
   type Fact,
+  type MemoryChunk,
   type MemorySearchResult,
   type MemorySearchResults,
   type IEpisodicMemory,

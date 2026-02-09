@@ -29,8 +29,18 @@ interface ConversationMeta {
   subagentName?: string;
 }
 
-/** Extended message with channelName for per-message source tracking */
-type MessageWithChannel = UIMessage & { channelName?: string };
+/** Token usage for a message */
+interface MessageUsage {
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+}
+
+/** Extended message with channelName and usage for per-message tracking */
+type MessageWithChannel = UIMessage & {
+  channelName?: string;
+  usage?: MessageUsage;
+};
 
 /** In-memory message store. Ephemeral; conversations are lost on restart. */
 export class MemoryStore implements IMessageStore {
@@ -199,6 +209,25 @@ export class MemoryStore implements IMessageStore {
         (part as TextUIPart).state = "done";
       }
     }
+  }
+
+  /** @inheritdoc */
+  async accumulateUsage(
+    messageId: string,
+    usage: { inputTokens?: number; outputTokens?: number; totalTokens?: number }
+  ): Promise<void> {
+    const message = this.messagesById.get(messageId);
+    if (!message) {
+      throw new Error(`Message not found: ${messageId}`);
+    }
+
+    if (!message.usage) {
+      message.usage = { inputTokens: 0, outputTokens: 0, totalTokens: 0 };
+    }
+
+    message.usage.inputTokens += usage.inputTokens ?? 0;
+    message.usage.outputTokens += usage.outputTokens ?? 0;
+    message.usage.totalTokens += usage.totalTokens ?? 0;
   }
 
   /** @inheritdoc */

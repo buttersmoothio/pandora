@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { PandoraMessage, PandoraMessagePart } from "@/hooks/use-pandora-chat";
+import type { PandoraMessage, PandoraMessagePart, TokenUsage } from "@/hooks/use-pandora-chat";
 import {
   Message,
   MessageContent,
@@ -40,6 +40,43 @@ import {
   BotIcon,
 } from "lucide-react";
 import { getToolDisplayInfo } from "@/lib/tool-display";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+
+/** Format token count with K suffix for thousands */
+function formatTokens(count: number): string {
+  if (count >= 1000) {
+    return `${(count / 1000).toFixed(1)}K`;
+  }
+  return count.toString();
+}
+
+/** Token usage display for a message */
+function MessageUsageDisplay({ usage }: { usage: TokenUsage }) {
+  if (usage.totalTokens === 0) return null;
+
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="text-[10px] text-muted-foreground/60">
+            {formatTokens(usage.totalTokens)} tokens
+          </span>
+        </TooltipTrigger>
+        <TooltipContent side="top">
+          <div className="text-xs">
+            <div>Input: {formatTokens(usage.inputTokens)}</div>
+            <div>Output: {formatTokens(usage.outputTokens)}</div>
+          </div>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
 
 interface MessagePartsRendererProps {
   message: PandoraMessage;
@@ -412,6 +449,13 @@ export function MessagePartsRenderer({
             </Shimmer>
           ) : (
             textContent && <MessageResponse>{textContent}</MessageResponse>
+          )}
+
+          {/* Token usage (for assistant messages with stored usage) */}
+          {role === "assistant" && message.usage && message.usage.totalTokens > 0 && (
+            <div className="mt-1 flex justify-end">
+              <MessageUsageDisplay usage={message.usage} />
+            </div>
           )}
         </MessageContent>
       </Message>

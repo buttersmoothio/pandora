@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import type { PandoraMessage, PandoraMessagePart } from "./use-pandora-chat";
+import type { PandoraMessage, PandoraMessagePart, TokenUsage } from "./use-pandora-chat";
 
 export interface ConversationInfo {
   id: string;
@@ -81,13 +81,14 @@ export function useConversations({
       );
       if (!res.ok) return [];
 
-      // API returns UIMessage[] with parts-based storage (including channelName)
+      // API returns UIMessage[] with parts-based storage (including channelName and usage)
       const data = (await res.json()) as {
         messages: Array<{
           id: string;
           role: "user" | "assistant";
           parts: PandoraMessagePart[];
           channelName?: string;
+          usage?: TokenUsage;
         }>;
       };
 

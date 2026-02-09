@@ -247,21 +247,23 @@ export class Gateway {
           const results = await this.memory.search(content, { limit: 5, minScore: 0.6 });
           const contextParts: string[] = [];
 
-          // Add relevant episodes
+          // Add relevant episodes (chunks)
           if (results.episodes.length > 0) {
             contextParts.push("Past interactions:");
-            for (const r of results.episodes) {
-              const timestamp = new Date(r.item.timestamp * 1000).toLocaleDateString();
-              contextParts.push(`- [${timestamp}] ${r.item.content}`);
+            for (const chunk of results.episodes) {
+              const timestamp = chunk.timestamp
+                ? new Date(chunk.timestamp * 1000).toLocaleDateString()
+                : "unknown";
+              contextParts.push(`- [${timestamp}] ${chunk.content}`);
             }
           }
 
-          // Add relevant facts
+          // Add relevant facts (chunks)
           if (results.facts.length > 0) {
             if (contextParts.length > 0) contextParts.push("");
             contextParts.push("Stored knowledge:");
-            for (const r of results.facts) {
-              contextParts.push(`- [${r.item.category}] ${r.item.content}`);
+            for (const chunk of results.facts) {
+              contextParts.push(`- [${chunk.category ?? "knowledge"}] ${chunk.content}`);
             }
           }
 
@@ -473,7 +475,7 @@ export class Gateway {
           }
 
           case "step-start": {
-            await this.store.appendPart(targetMessageId, { type: "step-start" });
+            // Not stored - step boundaries are implicit in tool call sequences
             break;
           }
 
@@ -490,6 +492,10 @@ export class Gateway {
             // Reset operator stream state reasoning (for late-joiners)
             if (!isThread) {
               streamState.reasoning = "";
+            }
+            // Accumulate token usage
+            if (event.usage) {
+              await this.store.accumulateUsage(targetMessageId, event.usage);
             }
             break;
           }
@@ -568,7 +574,6 @@ export class Gateway {
         // Fire-and-forget - don't await or block on episode storage
         this.memory.episodic.addEpisode({
           content: episodeContent,
-          vector: [], // Will be computed by provider
           conversationId,
           channelName,
           userId,

@@ -79,7 +79,7 @@ async function main(): Promise<void> {
     });
 
     if (memory) {
-      const memoryTools = createMemoryTools(memory, store);
+      const memoryTools = createMemoryTools(memory);
       agent.addActionTools(memoryTools);
       logger.startup("Memory initialized", {
         type: config.memory.type,
