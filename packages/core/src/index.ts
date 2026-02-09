@@ -7,7 +7,7 @@
 
 // Core classes
 export { Agent } from "./agent";
-export { Gateway, type ActiveStreamState } from "./gateway";
+export { Gateway, type ActiveStreamState, type ActiveThreadState } from "./gateway";
 
 // Configuration
 export {

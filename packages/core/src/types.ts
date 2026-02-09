@@ -166,7 +166,7 @@ export type StreamEvent =
  */
 export type GatewayEvent =
   | { type: "user-message"; conversationId: string; channelName: string; content: string }
-  | { type: "delta"; conversationId: string; text: string }
   | { type: "done"; conversationId: string }
   | { type: "cleared"; conversationId: string }
+  | { type: "error"; conversationId: string; message: string }
   | (StreamEvent & { conversationId: string });

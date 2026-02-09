@@ -256,9 +256,13 @@ export class WebChannel implements Channel {
                 channel.capabilities,
                 onEvent
               );
-              for await (const delta of stream) {
-                ws.send(JSON.stringify({ type: "delta", text: delta, conversationId }));
+              // Drive the generator to completion. Text deltas are
+              // delivered via onEvent callback, not the yield loop.
+              for await (const _delta of stream) {
+                // Events are sent via onEvent callback
               }
+              // Gateway emits "done" via pub/sub but the processing flag
+              // suppresses it for this client, so send it explicitly.
               ws.send(JSON.stringify({ type: "done", conversationId }));
             } catch (error) {
               logger.error("Web", "Error streaming response", error);

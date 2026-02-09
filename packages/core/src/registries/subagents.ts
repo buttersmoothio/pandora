@@ -149,44 +149,6 @@ export interface SubagentContext {
 }
 
 /**
- * Create an operator delegation tool from a subagent definition.
- * @deprecated Use createStreamingSubagentTool for thread support
- */
-export function createSubagentTool(
-  definition: SubagentDefinition,
-  subagent: ToolLoopAgent,
-  config: AIConfig
-): Tool {
-  const agentConfig = config.agents[definition.configKey as keyof typeof config.agents];
-  if (!agentConfig) {
-    throw new Error(`No config found for subagent: ${definition.configKey}`);
-  }
-
-  return tool({
-    description: definition.toolDescription,
-    inputSchema: definition.inputSchema,
-    execute: async (input, { abortSignal }) => {
-      const startTime = Date.now();
-      logger.subagentStart(definition.name, "gateway", agentConfig.model);
-
-      // Get the prompt from input - use inputField if specified, otherwise first field
-      const inputRecord = input as Record<string, unknown>;
-      const keys = Object.keys(inputRecord);
-      const promptField = definition.inputField ?? keys[0] ?? "";
-      const prompt = promptField ? String(inputRecord[promptField] ?? "") : "";
-
-      logger.modelInput(definition.name, [{ role: "user", content: prompt }]);
-
-      const result = await subagent.generate({ prompt, abortSignal });
-
-      logger.modelOutput(definition.name, result.text);
-      logger.subagentComplete(definition.name, Date.now() - startTime);
-      return result.text;
-    },
-  });
-}
-
-/**
  * Create a streaming subagent tool factory.
  * Returns a function that creates a Tool with the given context bound.
  *

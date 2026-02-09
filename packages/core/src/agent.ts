@@ -5,7 +5,7 @@
  * specialized tasks to subagents (coding, research, etc.) via tools.
  */
 
-import { ToolLoopAgent, stepCountIs, convertToModelMessages, type Tool, type ToolChoice } from "ai";
+import { ToolLoopAgent, stepCountIs, convertToModelMessages, type Tool, type ToolChoice, type ToolExecutionOptions } from "ai";
 import { createModel } from "./providers";
 import {
   getSubagentDefinitions,
@@ -154,23 +154,17 @@ export class Agent {
    * Subagent tools are instantiated with the context, action tools are passed through.
    *
    * @param ctx - Subagent context with store, parent conversation, and event callback
-   * @param toolCallIdMap - Map of tool name to tool call ID (filled during streaming)
    */
-  createRequestTools(
-    ctx: SubagentContext,
-    toolCallIdMap: Map<string, string>
-  ): Record<string, Tool> {
+  createRequestTools(ctx: SubagentContext): Record<string, Tool> {
     const tools: Record<string, Tool> = { ...this.actionTools };
 
     // Create subagent tools with context
-    // The toolCallId is looked up dynamically when the tool executes
+    // toolCallId is obtained from ToolExecutionOptions at execution time (parallel-safe)
     for (const [name, factory] of Object.entries(this.subagentToolFactories)) {
       tools[name] = {
         ...factory(ctx, ""),
-        execute: async (input, options) => {
-          // Get the actual toolCallId from the map (set when tool-call event is received)
-          const toolCallId = toolCallIdMap.get(name) ?? "";
-          const boundTool = factory(ctx, toolCallId);
+        execute: async (input, options: ToolExecutionOptions) => {
+          const boundTool = factory(ctx, options.toolCallId);
           return boundTool.execute!(input, options);
         },
       } as Tool;
@@ -233,12 +227,9 @@ export class Agent {
 
     logger.agentStart("gateway", operatorConfig.model, history.length);
 
-    // Track tool call IDs for subagent tools
-    const toolCallIdMap = new Map<string, string>();
-
     // Create request-scoped tools if we have subagent context
     const tools = subagentCtx
-      ? this.createRequestTools(subagentCtx, toolCallIdMap)
+      ? this.createRequestTools(subagentCtx)
       : { ...this.actionTools };
 
     // Build a dummy subagentTools object for instructions (just need names/descriptions)
@@ -307,14 +298,11 @@ export class Agent {
       switch (part.type) {
         case "text-delta":
           fullText += part.text;
+          onEvent?.({ type: "text-delta", text: part.text });
           yield part.text;
           break;
 
         case "tool-call":
-          // Track toolCallId for subagent tools before they execute
-          if (this.subagentNames.has(part.toolName)) {
-            toolCallIdMap.set(part.toolName, part.toolCallId);
-          }
           onEvent?.({
             type: "tool-call",
             toolCallId: part.toolCallId,

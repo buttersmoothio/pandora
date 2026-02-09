@@ -34,7 +34,19 @@ interface ThreadContext {
   accumulatedReasoning: string;
 }
 
+/** Lock acquisition timeout (ms). Prevents permanent blocking if a handler fails. */
+const LOCK_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+
 type GatewayListener = (event: GatewayEvent) => void;
+
+/** State of an active subagent thread for late-joining subscribers. */
+export interface ActiveThreadState {
+  threadId: string;
+  toolCallId: string;
+  subagentName: string;
+  partialText: string;
+  status: "streaming" | "done";
+}
 
 /** State of an active stream for late-joining subscribers. */
 export interface ActiveStreamState {
@@ -45,6 +57,7 @@ export interface ActiveStreamState {
   toolCalls: Array<{ toolCallId: string; toolName: string; args: unknown; result?: unknown }>;
   sources: Array<{ sourceType: string; id: string; url?: string; title?: string }>;
   reasoning: string;
+  threads: Record<string, ActiveThreadState>;
 }
 
 /** Central hub: receives messages from channels, stores them, calls the agent, stores and returns the response. */
@@ -66,6 +79,7 @@ export class Gateway {
 
   /**
    * Acquire a lock for a conversation. Ensures only one message is processed at a time per conversation.
+   * Chains onto any existing lock, with a timeout to prevent permanent blocking.
    * @returns Release function to call when done.
    */
   private async acquireConversationLock(conversationId: string): Promise<() => void> {
@@ -77,9 +91,15 @@ export class Gateway {
     });
     this.conversationLocks.set(conversationId, lock);
 
-    // Wait for any existing lock to release
+    // Wait for any existing lock to release, with a timeout
     if (existing) {
-      await existing;
+      const timeout = new Promise<"timeout">((resolve) =>
+        setTimeout(() => resolve("timeout"), LOCK_TIMEOUT_MS)
+      );
+      const result = await Promise.race([existing.then(() => "released" as const), timeout]);
+      if (result === "timeout") {
+        logger.warn("Gateway", `Lock timeout for conversation ${conversationId}, proceeding`);
+      }
     }
 
     return () => {
@@ -142,16 +162,10 @@ export class Gateway {
     message: Message,
     capabilities: ChannelCapabilities
   ): Promise<string> {
-    // Delegate to streaming path — it handles store, logging, and event emission
-    const stream = this.handleMessageStream(message, capabilities);
-
     let fullText = "";
-    while (true) {
-      const { value, done } = await stream.next();
-      if (done) break;
-      fullText += value;
+    for await (const delta of this.handleMessageStream(message, capabilities)) {
+      fullText += delta;
     }
-
     return fullText;
   }
 
@@ -185,6 +199,7 @@ export class Gateway {
 
     // Acquire per-conversation lock to prevent interleaved processing
     const releaseLock = await this.acquireConversationLock(conversationId);
+    let assistantMessageId: string | undefined;
 
     try {
       const startTime = Date.now();
@@ -201,6 +216,7 @@ export class Gateway {
         toolCalls: [],
         sources: [],
         reasoning: "",
+        threads: {},
       };
       this.activeStreams.set(conversationId, streamState);
 
@@ -219,7 +235,7 @@ export class Gateway {
       const history = await this.store.getHistory(conversationId);
 
       // Create assistant message shell before streaming
-      const assistantMessageId = await this.store.createMessage(conversationId, "assistant", meta);
+      assistantMessageId = await this.store.createMessage(conversationId, "assistant", meta);
 
       // Operator context state (for main conversation)
       const operatorCtx = {
@@ -265,6 +281,15 @@ export class Gateway {
             hasStartedTextPart: false,
             accumulatedReasoning: "",
           });
+
+          // Track thread for late-joining subscribers
+          streamState.threads[threadId] = {
+            threadId,
+            toolCallId,
+            subagentName,
+            partialText: "",
+            status: "streaming",
+          };
 
           // Emit subagent-start to subscribers
           const startEvent: StreamEvent = {
@@ -316,6 +341,10 @@ export class Gateway {
             // Clean up
             threadContexts.delete(event.threadId);
           }
+          // Update late-join state
+          const threadState = streamState.threads[event.threadId];
+          if (threadState) threadState.status = "done";
+
           onEvent?.(event);
           this.emit(conversationId, { ...event, conversationId });
           return;
@@ -346,6 +375,13 @@ export class Gateway {
               ctx.fullText += event.text;
               await this.store.updateTextPart(targetMessageId, ctx.fullText);
             }
+            // Track for late-joiners
+            if (isThread) {
+              const threadState = streamState.threads[event.threadId!];
+              if (threadState) threadState.partialText += event.text;
+            } else {
+              streamState.partialText += event.text;
+            }
             break;
           }
 
@@ -375,7 +411,7 @@ export class Gateway {
 
             // If this is a subagent result with a threadId, link the tool to the thread
             if (event.threadId) {
-              await this.store.linkToolToThread(assistantMessageId, event.toolCallId, event.threadId);
+              await this.store.linkToolToThread(assistantMessageId!, event.toolCallId, event.threadId);
             }
 
             // Track for late-joiners (operator only)
@@ -472,41 +508,35 @@ export class Gateway {
 
       const stream = this.agent.chatStream(history, capabilities, handleStreamEvent, subagentCtx);
 
+      // Text persistence is handled by handleStreamEvent (text-delta case).
+      // This loop only yields deltas to the caller and tracks total text for logging.
       let fullText = "";
       for await (const delta of stream) {
-        // Accumulate text
         fullText += delta;
-        streamState.partialText += delta;
-
-        // Start or update text part
-        if (!operatorCtx.hasStartedTextPart) {
-          await this.store.appendPart(assistantMessageId, {
-            type: "text",
-            text: delta,
-            state: "streaming",
-          } as TextUIPart);
-          operatorCtx.hasStartedTextPart = true;
-          operatorCtx.fullText = delta;
-        } else {
-          operatorCtx.fullText += delta;
-          await this.store.updateTextPart(assistantMessageId, operatorCtx.fullText);
-        }
-
-        this.emit(conversationId, { type: "delta", conversationId, text: delta });
         yield delta;
       }
 
       // Finalize the assistant message (set text part state to done)
       await this.store.finalizeMessage(assistantMessageId);
 
-      // Clear active stream state
-      this.activeStreams.delete(conversationId);
-
       this.emit(conversationId, { type: "done", conversationId });
 
       const durationMs = Date.now() - startTime;
       logger.messageSent(channelName, conversationId, fullText.length, durationMs);
+    } catch (error) {
+      // Finalize the message to avoid zombie streaming state in the store
+      if (assistantMessageId) {
+        try { await this.store.finalizeMessage(assistantMessageId); } catch { /* best-effort */ }
+      }
+
+      this.emit(conversationId, {
+        type: "error",
+        conversationId,
+        message: error instanceof Error ? error.message : "Stream failed",
+      });
+      throw error;
     } finally {
+      this.activeStreams.delete(conversationId);
       releaseLock();
     }
   }

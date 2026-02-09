@@ -206,16 +206,6 @@ export function usePandoraChat({
             setStatus("submitted");
             break;
           }
-          case "delta": {
-            if (!isCurrentConversation) break;
-            const id = streamingIdRef.current;
-            if (!id) break;
-            setMessages((prev) =>
-              prev.map((msg) => msg.id === id ? appendTextDelta(msg, data.text ?? "") : msg)
-            );
-            setStatus("streaming");
-            break;
-          }
           case "tool-call": {
             if (!isCurrentConversation) break;
             const part = createPartFromEvent("tool-call", data as Record<string, unknown>);
@@ -364,8 +354,15 @@ export function usePandoraChat({
               setThreads((prev) => updateThreadLastMessage(prev, threadId, (msg) =>
                 appendTextDelta(msg, text)
               ));
+            } else {
+              // Operator text delta
+              const id = streamingIdRef.current;
+              if (!id) break;
+              setMessages((prev) =>
+                prev.map((msg) => msg.id === id ? appendTextDelta(msg, text) : msg)
+              );
+              setStatus("streaming");
             }
-            // Note: operator text deltas still come via the "delta" event
             break;
           }
         }

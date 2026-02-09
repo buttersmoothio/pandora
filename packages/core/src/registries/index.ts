@@ -13,7 +13,6 @@ export {
   getSubagentDefinitions,
   getSubagentDefinition,
   createSubagentFromDefinition,
-  createSubagentTool,
   createStreamingSubagentTool,
 } from "./subagents";
 
