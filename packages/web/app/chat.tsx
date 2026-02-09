@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { nanoid } from "nanoid";
-import { usePandoraChat, type PandoraMessage, type PandoraMessagePart, type SubagentThread } from "@/hooks/use-pandora-chat";
+import { usePandoraChat, type PandoraMessage, type SubagentThread } from "@/hooks/use-pandora-chat";
 import { SubagentPanel } from "@/components/subagent-panel";
+import { MessagePartsRenderer } from "@/components/message-parts-renderer";
 import { useConversations } from "@/hooks/use-conversations";
 import type { ConnectionStatus } from "@/hooks/use-pandora-chat";
 import {
@@ -13,11 +14,6 @@ import {
   ConversationScrollButton,
 } from "@/components/ai-elements/conversation";
 import {
-  Message,
-  MessageContent,
-  MessageResponse,
-} from "@/components/ai-elements/message";
-import {
   PromptInput,
   PromptInputTextarea,
   PromptInputFooter,
@@ -25,24 +21,6 @@ import {
   type PromptInputMessage,
 } from "@/components/ai-elements/prompt-input";
 import { Shimmer } from "@/components/ai-elements/shimmer";
-import {
-  Reasoning,
-  ReasoningTrigger,
-  ReasoningContent,
-} from "@/components/ai-elements/reasoning";
-import {
-  ChainOfThought,
-  ChainOfThoughtHeader,
-  ChainOfThoughtContent,
-  ChainOfThoughtStep,
-} from "@/components/ai-elements/chain-of-thought";
-import {
-  Sources,
-  SourcesTrigger,
-  SourcesContent,
-  Source,
-} from "@/components/ai-elements/sources";
-import { Image } from "@/components/ai-elements/image";
 import {
   Suggestions,
   Suggestion,
@@ -274,6 +252,7 @@ function ChatInterface({
     refresh: refreshConversations,
     deleteConversation,
     loadHistory,
+    loadThread,
   } = useConversations({ baseUrl, token });
 
   // Debounced refresh for conversation updates from other channels
@@ -296,10 +275,51 @@ function ChatInterface({
     clearConversation,
     sendWatch,
     threads,
+    setThreads,
   } = usePandoraChat({ url: wsUrl, token, conversationId, onConversationUpdate: debouncedRefresh });
 
   // Get the selected thread
   const selectedThread = selectedThreadId ? threads.get(selectedThreadId) : null;
+
+  // Handle opening a thread panel - creates loading stub if needed
+  const handleOpenThread = useCallback(
+    async (threadId: string, toolCallId: string, subagentName: string) => {
+      setSelectedThreadId(threadId);
+
+      // If thread already loaded (from live streaming), no need to fetch
+      if (threads.has(threadId)) return;
+
+      // Create a loading stub
+      setThreads((prev) => {
+        const next = new Map(prev);
+        next.set(threadId, {
+          threadId,
+          toolCallId,
+          subagentName,
+          messages: [],
+          status: "loading",
+        });
+        return next;
+      });
+
+      // Fetch thread messages
+      const messages = await loadThread(threadId);
+
+      // Update with loaded data
+      setThreads((prev) => {
+        const thread = prev.get(threadId);
+        if (!thread) return prev;
+        const next = new Map(prev);
+        next.set(threadId, {
+          ...thread,
+          messages,
+          status: "done",
+        });
+        return next;
+      });
+    },
+    [threads, setThreads, loadThread]
+  );
 
   // Refresh conversation list when a message completes
   useEffect(() => {
@@ -474,12 +494,14 @@ function ChatInterface({
               </ConversationEmptyState>
             ) : (
               messages.map((msg, idx) => (
-                <MessageRenderer
+                <MessagePartsRenderer
                   key={msg.id}
                   message={msg}
                   isLastMessage={idx === messages.length - 1}
                   isStreaming={isStreaming}
-                  onToolClick={setSelectedThreadId}
+                  onOpenThread={handleOpenThread}
+                  variant="main"
+                  showChannelBadge={msg.role === "user"}
                 />
               ))
             )}
@@ -515,206 +537,3 @@ function ChatInterface({
   );
 }
 
-/** Renders a single message by iterating over its parts */
-function MessageRenderer({
-  message,
-  isLastMessage,
-  isStreaming,
-  onToolClick,
-}: {
-  message: PandoraMessage;
-  isLastMessage: boolean;
-  isStreaming: boolean;
-  onToolClick?: (threadId: string) => void;
-}) {
-  const { parts, role, channelName } = message;
-
-  // Show channel badge for user messages from non-web channels
-  const showChannelBadge = role === "user" && channelName && channelName !== "web";
-
-  // Group parts by type for organized rendering
-  const reasoningParts = parts.filter((p) => p.type === "reasoning");
-  const toolParts = parts.filter((p) => p.type === "dynamic-tool");
-  const sourceParts = parts.filter((p) => p.type === "source-url" || p.type === "source-document");
-  const fileParts = parts.filter((p) => p.type === "file");
-  const textParts = parts.filter((p) => p.type === "text");
-
-  // Check if we have text content
-  const hasText = textParts.some((p) => p.type === "text" && p.text);
-  const textContent = textParts
-    .filter((p): p is Extract<PandoraMessagePart, { type: "text" }> => p.type === "text")
-    .map((p) => p.text)
-    .join("");
-
-  // Check streaming state
-  const isTextStreaming = isLastMessage && isStreaming && textParts.some(
-    (p) => p.type === "text" && p.state === "streaming"
-  );
-  const isReasoningStreaming = isLastMessage && isStreaming && reasoningParts.some(
-    (p) => p.type === "reasoning" && p.state === "streaming"
-  );
-
-  return (
-    <Message from={role}>
-      {/* Channel badge for messages from other channels */}
-      {showChannelBadge && (
-        <span className="ml-auto text-[10px] text-muted-foreground capitalize">
-          via {channelName}
-        </span>
-      )}
-      <MessageContent>
-        {/* Reasoning block */}
-        {reasoningParts.length > 0 && (
-          <Reasoning isStreaming={isReasoningStreaming && !hasText}>
-            <ReasoningTrigger />
-            <ReasoningContent>
-              {reasoningParts
-                .filter((p): p is Extract<PandoraMessagePart, { type: "reasoning" }> => p.type === "reasoning")
-                .map((p) => p.text)
-                .join("")}
-            </ReasoningContent>
-          </Reasoning>
-        )}
-
-        {/* Tool calls */}
-        {toolParts.length > 0 && (
-          <ChainOfThought>
-            <ChainOfThoughtHeader>
-              Used {toolParts.length} tool{toolParts.length > 1 ? "s" : ""}
-            </ChainOfThoughtHeader>
-            <ChainOfThoughtContent>
-              {toolParts
-                .filter((p): p is Extract<PandoraMessagePart, { type: "dynamic-tool" }> => p.type === "dynamic-tool")
-                .map((tc) => {
-                  const hasThread = !!tc.threadId;
-                  const stepContent = (
-                    <ChainOfThoughtStep
-                      key={tc.toolCallId}
-                      label={tc.toolName}
-                      description={
-                        tc.input
-                          ? typeof tc.input === "object"
-                            ? Object.entries(tc.input as Record<string, unknown>)
-                                .map(([k, v]) => `${k}: ${typeof v === "string" ? v : JSON.stringify(v)}`)
-                                .join(", ")
-                            : String(tc.input)
-                          : undefined
-                      }
-                      status={tc.state === "output-available" ? "complete" : "active"}
-                    >
-                      {tc.state === "output-available" && tc.output != null && (
-                        <pre className="mt-1 max-h-40 overflow-auto rounded bg-muted p-2 text-xs whitespace-pre-wrap">
-                          {typeof tc.output === "string"
-                            ? tc.output
-                            : JSON.stringify(tc.output, null, 2)}
-                        </pre>
-                      )}
-                    </ChainOfThoughtStep>
-                  );
-
-                  if (hasThread && onToolClick) {
-                    return (
-                      <div
-                        key={tc.toolCallId}
-                        className="cursor-pointer hover:bg-accent/50 rounded -mx-2 px-2 transition-colors"
-                        onClick={() => onToolClick(tc.threadId!)}
-                        title="Click to view subagent thread"
-                      >
-                        {stepContent}
-                      </div>
-                    );
-                  }
-
-                  return stepContent;
-                })}
-            </ChainOfThoughtContent>
-          </ChainOfThought>
-        )}
-
-        {/* Sources */}
-        {sourceParts.length > 0 && (
-          <Sources>
-            <SourcesTrigger count={sourceParts.length} />
-            <SourcesContent>
-              {sourceParts.map((part, i) => {
-                if (part.type === "source-url") {
-                  return (
-                    <Source
-                      key={part.sourceId}
-                      href={part.url}
-                      title={part.title || part.url}
-                    />
-                  );
-                }
-                if (part.type === "source-document") {
-                  return (
-                    <Source
-                      key={part.sourceId}
-                      title={part.title}
-                    />
-                  );
-                }
-                return null;
-              })}
-            </SourcesContent>
-          </Sources>
-        )}
-
-        {/* Files/Images */}
-        {fileParts.map((part, i) => {
-          if (part.type !== "file") return null;
-          // Check if it's an image
-          if (part.mediaType.startsWith("image/")) {
-            // Extract base64 from data URL
-            const base64Match = part.url.match(/^data:[^;]+;base64,(.+)$/);
-            if (base64Match) {
-              return (
-                <Image
-                  key={i}
-                  base64={base64Match[1]}
-                  uint8Array={new Uint8Array()} // Not used for display
-                  mediaType={part.mediaType}
-                  alt={part.filename || "Generated image"}
-                  className="max-w-sm rounded-lg"
-                />
-              );
-            }
-            // Regular URL
-            return (
-              <img
-                key={i}
-                src={part.url}
-                alt={part.filename || "Image"}
-                className="max-w-sm rounded-lg"
-              />
-            );
-          }
-          // Non-image file - show as download link
-          return (
-            <a
-              key={i}
-              href={part.url}
-              download={part.filename}
-              className="flex items-center gap-2 rounded bg-muted px-3 py-2 text-sm hover:bg-muted/80"
-            >
-              📎 {part.filename || "Download file"}
-            </a>
-          );
-        })}
-
-        {/* Text content */}
-        {role === "assistant" && !hasText ? (
-          <Shimmer>
-            {toolParts.length > 0
-              ? "Working..."
-              : reasoningParts.length > 0
-                ? "Reasoning..."
-                : "Thinking..."}
-          </Shimmer>
-        ) : (
-          textContent && <MessageResponse>{textContent}</MessageResponse>
-        )}
-      </MessageContent>
-    </Message>
-  );
-}

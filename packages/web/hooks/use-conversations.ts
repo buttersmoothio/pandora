@@ -10,6 +10,14 @@ export interface ConversationInfo {
   updatedAt: number;
   preview: string;
   messageCount: number;
+  /** Conversation type: 'root' for top-level, 'subagent' for child threads */
+  type?: "root" | "subagent";
+  /** Parent conversation ID (for subagent threads) */
+  parentConversationId?: string;
+  /** Tool call ID that spawned this thread (for subagent threads) */
+  parentToolCallId?: string;
+  /** Subagent name (for subagent threads) */
+  subagentName?: string;
 }
 
 interface UseConversationsOptions {
@@ -25,6 +33,8 @@ interface UseConversationsReturn {
   refresh: () => Promise<void>;
   deleteConversation: (id: string) => Promise<void>;
   loadHistory: (id: string) => Promise<PandoraMessage[]>;
+  /** Load a single thread's messages by threadId */
+  loadThread: (threadId: string) => Promise<PandoraMessage[]>;
 }
 
 export function useConversations({
@@ -87,10 +97,24 @@ export function useConversations({
     [baseUrl, token]
   );
 
+  const loadThread = useCallback(
+    async (threadId: string): Promise<PandoraMessage[]> => {
+      const res = await fetch(
+        `${baseUrl}/api/conversations/${encodeURIComponent(threadId)}/history`,
+        { headers }
+      );
+      if (!res.ok) return [];
+
+      const data = (await res.json()) as { messages: PandoraMessage[] };
+      return data.messages;
+    },
+    [baseUrl, token]
+  );
+
   // Auto-fetch on mount
   useEffect(() => {
     refresh();
   }, [refresh]);
 
-  return { conversations, loading, refresh, deleteConversation, loadHistory };
+  return { conversations, loading, refresh, deleteConversation, loadHistory, loadThread };
 }

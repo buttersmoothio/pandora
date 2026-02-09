@@ -11,8 +11,7 @@ import type { z } from "zod";
 import { createModel } from "../providers";
 import type { AIConfig } from "../config";
 import { logger } from "../logger";
-import type { IMessageStore } from "./store";
-import type { StreamEvent, MessageMeta, TextUIPart, DynamicToolUIPart } from "../types";
+import type { StreamEvent, MessageMeta } from "../types";
 
 /**
  * Definition for a subagent.
@@ -128,16 +127,25 @@ export function createSubagentFromDefinition(
 
 /**
  * Context passed to streaming subagent tools for thread management.
+ * The gateway owns all persistence - subagent tools only emit events.
  */
 export interface SubagentContext {
   /** Parent conversation ID */
   parentConversationId: string;
-  /** Message store for persistence */
-  store: IMessageStore;
-  /** Callback for emitting stream events to the client */
-  onEvent: (event: StreamEvent) => Promise<void>;
   /** Message metadata (channel, user) */
   meta?: MessageMeta;
+  /**
+   * Create a subagent thread (gateway handles all setup).
+   * Creates: child conversation, user message with prompt, assistant message shell.
+   * Emits: subagent-start event.
+   */
+  createThread: (
+    toolCallId: string,
+    subagentName: string,
+    prompt: string
+  ) => Promise<{ threadId: string }>;
+  /** Forward stream events to gateway for persistence and broadcast */
+  onEvent: (event: StreamEvent) => Promise<void>;
 }
 
 /**
@@ -182,6 +190,8 @@ export function createSubagentTool(
  * Create a streaming subagent tool factory.
  * Returns a function that creates a Tool with the given context bound.
  *
+ * The tool only streams and emits events - all persistence is handled by the gateway.
+ *
  * @param definition - The subagent definition
  * @param subagent - The created ToolLoopAgent
  * @param config - AI config (for logging)
@@ -211,78 +221,23 @@ export function createStreamingSubagentTool(
         const promptField = definition.inputField ?? keys[0] ?? "";
         const prompt = promptField ? String(inputRecord[promptField] ?? "") : "";
 
-        // Create child conversation for this subagent thread
-        const threadId = await ctx.store.createSubagentConversation(
-          ctx.parentConversationId,
-          toolCallId,
-          definition.name,
-          ctx.meta
-        );
-
-        // Emit subagent-start event
-        await ctx.onEvent({
-          type: "subagent-start",
-          threadId,
-          toolCallId,
-          subagentName: definition.name,
-        });
-
-        // Create user message in child thread with the delegated task
-        const userMessageId = await ctx.store.createMessage(threadId, "user", ctx.meta);
-        await ctx.store.appendPart(userMessageId, {
-          type: "text",
-          text: prompt,
-          state: "done",
-        } as TextUIPart);
-
-        // Create assistant message shell
-        const assistantMessageId = await ctx.store.createMessage(threadId, "assistant", ctx.meta);
+        // Gateway handles ALL setup (thread, user msg, assistant shell)
+        const { threadId } = await ctx.createThread(toolCallId, definition.name, prompt);
 
         logger.modelInput(definition.name, [{ role: "user", content: prompt }]);
 
-        // Stream the subagent response
+        // Just stream and emit - gateway persists everything
         const result = await subagent.stream({ prompt, abortSignal });
-
         let fullText = "";
-        let hasStartedTextPart = false;
 
         for await (const part of result.fullStream) {
           switch (part.type) {
             case "text-delta":
               fullText += part.text;
-
-              // Persist text part
-              if (!hasStartedTextPart) {
-                await ctx.store.appendPart(assistantMessageId, {
-                  type: "text",
-                  text: part.text,
-                  state: "streaming",
-                } as TextUIPart);
-                hasStartedTextPart = true;
-              } else {
-                await ctx.store.updateTextPart(assistantMessageId, fullText);
-              }
-
-              // Emit regular text-delta with threadId
-              await ctx.onEvent({
-                type: "text-delta",
-                text: part.text,
-                threadId,
-              });
+              await ctx.onEvent({ type: "text-delta", text: part.text, threadId });
               break;
 
             case "tool-call":
-              // Persist tool call part
-              const toolPart: DynamicToolUIPart = {
-                type: "dynamic-tool",
-                toolName: part.toolName,
-                toolCallId: part.toolCallId,
-                state: "input-available",
-                input: part.input,
-              };
-              await ctx.store.appendPart(assistantMessageId, toolPart);
-
-              // Emit regular tool-call with threadId
               await ctx.onEvent({
                 type: "tool-call",
                 toolCallId: part.toolCallId,
@@ -293,10 +248,6 @@ export function createStreamingSubagentTool(
               break;
 
             case "tool-result":
-              // Update tool result
-              await ctx.store.updateToolResult(assistantMessageId, part.toolCallId, part.output);
-
-              // Emit regular tool-result with threadId
               await ctx.onEvent({
                 type: "tool-result",
                 toolCallId: part.toolCallId,
@@ -307,16 +258,32 @@ export function createStreamingSubagentTool(
               break;
 
             case "reasoning-delta":
-              // Emit regular reasoning-delta with threadId
+              await ctx.onEvent({ type: "reasoning-delta", text: part.text, threadId });
+              break;
+
+            case "start-step":
+              await ctx.onEvent({ type: "step-start", threadId });
+              break;
+
+            case "finish-step":
               await ctx.onEvent({
-                type: "reasoning-delta",
-                text: part.text,
+                type: "step-finish",
+                usage: part.usage,
+                finishReason: part.finishReason,
+                threadId,
+              });
+              break;
+
+            case "file":
+              await ctx.onEvent({
+                type: "file",
+                mediaType: part.file.mediaType,
+                url: `data:${part.file.mediaType};base64,${part.file.base64}`,
                 threadId,
               });
               break;
 
             case "source":
-              // Handle sources with threadId
               if (part.sourceType === "url") {
                 await ctx.onEvent({
                   type: "source-url",
@@ -339,19 +306,12 @@ export function createStreamingSubagentTool(
           }
         }
 
-        // Finalize the assistant message
-        await ctx.store.finalizeMessage(assistantMessageId);
-
-        // Emit subagent-done event
-        await ctx.onEvent({
-          type: "subagent-done",
-          threadId,
-        });
+        // Gateway handles finalization
+        await ctx.onEvent({ type: "subagent-done", threadId });
 
         logger.modelOutput(definition.name, fullText);
         logger.subagentComplete(definition.name, Date.now() - startTime);
 
-        // Return both the text and the threadId
         return { text: fullText, threadId };
       },
     });
