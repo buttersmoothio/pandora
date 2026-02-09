@@ -311,7 +311,7 @@ export class WebChannel implements Channel {
           return new Response("WebSocket upgrade failed", { status: 500 });
         }
 
-        // Dynamic routes: /api/conversations/:id/history and /api/conversations/:id
+        // Dynamic routes: /api/conversations/:id/history, /api/conversations/:id/threads, /api/conversations/:id
         const historyMatch = url.pathname.match(
           /^\/api\/conversations\/([^/]+)\/history$/
         );
@@ -324,6 +324,20 @@ export class WebChannel implements Channel {
           return channel.gateway
             .getConversationHistory(id)
             .then((messages) => jsonResponse({ messages }));
+        }
+
+        const threadsMatch = url.pathname.match(
+          /^\/api\/conversations\/([^/]+)\/threads$/
+        );
+        if (threadsMatch && req.method === "GET") {
+          const token = extractBearerToken(req);
+          if (!token || token !== channel.token) {
+            return jsonResponse({ error: "Unauthorized" }, 401);
+          }
+          const id = decodeURIComponent(threadsMatch[1]!);
+          return channel.gateway
+            .getChildThreads(id)
+            .then((threads) => jsonResponse({ threads }));
         }
 
         const deleteMatch = url.pathname.match(

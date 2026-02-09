@@ -10,8 +10,9 @@ import { createModel } from "./providers";
 import {
   getSubagentDefinitions,
   createSubagentFromDefinition,
-  createSubagentTool,
+  createStreamingSubagentTool,
   createToolsForAgent,
+  type SubagentContext,
 } from "./registries";
 import type { AIConfig } from "./config";
 import type { UIMessage, ChannelCapabilities, StreamEvent } from "./types";
@@ -83,6 +84,9 @@ function buildOperatorInstructions(
   return parts.join("\n");
 }
 
+/** Factory function type for creating subagent tools with context */
+type SubagentToolFactory = (ctx: SubagentContext, toolCallId: string) => Tool;
+
 /**
  * AI Agent using operator/subagent architecture.
  *
@@ -91,16 +95,16 @@ function buildOperatorInstructions(
  */
 export class Agent {
   private config: AIConfig;
-  private tools: Record<string, Tool>;
   private actionTools: Record<string, Tool>;
-  private subagentTools: Record<string, Tool>;
+  private subagentToolFactories: Record<string, SubagentToolFactory>;
+  private subagentNames: Set<string>;
 
   /** Use `Agent.create()` instead of constructing directly. */
   private constructor(config: AIConfig) {
     this.config = config;
-    this.tools = {};
     this.actionTools = {};
-    this.subagentTools = {};
+    this.subagentToolFactories = {};
+    this.subagentNames = new Set();
   }
 
   /**
@@ -114,7 +118,7 @@ export class Agent {
     // Resolve action tools from config (tools self-assign to agents via their `agents` field)
     agent.actionTools = createToolsForAgent("operator", config.tools ?? {});
 
-    // Build subagent delegation tools from registered definitions
+    // Build subagent tool factories from registered definitions
     for (const definition of getSubagentDefinitions()) {
       // Check if this subagent is configured
       const agentConfig = config.agents[definition.configKey as keyof typeof config.agents];
@@ -127,16 +131,52 @@ export class Agent {
         ? await definition.getTools(config)
         : createToolsForAgent(definition.name, config.tools ?? {});
 
-      // Create the subagent and its delegation tool
+      // Create the subagent and store its tool factory (not instantiated tool)
       const subagent = createSubagentFromDefinition(definition, config, subagentTools);
-      const delegationTool = createSubagentTool(definition, subagent, config);
+      const toolFactory = createStreamingSubagentTool(definition, subagent, config);
 
-      agent.subagentTools[definition.name] = delegationTool;
+      agent.subagentToolFactories[definition.name] = toolFactory;
+      agent.subagentNames.add(definition.name);
     }
 
-    // Merge action tools and subagent tools into the operator's full tool set
-    agent.tools = { ...agent.actionTools, ...agent.subagentTools };
     return agent;
+  }
+
+  /**
+   * Get the set of subagent names (for checking if a tool is a subagent).
+   */
+  getSubagentNames(): Set<string> {
+    return this.subagentNames;
+  }
+
+  /**
+   * Create request-scoped tools with the given SubagentContext.
+   * Subagent tools are instantiated with the context, action tools are passed through.
+   *
+   * @param ctx - Subagent context with store, parent conversation, and event callback
+   * @param toolCallIdMap - Map of tool name to tool call ID (filled during streaming)
+   */
+  createRequestTools(
+    ctx: SubagentContext,
+    toolCallIdMap: Map<string, string>
+  ): Record<string, Tool> {
+    const tools: Record<string, Tool> = { ...this.actionTools };
+
+    // Create subagent tools with context
+    // The toolCallId is looked up dynamically when the tool executes
+    for (const [name, factory] of Object.entries(this.subagentToolFactories)) {
+      tools[name] = {
+        ...factory(ctx, ""),
+        execute: async (input, options) => {
+          // Get the actual toolCallId from the map (set when tool-call event is received)
+          const toolCallId = toolCallIdMap.get(name) ?? "";
+          const boundTool = factory(ctx, toolCallId);
+          return boundTool.execute!(input, options);
+        },
+      } as Tool;
+    }
+
+    return tools;
   }
 
   /**
@@ -145,77 +185,29 @@ export class Agent {
    *
    * @param history - Conversation history (UIMessage array with parts).
    * @param capabilities - Channel capabilities (formatting, max length).
+   * @param subagentCtx - Optional subagent context for thread management.
    * @returns The assistant reply text.
    */
   async chat(
     history: UIMessage[],
-    capabilities: ChannelCapabilities
+    capabilities: ChannelCapabilities,
+    subagentCtx?: SubagentContext
   ): Promise<string> {
-    const operatorConfig = this.config.agents.operator;
-    const startTime = Date.now();
-    let stepCount = 0;
+    // Delegate to chatStream and collect the full response
+    const stream = this.chatStream(history, capabilities, undefined, subagentCtx);
 
-    logger.agentStart("gateway", operatorConfig.model, history.length);
+    let fullText = "";
+    while (true) {
+      const { value, done } = await stream.next();
+      if (done) {
+        // The generator returns the full text when done
+        fullText = value ?? fullText;
+        break;
+      }
+      fullText += value;
+    }
 
-    // Build instructions that include channel capabilities and available tools
-    const instructions = buildOperatorInstructions(
-      this.actionTools,
-      this.subagentTools,
-      capabilities
-    );
-
-    // Create operator agent with configured model
-    const operator = new ToolLoopAgent({
-      model: createModel(operatorConfig.model, this.config.gateway.apiKey),
-      temperature: operatorConfig.temperature ?? 0,
-      maxOutputTokens: operatorConfig.maxOutputTokens,
-      stopWhen: stepCountIs(operatorConfig.maxSteps ?? 20),
-      toolChoice: operatorConfig.toolChoice as ToolChoice<any> | undefined,
-      instructions,
-      tools: this.tools,
-      onStepFinish: ({ toolCalls, toolResults, text, finishReason, usage }) => {
-        stepCount++;
-
-        if (toolCalls && toolCalls.length > 0) {
-          for (const call of toolCalls) {
-            const matchingResult = toolResults?.find(
-              (r) => r.toolCallId === call.toolCallId
-            );
-            logger.toolCall(call.toolName, {
-              args: call.input,
-              result: matchingResult?.output,
-              agentName: "operator",
-            });
-          }
-        }
-
-        logger.stepFinish(
-          "operator",
-          stepCount,
-          finishReason ?? "unknown",
-          text,
-          toolCalls?.length,
-          usage
-        );
-      },
-    });
-
-    // Convert UIMessage format to AI SDK model messages
-    const messages = await convertToModelMessages(history);
-
-    // Log full model input when verbose
-    logger.modelInstructions("operator", instructions);
-    logger.modelInput("operator", messages);
-
-    const result = await operator.generate({ messages });
-
-    // Log full model output when verbose
-    logger.modelOutput("operator", result.text);
-
-    const durationMs = Date.now() - startTime;
-    logger.agentComplete(durationMs, stepCount);
-
-    return result.text;
+    return fullText;
   }
 
   /**
@@ -225,13 +217,15 @@ export class Agent {
    * @param history - Conversation history (UIMessage array with parts).
    * @param capabilities - Channel capabilities (formatting, max length).
    * @param onEvent - Optional callback for stream events (tool calls, sources, etc.).
+   * @param subagentCtx - Optional subagent context for thread management.
    * @yields Text deltas as they stream in.
    * @returns The complete response text.
    */
   async *chatStream(
     history: UIMessage[],
     capabilities: ChannelCapabilities,
-    onEvent?: (event: StreamEvent) => void
+    onEvent?: (event: StreamEvent) => void,
+    subagentCtx?: SubagentContext
   ): AsyncGenerator<string, string> {
     const operatorConfig = this.config.agents.operator;
     const startTime = Date.now();
@@ -239,9 +233,28 @@ export class Agent {
 
     logger.agentStart("gateway", operatorConfig.model, history.length);
 
+    // Track tool call IDs for subagent tools
+    const toolCallIdMap = new Map<string, string>();
+
+    // Create request-scoped tools if we have subagent context
+    const tools = subagentCtx
+      ? this.createRequestTools(subagentCtx, toolCallIdMap)
+      : { ...this.actionTools };
+
+    // Build a dummy subagentTools object for instructions (just need names/descriptions)
+    const subagentToolsForInstructions: Record<string, Tool> = {};
+    for (const name of this.subagentNames) {
+      const factory = this.subagentToolFactories[name];
+      if (factory) {
+        // Create a temporary tool just to get its description
+        const tempTool = factory({ ...subagentCtx! } as SubagentContext, "");
+        subagentToolsForInstructions[name] = tempTool;
+      }
+    }
+
     const instructions = buildOperatorInstructions(
       this.actionTools,
-      this.subagentTools,
+      subagentToolsForInstructions,
       capabilities
     );
 
@@ -252,7 +265,7 @@ export class Agent {
       stopWhen: stepCountIs(operatorConfig.maxSteps ?? 20),
       toolChoice: operatorConfig.toolChoice as ToolChoice<any> | undefined,
       instructions,
-      tools: this.tools,
+      tools,
       onStepFinish: ({ toolCalls, toolResults, text, finishReason, usage }) => {
         stepCount++;
 
@@ -298,6 +311,10 @@ export class Agent {
           break;
 
         case "tool-call":
+          // Track toolCallId for subagent tools before they execute
+          if (this.subagentNames.has(part.toolName)) {
+            toolCallIdMap.set(part.toolName, part.toolCallId);
+          }
           onEvent?.({
             type: "tool-call",
             toolCallId: part.toolCallId,
@@ -307,11 +324,17 @@ export class Agent {
           break;
 
         case "tool-result":
+          // For subagent tools, extract threadId from result
+          const isSubagent = this.subagentNames.has(part.toolName);
+          const resultData = part.output as { text?: string; threadId?: string } | string;
+          const threadId = isSubagent && typeof resultData === "object" ? resultData.threadId : undefined;
+
           onEvent?.({
             type: "tool-result",
             toolCallId: part.toolCallId,
             toolName: part.toolName,
-            result: part.output,
+            result: isSubagent && typeof resultData === "object" ? resultData.text : part.output,
+            threadId,
           });
           break;
 

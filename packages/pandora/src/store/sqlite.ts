@@ -74,9 +74,20 @@ export class SqliteStore implements IMessageStore {
         id TEXT PRIMARY KEY,
         channel_name TEXT,
         user_id TEXT,
+        type TEXT NOT NULL DEFAULT 'root',
+        parent_conversation_id TEXT,
+        parent_tool_call_id TEXT,
+        subagent_name TEXT,
         created_at INTEGER NOT NULL DEFAULT (unixepoch()),
-        updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+        updated_at INTEGER NOT NULL DEFAULT (unixepoch()),
+        FOREIGN KEY (parent_conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
       )
+    `);
+
+    // Index for fast parent lookup
+    this.db.run(`
+      CREATE INDEX IF NOT EXISTS idx_conversations_parent
+      ON conversations (parent_conversation_id)
     `);
 
     // Messages table - metadata only, no content column
@@ -161,12 +172,13 @@ export class SqliteStore implements IMessageStore {
   /** @inheritdoc */
   async getHistory(conversationId: string): Promise<UIMessage[]> {
     // Get all messages for this conversation
+    // Use rowid for ordering to preserve insertion order (random IDs don't sort correctly)
     const messages = this.db
       .query<MessageRow, [string]>(
         `SELECT id, conversation_id, role, channel_name, created_at
          FROM messages
          WHERE conversation_id = ?
-         ORDER BY created_at ASC, id ASC`
+         ORDER BY rowid ASC`
       )
       .all(conversationId);
 
@@ -187,7 +199,8 @@ export class SqliteStore implements IMessageStore {
         id: msg.id,
         role: msg.role as "user" | "assistant",
         parts: parts.map((p) => JSON.parse(p.part_data) as UIMessagePart),
-      });
+        channelName: msg.channel_name ?? undefined,
+      } as UIMessage & { channelName?: string });
     }
 
     return result;
@@ -322,12 +335,18 @@ export class SqliteStore implements IMessageStore {
   /** @inheritdoc */
   async listConversations(channelName?: string): Promise<ConversationInfo[]> {
     // Get first text content from first user message for preview
-    const sql = `
-      SELECT c.id, c.channel_name, c.created_at, c.updated_at,
-        (SELECT COUNT(*) FROM messages WHERE conversation_id = c.id) as message_count
-      FROM conversations c
-      ${channelName ? "WHERE c.channel_name = ?" : ""}
-      ORDER BY c.updated_at DESC`;
+    // Exclude subagent threads from the main list
+    const sql = channelName
+      ? `SELECT c.id, c.channel_name, c.created_at, c.updated_at,
+          (SELECT COUNT(*) FROM messages WHERE conversation_id = c.id) as message_count
+         FROM conversations c
+         WHERE c.channel_name = ? AND c.type = 'root'
+         ORDER BY c.updated_at DESC`
+      : `SELECT c.id, c.channel_name, c.created_at, c.updated_at,
+          (SELECT COUNT(*) FROM messages WHERE conversation_id = c.id) as message_count
+         FROM conversations c
+         WHERE c.type = 'root'
+         ORDER BY c.updated_at DESC`;
 
     type Row = {
       id: string;
@@ -347,12 +366,12 @@ export class SqliteStore implements IMessageStore {
     for (const row of rows) {
       let preview = "";
 
-      // Get first user message
+      // Get first user message (use rowid for correct insertion order)
       const firstUserMsg = this.db
         .query<{ id: string }, [string]>(
           `SELECT id FROM messages
            WHERE conversation_id = ? AND role = 'user'
-           ORDER BY created_at ASC, id ASC
+           ORDER BY rowid ASC
            LIMIT 1`
         )
         .get(row.id);
@@ -396,6 +415,99 @@ export class SqliteStore implements IMessageStore {
   /** @inheritdoc */
   async close(): Promise<void> {
     this.db.close();
+  }
+
+  /** @inheritdoc */
+  async createSubagentConversation(
+    parentId: string,
+    toolCallId: string,
+    subagentName: string,
+    meta?: MessageMeta
+  ): Promise<string> {
+    const conversationId = generateId();
+
+    this.db.run(
+      `INSERT INTO conversations (id, channel_name, user_id, type, parent_conversation_id, parent_tool_call_id, subagent_name)
+       VALUES (?, ?, ?, 'subagent', ?, ?, ?)`,
+      [
+        conversationId,
+        meta?.channelName ?? null,
+        meta?.userId ?? null,
+        parentId,
+        toolCallId,
+        subagentName,
+      ]
+    );
+
+    return conversationId;
+  }
+
+  /** @inheritdoc */
+  async linkToolToThread(
+    messageId: string,
+    toolCallId: string,
+    threadId: string
+  ): Promise<void> {
+    // Find the tool part with matching toolCallId and add threadId
+    const parts = this.db
+      .query<PartRow, [string]>(
+        `SELECT id, part_index, part_type, part_data FROM message_parts
+         WHERE message_id = ? AND part_type = 'dynamic-tool'
+         ORDER BY part_index ASC`
+      )
+      .all(messageId);
+
+    for (const partRow of parts) {
+      const partData = JSON.parse(partRow.part_data);
+      if (partData.toolCallId === toolCallId) {
+        partData.threadId = threadId;
+
+        this.db.run(`UPDATE message_parts SET part_data = ? WHERE id = ?`, [
+          JSON.stringify(partData),
+          partRow.id,
+        ]);
+        break;
+      }
+    }
+  }
+
+  /** @inheritdoc */
+  async getChildThreads(conversationId: string): Promise<ConversationInfo[]> {
+    type Row = {
+      id: string;
+      channel_name: string | null;
+      type: string;
+      parent_conversation_id: string | null;
+      parent_tool_call_id: string | null;
+      subagent_name: string | null;
+      created_at: number;
+      updated_at: number;
+      message_count: number;
+    };
+
+    const rows = this.db
+      .query<Row, [string]>(
+        `SELECT c.id, c.channel_name, c.type, c.parent_conversation_id,
+                c.parent_tool_call_id, c.subagent_name, c.created_at, c.updated_at,
+                (SELECT COUNT(*) FROM messages WHERE conversation_id = c.id) as message_count
+         FROM conversations c
+         WHERE c.parent_conversation_id = ?
+         ORDER BY c.created_at ASC`
+      )
+      .all(conversationId);
+
+    return rows.map((row) => ({
+      id: row.id,
+      channelName: row.channel_name,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+      preview: "",
+      messageCount: row.message_count,
+      type: row.type as "root" | "subagent",
+      parentConversationId: row.parent_conversation_id ?? undefined,
+      parentToolCallId: row.parent_tool_call_id ?? undefined,
+      subagentName: row.subagent_name ?? undefined,
+    }));
   }
 }
 

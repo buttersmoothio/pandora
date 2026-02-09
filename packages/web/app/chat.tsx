@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { nanoid } from "nanoid";
-import { usePandoraChat, type PandoraMessage, type PandoraMessagePart } from "@/hooks/use-pandora-chat";
+import { usePandoraChat, type PandoraMessage, type PandoraMessagePart, type SubagentThread } from "@/hooks/use-pandora-chat";
+import { SubagentPanel } from "@/components/subagent-panel";
 import { useConversations } from "@/hooks/use-conversations";
 import type { ConnectionStatus } from "@/hooks/use-pandora-chat";
 import {
@@ -266,6 +267,7 @@ function ChatInterface({
   const baseUrl = useMemo(() => wsUrlToHttp(wsUrl), [wsUrl]);
   const [conversationId, setConversationId] = useState(() => `web-${nanoid()}`);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
 
   const {
     conversations,
@@ -292,7 +294,12 @@ function ChatInterface({
     setInput,
     sendMessage,
     clearConversation,
+    sendWatch,
+    threads,
   } = usePandoraChat({ url: wsUrl, token, conversationId, onConversationUpdate: debouncedRefresh });
+
+  // Get the selected thread
+  const selectedThread = selectedThreadId ? threads.get(selectedThreadId) : null;
 
   // Refresh conversation list when a message completes
   useEffect(() => {
@@ -331,21 +338,12 @@ function ChatInterface({
       const history = await loadHistory(id);
       // Skip if user switched to a different conversation while loading
       if (pendingConversationRef.current !== id) return;
-      // If there's an active stream (from stream-state), prepend history to keep in-progress messages
-      setMessages((prev) => {
-        if (prev.length > 0 && prev[0]?.role === "user") {
-          // Stream-state arrived before history - prepend history but skip the last user message
-          // (it's duplicated in stream-state since it triggered the stream)
-          const historyWithoutLastUser =
-            history.length > 0 && history[history.length - 1]?.role === "user"
-              ? history.slice(0, -1)
-              : history;
-          return [...historyWithoutLastUser, ...prev];
-        }
-        return history;
-      });
+      // Set history (includes any in-progress messages from the store)
+      setMessages(history);
+      // Subscribe to live updates - if there's an active stream, stream-state will mark it
+      sendWatch();
     },
-    [loadHistory, setMessages]
+    [loadHistory, setMessages, sendWatch]
   );
 
   const handleDeleteConversation = useCallback(
@@ -390,11 +388,6 @@ function ChatInterface({
                   <span className="min-w-0 flex-1 truncate">
                     {c.preview || "New conversation"}
                   </span>
-                  {c.channelName && c.channelName !== "web" && (
-                    <span className="ml-1 shrink-0 rounded bg-muted px-1 py-0.5 text-[10px] text-muted-foreground">
-                      {c.channelName}
-                    </span>
-                  )}
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button
@@ -486,6 +479,7 @@ function ChatInterface({
                   message={msg}
                   isLastMessage={idx === messages.length - 1}
                   isStreaming={isStreaming}
+                  onToolClick={setSelectedThreadId}
                 />
               ))
             )}
@@ -509,6 +503,14 @@ function ChatInterface({
           </PromptInput>
         </div>
       </div>
+
+      {/* Subagent Thread Panel */}
+      {selectedThread && (
+        <SubagentPanel
+          thread={selectedThread}
+          onClose={() => setSelectedThreadId(null)}
+        />
+      )}
     </div>
   );
 }
@@ -518,12 +520,17 @@ function MessageRenderer({
   message,
   isLastMessage,
   isStreaming,
+  onToolClick,
 }: {
   message: PandoraMessage;
   isLastMessage: boolean;
   isStreaming: boolean;
+  onToolClick?: (threadId: string) => void;
 }) {
-  const { parts, role } = message;
+  const { parts, role, channelName } = message;
+
+  // Show channel badge for user messages from non-web channels
+  const showChannelBadge = role === "user" && channelName && channelName !== "web";
 
   // Group parts by type for organized rendering
   const reasoningParts = parts.filter((p) => p.type === "reasoning");
@@ -549,6 +556,12 @@ function MessageRenderer({
 
   return (
     <Message from={role}>
+      {/* Channel badge for messages from other channels */}
+      {showChannelBadge && (
+        <span className="ml-auto text-[10px] text-muted-foreground capitalize">
+          via {channelName}
+        </span>
+      )}
       <MessageContent>
         {/* Reasoning block */}
         {reasoningParts.length > 0 && (
@@ -572,30 +585,48 @@ function MessageRenderer({
             <ChainOfThoughtContent>
               {toolParts
                 .filter((p): p is Extract<PandoraMessagePart, { type: "dynamic-tool" }> => p.type === "dynamic-tool")
-                .map((tc) => (
-                  <ChainOfThoughtStep
-                    key={tc.toolCallId}
-                    label={tc.toolName}
-                    description={
-                      tc.input
-                        ? typeof tc.input === "object"
-                          ? Object.entries(tc.input as Record<string, unknown>)
-                              .map(([k, v]) => `${k}: ${typeof v === "string" ? v : JSON.stringify(v)}`)
-                              .join(", ")
-                          : String(tc.input)
-                        : undefined
-                    }
-                    status={tc.state === "output-available" ? "complete" : "active"}
-                  >
-                    {tc.state === "output-available" && tc.output != null && (
-                      <pre className="mt-1 max-h-40 overflow-auto rounded bg-muted p-2 text-xs whitespace-pre-wrap">
-                        {typeof tc.output === "string"
-                          ? tc.output
-                          : JSON.stringify(tc.output, null, 2)}
-                      </pre>
-                    )}
-                  </ChainOfThoughtStep>
-                ))}
+                .map((tc) => {
+                  const hasThread = !!tc.threadId;
+                  const stepContent = (
+                    <ChainOfThoughtStep
+                      key={tc.toolCallId}
+                      label={tc.toolName}
+                      description={
+                        tc.input
+                          ? typeof tc.input === "object"
+                            ? Object.entries(tc.input as Record<string, unknown>)
+                                .map(([k, v]) => `${k}: ${typeof v === "string" ? v : JSON.stringify(v)}`)
+                                .join(", ")
+                            : String(tc.input)
+                          : undefined
+                      }
+                      status={tc.state === "output-available" ? "complete" : "active"}
+                    >
+                      {tc.state === "output-available" && tc.output != null && (
+                        <pre className="mt-1 max-h-40 overflow-auto rounded bg-muted p-2 text-xs whitespace-pre-wrap">
+                          {typeof tc.output === "string"
+                            ? tc.output
+                            : JSON.stringify(tc.output, null, 2)}
+                        </pre>
+                      )}
+                    </ChainOfThoughtStep>
+                  );
+
+                  if (hasThread && onToolClick) {
+                    return (
+                      <div
+                        key={tc.toolCallId}
+                        className="cursor-pointer hover:bg-accent/50 rounded -mx-2 px-2 transition-colors"
+                        onClick={() => onToolClick(tc.threadId!)}
+                        title="Click to view subagent thread"
+                      >
+                        {stepContent}
+                      </div>
+                    );
+                  }
+
+                  return stepContent;
+                })}
             </ChainOfThoughtContent>
           </ChainOfThought>
         )}

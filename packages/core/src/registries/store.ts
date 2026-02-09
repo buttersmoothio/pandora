@@ -24,6 +24,14 @@ export interface ConversationInfo {
   preview: string;
   /** Total number of messages */
   messageCount: number;
+  /** Conversation type: 'root' for top-level, 'subagent' for child threads */
+  type?: "root" | "subagent";
+  /** Parent conversation ID (for subagent threads) */
+  parentConversationId?: string;
+  /** Tool call ID that spawned this thread (for subagent threads) */
+  parentToolCallId?: string;
+  /** Subagent name (for subagent threads) */
+  subagentName?: string;
 }
 
 /**
@@ -104,6 +112,35 @@ export interface IMessageStore {
 
   /** Gracefully close the store (flush writes, release connections, etc.) */
   close(): Promise<void>;
+
+  // === Subagent Thread Management ===
+
+  /**
+   * Create a child conversation for a subagent execution.
+   * Links the new conversation to the parent via tool call ID.
+   * @returns The generated conversation ID
+   */
+  createSubagentConversation(
+    parentId: string,
+    toolCallId: string,
+    subagentName: string,
+    meta?: MessageMeta
+  ): Promise<string>;
+
+  /**
+   * Link a tool call to its spawned thread.
+   * Updates the tool part with a threadId field.
+   */
+  linkToolToThread(
+    messageId: string,
+    toolCallId: string,
+    threadId: string
+  ): Promise<void>;
+
+  /**
+   * Get child threads (subagent conversations) for a parent conversation.
+   */
+  getChildThreads(conversationId: string): Promise<ConversationInfo[]>;
 }
 
 /**

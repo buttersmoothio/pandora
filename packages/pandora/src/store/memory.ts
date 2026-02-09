@@ -23,14 +23,21 @@ interface ConversationMeta {
   userId?: string;
   createdAt: number;
   updatedAt: number;
+  type: "root" | "subagent";
+  parentConversationId?: string;
+  parentToolCallId?: string;
+  subagentName?: string;
 }
+
+/** Extended message with channelName for per-message source tracking */
+type MessageWithChannel = UIMessage & { channelName?: string };
 
 /** In-memory message store. Ephemeral; conversations are lost on restart. */
 export class MemoryStore implements IMessageStore {
   /** Map of conversationId -> messages in order */
-  private conversations = new Map<string, UIMessage[]>();
+  private conversations = new Map<string, MessageWithChannel[]>();
   /** Map of messageId -> message for fast lookup */
-  private messagesById = new Map<string, UIMessage>();
+  private messagesById = new Map<string, MessageWithChannel>();
   /** Map of conversationId -> metadata */
   private metadata = new Map<string, ConversationMeta>();
 
@@ -48,6 +55,7 @@ export class MemoryStore implements IMessageStore {
         userId: meta?.userId,
         createdAt: now,
         updatedAt: now,
+        type: "root",
       });
       this.conversations.set(conversationId, []);
     } else {
@@ -64,10 +72,11 @@ export class MemoryStore implements IMessageStore {
     this.ensureConversation(conversationId, meta);
 
     const messageId = generateId();
-    const fullMessage: UIMessage = {
+    const fullMessage: MessageWithChannel = {
       id: messageId,
       role: message.role,
       parts: [...message.parts],
+      channelName: meta?.channelName,
     };
 
     this.conversations.get(conversationId)!.push(fullMessage);
@@ -102,10 +111,11 @@ export class MemoryStore implements IMessageStore {
     this.ensureConversation(conversationId, meta);
 
     const messageId = generateId();
-    const message: UIMessage = {
+    const message: MessageWithChannel = {
       id: messageId,
       role,
       parts: [],
+      channelName: meta?.channelName,
     };
 
     this.conversations.get(conversationId)!.push(message);
@@ -198,6 +208,8 @@ export class MemoryStore implements IMessageStore {
     for (const [id, messages] of this.conversations) {
       const meta = this.metadata.get(id);
       if (channelName && meta?.channelName !== channelName) continue;
+      // Exclude subagent threads from the main list
+      if (meta?.type !== "root") continue;
 
       // Find first user message's first text part for preview
       let preview = "";
@@ -239,6 +251,79 @@ export class MemoryStore implements IMessageStore {
   /** @inheritdoc */
   async close(): Promise<void> {
     // No-op for in-memory storage
+  }
+
+  /** @inheritdoc */
+  async createSubagentConversation(
+    parentId: string,
+    toolCallId: string,
+    subagentName: string,
+    meta?: MessageMeta
+  ): Promise<string> {
+    const conversationId = generateId();
+    const now = Math.floor(Date.now() / 1000);
+
+    this.metadata.set(conversationId, {
+      channelName: meta?.channelName,
+      userId: meta?.userId,
+      createdAt: now,
+      updatedAt: now,
+      type: "subagent",
+      parentConversationId: parentId,
+      parentToolCallId: toolCallId,
+      subagentName,
+    });
+    this.conversations.set(conversationId, []);
+
+    return conversationId;
+  }
+
+  /** @inheritdoc */
+  async linkToolToThread(
+    messageId: string,
+    toolCallId: string,
+    threadId: string
+  ): Promise<void> {
+    const message = this.messagesById.get(messageId);
+    if (!message) {
+      throw new Error(`Message not found: ${messageId}`);
+    }
+
+    // Find the tool part with matching toolCallId and add threadId
+    for (const part of message.parts) {
+      if (
+        part.type === "dynamic-tool" &&
+        (part as any).toolCallId === toolCallId
+      ) {
+        (part as any).threadId = threadId;
+        break;
+      }
+    }
+  }
+
+  /** @inheritdoc */
+  async getChildThreads(conversationId: string): Promise<ConversationInfo[]> {
+    const results: ConversationInfo[] = [];
+
+    for (const [id, messages] of this.conversations) {
+      const meta = this.metadata.get(id);
+      if (meta?.parentConversationId !== conversationId) continue;
+
+      results.push({
+        id,
+        channelName: meta.channelName ?? null,
+        createdAt: meta.createdAt ?? 0,
+        updatedAt: meta.updatedAt ?? 0,
+        preview: "",
+        messageCount: messages.length,
+        type: meta.type,
+        parentConversationId: meta.parentConversationId,
+        parentToolCallId: meta.parentToolCallId,
+        subagentName: meta.subagentName,
+      });
+    }
+
+    return results.sort((a, b) => a.createdAt - b.createdAt);
   }
 }
 

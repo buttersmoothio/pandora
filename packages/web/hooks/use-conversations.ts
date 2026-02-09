@@ -71,12 +71,13 @@ export function useConversations({
       );
       if (!res.ok) return [];
 
-      // API returns UIMessage[] with parts-based storage
+      // API returns UIMessage[] with parts-based storage (including channelName)
       const data = (await res.json()) as {
         messages: Array<{
           id: string;
           role: "user" | "assistant";
           parts: PandoraMessagePart[];
+          channelName?: string;
         }>;
       };
 

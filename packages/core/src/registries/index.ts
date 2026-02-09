@@ -8,11 +8,13 @@
 // Subagent registry
 export {
   type SubagentDefinition,
+  type SubagentContext,
   defineSubagent,
   getSubagentDefinitions,
   getSubagentDefinition,
   createSubagentFromDefinition,
   createSubagentTool,
+  createStreamingSubagentTool,
 } from "./subagents";
 
 // Channel registry

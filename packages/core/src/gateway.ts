@@ -9,7 +9,7 @@
  */
 
 import type { Agent } from "./agent";
-import type { IMessageStore, ConversationInfo } from "./registries/store";
+import type { IMessageStore, ConversationInfo, SubagentContext } from "./registries";
 import type {
   Message,
   ChannelCapabilities,
@@ -177,6 +177,18 @@ export class Gateway {
     let currentTextPart: TextUIPart | null = null;
     let hasStartedTextPart = false;
 
+    // Create subagent context for thread management
+    const subagentCtx: SubagentContext = {
+      parentConversationId: conversationId,
+      store: this.store,
+      meta,
+      onEvent: async (event) => {
+        // Forward subagent events to subscribers
+        onEvent?.(event);
+        this.emit(conversationId, { ...event, conversationId });
+      },
+    };
+
     const stream = this.agent.chatStream(history, capabilities, async (event) => {
       // Persist parts incrementally and track state for late-joiners
       if (event.type === "tool-call") {
@@ -198,6 +210,11 @@ export class Gateway {
       } else if (event.type === "tool-result") {
         // Update tool part with result
         await this.store.updateToolResult(assistantMessageId, event.toolCallId, event.result);
+
+        // If this is a subagent result with a threadId, link the tool to the thread
+        if (event.threadId) {
+          await this.store.linkToolToThread(assistantMessageId, event.toolCallId, event.threadId);
+        }
 
         const tc = streamState.toolCalls.find((t) => t.toolCallId === event.toolCallId);
         if (tc) tc.result = event.result;
@@ -253,7 +270,7 @@ export class Gateway {
 
       onEvent?.(event);
       this.emit(conversationId, { ...event, conversationId });
-    });
+    }, subagentCtx);
 
     let fullText = "";
     for await (const delta of stream) {
@@ -344,5 +361,10 @@ export class Gateway {
     conversationId: string
   ): Promise<UIMessage[]> {
     return this.store.getHistory(conversationId);
+  }
+
+  /** Get child threads (subagent conversations) for a parent conversation. */
+  async getChildThreads(conversationId: string): Promise<ConversationInfo[]> {
+    return this.store.getChildThreads(conversationId);
   }
 }

@@ -142,16 +142,23 @@ export type StreamingMessageHandler = (
 /**
  * Events emitted during streaming for tool call visibility.
  * Delivered via callback alongside the text stream.
+ *
+ * Events can include an optional `threadId` to scope them to a subagent thread.
+ * The UI routes events by threadId - null/undefined means operator, otherwise subagent.
  */
 export type StreamEvent =
-  | { type: "tool-call"; toolCallId: string; toolName: string; args: unknown }
-  | { type: "tool-result"; toolCallId: string; toolName: string; result: unknown }
-  | { type: "source-url"; sourceId: string; url: string; title?: string; providerMetadata?: Record<string, unknown> }
-  | { type: "source-document"; sourceId: string; mediaType: string; title: string; filename?: string; providerMetadata?: Record<string, unknown> }
-  | { type: "reasoning-delta"; text: string }
-  | { type: "step-start" }
-  | { type: "step-finish"; usage: { inputTokens?: number; outputTokens?: number; totalTokens?: number }; finishReason: string }
-  | { type: "file"; mediaType: string; url: string; filename?: string };
+  | { type: "text-delta"; text: string; threadId?: string }
+  | { type: "tool-call"; toolCallId: string; toolName: string; args: unknown; threadId?: string }
+  | { type: "tool-result"; toolCallId: string; toolName: string; result: unknown; threadId?: string }
+  | { type: "source-url"; sourceId: string; url: string; title?: string; providerMetadata?: Record<string, unknown>; threadId?: string }
+  | { type: "source-document"; sourceId: string; mediaType: string; title: string; filename?: string; providerMetadata?: Record<string, unknown>; threadId?: string }
+  | { type: "reasoning-delta"; text: string; threadId?: string }
+  | { type: "step-start"; threadId?: string }
+  | { type: "step-finish"; usage: { inputTokens?: number; outputTokens?: number; totalTokens?: number }; finishReason: string; threadId?: string }
+  | { type: "file"; mediaType: string; url: string; filename?: string; threadId?: string }
+  // Subagent lifecycle events (UI sets up/tears down thread listeners)
+  | { type: "subagent-start"; threadId: string; toolCallId: string; subagentName: string }
+  | { type: "subagent-done"; threadId: string };
 
 /**
  * Events emitted by the Gateway's pub/sub system for cross-channel streaming.
