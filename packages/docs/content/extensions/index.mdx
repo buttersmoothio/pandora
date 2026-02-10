@@ -35,11 +35,11 @@ packages/pandora/src/
 
 | Extension Type | Guide | Difficulty |
 |----------------|-------|------------|
-| [Tools](/custom-tools) | Add a capability in ~20 lines | Easy |
-| [Agents](/custom-agents) | Create a specialist in ~30 lines | Easy |
-| [Channels](/custom-channels) | Connect a platform in ~100 lines | Medium |
-| [Storage](/custom-storage) | Add a database backend in ~50 lines | Medium |
-| [Memory](/custom-memory) | Add a vector database backend in ~100 lines | Medium |
+| [Tools](/extensions/tools) | Add a capability in ~20 lines | Easy |
+| [Agents](/extensions/agents) | Create a specialist in ~30 lines | Easy |
+| [Channels](/extensions/channels) | Connect a platform in ~100 lines | Medium |
+| [Storage](/extensions/storage) | Add a database backend in ~50 lines | Medium |
+| [Memory](/extensions/memory) | Add a vector database backend in ~100 lines | Medium |
 
 ## File naming
 
@@ -74,13 +74,3 @@ packages/
 ```
 
 **Key insight:** All customizations go in `packages/pandora/`. Import from `@pandora/core` but don't modify it.
-
-## Next steps
-
-Pick what you want to build:
-
-- [Custom Tools](/custom-tools) — Add weather, stock prices, or any API
-- [Custom Agents](/custom-agents) — Create a translator, writing assistant, or specialist
-- [Custom Channels](/custom-channels) — Add Discord, Slack, or any platform
-- [Custom Storage](/custom-storage) — Use Postgres, Redis, or any database
-- [Custom Memory](/custom-memory) — Use Postgres + pgvector, Pinecone, or any vector database

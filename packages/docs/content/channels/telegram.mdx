@@ -1,0 +1,45 @@
+# Telegram
+
+Chat with Pandora from your phone via a Telegram bot.
+
+## Setup
+
+1. **Create a bot** — Message [@BotFather](https://t.me/BotFather), send `/newbot`, follow the prompts. Save the token.
+
+2. **Get your user ID** — Message [@userinfobot](https://t.me/userinfobot). Save your ID.
+
+3. **Configure Pandora**
+
+```jsonc
+"channels": {
+  "telegram": {
+    "token": "123456789:ABCdefGHIjklMNOpqrsTUVwxyz",
+    "ownerId": "123456789"
+  }
+}
+```
+
+4. **Start and chat**
+
+```bash
+bun run dev
+```
+
+Message your bot on Telegram!
+
+## Features
+
+- **Typing indicator** — Shows "typing..." while the AI thinks
+- **HTML formatting** — Bold, italic, code blocks
+- **Long messages** — Automatically split at 4096 characters
+- **Media support** — Photos, documents, voice, audio, video
+
+## Commands
+
+| Command | Effect |
+|---------|--------|
+| `/start` | Clear history and start fresh |
+
+## Owner-only
+
+The bot only responds to the configured `ownerId`. Other users are ignored. This keeps your assistant private.

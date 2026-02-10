@@ -1,0 +1,39 @@
+# SQLite Storage
+
+File-based database. The default and recommended option.
+
+## Configuration
+
+```jsonc
+"storage": {
+  "type": "sqlite",
+  "path": "data/pandora.db"
+}
+```
+
+| Field | Default | Description |
+|-------|---------|-------------|
+| `type` | `sqlite` | Storage backend |
+| `path` | `data/pandora.db` | Database file location |
+
+## Features
+
+- Conversations persist across restarts
+- WAL mode for better performance
+- Single file, easy to backup
+
+## Backup
+
+```bash
+cp data/pandora.db data/pandora.db.backup
+```
+
+## Clear history
+
+```bash
+# Clear a specific conversation
+sqlite3 data/pandora.db "DELETE FROM messages WHERE conversation_id = 'your-id';"
+
+# Clear everything
+rm data/pandora.db
+```

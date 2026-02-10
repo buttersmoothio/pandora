@@ -1,0 +1,81 @@
+# Web Search Agents
+
+Live internet searches for current information. Pandora offers two approaches.
+
+## Native search
+
+Uses models with built-in search capabilities. Simplest setup.
+
+```jsonc
+"agents": {
+  "webSearchNative": { "model": "perplexity/sonar-pro" }
+}
+```
+
+### Supported models
+
+| Model | Notes |
+|-------|-------|
+| `perplexity/sonar-pro` | Best quality (recommended) |
+| `perplexity/sonar` | Faster, cheaper |
+| `google/gemini-3-flash` | Good with grounding |
+
+### Pros
+
+- No additional API keys
+- Faster responses
+- Simple configuration
+
+---
+
+## Tool-based search
+
+Uses external search APIs with any model.
+
+```jsonc
+"tools": {
+  "tavilySearch": { "apiKey": "your-key" }
+},
+"agents": {
+  "webSearchTool": {
+    "model": "anthropic/claude-sonnet-4.5",
+    "searchBackend": "tavilySearch"
+  }
+}
+```
+
+### Available backends
+
+| Backend | Config key |
+|---------|------------|
+| Tavily | `tavilySearch` |
+| Exa | `exaSearch` |
+| Perplexity | `perplexitySearch` |
+
+See [Web Search Tools](/tools/web-search) for setup details.
+
+### Pros
+
+- Use any model you want
+- More control over search behavior
+- Some APIs offer better results for specific use cases
+
+---
+
+## Comparison
+
+| | Native Search | Tool-based Search |
+|--|---------------|-------------------|
+| Config | `webSearchNative` agent | `webSearchTool` agent + search tool |
+| Models | Search-enabled only | Any model |
+| Extra cost | None | Search API costs |
+| Speed | Faster | Slightly slower |
+
+## Triggers
+
+Both agents are triggered by prompts like:
+
+- "What happened today..."
+- "Current price of..."
+- "Latest news about..."
+- "Search for..."

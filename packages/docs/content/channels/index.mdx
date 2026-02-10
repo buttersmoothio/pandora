@@ -1,0 +1,33 @@
+# Channels
+
+Channels connect Pandora to messaging platforms. Out of the box, you get **Telegram** and **Web**.
+
+## Built-in channels
+
+| Channel | Description |
+|---------|-------------|
+| [Telegram](/channels/telegram) | Chat from your phone via a Telegram bot |
+| [Web](/channels/web) | Browser-based chat with streaming |
+
+## Running multiple channels
+
+```jsonc
+"channels": {
+  "telegram": {
+    "token": "bot-token",
+    "ownerId": "user-id"
+  },
+  "web": {
+    "port": 3000,
+    "token": "web-token"
+  }
+}
+```
+
+Both channels share the same conversation history. A chat started on Telegram appears in the web UI.
+
+## Create your own
+
+Want Discord? Slack? A CLI interface?
+
+See [Custom Channels](/extensions/channels) to build your own.

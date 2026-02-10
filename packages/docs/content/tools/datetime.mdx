@@ -1,0 +1,27 @@
+# Datetime Tool
+
+Returns the current date and time. No API key needed.
+
+## Configuration
+
+```jsonc
+"tools": {
+  "datetime": {}
+}
+```
+
+## Example uses
+
+- "What time is it?"
+- "What's today's date?"
+- "What day is it?"
+
+## Response format
+
+The tool returns an ISO 8601 timestamp:
+
+```
+2026-02-08T14:30:00Z
+```
+
+The AI converts this to a human-friendly format in the response.

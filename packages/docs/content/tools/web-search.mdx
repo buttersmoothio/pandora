@@ -1,58 +1,8 @@
-# Tools
-
-Tools give your AI agents extra capabilities — like getting the current time, searching the web, or calling APIs.
-
-## How tools work
-
-```
-User: "What time is it?"
-         ↓
-     Operator decides to use datetime tool
-         ↓
-     Tool returns: "2026-02-08T14:30:00Z"
-         ↓
-     Operator: "It's 2:30 PM on February 8th, 2026."
-```
-
-The AI decides when to use tools — you don't need to ask explicitly.
-
-## Configuration
-
-Enable tools in `config.jsonc`:
-
-```jsonc
-"ai": {
-  "tools": {
-    "datetime": {}
-  }
-}
-```
-
-Tools are then available to all agents automatically.
-
----
-
-## Built-in Tools
-
-### datetime
-
-Returns the current date and time. No API key needed.
-
-```jsonc
-"tools": {
-  "datetime": {}
-}
-```
-
-**Example uses:** "What time is it?", "What's today's date?", "What day is it?"
-
----
-
-## Web Search Tools
+# Web Search Tools
 
 These tools power the `webSearchTool` agent. Configure one, then set it as the `searchBackend`.
 
-### Tavily
+## Tavily
 
 AI-optimized web search with high-quality results.
 
@@ -74,7 +24,9 @@ AI-optimized web search with high-quality results.
 | Free tier | Yes |
 | Best for | General search, news, current events |
 
-### Exa
+---
+
+## Exa
 
 Semantic search that finds conceptually similar content.
 
@@ -96,7 +48,9 @@ Semantic search that finds conceptually similar content.
 | Free tier | Yes |
 | Best for | Research, finding related content |
 
-### Perplexity Search
+---
+
+## Perplexity Search
 
 Real-time search with filtering options.
 
@@ -120,7 +74,7 @@ Real-time search with filtering options.
 
 ---
 
-## Native vs Tool-based Web Search
+## Native vs Tool-based Search
 
 Pandora offers two approaches to web search:
 
@@ -152,34 +106,3 @@ Pandora offers two approaches to web search:
   }
 }
 ```
-
----
-
-## Full example
-
-```jsonc
-{
-  "ai": {
-    "gateway": { "apiKey": "your-gateway-key" },
-    "tools": {
-      "datetime": {},
-      "tavilySearch": { "apiKey": "tvly-..." }
-    },
-    "agents": {
-      "operator": { "model": "google/gemini-3-flash" },
-      "webSearchTool": {
-        "model": "google/gemini-3-flash",
-        "searchBackend": "tavilySearch"
-      }
-    }
-  }
-}
-```
-
----
-
-## Create your own
-
-Want weather, stock prices, or custom API integrations?
-
-See [Custom Tools](/custom-tools) to build your own.

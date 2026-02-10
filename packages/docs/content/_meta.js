@@ -15,12 +15,7 @@ export default {
     type: "separator",
     title: "Building Extensions"
   },
-  extensions: "Overview",
-  "custom-tools": "Custom Tools",
-  "custom-agents": "Custom Agents",
-  "custom-channels": "Custom Channels",
-  "custom-storage": "Custom Storage",
-  "custom-memory": "Custom Memory",
+  extensions: "Extensions",
   "-- Reference": {
     type: "separator",
     title: "Reference"

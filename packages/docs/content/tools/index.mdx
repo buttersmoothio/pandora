@@ -1,0 +1,65 @@
+# Tools
+
+Tools give your AI agents extra capabilities — like getting the current time, searching the web, or calling APIs.
+
+## How tools work
+
+```
+User: "What time is it?"
+         ↓
+     Operator decides to use datetime tool
+         ↓
+     Tool returns: "2026-02-08T14:30:00Z"
+         ↓
+     Operator: "It's 2:30 PM on February 8th, 2026."
+```
+
+The AI decides when to use tools — you don't need to ask explicitly.
+
+## Configuration
+
+Enable tools in `config.jsonc`:
+
+```jsonc
+"ai": {
+  "tools": {
+    "datetime": {}
+  }
+}
+```
+
+Tools are then available to all agents automatically.
+
+## Built-in tools
+
+| Tool | Description | API Key |
+|------|-------------|---------|
+| [datetime](/tools/datetime) | Current date and time | None |
+| [Web Search](/tools/web-search) | Search the internet | Required |
+
+## Full example
+
+```jsonc
+{
+  "ai": {
+    "gateway": { "apiKey": "your-gateway-key" },
+    "tools": {
+      "datetime": {},
+      "tavilySearch": { "apiKey": "tvly-..." }
+    },
+    "agents": {
+      "operator": { "model": "google/gemini-3-flash" },
+      "webSearchTool": {
+        "model": "google/gemini-3-flash",
+        "searchBackend": "tavilySearch"
+      }
+    }
+  }
+}
+```
+
+## Create your own
+
+Want weather, stock prices, or custom API integrations?
+
+See [Custom Tools](/extensions/tools) to build your own.

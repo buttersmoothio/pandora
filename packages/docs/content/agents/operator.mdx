@@ -1,0 +1,35 @@
+# Operator
+
+The main AI that handles all conversations and routes to specialists. This is the only required agent.
+
+## Configuration
+
+```jsonc
+"agents": {
+  "operator": { "model": "google/gemini-3-flash" }
+}
+```
+
+## Purpose
+
+- General conversation
+- Task routing to sub-agents
+- Tool coordination
+
+## Recommended models
+
+| Model | Notes |
+|-------|-------|
+| `google/gemini-3-flash` | Fast, excellent tool-calling (recommended) |
+| `anthropic/claude-sonnet-4.5` | High quality, slightly slower |
+| `openai/gpt-4o` | Good balance |
+
+## How routing works
+
+The operator analyzes each message and decides:
+
+1. **Handle directly** — Simple questions, general chat
+2. **Delegate** — Specialized tasks go to sub-agents
+3. **Use tools** — Datetime, search, or custom tools
+
+The operator always receives the sub-agent's response and can add context before replying.

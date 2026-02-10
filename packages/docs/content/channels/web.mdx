@@ -1,0 +1,82 @@
+# Web
+
+HTTP + WebSocket API for browser-based chat. Includes a Next.js web UI.
+
+## Setup
+
+1. **Configure Pandora**
+
+```jsonc
+"channels": {
+  "web": {
+    "port": 3000,
+    "token": "pick-a-secret-token"
+  }
+}
+```
+
+2. **Start everything**
+
+```bash
+bun run dev
+```
+
+3. **Open the web UI**
+
+Go to `http://localhost:3001` and enter your token.
+
+## Features
+
+- **Streaming responses** — See text as it's generated
+- **Conversation sidebar** — All conversations from all channels
+- **Tool visibility** — See what tools the AI uses
+- **Chain-of-thought** — View AI reasoning (when supported)
+- **Cross-channel sync** — Watch Telegram chats update live
+
+---
+
+## API
+
+The web channel exposes both HTTP REST and WebSocket APIs.
+
+### WebSocket
+
+Connect to `ws://localhost:3000/ws?token=...`
+
+```json
+// Send a message
+{ "type": "message", "content": "Hello!", "conversationId": "my-chat" }
+
+// Receive streaming response
+{ "type": "delta", "text": "Hello" }
+{ "type": "delta", "text": "!" }
+{ "type": "done" }
+```
+
+### HTTP REST
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/validate` | GET | Check if token is valid |
+| `/api/conversations` | GET | List all conversations |
+| `/api/conversations/:id/history` | GET | Get conversation messages |
+| `/api/conversations/:id` | DELETE | Delete a conversation |
+
+All requests need `Authorization: Bearer YOUR_TOKEN`.
+
+---
+
+## Cross-channel streaming
+
+The web UI can watch **any** conversation, including from Telegram:
+
+```json
+// Subscribe to a conversation
+{ "type": "watch", "conversationId": "telegram-123456" }
+
+// Receive live events
+{ "type": "user-message", "content": "Hello from Telegram" }
+{ "type": "delta", "text": "Hi there!" }
+```
+
+This lets you monitor all your conversations in one place.

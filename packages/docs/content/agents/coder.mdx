@@ -1,0 +1,35 @@
+# Coder
+
+Programming specialist for code questions.
+
+## Configuration
+
+```jsonc
+"agents": {
+  "coder": { "model": "anthropic/claude-sonnet-4.5" }
+}
+```
+
+## Purpose
+
+- Writing code
+- Debugging
+- Code review
+- Explaining code
+
+## Recommended models
+
+| Model | Notes |
+|-------|-------|
+| `anthropic/claude-sonnet-4.5` | Excellent coding (recommended) |
+| `anthropic/claude-opus-4` | Best quality, more expensive |
+
+## Triggers
+
+The operator delegates to coder for prompts like:
+
+- "Write a function that..."
+- "Debug this code..."
+- "Review this PR..."
+- "How does this code work?"
+- "Convert this to TypeScript..."

@@ -1,0 +1,58 @@
+# Storage
+
+Storage backends persist conversation history so Pandora remembers previous messages.
+
+## Quick start
+
+**SQLite (recommended)** — Conversations survive restarts:
+
+```jsonc
+"storage": {
+  "type": "sqlite",
+  "path": "data/pandora.db"
+}
+```
+
+**In-Memory** — For testing (history lost on restart):
+
+```jsonc
+"storage": {
+  "type": "memory"
+}
+```
+
+## Built-in backends
+
+| Backend | Persistent | Best for |
+|---------|------------|----------|
+| [SQLite](/storage/sqlite) | Yes | Production use |
+| [In-Memory](/storage/in-memory) | No | Development, testing |
+
+## Full example
+
+```jsonc
+{
+  "ai": {
+    "gateway": { "apiKey": "your-key" },
+    "agents": {
+      "operator": { "model": "google/gemini-3-flash" }
+    }
+  },
+  "storage": {
+    "type": "sqlite",
+    "path": "data/pandora.db"
+  },
+  "channels": {
+    "telegram": {
+      "token": "bot-token",
+      "ownerId": "user-id"
+    }
+  }
+}
+```
+
+## Create your own
+
+Want Postgres, Redis, or another database?
+
+See [Custom Storage](/extensions/storage) to build your own backend.
