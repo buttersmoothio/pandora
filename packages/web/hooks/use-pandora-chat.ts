@@ -22,7 +22,12 @@ export type PandoraMessagePart =
   | { type: "dynamic-tool"; toolName: string; toolCallId: string; state: "input-available" | "output-available" | "output-error"; input?: unknown; output?: unknown; threadId?: string }
   | { type: "source-url"; sourceId: string; url: string; title?: string }
   | { type: "source-document"; sourceId: string; mediaType: string; title: string; filename?: string }
-  | { type: "file"; mediaType: string; url: string; filename?: string };
+  | { type: "file"; mediaType: string; url: string; filename?: string }
+  | {
+      type: "memory-context";
+      facts: Array<{ content: string; category?: string; score: number }>;
+      episodes: Array<{ content: string; timestamp?: number; score: number }>;
+    };
 
 export type PandoraMessage = {
   id: string;
@@ -261,6 +266,21 @@ export function usePandoraChat({
                 prev.map((msg) => msg.id === id ? appendPart(msg, part) : msg)
               );
             }
+            break;
+          }
+          case "memory-context": {
+            if (!isCurrentConversation) break;
+            const id = streamingIdRef.current;
+            if (!id) break;
+
+            const part: PandoraMessagePart = {
+              type: "memory-context",
+              facts: (data as { facts?: Array<{ content: string; category?: string; score: number }> }).facts ?? [],
+              episodes: (data as { episodes?: Array<{ content: string; timestamp?: number; score: number }> }).episodes ?? [],
+            };
+            setMessages((prev) =>
+              prev.map((msg) => msg.id === id ? appendPart(msg, part) : msg)
+            );
             break;
           }
           case "reasoning-delta": {

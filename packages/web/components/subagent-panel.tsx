@@ -77,7 +77,6 @@ export function SubagentPanel({ thread, onClose }: SubagentPanelProps) {
                 message={msg}
                 isLastMessage={idx === thread.messages.length - 1}
                 isStreaming={isStreaming}
-                variant="panel"
               />
             ))}
           </div>

@@ -20,7 +20,7 @@ import {
   type ConversationInfo,
   type MessageMeta,
   type UIMessage,
-  type UIMessagePart,
+  type PandoraMessagePart,
   type StorageConfig,
 } from "@pandora/core";
 
@@ -209,7 +209,7 @@ export class SqliteStore implements IMessageStore {
       result.push({
         id: msg.id,
         role: msg.role as "user" | "assistant",
-        parts: parts.map((p) => JSON.parse(p.part_data) as UIMessagePart),
+        parts: parts.map((p) => JSON.parse(p.part_data) as PandoraMessagePart),
         channelName: msg.channel_name ?? undefined,
         usage,
       } as UIMessage & { channelName?: string; usage?: { inputTokens: number; outputTokens: number; totalTokens: number } });
@@ -246,7 +246,7 @@ export class SqliteStore implements IMessageStore {
   }
 
   /** @inheritdoc */
-  async appendPart(messageId: string, part: UIMessagePart): Promise<void> {
+  async appendPart(messageId: string, part: PandoraMessagePart): Promise<void> {
     // Get next part index
     const result = this.db
       .query<{ max_index: number | null }, [string]>(

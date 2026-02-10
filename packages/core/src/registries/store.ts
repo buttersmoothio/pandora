@@ -5,7 +5,7 @@
  * Each backend is defined in src/store/ and self-registers using defineStore().
  */
 
-import type { UIMessage, UIMessagePart, MessageMeta } from "../types";
+import type { UIMessage, PandoraMessagePart, MessageMeta } from "../types";
 import type { StorageConfig } from "../config";
 
 // Re-export MessageMeta for convenience
@@ -79,7 +79,7 @@ export interface IMessageStore {
    * Append a part to an existing message.
    * For text parts, this creates a new text part with state: "streaming".
    */
-  appendPart(messageId: string, part: UIMessagePart): Promise<void>;
+  appendPart(messageId: string, part: PandoraMessagePart): Promise<void>;
 
   /**
    * Update a tool part with its result (state: input-available -> output-available).

@@ -14,7 +14,7 @@ import {
   type ConversationInfo,
   type MessageMeta,
   type UIMessage,
-  type UIMessagePart,
+  type PandoraMessagePart,
   type TextUIPart,
 } from "@pandora/core";
 
@@ -36,8 +36,9 @@ interface MessageUsage {
   totalTokens: number;
 }
 
-/** Extended message with channelName and usage for per-message tracking */
-type MessageWithChannel = UIMessage & {
+/** Extended message with channelName, usage, and Pandora-specific parts */
+type MessageWithChannel = Omit<UIMessage, "parts"> & {
+  parts: PandoraMessagePart[];
   channelName?: string;
   usage?: MessageUsage;
 };
@@ -97,7 +98,8 @@ export class MemoryStore implements IMessageStore {
 
   /** @inheritdoc */
   async getHistory(conversationId: string): Promise<UIMessage[]> {
-    return this.conversations.get(conversationId) ?? [];
+    // Cast is safe: PandoraMessagePart extends UIMessagePart
+    return (this.conversations.get(conversationId) ?? []) as UIMessage[];
   }
 
   /** @inheritdoc */
@@ -135,7 +137,7 @@ export class MemoryStore implements IMessageStore {
   }
 
   /** @inheritdoc */
-  async appendPart(messageId: string, part: UIMessagePart): Promise<void> {
+  async appendPart(messageId: string, part: PandoraMessagePart): Promise<void> {
     const message = this.messagesById.get(messageId);
     if (!message) {
       throw new Error(`Message not found: ${messageId}`);

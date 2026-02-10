@@ -23,8 +23,18 @@ import type {
   UITools,
 } from "ai";
 
-/** Message part type with default generics for ease of use. */
+/** AI SDK message part type with default generics. */
 export type UIMessagePart = AIUIMessagePart<UIDataTypes, UITools>;
+
+/** Memory context recalled for a prompt. */
+export interface MemoryContextPart {
+  type: "memory-context";
+  facts: Array<{ content: string; category?: string; score: number }>;
+  episodes: Array<{ content: string; timestamp?: number; score: number }>;
+}
+
+/** Extended message part type including Pandora-specific parts. */
+export type PandoraMessagePart = UIMessagePart | MemoryContextPart;
 
 export { generateId, convertToModelMessages } from "ai";
 
@@ -156,6 +166,12 @@ export type StreamEvent =
   | { type: "step-start"; threadId?: string }
   | { type: "step-finish"; usage: { inputTokens?: number; outputTokens?: number; totalTokens?: number }; finishReason: string; threadId?: string }
   | { type: "file"; mediaType: string; url: string; filename?: string; threadId?: string }
+  // Memory context recalled for this prompt
+  | {
+      type: "memory-context";
+      facts: Array<{ content: string; category?: string; score: number }>;
+      episodes: Array<{ content: string; timestamp?: number; score: number }>;
+    }
   // Subagent lifecycle events (UI sets up/tears down thread listeners)
   | { type: "subagent-start"; threadId: string; toolCallId: string; subagentName: string }
   | { type: "subagent-done"; threadId: string };

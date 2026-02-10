@@ -58,6 +58,11 @@ export interface ActiveStreamState {
   sources: Array<{ sourceType: string; id: string; url?: string; title?: string }>;
   reasoning: string;
   threads: Record<string, ActiveThreadState>;
+  /** Memory context recalled for this prompt (for persistence) */
+  memoryContext?: {
+    facts: Array<{ content: string; category?: string; score: number }>;
+    episodes: Array<{ content: string; timestamp?: number; score: number }>;
+  };
 }
 
 /** Central hub: receives messages from channels, stores them, calls the agent, stores and returns the response. */
@@ -287,6 +292,20 @@ export class Gateway {
           if (contextParts.length > 0) {
             memoryContext = contextParts.join("\n");
             logger.info("Gateway", `Auto-recalled ${uniqueFacts.length} facts, ${uniqueEpisodes.length} episodes (deduped from ${results.facts.length}/${results.episodes.length})`);
+
+            // Store memory event data for persistence after assistant message is created
+            streamState.memoryContext = {
+              facts: uniqueFacts.map(f => ({
+                content: f.content,
+                category: f.category,
+                score: f.score,
+              })),
+              episodes: uniqueEpisodes.map(e => ({
+                content: e.content,
+                timestamp: e.timestamp,
+                score: e.score,
+              })),
+            };
           }
         } catch (err) {
           // Memory failure should never break chat
@@ -296,6 +315,25 @@ export class Gateway {
 
       // Create assistant message shell before streaming
       assistantMessageId = await this.store.createMessage(conversationId, "assistant", meta);
+
+      // Persist and emit memory-context if we recalled any memories
+      if (streamState.memoryContext) {
+        const { facts, episodes } = streamState.memoryContext;
+        // Persist as a message part
+        await this.store.appendPart(assistantMessageId, {
+          type: "memory-context",
+          facts,
+          episodes,
+        });
+        // Emit for real-time UI updates
+        const memoryEvent: StreamEvent = {
+          type: "memory-context",
+          facts,
+          episodes,
+        };
+        onEvent?.(memoryEvent);
+        this.emit(conversationId, { ...memoryEvent, conversationId });
+      }
 
       // Operator context state (for main conversation)
       const operatorCtx = {

@@ -2,9 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { nanoid } from "nanoid";
-import { usePandoraChat, type PandoraMessage, type SubagentThread, type TokenUsage } from "@/hooks/use-pandora-chat";
+import { usePandoraChat, type TokenUsage } from "@/hooks/use-pandora-chat";
 import { SubagentPanel } from "@/components/subagent-panel";
+import { MemoryPanel } from "@/components/memory-panel";
 import { MessagePartsRenderer } from "@/components/message-parts-renderer";
+import type { MemoryItem } from "@/components/ai-elements/memory-context";
 import { useConversations } from "@/hooks/use-conversations";
 import type { ConnectionStatus } from "@/hooks/use-pandora-chat";
 import {
@@ -53,23 +55,14 @@ function ConnectionIndicator({ status }: { status: ConnectionStatus }) {
   if (status === "connected") return null;
 
   const isReconnecting = status === "reconnecting";
-  const label = isReconnecting ? "Reconnecting..." : "Disconnected";
 
   return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <span
-            className={`inline-block size-2.5 rounded-full ${
-              isReconnecting
-                ? "animate-pulse bg-yellow-500"
-                : "bg-destructive"
-            }`}
-          />
-        </TooltipTrigger>
-        <TooltipContent side="bottom">{label}</TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+    <span
+      className={`inline-block size-2.5 rounded-full ${
+        isReconnecting ? "animate-pulse bg-yellow-500" : "bg-destructive"
+      }`}
+      title={isReconnecting ? "Reconnecting..." : "Disconnected"}
+    />
   );
 }
 
@@ -276,6 +269,7 @@ function ChatInterface({
   const [conversationId, setConversationId] = useState(() => `web-${nanoid()}`);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
+  const [selectedMemory, setSelectedMemory] = useState<MemoryItem | null>(null);
 
   const {
     conversations,
@@ -316,6 +310,7 @@ function ChatInterface({
   const handleOpenThread = useCallback(
     async (threadId: string, toolCallId: string, subagentName: string) => {
       setSelectedThreadId(threadId);
+      setSelectedMemory(null); // Close memory panel
 
       // If thread already loaded (from live streaming), no need to fetch
       if (threads.has(threadId)) return;
@@ -351,6 +346,12 @@ function ChatInterface({
     },
     [threads, setThreads, loadThread]
   );
+
+  // Handle viewing memory details
+  const handleViewMemory = useCallback((memory: MemoryItem) => {
+    setSelectedMemory(memory);
+    setSelectedThreadId(null); // Close thread panel
+  }, []);
 
   // Refresh conversation list when a message completes
   useEffect(() => {
@@ -531,7 +532,7 @@ function ChatInterface({
                   isLastMessage={idx === messages.length - 1}
                   isStreaming={isStreaming}
                   onOpenThread={handleOpenThread}
-                  variant="main"
+                  onViewMemory={handleViewMemory}
                   showChannelBadge={msg.role === "user"}
                 />
               ))
@@ -562,6 +563,14 @@ function ChatInterface({
         <SubagentPanel
           thread={selectedThread}
           onClose={() => setSelectedThreadId(null)}
+        />
+      )}
+
+      {/* Memory Panel */}
+      {selectedMemory && (
+        <MemoryPanel
+          memory={selectedMemory}
+          onClose={() => setSelectedMemory(null)}
         />
       )}
     </div>

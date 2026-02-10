@@ -54,6 +54,9 @@ export type {
   SourceDocumentUIPart,
   FileUIPart,
   StepStartUIPart,
+  // Pandora-specific message parts
+  PandoraMessagePart,
+  MemoryContextPart,
 } from "./types";
 
 // AI SDK utilities

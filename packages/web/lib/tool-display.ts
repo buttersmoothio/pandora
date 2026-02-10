@@ -12,23 +12,22 @@ import {
 export interface ToolDisplayInfo {
   label: string;
   icon: LucideIcon;
-  color: string;
 }
 
 const toolMap: Record<string, ToolDisplayInfo> = {
   // Search tools (actual tools in this project)
-  tavilySearch: { label: "Web Search", icon: SearchIcon, color: "text-blue-500" },
-  exaSearch: { label: "Web Search", icon: SearchIcon, color: "text-blue-500" },
-  perplexitySearch: { label: "Web Search", icon: SearchIcon, color: "text-blue-500" },
+  tavilySearch: { label: "Web Search", icon: SearchIcon },
+  exaSearch: { label: "Web Search", icon: SearchIcon },
+  perplexitySearch: { label: "Web Search", icon: SearchIcon },
 
   // Utility tools
-  datetime: { label: "Date & Time", icon: ClockIcon, color: "text-cyan-500" },
+  datetime: { label: "Date & Time", icon: ClockIcon },
 
   // Memory tools
-  recall: { label: "Recall Memory", icon: BrainIcon, color: "text-pink-500" },
-  remember: { label: "Remember", icon: BrainIcon, color: "text-pink-500" },
-  getMemory: { label: "Get Memory", icon: BookOpenIcon, color: "text-pink-500" },
-  forget: { label: "Forget", icon: Trash2Icon, color: "text-pink-500" },
+  recall: { label: "Search Memory", icon: BrainIcon },
+  remember: { label: "Remember", icon: BrainIcon },
+  getMemory: { label: "Get Memory", icon: BookOpenIcon },
+  forget: { label: "Forget", icon: Trash2Icon },
 };
 
 /**
@@ -57,7 +56,6 @@ export function getToolDisplayInfo(toolName: string): ToolDisplayInfo {
     return {
       label: humanizeToolName(toolName.replace(/Subagent$/i, "").replace(/Agent$/i, "")),
       icon: BotIcon,
-      color: "text-violet-500",
     };
   }
 
@@ -65,6 +63,5 @@ export function getToolDisplayInfo(toolName: string): ToolDisplayInfo {
   return {
     label: humanizeToolName(toolName),
     icon: WrenchIcon,
-    color: "text-muted-foreground",
   };
 }
