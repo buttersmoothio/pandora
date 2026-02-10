@@ -15,6 +15,7 @@ import { Database } from "bun:sqlite";
 import { mkdirSync, existsSync } from "node:fs";
 import { dirname } from "node:path";
 import { embedMany } from "ai";
+import * as sqliteVec from "sqlite-vec";
 import { createEmbeddingModel } from "@pandora/core";
 import {
   defineMemory,
@@ -33,6 +34,9 @@ import { chunkText, countTokens } from "./chunker";
 
 /** Hybrid search weights (vector similarity + BM25 keyword) */
 const HYBRID_WEIGHTS = { vector: 0.7, text: 0.3 };
+
+/** Embedding dimension for text-embedding-3-small */
+const EMBEDDING_DIMENSION = 1536;
 
 /** Row type for memory_episodes table */
 interface EpisodeRow {
@@ -93,13 +97,19 @@ const FACT_DEDUP_THRESHOLD = 0.92;
 /**
  * Escape a query string for FTS5 MATCH.
  * FTS5 has special syntax: AND, OR, NOT, NEAR, *, ^, etc.
- * We wrap each token in quotes to treat it as a literal phrase.
+ * We extract words, strip punctuation, and join with OR for flexible matching.
  */
 function escapeFTS5Query(query: string): string {
-  // Remove characters that break FTS5 even inside quotes
+  // Remove quotes and newlines
   const cleaned = query.replace(/["\n\r]/g, " ");
-  // Wrap in quotes for phrase matching
-  return `"${cleaned}"`;
+  // Extract words, strip leading/trailing punctuation from each
+  const words = cleaned
+    .split(/\s+/)
+    .map((w) => w.replace(/^[^\w]+|[^\w]+$/g, "")) // Strip punctuation
+    .filter((w) => w.length > 1); // Skip single chars and empty
+  if (words.length === 0) return '""';
+  // Quote each word and join with OR for flexible matching
+  return words.map((w) => `"${w}"`).join(" OR ");
 }
 
 /**
@@ -211,6 +221,17 @@ export class SqliteMemoryProvider implements IMemoryProvider {
     db.run(`CREATE INDEX IF NOT EXISTS idx_facts_category ON memory_facts (category)`);
     db.run(`CREATE INDEX IF NOT EXISTS idx_chunks_parent ON memory_chunks (parent_id, parent_type)`);
 
+    // Load sqlite-vec extension for indexed vector search
+    sqliteVec.load(db);
+
+    // Create vec0 virtual table for indexed vector search
+    db.run(`
+      CREATE VIRTUAL TABLE IF NOT EXISTS vec_chunks USING vec0(
+        chunk_id TEXT PRIMARY KEY,
+        embedding float[${EMBEDDING_DIMENSION}]
+      )
+    `);
+
     logger.startup("SQLite memory provider initialized", { path: dbPath });
 
     return new SqliteMemoryProvider(
@@ -231,7 +252,7 @@ export class SqliteMemoryProvider implements IMemoryProvider {
 
   /**
    * Store chunks for a parent record.
-   * Chunks the content, batch embeds, and inserts into chunks table.
+   * Chunks the content, batch embeds, and inserts into chunks table + vec_chunks.
    */
   private async storeChunks(
     parentId: string,
@@ -246,12 +267,15 @@ export class SqliteMemoryProvider implements IMemoryProvider {
       INSERT INTO memory_chunks (id, parent_id, parent_type, content, vector, start_offset, end_offset, chunk_index)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `);
+    const insertVec = this.db.prepare(`INSERT INTO vec_chunks(chunk_id, embedding) VALUES (?, ?)`);
 
     for (let i = 0; i < chunks.length; i++) {
       const chunk = chunks[i]!;
       const vector = vectors[i]!;
+      const chunkId = generateId();
+
       insertChunk.run(
-        generateId(),
+        chunkId,
         parentId,
         parentType,
         chunk.content,
@@ -260,6 +284,9 @@ export class SqliteMemoryProvider implements IMemoryProvider {
         chunk.endOffset,
         chunk.index
       );
+
+      // Also insert into vec_chunks for indexed vector search
+      insertVec.run(chunkId, new Float32Array(vector));
     }
 
     logger.info("Memory", `Stored ${chunks.length} chunk(s) for ${parentType}: ${parentId}`);
@@ -267,6 +294,19 @@ export class SqliteMemoryProvider implements IMemoryProvider {
 
   /** Delete all chunks for a parent record */
   private deleteChunksForParent(parentId: string, parentType: "episode" | "fact"): void {
+    // First get chunk IDs to delete from vec_chunks
+    const chunkIds = this.db
+      .query<{ id: string }, [string, string]>(
+        `SELECT id FROM memory_chunks WHERE parent_id = ? AND parent_type = ?`
+      )
+      .all(parentId, parentType);
+
+    // Delete from vec_chunks
+    for (const { id } of chunkIds) {
+      this.db.run(`DELETE FROM vec_chunks WHERE chunk_id = ?`, [id]);
+    }
+
+    // Delete from memory_chunks (FTS5 triggers handle memory_chunks_fts)
     this.db.run(
       `DELETE FROM memory_chunks WHERE parent_id = ? AND parent_type = ?`,
       [parentId, parentType]
@@ -276,12 +316,17 @@ export class SqliteMemoryProvider implements IMemoryProvider {
   /**
    * Search chunks using BM25 full-text search.
    * Returns map of chunk_id -> normalized BM25 score (0-1).
+   *
+   * @param query - Search query text
+   * @param parentType - Filter by parent type ('episode' or 'fact')
+   * @param limit - Maximum results
+   * @param additionalFilter - Optional parameterized filter { sql: string, param: value }
    */
   private searchChunksBM25(
     query: string,
     parentType: "episode" | "fact",
     limit: number,
-    additionalFilter?: string
+    additionalFilter?: { sql: string; param: string | number }
   ): Map<string, number> {
     const results = new Map<string, number>();
     const ftsQuery = escapeFTS5Query(query);
@@ -291,18 +336,31 @@ export class SqliteMemoryProvider implements IMemoryProvider {
       SELECT c.id, -bm25(memory_chunks_fts) as score
       FROM memory_chunks_fts fts
       JOIN memory_chunks c ON c.rowid = fts.rowid
-      WHERE memory_chunks_fts MATCH ? AND c.parent_type = ?
     `;
+
+    // Join to parent table if we need to filter by parent columns
+    if (parentType === "episode" && additionalFilter) {
+      sql += ` JOIN memory_episodes e ON e.id = c.parent_id`;
+    } else if (parentType === "fact" && additionalFilter) {
+      sql += ` JOIN memory_facts f ON f.id = c.parent_id`;
+    }
+
+    sql += ` WHERE memory_chunks_fts MATCH ? AND c.parent_type = ?`;
+
+    const params: (string | number)[] = [ftsQuery, parentType];
+
     if (additionalFilter) {
-      sql += ` AND ${additionalFilter}`;
+      sql += ` AND ${additionalFilter.sql}`;
+      params.push(additionalFilter.param);
     }
     sql += ` ORDER BY score DESC LIMIT ?`;
+    params.push(limit * 2);
 
     let rows: { id: string; score: number }[];
     try {
       rows = this.db
-        .query<{ id: string; score: number }, [string, string, number]>(sql)
-        .all(ftsQuery, parentType, limit * 2);
+        .query<{ id: string; score: number }, (string | number)[]>(sql)
+        .all(...params);
     } catch {
       // FTS5 query failed (malformed query) - return empty results
       return results;
@@ -310,16 +368,53 @@ export class SqliteMemoryProvider implements IMemoryProvider {
 
     if (rows.length === 0) return results;
 
-    // Normalize scores to 0-1 range (min-max normalization)
-    const maxScore = rows[0]?.score ?? 1;
-    const minScore = rows[rows.length - 1]?.score ?? 0;
-    const range = maxScore - minScore || 1;
+    // Normalize BM25 scores to 0-1 range
+    // BM25 returns negative scores (SQLite FTS5), higher absolute = more relevant
+    const scores = rows.map((r) => Math.abs(r.score));
+    const maxScore = Math.max(...scores);
+    const minScore = Math.min(...scores);
+    const range = maxScore - minScore;
 
-    for (const row of rows) {
-      const normalized = (row.score - minScore) / range;
-      results.set(row.id, normalized);
+    for (let i = 0; i < rows.length; i++) {
+      const normalized = range > 0.001 ? (scores[i]! - minScore) / range : 1.0;
+      results.set(rows[i]!.id, normalized);
     }
 
+    return results;
+  }
+
+  /**
+   * Search chunks using indexed vector search (sqlite-vec).
+   * Returns map of chunk_id -> similarity score (0-1).
+   */
+  private searchChunksVector(
+    queryVector: number[],
+    parentType: "episode" | "fact",
+    limit: number
+  ): Map<string, number> {
+    const query = new Float32Array(queryVector);
+
+    // sqlite-vec uses L2 distance (lower = more similar)
+    const rows = this.db
+      .query<{ chunk_id: string; distance: number }, [Float32Array, string, number]>(
+        `
+        SELECT vc.chunk_id, vc.distance
+        FROM vec_chunks vc
+        JOIN memory_chunks mc ON mc.id = vc.chunk_id
+        WHERE vc.embedding MATCH ?
+          AND mc.parent_type = ?
+        ORDER BY vc.distance
+        LIMIT ?
+        `
+      )
+      .all(query, parentType, limit * 2);
+
+    const results = new Map<string, number>();
+    for (const row of rows) {
+      // Convert L2 distance to similarity (0-1). For normalized vectors: sim ≈ 1 - d²/2
+      const similarity = Math.max(0, 1 - (row.distance * row.distance) / 2);
+      results.set(row.chunk_id, similarity);
+    }
     return results;
   }
 
@@ -381,53 +476,51 @@ export class SqliteMemoryProvider implements IMemoryProvider {
     searchEpisodes: async (query, opts = {}): Promise<MemoryChunk[]> => {
       const { limit = 10, minScore = 0.5, since } = opts;
 
-      // Load chunks for episodes (optionally filtered by time)
-      let sql = `
-        SELECT c.*, e.timestamp, e.conversation_id
-        FROM memory_chunks c
-        JOIN memory_episodes e ON e.id = c.parent_id
-        WHERE c.parent_type = 'episode'
-      `;
-      if (since) {
-        sql += ` AND e.timestamp >= ${since}`;
-      }
-
-      const rows = this.db.query<ChunkRow & { timestamp: number; conversation_id: string | null }, []>(sql).all();
-
-      if (rows.length === 0) return [];
-
-      // Build a map of chunk_id -> row for quick lookup
-      const rowMap = new Map<string, ChunkRow & { timestamp: number; conversation_id: string | null }>();
-      for (const row of rows) {
-        rowMap.set(row.id, row);
-      }
-
       // Embed query
       const [queryVector] = await this.embedBatch([query]);
 
-      // Vector scores (cosine similarity)
-      const vectorScores = new Map<string, number>();
-      for (const row of rows) {
-        const vector = JSON.parse(row.vector) as number[];
-        const score = cosineSimilarity(queryVector!, vector);
-        vectorScores.set(row.id, score);
-      }
+      // Use indexed vector search (O(log n) instead of O(n))
+      const vectorScores = this.searchChunksVector(queryVector!, "episode", limit);
 
-      // BM25 scores
-      const additionalFilter = since ? `e.timestamp >= ${since}` : undefined;
-      const bm25Scores = this.searchChunksBM25(query, "episode", limit, additionalFilter);
+      // BM25 keyword scores
+      const bm25Scores = this.searchChunksBM25(
+        query,
+        "episode",
+        limit,
+        since ? { sql: `e.timestamp >= ?`, param: since } : undefined
+      );
 
       // Merge with weights
       const finalScores = this.mergeScores(vectorScores, bm25Scores);
 
-      // Build results from scores
+      // Get chunk IDs that pass the score threshold
+      const matchingIds = [...finalScores.entries()]
+        .filter(([, score]) => score >= minScore)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, limit)
+        .map(([id]) => id);
+
+      if (matchingIds.length === 0) return [];
+
+      // Fetch chunk details for matching IDs
+      const placeholders = matchingIds.map(() => "?").join(",");
+      const rows = this.db
+        .query<ChunkRow & { timestamp: number; conversation_id: string | null }, string[]>(
+          `
+          SELECT c.*, e.timestamp, e.conversation_id
+          FROM memory_chunks c
+          JOIN memory_episodes e ON e.id = c.parent_id
+          WHERE c.id IN (${placeholders})
+            ${since ? `AND e.timestamp >= ${since}` : ""}
+          `
+        )
+        .all(...matchingIds);
+
+      // Build results with scores
       const results: MemoryChunk[] = [];
-
-      for (const [id, score] of finalScores) {
-        if (score < minScore) continue;
-
-        const row = rowMap.get(id);
-        if (!row) continue;
+      for (const row of rows) {
+        const score = finalScores.get(row.id);
+        if (score === undefined) continue;
 
         results.push({
           chunkId: row.id,
@@ -441,8 +534,8 @@ export class SqliteMemoryProvider implements IMemoryProvider {
         });
       }
 
-      // Sort by score descending and limit
-      return results.sort((a, b) => b.score - a.score).slice(0, limit);
+      // Sort by score descending
+      return results.sort((a, b) => b.score - a.score);
     },
 
     getEpisode: async (id): Promise<Episode | null> => {
@@ -569,53 +662,51 @@ export class SqliteMemoryProvider implements IMemoryProvider {
     searchFacts: async (query, opts = {}): Promise<MemoryChunk[]> => {
       const { limit = 10, minScore = 0.5, category } = opts;
 
-      // Load chunks for facts (optionally filtered by category)
-      let sql = `
-        SELECT c.*, f.category
-        FROM memory_chunks c
-        JOIN memory_facts f ON f.id = c.parent_id
-        WHERE c.parent_type = 'fact'
-      `;
-      if (category) {
-        sql += ` AND f.category = '${category}'`;
-      }
-
-      const rows = this.db.query<ChunkRow & { category: string }, []>(sql).all();
-
-      if (rows.length === 0) return [];
-
-      // Build a map of chunk_id -> row for quick lookup
-      const rowMap = new Map<string, ChunkRow & { category: string }>();
-      for (const row of rows) {
-        rowMap.set(row.id, row);
-      }
-
       // Embed query
       const [queryVector] = await this.embedBatch([query]);
 
-      // Vector scores (cosine similarity)
-      const vectorScores = new Map<string, number>();
-      for (const row of rows) {
-        const vector = JSON.parse(row.vector) as number[];
-        const score = cosineSimilarity(queryVector!, vector);
-        vectorScores.set(row.id, score);
-      }
+      // Use indexed vector search (O(log n) instead of O(n))
+      const vectorScores = this.searchChunksVector(queryVector!, "fact", limit);
 
-      // BM25 scores
-      const additionalFilter = category ? `f.category = '${category}'` : undefined;
-      const bm25Scores = this.searchChunksBM25(query, "fact", limit, additionalFilter);
+      // BM25 keyword scores
+      const bm25Scores = this.searchChunksBM25(
+        query,
+        "fact",
+        limit,
+        category ? { sql: `f.category = ?`, param: category } : undefined
+      );
 
       // Merge with weights
       const finalScores = this.mergeScores(vectorScores, bm25Scores);
 
-      // Build results from scores
+      // Get chunk IDs that pass the score threshold
+      const matchingIds = [...finalScores.entries()]
+        .filter(([, score]) => score >= minScore)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, limit)
+        .map(([id]) => id);
+
+      if (matchingIds.length === 0) return [];
+
+      // Fetch chunk details for matching IDs
+      const placeholders = matchingIds.map(() => "?").join(",");
+      const rows = this.db
+        .query<ChunkRow & { category: string }, string[]>(
+          `
+          SELECT c.*, f.category
+          FROM memory_chunks c
+          JOIN memory_facts f ON f.id = c.parent_id
+          WHERE c.id IN (${placeholders})
+            ${category ? `AND f.category = '${category}'` : ""}
+          `
+        )
+        .all(...matchingIds);
+
+      // Build results with scores
       const results: MemoryChunk[] = [];
-
-      for (const [id, score] of finalScores) {
-        if (score < minScore) continue;
-
-        const row = rowMap.get(id);
-        if (!row) continue;
+      for (const row of rows) {
+        const score = finalScores.get(row.id);
+        if (score === undefined) continue;
 
         results.push({
           chunkId: row.id,
@@ -628,8 +719,8 @@ export class SqliteMemoryProvider implements IMemoryProvider {
         });
       }
 
-      // Sort by score descending and limit
-      return results.sort((a, b) => b.score - a.score).slice(0, limit);
+      // Sort by score descending
+      return results.sort((a, b) => b.score - a.score);
     },
 
     deleteFact: async (id): Promise<void> => {
@@ -669,12 +760,15 @@ export class SqliteMemoryProvider implements IMemoryProvider {
       INSERT INTO memory_chunks (id, parent_id, parent_type, content, vector, start_offset, end_offset, chunk_index)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `);
+    const insertVec = this.db.prepare(`INSERT INTO vec_chunks(chunk_id, embedding) VALUES (?, ?)`);
 
     for (let i = 0; i < chunks.length; i++) {
       const chunk = chunks[i]!;
       const vector = vectors[i]!;
+      const chunkId = generateId();
+
       insertChunk.run(
-        generateId(),
+        chunkId,
         parentId,
         parentType,
         chunk.content,
@@ -683,6 +777,9 @@ export class SqliteMemoryProvider implements IMemoryProvider {
         chunk.endOffset,
         chunk.index
       );
+
+      // Also insert into vec_chunks for indexed vector search
+      insertVec.run(chunkId, new Float32Array(vector));
     }
   }
 

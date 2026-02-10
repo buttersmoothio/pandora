@@ -12,14 +12,12 @@ import {
   createSubagentFromDefinition,
   createStreamingSubagentTool,
   createToolsForAgent,
+  MEMORY_TOOL_NAMES,
   type SubagentContext,
 } from "./registries";
 import type { AIConfig } from "./config";
 import type { UIMessage, ChannelCapabilities, StreamEvent } from "./types";
 import { logger } from "./logger";
-
-/** Memory tool names for subagent opt-out filtering */
-const MEMORY_TOOL_NAMES = ["remember", "recall", "forget", "recallConversation"];
 
 /**
  * Build operator system instructions from channel capabilities and available tools.
@@ -123,7 +121,7 @@ function buildOperatorInstructions(
     parts.push("**Tools:**");
     parts.push("- `remember`: store a fact, preference, or instruction for future reference");
     parts.push("- `recall`: search memories by query (searches both past interactions and stored facts)");
-    parts.push("- `recallConversation`: fetch full message history of a past conversation by ID");
+    parts.push("- `getMemory`: fetch full content of a memory record by ID (episode or fact)");
     parts.push("- `forget`: delete an outdated or incorrect fact by ID");
   }
 
@@ -188,7 +186,9 @@ export class Agent {
       if (definition.useMemory === false) {
         agent.subagentsWithoutMemory.add(definition.name);
         finalSubagentTools = Object.fromEntries(
-          Object.entries(subagentTools).filter(([name]) => !MEMORY_TOOL_NAMES.includes(name))
+          Object.entries(subagentTools).filter(
+            ([name]) => !(MEMORY_TOOL_NAMES as readonly string[]).includes(name)
+          )
         );
       }
 

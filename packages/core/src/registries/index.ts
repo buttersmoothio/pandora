@@ -64,6 +64,7 @@ export {
 
 // Memory registry
 export {
+  MEMORY_TOOL_NAMES,
   type Episode,
   type Fact,
   type MemoryChunk,

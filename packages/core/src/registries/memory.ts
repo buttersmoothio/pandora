@@ -8,6 +8,13 @@
 import type { MemoryConfig } from "../config";
 
 // ============================================================================
+// Constants
+// ============================================================================
+
+/** Memory tool names for subagent opt-out filtering and tool creation */
+export const MEMORY_TOOL_NAMES = ["remember", "recall", "getMemory", "forget"] as const;
+
+// ============================================================================
 // Types
 // ============================================================================
 

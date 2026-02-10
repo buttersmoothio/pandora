@@ -9,7 +9,10 @@
 
 import { tool, type Tool } from "ai";
 import { z } from "zod";
-import type { IMemoryProvider } from "@pandora/core";
+import { MEMORY_TOOL_NAMES, type IMemoryProvider } from "@pandora/core";
+
+// Re-export for convenience
+export { MEMORY_TOOL_NAMES };
 
 /** Memory category options */
 const CATEGORIES = ["user_preference", "knowledge", "instruction"] as const;
@@ -211,6 +214,3 @@ export function createMemoryTools(provider: IMemoryProvider): Record<string, Too
 
   return tools;
 }
-
-/** Names of memory tools (for subagent opt-out filtering) */
-export const MEMORY_TOOL_NAMES = ["remember", "recall", "getMemory", "forget"] as const;

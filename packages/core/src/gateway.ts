@@ -244,12 +244,22 @@ export class Gateway {
       let memoryContext: string | undefined;
       if (this.memory) {
         try {
-          const results = await this.memory.search(content, { limit: 5, minScore: 0.6 });
+          // Lower minScore since search quality is now better with indexed vectors
+          const results = await this.memory.search(content, { limit: 5, minScore: 0.35 });
           const contextParts: string[] = [];
 
-          // Add relevant episodes (chunks)
+          // Add relevant facts first (more reliable than episodes)
+          if (results.facts.length > 0) {
+            contextParts.push("**Remembered:**");
+            for (const chunk of results.facts) {
+              contextParts.push(`- [${chunk.category ?? "knowledge"}] ${chunk.content}`);
+            }
+          }
+
+          // Add relevant episodes (past interactions)
           if (results.episodes.length > 0) {
-            contextParts.push("Past interactions:");
+            if (contextParts.length > 0) contextParts.push("");
+            contextParts.push("**Past interactions:**");
             for (const chunk of results.episodes) {
               const timestamp = chunk.timestamp
                 ? new Date(chunk.timestamp * 1000).toLocaleDateString()
@@ -258,18 +268,9 @@ export class Gateway {
             }
           }
 
-          // Add relevant facts (chunks)
-          if (results.facts.length > 0) {
-            if (contextParts.length > 0) contextParts.push("");
-            contextParts.push("Stored knowledge:");
-            for (const chunk of results.facts) {
-              contextParts.push(`- [${chunk.category ?? "knowledge"}] ${chunk.content}`);
-            }
-          }
-
           if (contextParts.length > 0) {
             memoryContext = contextParts.join("\n");
-            logger.info("Gateway", `Auto-recalled ${results.episodes.length} episodes and ${results.facts.length} facts`);
+            logger.info("Gateway", `Auto-recalled ${results.facts.length} facts, ${results.episodes.length} episodes`);
           }
         } catch (err) {
           // Memory failure should never break chat
@@ -568,8 +569,7 @@ export class Gateway {
 
       // Auto-episode: store an episode for this interaction (fire-and-forget)
       if (this.memory?.episodic && fullText) {
-        const truncatedResponse = fullText.length > 200 ? fullText.slice(0, 200) + "..." : fullText;
-        const episodeContent = `User: ${content}\nAssistant: ${truncatedResponse}`;
+        const episodeContent = `User: ${content}\nAssistant: ${fullText}`;
 
         // Fire-and-forget - don't await or block on episode storage
         this.memory.episodic.addEpisode({
