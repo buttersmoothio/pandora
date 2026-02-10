@@ -1,4 +1,8 @@
 export default {
+  "-- Getting Started": {
+    type: "separator",
+    title: "Getting Started"
+  },
   index: "Introduction",
   quickstart: "Quickstart",
   "-- Using Pandora": {
@@ -11,6 +15,7 @@ export default {
   channels: "Channels",
   storage: "Storage",
   memory: "Memory",
+  "web-ui": "Web UI",
   "-- Building Extensions": {
     type: "separator",
     title: "Building Extensions"
@@ -20,7 +25,5 @@ export default {
     type: "separator",
     title: "Reference"
   },
-  architecture: "Architecture",
-  security: "Security",
-  comparison: "Pandora vs Others"
+  reference: "Reference"
 }

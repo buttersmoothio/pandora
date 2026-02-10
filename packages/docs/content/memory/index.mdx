@@ -38,8 +38,8 @@ Episodes are linked to conversations and cleaned up when you delete a conversati
 
 The AI can explicitly store **facts** — user preferences, knowledge, and instructions — using memory tools:
 
-- `remember` — Store a fact, preference, or instruction
-- `recall` — Search memories for relevant information
+- `remember` — Store a fact with auto-deduplication
+- `recall` — Search both episodic and semantic memories
 - `getMemory` — Fetch full content of a memory record
 - `forget` — Delete an outdated or incorrect fact
 
@@ -51,45 +51,107 @@ AI uses remember tool: "User prefers dark mode"
 Next conversation: AI recalls this preference
 ```
 
+## Automatic behavior
+
+The Gateway handles two automatic memory operations on every message. These happen transparently, without the agent using any tools.
+
+### Auto-recall (before each prompt)
+
+Before passing a message to the agent, the Gateway automatically:
+
+1. Searches memory using the user's message (limit: 10, minScore: 0.35)
+2. Deduplicates chunks by parent record (keeps the highest-scoring chunk per parent)
+3. Selects the top 5 facts and top 5 episodes
+4. Injects them into the system instructions as memory context
+
+This means the agent always has relevant background information available, even if it never explicitly calls `recall`.
+
+### Auto-episode (after each response)
+
+After the agent finishes responding, the Gateway automatically:
+
+1. Stores the interaction (user message + assistant response) as an episodic memory
+2. Runs fire-and-forget (does not block the response from being delivered)
+
+This ensures every conversation contributes to long-term memory without the agent needing to decide what to save.
+
 ## Memory tools
 
-When memory is configured, the agent gets these tools automatically:
+Memory tools are **not** auto-discovered like other tools. They are special-cased:
+
+1. `createMemoryTools(provider)` in `packages/pandora/src/tools/memory.ts` creates the tool definitions
+2. They are injected into the agent via `agent.addActionTools()` in `packages/pandora/src/index.ts`
+3. Only available when the `memory` section exists in config
 
 ### remember
 
-Store information for future reference.
+Store a fact, preference, or piece of knowledge for future reference. Only available when semantic memory is enabled.
 
 ```
 "Remember that I prefer TypeScript over JavaScript"
 → Stores: [user_preference] "User prefers TypeScript over JavaScript"
 ```
 
+**Input:**
+- `content` (string) — The fact, preference, or knowledge to remember
+- `category` (optional) — One of `user_preference`, `knowledge`, `instruction` (defaults to `knowledge`)
+
 **Categories:**
 - `user_preference` — Personal preferences
 - `knowledge` — Facts and information
 - `instruction` — Directives and rules
 
+**Deduplication:** When storing a fact, the system checks existing facts for cosine similarity. If a fact with similarity >= 0.92 already exists, it is **updated** instead of creating a duplicate. This keeps memory clean over time.
+
 ### recall
 
-Search memories for relevant information.
+Search memories for relevant information. Always available when memory is configured.
 
 ```
 "What programming languages have we discussed?"
 → Searches episodes and facts for programming language mentions
 ```
 
+**Input:**
+- `query` (string) — What to search for in memory
+- `type` (optional) — `all`, `episodes`, or `facts` (defaults to `all`)
+- `limit` (optional) — Maximum results, 1-20 (defaults to 5, minScore: 0.5)
+
+Returns chunks with relevance scores from both episodic and semantic memories.
+
 ### getMemory
 
-Fetch full content of a memory by ID. Use when `recall` returns a chunk and you need more context.
+Fetch the full content of a memory record by its ID. Always available when memory is configured. Use when `recall` returns a chunk and you need the complete context.
+
+**Input:**
+- `id` (string) — The parent ID from recall search results
+- `type` — `episode` or `fact`
 
 ### forget
 
-Delete a stored fact by ID. Useful for correcting outdated information.
+Delete a stored fact by its ID. Only available when semantic memory is enabled. Episodic memories cannot be deleted directly — they are cleaned up automatically when conversations are deleted.
 
 ```
 "Forget my preference for tabs over spaces"
 → Deletes the relevant fact
 ```
+
+**Input:**
+- `id` (string) — The parent ID of the fact to delete (from recall results)
+
+## Subagent memory opt-out
+
+By default, all subagents have access to memory tools. A subagent can opt out by setting `useMemory: false` in its `defineSubagent()` definition:
+
+```ts
+defineSubagent({
+  name: "web-search",
+  // ...
+  useMemory: false, // No memory tools for this subagent
+});
+```
+
+When `useMemory` is `false`, the memory tools (`remember`, `recall`, `getMemory`, `forget`) are filtered out of that subagent's tool set. This is useful for subagents that only fetch external data and should not store or recall memories.
 
 ## How search works
 

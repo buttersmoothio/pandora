@@ -34,10 +34,12 @@ interface DiscordConfig {
 
 // What formatting Discord supports
 const CAPABILITIES: ChannelCapabilities = {
-  markdown: true,
-  html: false,
-  maxLength: 2000,
-  supportedMedia: ["image", "file"],
+  supportsImages: true,
+  supportsFiles: true,
+  supportsRichText: true,
+  supportsButtons: false,
+  supportsStreaming: false,
+  maxMessageLength: 2000,
 };
 
 class DiscordChannel implements Channel {
@@ -128,13 +130,14 @@ Restart Pandora. Message your Discord bot!
 
 ```
 User sends message on platform
-         ↓
-Channel receives it
-         ↓
-Channel calls gateway.handleMessage(message, capabilities)
-         ↓
-Gateway processes with AI
-         ↓
+         |
+Channel receives it, builds a Message object
+         |
+Channel calls handler(message, capabilities)     -- non-streaming
+   or    streamingHandler(message, capabilities)  -- streaming
+         |
+Gateway: stores user message, loads history, runs agent
+         |
 Channel sends response back to user
 ```
 
@@ -155,18 +158,23 @@ interface Channel {
 
 ## Capabilities
 
-Tell the AI what formatting this platform supports:
+Tell the AI what formatting this platform supports. This matches the `ChannelCapabilities`
+interface from `@pandora/core`:
 
 ```typescript
-const CAPABILITIES: ChannelCapabilities = {
-  markdown: true,         // **bold**, *italic*, `code`
-  html: false,            // <b>, <i>, <code>
-  maxLength: 2000,        // Max message length
-  supportedMedia: ["image", "file"],  // What attachments work
+readonly capabilities: ChannelCapabilities = {
+  supportsImages: false,      // Can send/receive images
+  supportsFiles: false,       // Can send/receive files
+  supportsRichText: true,     // Supports rich text formatting (Markdown, HTML)
+  supportsButtons: false,     // Supports interactive buttons/keyboards
+  supportsStreaming: true,    // Can stream responses token-by-token
+  maxMessageLength: -1,       // Character limit per message (-1 = unlimited)
 };
 ```
 
-The AI uses this to format responses appropriately.
+The AI uses this to format responses appropriately. For example, if `supportsRichText`
+is `false`, the AI avoids Markdown formatting. If `maxMessageLength` is set, the
+AI keeps responses within that limit.
 
 ---
 
@@ -204,34 +212,74 @@ const message: Message = {
 
 ---
 
-## Streaming responses
+## Streaming vs non-streaming
 
-For platforms that support streaming (showing text as it arrives):
+The gateway provides two handler types. Channels get them from the gateway at construction time.
+
+### Non-streaming (e.g. Telegram)
+
+Use `gateway.getHandler()` which returns a function that processes the full message and returns
+the complete response text:
 
 ```typescript
-this.client.on("messageCreate", async (msg) => {
-  // ... validation ...
+class TelegramChannel implements Channel {
+  private messageHandler: MessageHandler;
 
-  const message: Message = { /* ... */ };
-
-  // Start typing
-  await msg.channel.sendTyping();
-
-  // Use streaming API
-  let fullText = "";
-
-  for await (const chunk of this.gateway.handleMessageStream(
-    message,
-    CAPABILITIES
-  )) {
-    fullText += chunk;
-    // Update message if platform supports editing
+  constructor(config: TelegramConfig, gateway: Gateway) {
+    this.messageHandler = gateway.getHandler();
   }
 
-  // Send final response
-  await msg.reply(fullText);
-});
+  // In your message listener:
+  private async handleMessage(ctx: Context, text: string) {
+    const message: Message = { /* ... */ };
+
+    // Returns the full response when done
+    const response = await this.messageHandler(message, this.capabilities);
+
+    await ctx.reply(response);
+  }
+}
 ```
+
+### Streaming (e.g. Web/WebSocket)
+
+Use `gateway.getStreamingHandlerWithEvents()` which returns an async generator that yields
+text deltas and accepts an `onEvent` callback for tool calls and other stream events:
+
+```typescript
+class WebChannel implements Channel {
+  private streamingHandlerWithEvents: (
+    message: Message,
+    capabilities: ChannelCapabilities,
+    onEvent?: (event: StreamEvent) => void
+  ) => AsyncGenerator<string, void>;
+
+  constructor(config: WebConfig, gateway: Gateway) {
+    this.streamingHandlerWithEvents = gateway.getStreamingHandlerWithEvents();
+  }
+
+  // In your WebSocket handler:
+  private async handleStream(ws: WebSocket, message: Message) {
+    const stream = this.streamingHandlerWithEvents(
+      message,
+      this.capabilities,
+      (event) => {
+        // Forward stream events (tool-call, tool-result, etc.) to client
+        ws.send(JSON.stringify(event));
+      }
+    );
+
+    for await (const delta of stream) {
+      ws.send(JSON.stringify({ type: "delta", text: delta }));
+    }
+
+    ws.send(JSON.stringify({ type: "done" }));
+  }
+}
+```
+
+There is also `gateway.getStreamingHandler()` which yields text deltas without the
+`onEvent` callback, for channels that want streaming text but do not need tool call events.
 
 ---
 
@@ -311,7 +359,14 @@ class CLIChannel implements Channel {
 
       const response = await this.gateway.handleMessage(
         message,
-        { markdown: true, html: false, maxLength: Infinity }
+        {
+          supportsImages: false,
+          supportsFiles: false,
+          supportsRichText: true,
+          supportsButtons: false,
+          supportsStreaming: false,
+          maxMessageLength: -1,
+        }
       );
 
       console.log(`\nPandora: ${response}\n`);

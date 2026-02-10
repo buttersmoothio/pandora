@@ -32,51 +32,39 @@ Go to `http://localhost:3001` and enter your token.
 - **Tool visibility** — See what tools the AI uses
 - **Chain-of-thought** — View AI reasoning (when supported)
 - **Cross-channel sync** — Watch Telegram chats update live
+- **Subagent threads** — See delegated tasks running in parallel
+- **Memory context** — View recalled memories for each prompt
+- **Source citations** — URL and document sources inline
 
 ---
 
-## API
+## Authentication
 
-The web channel exposes both HTTP REST and WebSocket APIs.
+**HTTP requests:** Include `Authorization: Bearer YOUR_TOKEN` in every request header.
 
-### WebSocket
+**WebSocket:** Pass the token as a query parameter when connecting:
 
-Connect to `ws://localhost:3000/ws?token=...`
-
-```json
-// Send a message
-{ "type": "message", "content": "Hello!", "conversationId": "my-chat" }
-
-// Receive streaming response
-{ "type": "delta", "text": "Hello" }
-{ "type": "delta", "text": "!" }
-{ "type": "done" }
+```
+ws://localhost:3000/ws?token=YOUR_TOKEN
 ```
 
-### HTTP REST
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/validate` | GET | Check if token is valid |
-| `/api/conversations` | GET | List all conversations |
-| `/api/conversations/:id/history` | GET | Get conversation messages |
-| `/api/conversations/:id` | DELETE | Delete a conversation |
-
-All requests need `Authorization: Bearer YOUR_TOKEN`.
+Requests with missing or invalid tokens receive a `401 Unauthorized` response.
 
 ---
 
-## Cross-channel streaming
+## API and Protocol
 
-The web UI can watch **any** conversation, including from Telegram:
+The web channel exposes HTTP REST endpoints and a WebSocket interface on the configured port (default 3000).
 
-```json
-// Subscribe to a conversation
-{ "type": "watch", "conversationId": "telegram-123456" }
+- **REST API** — CRUD for conversations, non-streaming message endpoint, token validation. See the [API Reference](/reference/api#rest-api) for all endpoints with request/response examples.
+- **WebSocket** — Streaming chat, cross-channel watching, conversation subscriptions. See the [WebSocket Protocol](/reference/websocket-protocol) for the full message type reference, JSON examples, and a session walkthrough.
 
-// Receive live events
-{ "type": "user-message", "content": "Hello from Telegram" }
-{ "type": "delta", "text": "Hi there!" }
-```
+---
 
-This lets you monitor all your conversations in one place.
+## Cross-Channel Streaming
+
+The web UI can watch **any** conversation, including from other channels like Telegram. When you open a conversation in the sidebar, the UI subscribes to its live events — you see text deltas, tool calls, and subagent threads in real time regardless of which channel originated the conversation.
+
+The sidebar uses a separate `watch-all` subscription to receive lightweight notifications when any conversation has new activity, so it can refresh counts and timestamps without polling.
+
+See the [WebSocket Protocol — Cross-Channel](/reference/websocket-protocol#cross-channel) section for message examples.

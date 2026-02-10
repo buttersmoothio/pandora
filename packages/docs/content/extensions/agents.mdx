@@ -73,10 +73,25 @@ export default defineSubagent({
   }),
 
   inputField: "text",        // Which field has the main content
+
+  // Optional fields:
+  getTools: (config) => ({}), // Override which tools this agent receives
+  useMemory: false,           // Opt out of memory tools (default: true)
 });
 ```
 
 The operator sees your agent as a tool it can call. When the user asks something that matches your `toolDescription`, the operator delegates.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `name` | Yes | Unique identifier, used in logging |
+| `configKey` | Yes | Key in `config.ai.agents` for model/temperature settings |
+| `instructions` | Yes | System prompt for this agent |
+| `toolDescription` | Yes | Controls when the operator decides to delegate to this agent |
+| `inputSchema` | Yes | Zod schema defining what input the operator passes |
+| `inputField` | No | Which schema field contains the main prompt (defaults to first field) |
+| `getTools` | No | Override tool set; can be async. Omit for all configured tools |
+| `useMemory` | No | Set to `false` to remove memory tools (default: `true`) |
 
 ---
 
@@ -129,7 +144,7 @@ instructions: `You review code.`,
 
 ## Giving agents tools
 
-By default, sub-agents have access to all configured tools. To customize:
+By default, sub-agents have access to all configured tools. Use `getTools` to customize.
 
 ### No tools (for search-enabled models)
 
@@ -157,6 +172,79 @@ export default defineSubagent({
   },
 });
 ```
+
+### Async getTools (dynamic tool loading)
+
+`getTools` can be async -- this is why `Agent.create()` is an async factory rather than
+a constructor. A real-world example is the `webSearchTool` subagent, which dynamically
+loads the configured search backend:
+
+```typescript
+import { z } from "zod";
+import type { Tool } from "ai";
+import {
+  defineSubagent,
+  type AIConfig,
+  getSearchTool,
+  validateSearchBackend,
+  getAvailableSearchBackends,
+} from "@pandora/core";
+
+function getConfiguredSearchTool(config: AIConfig): Record<string, Tool> {
+  const agentConfig = config.agents.webSearchTool as
+    | { model: string; searchBackend?: string }
+    | undefined;
+
+  const searchBackend = agentConfig?.searchBackend;
+  if (!searchBackend) return {};
+
+  const validationError = validateSearchBackend(searchBackend, config.tools ?? {});
+  if (validationError) return {};
+
+  const tool = getSearchTool(searchBackend, config.tools ?? {});
+  return tool ? { [searchBackend]: tool } : {};
+}
+
+export default defineSubagent({
+  name: "webSearchTool",
+  configKey: "webSearchTool",
+
+  instructions: "You are a web search specialist. Use the search tool to find current information.",
+
+  toolDescription:
+    "Search the web using an external search API (Tavily, Exa, Perplexity Search). " +
+    "Works with any model. Best for: detailed research, multiple searches, flexible backend choice.",
+
+  inputSchema: z.object({
+    query: z.string().describe("The search query or research question"),
+  }),
+
+  inputField: "query",
+
+  // Dynamically select the configured search backend
+  getTools: (config: AIConfig) => getConfiguredSearchTool(config),
+
+  // Search agents should not store/recall memories
+  useMemory: false,
+});
+```
+
+---
+
+## useMemory
+
+By default, all subagents have access to the memory tools (`remember`, `recall`, `getMemory`, `forget`).
+Set `useMemory: false` to remove them:
+
+```typescript
+export default defineSubagent({
+  name: "webSearchTool",
+  // ...
+  useMemory: false,  // No memory tools for this subagent
+});
+```
+
+This is useful for subagents that only fetch external data and should not store or recall memories.
 
 ---
 

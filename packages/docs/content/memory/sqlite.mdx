@@ -27,7 +27,8 @@ Embedding models convert text into vectors for semantic search. Supported models
 | `openai/text-embedding-3-small` | 1536 | Fast, good quality (default) |
 | `openai/text-embedding-3-large` | 3072 | Higher quality, slower |
 
-The gateway API key is used for embedding requests.
+The gateway API key is used for embedding requests. Embeddings are batch-generated
+via the AI SDK `embedMany()` function for efficiency.
 
 ## Full example
 
@@ -77,3 +78,172 @@ rm data/memory.db
 ```bash
 sqlite3 data/memory.db "SELECT COUNT(*) FROM memory_episodes; SELECT COUNT(*) FROM memory_facts;"
 ```
+
+---
+
+## Internals
+
+The sections below document the internal architecture of the SQLite memory provider.
+Source files: `packages/pandora/src/memory/sqlite.ts` and `memory/chunker.ts`.
+
+### Database schema
+
+The database runs in WAL mode with foreign keys enabled. Six tables make up the schema:
+
+```sql
+-- Episodic memory (interaction logs)
+CREATE TABLE memory_episodes (
+  id TEXT PRIMARY KEY,
+  content TEXT NOT NULL,
+  conversation_id TEXT,
+  channel_name TEXT,
+  user_id TEXT,
+  timestamp INTEGER NOT NULL,
+  importance REAL DEFAULT 0.5,
+  tags TEXT                       -- JSON array of strings
+);
+
+-- Semantic memory (facts / knowledge)
+CREATE TABLE memory_facts (
+  id TEXT PRIMARY KEY,
+  content TEXT NOT NULL,
+  category TEXT NOT NULL,         -- 'user_preference' | 'knowledge' | 'instruction'
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  source TEXT,
+  confidence REAL DEFAULT 1.0
+);
+
+-- Chunks with embeddings (for both episodes and facts)
+CREATE TABLE memory_chunks (
+  id TEXT PRIMARY KEY,
+  parent_id TEXT NOT NULL,        -- FK to episode or fact
+  parent_type TEXT NOT NULL       -- 'episode' | 'fact'
+    CHECK(parent_type IN ('episode', 'fact')),
+  content TEXT NOT NULL,
+  vector TEXT NOT NULL,           -- JSON array of floats
+  start_offset INTEGER NOT NULL,
+  end_offset INTEGER NOT NULL,
+  chunk_index INTEGER NOT NULL
+);
+
+-- FTS5 full-text search index (content-synced with memory_chunks)
+CREATE VIRTUAL TABLE memory_chunks_fts USING fts5(
+  content,
+  content='memory_chunks',
+  content_rowid='rowid'
+);
+
+-- sqlite-vec vector index for KNN search
+CREATE VIRTUAL TABLE vec_chunks USING vec0(
+  chunk_id TEXT PRIMARY KEY,
+  embedding float[1536]
+);
+```
+
+Triggers keep `memory_chunks_fts` automatically synchronized with `memory_chunks` on
+insert, update, and delete.
+
+**Indices:**
+
+| Index | Column(s) |
+|-------|-----------|
+| `idx_episodes_timestamp` | `memory_episodes.timestamp DESC` |
+| `idx_facts_category` | `memory_facts.category` |
+| `idx_chunks_parent` | `memory_chunks(parent_id, parent_type)` |
+
+### Chunking strategy
+
+Content is split into overlapping chunks before embedding. This happens in
+`memory/chunker.ts` using the tiktoken library with the `cl100k_base` encoding
+(GPT-4 / text-embedding-3 tokenizer).
+
+| Parameter | Value | Purpose |
+|-----------|-------|---------|
+| Target size | ~400 tokens | Optimal embedding window |
+| Overlap | 80 tokens | Context continuity between chunks |
+| Minimum size | 50 tokens | Avoids tiny trailing chunks (merged into previous) |
+
+**Splitting algorithm:**
+
+1. If the text fits within the target size (≤400 tokens), return it as a single chunk.
+2. Split text on sentence boundaries (`.`, `!`, `?` followed by whitespace) to keep chunks semantically coherent.
+3. Accumulate sentences until the running token count reaches the target.
+4. Emit a chunk, then start the next chunk with enough trailing sentences to provide ~80 tokens of overlap.
+5. If the final remaining text is below the minimum (50 tokens), merge it into the previous chunk instead of creating a tiny chunk.
+
+Each chunk carries position metadata (`startOffset`, `endOffset`, `chunkIndex`) so the
+original text location is recoverable.
+
+### Hybrid search algorithm
+
+Every search query runs two scoring passes and merges the results.
+
+**1. Vector search (70% weight)**
+
+Uses the `sqlite-vec` extension for KNN indexed lookup (O(log n) instead of brute-force O(n)).
+The query text is embedded, then matched against `vec_chunks` using L2 distance.
+L2 distance is converted to a 0-1 similarity score:
+
+```
+similarity = max(0, 1 - distance^2 / 2)
+```
+
+The KNN query is isolated in a CTE (per sqlite-vec documentation) so the `LIMIT`
+constraint is respected, then JOINed to `memory_chunks` to filter by `parent_type`.
+
+**2. BM25 keyword search (30% weight)**
+
+Uses the FTS5 `MATCH` operator with BM25 scoring on `memory_chunks_fts`.
+Query text is sanitized before matching: quotes and newlines are removed, words are
+extracted and stripped of leading/trailing punctuation, then joined with `OR` for
+flexible matching. Malformed queries that cause FTS5 errors are caught gracefully and
+return empty results.
+
+Raw BM25 scores are min-max normalized to a 0-1 range.
+
+**3. Score merging**
+
+```
+finalScore = 0.7 * vectorScore + 0.3 * bm25Score
+```
+
+Scores from both passes are merged across the union of all matching chunk IDs.
+Chunks missing from one pass receive a score of 0 for that component.
+Results below the `minScore` threshold (default 0.5) are discarded.
+
+### Fact deduplication
+
+When `upsertFact()` is called, the first chunk of the new fact is compared against the
+first chunks of all existing facts using cosine similarity.
+
+- **Threshold:** 0.92
+- If an existing fact has similarity >= 0.92, its content, category, source, and
+  confidence are updated in place and its chunks are re-embedded.
+- If no match is found, a new fact is created.
+
+This prevents near-duplicate facts from accumulating over time.
+
+### Episodic memory operations
+
+| Method | Description |
+|--------|-------------|
+| `addEpisode(episode)` | Inserts the episode record, chunks the content, batch embeds all chunks, stores chunks in `memory_chunks` + `vec_chunks` (FTS5 entries are auto-synced via triggers). |
+| `searchEpisodes(query, opts?)` | Runs hybrid search (vector + BM25). Supports optional `since` timestamp filter and `minScore` / `limit` options. |
+| `getEpisode(id)` | Fetches a single episode by ID. |
+| `deleteEpisode(id)` | Deletes the episode and all its chunks (from `memory_chunks`, `vec_chunks`, and FTS5). |
+| `deleteEpisodesForConversation(conversationId)` | Bulk-deletes all episodes for a conversation and their associated chunks. Returns the count of deleted episodes. |
+
+### Semantic memory operations
+
+| Method | Description |
+|--------|-------------|
+| `upsertFact(fact)` | Smart upsert with cosine-similarity deduplication (threshold 0.92). Chunks content, batch embeds, then either updates an existing fact or creates a new one. |
+| `searchFacts(query, opts?)` | Runs hybrid search (vector + BM25). Supports optional `category` filter and `minScore` / `limit` options. |
+| `getFact(id)` | Fetches a single fact by ID. |
+| `deleteFact(id)` | Deletes the fact and all its chunks. |
+
+### Unified search
+
+The top-level `search(query, opts?)` method runs `searchEpisodes` and `searchFacts`
+in parallel (via `Promise.all`) and returns combined results as `{ episodes, facts }`.

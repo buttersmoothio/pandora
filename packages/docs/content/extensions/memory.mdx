@@ -305,32 +305,65 @@ Restart Pandora. Memory is now stored in Postgres with pgvector.
 
 ## The IMemoryProvider interface
 
-Your memory backend must implement:
+Your memory backend must implement `IMemoryProvider`. It has two sub-capabilities
+(`episodic` and `semantic`) as properties, plus a unified `search()` method that
+queries both:
 
 ```typescript
 interface IMemoryProvider {
+  /** Episodic memory capability (null if not supported) */
   readonly episodic: IEpisodicMemory | null;
+  /** Semantic memory capability (null if not supported) */
   readonly semantic: ISemanticMemory | null;
 
-  search(query: string, opts?: { limit?: number; minScore?: number }): Promise<MemorySearchResults>;
+  /** Search both memory types and return combined results */
+  search(
+    query: string,
+    opts?: { limit?: number; minScore?: number }
+  ): Promise<MemorySearchResults>;
+
+  /** Close the provider (release resources) */
   close(): Promise<void>;
 }
 ```
 
-You can implement just one memory type by setting the other to `null`.
+You can implement just one memory type by setting the other to `null`. The `search()`
+method should query whichever capabilities are available and return combined results:
+
+```typescript
+interface MemorySearchResults {
+  /** Matching chunks from episodic memory */
+  episodes: MemoryChunk[];
+  /** Matching chunks from semantic memory */
+  facts: MemoryChunk[];
+}
+```
 
 ---
 
 ## IEpisodicMemory interface
 
-Automatic interaction logging:
+Automatic interaction logging. The gateway calls `addEpisode()` after each turn, and
+the memory tools call `searchEpisodes()` when the agent uses `recall`:
 
 ```typescript
 interface IEpisodicMemory {
+  /** Add an episode (gateway calls this automatically after each turn) */
   addEpisode(episode: Omit<Episode, "id">): Promise<string>;
-  searchEpisodes(query: string, opts?: SearchOptions): Promise<MemoryChunk[]>;
+
+  /** Search episodes by semantic similarity (returns matching chunks) */
+  searchEpisodes(
+    query: string,
+    opts?: { limit?: number; minScore?: number; since?: number }
+  ): Promise<MemoryChunk[]>;
+
+  /** Get a specific episode by ID */
   getEpisode(id: string): Promise<Episode | null>;
+
+  /** Delete a specific episode */
   deleteEpisode(id: string): Promise<void>;
+
+  /** Delete all episodes for a conversation (called when conversation is deleted) */
   deleteEpisodesForConversation(conversationId: string): Promise<number>;
 }
 ```
@@ -338,30 +371,41 @@ interface IEpisodicMemory {
 | Method | Description |
 |--------|-------------|
 | `addEpisode` | Store an interaction (gateway calls this automatically) |
-| `searchEpisodes` | Find relevant past interactions |
+| `searchEpisodes` | Find relevant past interactions by semantic similarity. Supports `since` for time-based filtering |
 | `getEpisode` | Get full episode by ID |
 | `deleteEpisode` | Delete a specific episode |
-| `deleteEpisodesForConversation` | Clean up when conversation is deleted |
+| `deleteEpisodesForConversation` | Clean up when conversation is deleted. Returns count of deleted episodes |
 
 ---
 
 ## ISemanticMemory interface
 
-Agent-controlled facts and knowledge:
+Agent-controlled facts and knowledge. The agent uses memory tools (`remember`, `recall`,
+`getMemory`, `forget`) to manage facts:
 
 ```typescript
 interface ISemanticMemory {
+  /** Create or update a fact (deduplicates by similarity) */
   upsertFact(fact: Omit<Fact, "id" | "createdAt" | "updatedAt">): Promise<string>;
-  searchFacts(query: string, opts?: SearchOptions): Promise<MemoryChunk[]>;
-  getFact(id: string): Promise<Fact | null>;
+
+  /** Search facts by semantic similarity (returns matching chunks) */
+  searchFacts(
+    query: string,
+    opts?: { limit?: number; minScore?: number; category?: string }
+  ): Promise<MemoryChunk[]>;
+
+  /** Delete a specific fact */
   deleteFact(id: string): Promise<void>;
+
+  /** Get a fact by ID */
+  getFact(id: string): Promise<Fact | null>;
 }
 ```
 
 | Method | Description |
 |--------|-------------|
 | `upsertFact` | Create or update a fact (dedupe by similarity) |
-| `searchFacts` | Find relevant facts |
+| `searchFacts` | Find relevant facts. Supports `category` filter (e.g. `"user_preference"`, `"knowledge"`) |
 | `getFact` | Get full fact by ID |
 | `deleteFact` | Delete a fact |
 

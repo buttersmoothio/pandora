@@ -253,6 +253,80 @@ export default defineTool({
 
 ---
 
+## Search tool dual-registration
+
+Some tools serve double duty: they work as standalone tools _and_ as search backends
+for the `webSearchTool` subagent. This uses the dual-registration pattern.
+
+Here is how `tavily-search.ts` works in practice:
+
+```typescript
+import { tavilySearch } from "@tavily/ai-sdk";
+import { defineTool, defineSearchTool, type ToolConfig } from "@pandora/core";
+
+// Register as a regular tool (available to all agents)
+export default defineTool({
+  name: "tavilySearch",
+  factory: (config?: ToolConfig) => {
+    const apiKey = config?.apiKey as string | undefined;
+    if (!apiKey) {
+      throw new Error("tavilySearch tool requires 'apiKey' in config");
+    }
+
+    return {
+      name: "tavilySearch",
+      tool: tavilySearch({ apiKey }),
+    };
+  },
+});
+
+// ALSO register as a search backend (for webSearchTool subagent)
+defineSearchTool({
+  name: "tavilySearch",
+  description: "Tavily AI-powered web search with high-quality results",
+  factory: (config?: ToolConfig) => {
+    const apiKey = config?.apiKey as string | undefined;
+    if (!apiKey) {
+      throw new Error("tavilySearch requires 'apiKey' in config");
+    }
+    return tavilySearch({ apiKey });
+  },
+});
+```
+
+The `defineSearchTool()` registration lets the `webSearchTool` subagent find and use
+this tool as its search backend. The subagent's config specifies which backend to use:
+
+```jsonc
+"agents": {
+  "webSearchTool": {
+    "model": "anthropic/claude-sonnet-4.5",
+    "searchBackend": "tavilySearch"  // Picks from registered search tools
+  }
+},
+"tools": {
+  "tavilySearch": { "apiKey": "tvly-..." }
+}
+```
+
+### The factory pattern
+
+Every tool's `factory` function receives its config object from `config.ai.tools[name]`.
+For example, if your config has:
+
+```jsonc
+"tools": {
+  "weather": { "apiKey": "abc123", "units": "metric" }
+}
+```
+
+Then `factory(config)` receives `{ "apiKey": "abc123", "units": "metric" }`.
+
+This lets tools read API keys, toggle features, or accept any configuration
+without changing the framework.
+
+---
+
 ## Tips
 
 - **Keep tools focused** — One tool, one purpose
@@ -260,3 +334,4 @@ export default defineTool({
 - **Validate inputs** — Zod schemas catch bad input early
 - **Handle errors** — Throw meaningful error messages
 - **Test incrementally** — Add one tool at a time
+- **Dual-register search tools** — Use both `defineTool()` and `defineSearchTool()` if your tool is a search backend

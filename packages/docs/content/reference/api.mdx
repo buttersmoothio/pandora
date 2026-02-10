@@ -1,0 +1,578 @@
+# API Reference
+
+Complete reference for Pandora's programmatic Gateway API, the Agent class, and the REST/WebSocket endpoints served by the web channel.
+
+---
+
+## Gateway
+
+The Gateway is the central router in Pandora. It connects channels, the agent, the store, and memory. All message processing flows through it.
+
+Defined in `packages/core/src/gateway.ts`, exported from `@pandora/core`.
+
+### Constructor
+
+```typescript
+new Gateway(store: IMessageStore, agent: Agent, memory?: IMemoryProvider | null)
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `store` | `IMessageStore` | Message store for conversation history |
+| `agent` | `Agent` | AI agent for generating responses |
+| `memory` | `IMemoryProvider \| null` | Optional memory provider for auto-recall and auto-episode |
+
+### Methods
+
+#### `handleMessage`
+
+```typescript
+handleMessage(message: Message, capabilities: ChannelCapabilities): Promise<string>
+```
+
+Non-streaming message processing. Stores the user message, loads history, calls the agent, stores the response, and returns the full text. Internally delegates to `handleMessageStream` and collects the result.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `message` | `Message` | Incoming message from a channel |
+| `capabilities` | `ChannelCapabilities` | Channel capabilities passed to the agent |
+
+**Returns:** The complete assistant response text.
+
+---
+
+#### `handleMessageStream`
+
+```typescript
+handleMessageStream(
+  message: Message,
+  capabilities: ChannelCapabilities,
+  onEvent?: (event: StreamEvent) => void
+): AsyncGenerator<string, void>
+```
+
+Streaming message processing. Yields text deltas as they arrive. The optional `onEvent` callback receives `StreamEvent` objects for tool calls, sources, reasoning, memory context, subagent lifecycle events, and more.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `message` | `Message` | Incoming message from a channel |
+| `capabilities` | `ChannelCapabilities` | Channel capabilities passed to the agent |
+| `onEvent` | `(event: StreamEvent) => void` | Optional callback for stream events |
+
+**Returns:** An async generator yielding text delta strings.
+
+**Behavior:**
+- Acquires a per-conversation lock (5-minute timeout) to prevent message interleaving
+- Stores the user message and creates an assistant message shell before streaming begins
+- Auto-recalls memory before the agent prompt (limit: 10, minScore: 0.35, top 5 facts + 5 episodes after deduplication)
+- Persists all parts incrementally as they stream in (text, tool calls, reasoning, sources, files)
+- Manages subagent thread setup and persistence via `SubagentContext`
+- Auto-creates an episodic memory entry after the response completes (fire-and-forget)
+- Emits `GatewayEvent`s to all subscribers for cross-channel streaming
+
+---
+
+#### `subscribe`
+
+```typescript
+subscribe(conversationId: string, listener: GatewayListener): () => void
+```
+
+Subscribe to real-time events for a specific conversation. Returns an unsubscribe function.
+
+```typescript
+type GatewayListener = (event: GatewayEvent) => void;
+```
+
+```typescript
+const unsubscribe = gateway.subscribe("conv-123", (event) => {
+  console.log(event.type, event);
+});
+
+// Later:
+unsubscribe();
+```
+
+---
+
+#### `subscribeAll`
+
+```typescript
+subscribeAll(listener: GatewayListener): () => void
+```
+
+Subscribe to events for ALL conversations. Returns an unsubscribe function. Used by the web UI for sidebar updates (conversation activity indicators).
+
+---
+
+#### `getActiveStreamState`
+
+```typescript
+getActiveStreamState(conversationId: string): ActiveStreamState | undefined
+```
+
+Get the current state of an active stream. Used by late-joining subscribers to catch up on an in-progress response. Returns `undefined` if no stream is active for the conversation.
+
+---
+
+#### `clearConversation`
+
+```typescript
+clearConversation(conversationId: string): Promise<void>
+```
+
+Clear all messages in a conversation. Emits a `cleared` event to subscribers.
+
+---
+
+#### `deleteConversation`
+
+```typescript
+deleteConversation(conversationId: string): Promise<void>
+```
+
+Delete a conversation and all its messages. Also deletes associated episodic memories if a memory provider is configured.
+
+---
+
+#### `listConversations`
+
+```typescript
+listConversations(channelName?: string): Promise<ConversationInfo[]>
+```
+
+List all conversations, optionally filtered by channel name. Results are ordered by most recently updated.
+
+---
+
+#### `getConversationHistory`
+
+```typescript
+getConversationHistory(conversationId: string): Promise<UIMessage[]>
+```
+
+Get the full message history for a conversation. Returns AI SDK `UIMessage` objects with parts (text, tool calls, reasoning, sources, etc.).
+
+---
+
+#### `getChildThreads`
+
+```typescript
+getChildThreads(conversationId: string): Promise<ConversationInfo[]>
+```
+
+Get subagent thread conversations that are children of a parent conversation.
+
+---
+
+#### `getHandler`
+
+```typescript
+getHandler(): MessageHandler
+```
+
+Get a non-streaming message handler function for channels. Returns a function with signature `(message, capabilities) => Promise<string>`.
+
+---
+
+#### `getStreamingHandler`
+
+```typescript
+getStreamingHandler(): (message: Message, capabilities: ChannelCapabilities) => AsyncGenerator<string, void>
+```
+
+Get a streaming message handler that yields text deltas.
+
+---
+
+#### `getStreamingHandlerWithEvents`
+
+```typescript
+getStreamingHandlerWithEvents(): (
+  message: Message,
+  capabilities: ChannelCapabilities,
+  onEvent?: (event: StreamEvent) => void
+) => AsyncGenerator<string, void>
+```
+
+Get a streaming handler that also accepts an `onEvent` callback for tool calls, sources, and other stream events.
+
+### Types
+
+#### `ActiveStreamState`
+
+State of an active stream, used by late-joining subscribers to catch up.
+
+```typescript
+interface ActiveStreamState {
+  conversationId: string;
+  channelName: string;
+  userContent: string;
+  partialText: string;
+  toolCalls: Array<{
+    toolCallId: string;
+    toolName: string;
+    args: unknown;
+    result?: unknown;
+  }>;
+  sources: Array<{
+    sourceType: string;
+    id: string;
+    url?: string;
+    title?: string;
+  }>;
+  reasoning: string;
+  threads: Record<string, ActiveThreadState>;
+  memoryContext?: {
+    facts: Array<{ content: string; category?: string; score: number }>;
+    episodes: Array<{ content: string; timestamp?: number; score: number }>;
+  };
+}
+```
+
+#### `ActiveThreadState`
+
+State of an active subagent thread within a stream.
+
+```typescript
+interface ActiveThreadState {
+  threadId: string;
+  toolCallId: string;
+  subagentName: string;
+  partialText: string;
+  status: "streaming" | "done";
+}
+```
+
+#### `ConversationInfo`
+
+Summary information about a stored conversation.
+
+```typescript
+interface ConversationInfo {
+  id: string;
+  channelName: string | null;
+  createdAt: number;       // Unix epoch seconds
+  updatedAt: number;       // Unix epoch seconds
+  preview: string;         // First user message, truncated
+  messageCount: number;
+  type?: "root" | "subagent";
+  parentConversationId?: string;
+  parentToolCallId?: string;
+  subagentName?: string;
+}
+```
+
+---
+
+## Agent
+
+The Agent class uses an operator/subagent architecture. The operator model handles general conversation and delegates specialized tasks to subagents via tools.
+
+Defined in `packages/core/src/agent.ts`, exported from `@pandora/core`.
+
+### `Agent.create`
+
+```typescript
+static async create(config: AIConfig): Promise<Agent>
+```
+
+Async factory method. Resolves async tool providers, builds subagent tool factories, and returns an initialized Agent. The constructor is private -- always use `Agent.create()`.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `config` | `AIConfig` | AI configuration (gateway, agents, tools) |
+
+---
+
+### `agent.chat`
+
+```typescript
+chat(
+  history: UIMessage[],
+  capabilities: ChannelCapabilities,
+  subagentCtx?: SubagentContext,
+  memoryContext?: string
+): Promise<string>
+```
+
+Non-streaming response generation. Internally delegates to `chatStream` and collects the full result.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `history` | `UIMessage[]` | Conversation history (AI SDK UIMessage with parts) |
+| `capabilities` | `ChannelCapabilities` | Channel capabilities (formatting, max length) |
+| `subagentCtx` | `SubagentContext` | Optional subagent context for thread management |
+| `memoryContext` | `string` | Optional recalled memories to inject into system prompt |
+
+**Returns:** The complete assistant response text.
+
+---
+
+### `agent.chatStream`
+
+```typescript
+chatStream(
+  history: UIMessage[],
+  capabilities: ChannelCapabilities,
+  onEvent?: (event: StreamEvent) => void,
+  subagentCtx?: SubagentContext,
+  memoryContext?: string
+): AsyncGenerator<string, string>
+```
+
+Streaming response generation. Yields text deltas as they arrive, returns the full collected text when done. Emits `StreamEvent` objects via the `onEvent` callback for tool calls, tool results, sources, reasoning, step lifecycle, and file outputs.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `history` | `UIMessage[]` | Conversation history |
+| `capabilities` | `ChannelCapabilities` | Channel capabilities |
+| `onEvent` | `(event: StreamEvent) => void` | Optional callback for stream events |
+| `subagentCtx` | `SubagentContext` | Optional subagent context |
+| `memoryContext` | `string` | Optional recalled memories |
+
+**Returns:** An async generator yielding text deltas. The generator's return value is the complete response text.
+
+**Stream events emitted:**
+
+| Event type | Description |
+|------------|-------------|
+| `text-delta` | Text chunk from the model |
+| `tool-call` | Model invoked a tool (includes `toolCallId`, `toolName`, `args`) |
+| `tool-result` | Tool returned a result (includes `toolCallId`, `result`, optional `threadId`) |
+| `source-url` | URL citation from the model |
+| `source-document` | Document citation from the model |
+| `reasoning-delta` | Chain-of-thought text delta |
+| `step-start` | Agent step began |
+| `step-finish` | Agent step completed (includes `usage`, `finishReason`) |
+| `file` | Generated file (includes `mediaType`, base64 data URL) |
+
+---
+
+### `agent.addActionTools`
+
+```typescript
+addActionTools(tools: Record<string, Tool>): void
+```
+
+Add tools to the agent's action tool set after creation. Used to inject memory tools once the memory provider is initialized.
+
+---
+
+## REST API
+
+The web channel serves HTTP REST endpoints on the configured port (default 3000). All endpoints require authentication via `Authorization: Bearer TOKEN` header.
+
+### Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/validate` | `GET` | Token validation |
+| `/api/conversations` | `GET` | List all conversations |
+| `/api/conversations/:id/history` | `GET` | Get conversation messages |
+| `/api/conversations/:id/threads` | `GET` | Get subagent threads for a conversation |
+| `/api/conversations/:id` | `DELETE` | Delete a conversation |
+| `/api/message` | `POST` | Non-streaming message (request/response) |
+| `/api/clear` | `POST` | Clear conversation history |
+
+### `GET /api/validate`
+
+Validate a bearer token.
+
+**Response:**
+```json
+{ "valid": true }
+```
+
+On failure (401):
+```json
+{ "valid": false }
+```
+
+---
+
+### `GET /api/conversations`
+
+List all conversations across all channels, ordered by most recently updated.
+
+**Response:**
+```json
+{
+  "conversations": [
+    {
+      "id": "web-1234567890",
+      "channelName": "web",
+      "createdAt": 1700000000,
+      "updatedAt": 1700001000,
+      "preview": "Hello, how are you?",
+      "messageCount": 4,
+      "type": "root"
+    }
+  ]
+}
+```
+
+---
+
+### `GET /api/conversations/:id/history`
+
+Get the full message history for a conversation. Messages are AI SDK `UIMessage` objects with parts.
+
+**Response:**
+```json
+{
+  "messages": [
+    {
+      "id": "msg-abc",
+      "role": "user",
+      "parts": [{ "type": "text", "text": "Hello", "state": "done" }]
+    },
+    {
+      "id": "msg-def",
+      "role": "assistant",
+      "parts": [{ "type": "text", "text": "Hi! How can I help?", "state": "done" }]
+    }
+  ]
+}
+```
+
+---
+
+### `GET /api/conversations/:id/threads`
+
+Get subagent thread conversations that are children of the specified conversation.
+
+**Response:**
+```json
+{
+  "threads": [
+    {
+      "id": "thread-xyz",
+      "channelName": "web",
+      "createdAt": 1700000500,
+      "updatedAt": 1700000600,
+      "preview": "Write a sorting function...",
+      "messageCount": 2,
+      "type": "subagent",
+      "parentConversationId": "web-1234567890",
+      "parentToolCallId": "call-abc",
+      "subagentName": "coder"
+    }
+  ]
+}
+```
+
+---
+
+### `DELETE /api/conversations/:id`
+
+Delete a conversation and all its messages. Also deletes associated episodic memories.
+
+**Response:**
+```json
+{ "ok": true }
+```
+
+---
+
+### `POST /api/message`
+
+Send a message and receive a complete (non-streaming) response.
+
+**Request body:**
+```json
+{
+  "content": "What is the weather today?",
+  "conversationId": "web-my-conversation"
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `content` | `string` | Yes | Message text |
+| `conversationId` | `string` | No | Conversation ID (auto-generated if omitted) |
+
+**Response:**
+```json
+{ "response": "I don't have access to weather data..." }
+```
+
+**Errors:**
+- `400` -- Missing `content` field
+- `500` -- Internal processing error
+
+---
+
+### `POST /api/clear`
+
+Clear all messages in a conversation.
+
+**Request body:**
+```json
+{
+  "conversationId": "web-my-conversation"
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `conversationId` | `string` | No | Defaults to `"web-default"` |
+
+**Response:**
+```json
+{ "ok": true }
+```
+
+---
+
+## WebSocket Protocol
+
+The web channel exposes a WebSocket endpoint for streaming chat at:
+
+```
+ws://localhost:3000/ws?token=YOUR_TOKEN
+```
+
+Authentication is via the `token` query parameter. See the [WebSocket Protocol](/reference/websocket-protocol) page for the full message type reference.
+
+### Client message types
+
+| Type | Fields | Description |
+|------|--------|-------------|
+| `message` | `content`, `conversationId` | Send a chat message (streams response back) |
+| `clear` | `conversationId` | Clear conversation history |
+| `watch` | `conversationId` | Subscribe to live events for a conversation |
+| `unwatch` | `conversationId` | Unsubscribe from conversation events |
+| `watch-all` | -- | Subscribe to activity across all conversations |
+| `unwatch-all` | -- | Unsubscribe from all-conversation activity |
+
+### Server message types
+
+| Type | Description |
+|------|-------------|
+| `text-delta` | Text chunk from the model |
+| `tool-call` | Tool invocation (includes `toolCallId`, `toolName`, `args`) |
+| `tool-result` | Tool result (includes `toolCallId`, `result`) |
+| `source-url` | URL citation |
+| `reasoning-delta` | Chain-of-thought text |
+| `memory-context` | Recalled memories for this prompt |
+| `subagent-start` | Subagent thread started |
+| `subagent-done` | Subagent thread finished |
+| `step-finish` | Agent step completed (includes `usage`) |
+| `done` | Response complete |
+| `error` | Error message |
+| `cleared` | Conversation was cleared |
+| `stream-state` | Active stream state (sent on `watch` if stream is in progress) |
+| `conversation-update` | Sidebar notification (sent to `watch-all` subscribers) |
+
+### CORS
+
+All HTTP endpoints include permissive CORS headers:
+
+```
+Access-Control-Allow-Origin: *
+Access-Control-Allow-Methods: GET, POST, DELETE, OPTIONS
+Access-Control-Allow-Headers: Content-Type, Authorization
+```
+
+Preflight `OPTIONS` requests return `204 No Content` with CORS headers.

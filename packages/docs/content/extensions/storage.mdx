@@ -106,51 +106,133 @@ Restart Pandora. Conversations are now stored in Postgres.
 
 ## The IMessageStore interface
 
-Your storage backend must implement:
+Your storage backend must implement the full `IMessageStore` interface. It covers basic
+message operations, streaming persistence, conversation management, and subagent threads:
 
 ```typescript
 interface IMessageStore {
-  addMessage(conversationId: string, message: ChatMessage): Promise<void>;
-  getHistory(conversationId: string): Promise<ChatMessage[]>;
+  // === Message Management ===
+
+  /** Add a complete message (non-streaming, or already complete). Returns message ID. */
+  addMessage(
+    conversationId: string,
+    message: Omit<UIMessage, "id">,
+    meta?: MessageMeta
+  ): Promise<string>;
+
+  /** Get full conversation history */
+  getHistory(conversationId: string): Promise<UIMessage[]>;
+
+  /** Clear all messages in a conversation */
   clearHistory(conversationId: string): Promise<void>;
+
+  // === Streaming Persistence ===
+
+  /** Create a message shell before streaming begins. Returns message ID. */
+  createMessage(
+    conversationId: string,
+    role: "user" | "assistant",
+    meta?: MessageMeta
+  ): Promise<string>;
+
+  /** Append a part to an existing message (text, tool-call, etc.) */
+  appendPart(messageId: string, part: PandoraMessagePart): Promise<void>;
+
+  /** Update the last text part with accumulated text (during streaming) */
+  updateTextPart(messageId: string, text: string): Promise<void>;
+
+  /** Update a tool part with its result */
+  updateToolResult(
+    messageId: string,
+    toolCallId: string,
+    result: unknown
+  ): Promise<void>;
+
+  /** Finalize a message (mark text part as done) */
+  finalizeMessage(messageId: string): Promise<void>;
+
+  /** Accumulate token usage for a message (called on each step-finish) */
+  accumulateUsage(
+    messageId: string,
+    usage: { inputTokens?: number; outputTokens?: number; totalTokens?: number }
+  ): Promise<void>;
+
+  // === Conversation Management ===
+
+  /** List conversations, optionally filtered by channel. Ordered by most recently updated. */
+  listConversations(channelName?: string): Promise<ConversationInfo[]>;
+
+  /** Delete a conversation and all its messages */
+  deleteConversation(conversationId: string): Promise<void>;
+
+  /** Gracefully close the store (flush writes, release connections) */
   close(): Promise<void>;
+
+  // === Subagent Thread Management ===
+
+  /** Create a child conversation for a subagent execution. Returns conversation ID. */
+  createSubagentConversation(
+    parentId: string,
+    toolCallId: string,
+    subagentName: string,
+    meta?: MessageMeta
+  ): Promise<string>;
+
+  /** Link a tool call to its spawned thread (updates tool part with threadId) */
+  linkToolToThread(
+    messageId: string,
+    toolCallId: string,
+    threadId: string
+  ): Promise<void>;
+
+  /** Get child threads (subagent conversations) for a parent conversation */
+  getChildThreads(conversationId: string): Promise<ConversationInfo[]>;
 }
 ```
 
-| Method | Description |
-|--------|-------------|
-| `addMessage` | Save a new message |
-| `getHistory` | Get all messages for a conversation |
-| `clearHistory` | Delete all messages for a conversation |
-| `close` | Clean up connections on shutdown |
+### Method groups
+
+| Group | Methods | Purpose |
+|-------|---------|---------|
+| **Basic** | `addMessage`, `getHistory`, `clearHistory` | Standard message CRUD |
+| **Streaming** | `createMessage`, `appendPart`, `updateTextPart`, `updateToolResult`, `finalizeMessage`, `accumulateUsage` | Incremental persistence as tokens stream in |
+| **Conversations** | `listConversations`, `deleteConversation`, `close` | Conversation lifecycle |
+| **Subagent threads** | `createSubagentConversation`, `linkToolToThread`, `getChildThreads` | Child conversations for delegated agents |
+
+The streaming methods are the core of how Pandora persists messages. The gateway calls
+`createMessage()` to create a shell, then `appendPart()` and `updateTextPart()` as tokens
+arrive, and finally `finalizeMessage()` when the stream is complete.
 
 ---
 
-## ChatMessage format
+## Message format
 
-Messages have this structure:
+Pandora uses the AI SDK's `UIMessage` type (aliased as `PandoraMessage`). Messages are parts-based,
+supporting text, tool calls, reasoning, sources, and more:
 
 ```typescript
-interface ChatMessage {
+// UIMessage from AI SDK
+interface UIMessage {
+  id: string;
   role: "user" | "assistant" | "system";
-  content: string | ContentPart[];  // Can be text or multimodal
+  parts: MessagePart[];  // Text, tool calls, reasoning, sources, files, etc.
+  // ... other fields
 }
 ```
 
-For simple text, `content` is a string. For messages with images or structured content, it's an array.
-
-Store `content` as JSON to handle both cases:
+Store message parts as JSON to handle all part types:
 
 ```typescript
 // Storing
 await db.insert({
-  content: JSON.stringify(message.content),
+  parts: JSON.stringify(message.parts),
 });
 
 // Reading
 return {
+  id: row.id,
   role: row.role,
-  content: JSON.parse(row.content),
+  parts: JSON.parse(row.parts),
 };
 ```
 

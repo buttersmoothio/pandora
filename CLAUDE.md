@@ -22,81 +22,46 @@ bun run --filter @pandora/web dev      # Web UI only (port 3001)
 bun run --filter @pandora/docs dev     # Docs only (port 8080)
 ```
 
-## Where Things Live
+## Documentation
 
-### Core (`packages/core/src/`)
-- `types.ts` — Message, ChatMessage, Channel, ChannelCapabilities, StreamEvent, GatewayEvent
-- `agent.ts` — Agent with `chat()` and `chatStream(history, capabilities, onEvent?)`
-- `gateway.ts` — Routes messages between channels, store, and agent; pub/sub for cross-channel streaming
-- `registries/` — Extension registries (channels, subagents, tools, store, search-tools)
-- `config.ts` — Zod schema + JSONC loader
-- `loader.ts` — Auto-discovery via Bun Glob
+The docs (`packages/docs/content/`) are the single source of truth. Read the relevant doc before modifying code in that area.
 
-### App (`packages/pandora/src/`)
-- `index.ts` — Entry point: loads extensions, wires up components, starts channels
-- `channels/telegram/` — Telegram channel (reference for non-streaming channels)
-- `channels/web/` — Web channel: HTTP API + WebSocket streaming + REST endpoints
-- `subagents/` — Specialized sub-agents (one file each, self-register via `defineSubagent()`)
-- `tools/` — Tool implementations (one file each, self-register via `defineTool()`)
-- `store/sqlite.ts` — SQLite store (default, WAL mode, `bun:sqlite`)
-- `store/memory.ts` — In-memory store (dev/testing)
-
-### Web UI (`packages/web/`)
-- `app/chat.tsx` — Main chat component (token validation, sidebar, tool rendering)
-- `hooks/use-pandora-chat.ts` — WebSocket hook (streaming, tool call events, conversation scoping)
-- `hooks/use-conversations.ts` — REST hook for conversation CRUD
-- `components/ai-elements/` — AI Elements components (install via `bunx ai-elements@latest add <name>`)
-- `components/ui/` — shadcn/ui components (install via `bunx shadcn@latest add <name>`)
-
-### Config
-- `config.jsonc` — Runtime config at monorepo root (gitignored, contains secrets)
-- `config.schema.jsonc` — JSON Schema for IDE autocompletion
-- `config.example.jsonc` — Template for new setups
-
-## Extension System
-
-Extensions self-register at import time. Auto-discovered by file scanning in `packages/pandora/src/`.
-
-| Type | Location | Register with |
-|------|----------|---------------|
-| Channel | `channels/*/index.ts` | `defineChannel()` |
-| Subagent | `subagents/*.ts` | `defineSubagent()` |
-| Tool | `tools/*.ts` | `defineTool()` |
-| Store | `store/*.ts` | `defineStore()` |
-
-Files starting with `_` are skipped. To add a new extension: create the file, call the matching `define*()`, add config schema if needed.
-
-## Message Flow
-
-Channel → Gateway → Agent → Gateway → Channel
-
-- **Streaming** (web): `chatStream()` yields text deltas + `onEvent` callback for tool-call/tool-result events
-- **Non-streaming** (telegram): `handleMessage()` delegates to streaming internally
-- **Cross-channel**: Gateway pub/sub emits events for all conversations; web UI subscribes via `watch`/`unwatch`
-
-## Web Channel Protocol
-
-Backend serves HTTP REST + WebSocket on port 3000:
-- `GET /api/validate` — token validation
-- `GET /api/conversations` — list all conversations (all channels)
-- `GET /api/conversations/:id/history` — conversation messages
-- `DELETE /api/conversations/:id` — delete conversation
-- `WS /ws?token=...` — streaming chat (messages include `conversationId`)
-
-WebSocket message types: `message`, `clear`, `watch`, `unwatch`, `delta`, `done`, `tool-call`, `tool-result`, `user-message`, `error`
-
-The `watch`/`unwatch` messages subscribe to Gateway events for cross-channel streaming. When watching a conversation, the client receives live `delta`, `tool-call`, `tool-result`, `user-message`, and `done` events from any channel processing that conversation.
-
-## Tech Stack
-
-- **Runtime:** Bun
-- **AI SDK:** Vercel AI SDK v6 (`ai`) — `ToolLoopAgent`, `tool()`, `streamText`
-- **Models:** Vercel AI Gateway (`@ai-sdk/gateway`)
-- **Web UI:** Next.js 15, shadcn/ui, AI Elements
-- **Storage:** SQLite (default) or Memory
+| Topic | Doc path |
+|-------|----------|
+| Architecture & message flow | `reference/architecture.mdx` |
+| Gateway & Agent API | `reference/api.mdx` |
+| REST endpoints | `reference/api.mdx` (REST API section) |
+| WebSocket protocol | `reference/websocket-protocol.mdx` |
+| Types (Message, StreamEvent, etc.) | `reference/types.mdx` |
+| Configuration fields | `reference/configuration.mdx` |
+| Configuration guide | `configuration.mdx` |
+| Extension system (channels, tools, subagents, store, memory) | `extensions/*.mdx` |
+| Web channel setup | `channels/web.mdx` |
+| Telegram channel setup | `channels/telegram.mdx` |
+| Agents (operator, coder, web search) | `agents/*.mdx` |
+| Tools (datetime, search APIs) | `tools/*.mdx` |
+| Storage backends | `storage/*.mdx` |
+| Memory system | `memory/*.mdx` |
+| Security | `reference/security.mdx` |
 
 ## Style
 
 - TypeScript strict mode, semicolons
 - JSDoc on public APIs (concise). `/** One-liner */` for simple fields
 - Use Telegram channel as reference pattern for new channels
+
+## Post-Change Checklist
+
+After every code change, update the relevant docs:
+
+- [ ] Types changed → `reference/types.mdx`
+- [ ] REST endpoints changed → `reference/api.mdx`
+- [ ] WebSocket events changed → `reference/websocket-protocol.mdx`
+- [ ] Config schema changed → `reference/configuration.mdx`
+- [ ] Gateway/Agent API changed → `reference/api.mdx`
+- [ ] New/changed tool → `tools/*.mdx`, `extensions/tools.mdx`
+- [ ] New/changed subagent → `agents/*.mdx`
+- [ ] New/changed channel → `channels/*.mdx`, `extensions/channels.mdx`
+- [ ] Store interface changed → `storage/*.mdx`, `extensions/storage.mdx`
+- [ ] Memory interface changed → `memory/*.mdx`, `extensions/memory.mdx`
+- [ ] Extension patterns changed → `extensions/*.mdx`

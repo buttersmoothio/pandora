@@ -1,35 +1,86 @@
 # Operator
 
-The main AI that handles all conversations and routes to specialists. This is the only required agent.
+The operator is the core agent at the heart of Pandora. It is **not** a plugin or extension — it is the main `Agent` class implemented in `@pandora/core`, created once at startup via the async factory `Agent.create(config.ai)`. Every message from every channel flows through the operator.
 
 ## Configuration
 
+The operator is the only **required** agent. It is configured at `ai.agents.operator` in `config.jsonc`:
+
 ```jsonc
-"agents": {
-  "operator": { "model": "google/gemini-3-flash" }
+{
+  "ai": {
+    "gateway": {
+      "apiKey": "your-ai-gateway-api-key"
+    },
+    "agents": {
+      "operator": {
+        "model": "google/gemini-3-flash",
+        "temperature": 0,
+        "maxSteps": 20
+      }
+    }
+  }
 }
 ```
 
-## Purpose
+### Config options
 
-- General conversation
-- Task routing to sub-agents
-- Tool coordination
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `model` | `string` | *required* | Gateway model ID (e.g. `"google/gemini-3-flash"`, `"anthropic/claude-sonnet-4.5"`) |
+| `temperature` | `number` | `0` | Sampling temperature (0 = deterministic, up to 2) |
+| `maxOutputTokens` | `number` | — | Maximum tokens in the response |
+| `maxSteps` | `number` | `20` | Maximum tool loop iterations before stopping |
+| `toolChoice` | `string` | — | Tool calling strategy: `"auto"`, `"required"`, or `"none"` |
 
-## Recommended models
+## How it works
 
-| Model | Notes |
-|-------|-------|
-| `google/gemini-3-flash` | Fast, excellent tool-calling (recommended) |
-| `anthropic/claude-sonnet-4.5` | High quality, slightly slower |
-| `openai/gpt-4o` | Good balance |
+### System prompt construction
 
-## How routing works
+The operator builds its system instructions dynamically on every request. The prompt is assembled from:
 
-The operator analyzes each message and decides:
+1. **Channel capabilities** — whether the channel supports rich text (markdown) or plain text, and any maximum message length constraint.
+2. **Available tools** — a list of all action tools the operator can call, with their descriptions.
+3. **Available subagents** — delegation tools for each configured subagent, with their `toolDescription` fields so the AI knows when to delegate.
+4. **Memory context** — if memory is configured and relevant memories were recalled, they are injected into the prompt under a "Relevant Memories" section.
+5. **Memory guidelines** — if memory tools are available, detailed instructions on when to remember, recall, and what categories to use.
 
-1. **Handle directly** — Simple questions, general chat
-2. **Delegate** — Specialized tasks go to sub-agents
-3. **Use tools** — Datetime, search, or custom tools
+### Tool access
 
-The operator always receives the sub-agent's response and can add context before replying.
+The operator has access to:
+
+- **All action tools** that don't have agent restrictions (tools self-assign to agents via their `agents` field in `defineTool()`).
+- **Delegation tools** for each configured subagent, which let the operator hand off specialized tasks.
+- **Memory tools** (`remember`, `recall`, `getMemory`, `forget`) if memory is configured.
+
+Tools can be added after agent creation via `addActionTools()`, which is how memory tools are injected at startup.
+
+### Delegation to subagents
+
+Subagents are **not** called directly. Instead, each subagent is exposed to the operator as a regular tool. When you define a subagent with `defineSubagent()`, its `toolDescription` becomes the tool's description that the operator AI model sees.
+
+The operator AI decides when to delegate based on these descriptions. The delegation tool accepts the subagent's `inputSchema` as input and returns `{ text, threadId }` — the subagent's response text and an optional thread ID for context continuity.
+
+The operator always receives the subagent's response and can add its own context before replying to the user.
+
+### Streaming
+
+The operator uses the Vercel AI SDK's `ToolLoopAgent` for streaming. The `chatStream()` method is an async generator that:
+
+1. Converts conversation history to AI SDK model messages.
+2. Creates a `ToolLoopAgent` with the operator's model, tools, and dynamically-built instructions.
+3. Streams the response via `fullStream`, yielding text deltas and emitting events for tool calls, tool results, sources, reasoning, and file attachments.
+
+Non-streaming channels (like Telegram) use the `chat()` method, which internally delegates to `chatStream()` and collects the full response.
+
+## Model selection
+
+The operator model handles general conversation, tool coordination, and routing decisions to subagents. Choose based on your priorities:
+
+| Priority | Recommended models |
+|----------|--------------------|
+| Fast and cost-effective | `google/gemini-3-flash`, `openai/gpt-4o-mini` |
+| Balanced quality | `anthropic/claude-sonnet-4.5`, `openai/gpt-4o` |
+| Maximum quality | `anthropic/claude-opus-4`, `openai/gpt-4.5` |
+
+Since the operator handles every message, model cost and latency directly affect the responsiveness of all conversations across all channels.

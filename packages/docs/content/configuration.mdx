@@ -1,6 +1,6 @@
 # Configuration
 
-Pandora uses a single file: `config.jsonc`. This page covers every setting.
+Pandora uses a single file: `config.jsonc`. This page walks through the main sections. For an exhaustive field-by-field reference, see [Configuration Reference](/reference/configuration).
 
 ## Getting started
 
@@ -47,7 +47,7 @@ The smallest working configuration:
 
 ## AI Gateway
 
-Access 50+ AI models with a single API key.
+Access 50+ AI models with a single API key via the [Vercel AI Gateway](https://vercel.com/ai-gateway).
 
 ```jsonc
 "ai": {
@@ -57,7 +57,19 @@ Access 50+ AI models with a single API key.
 }
 ```
 
-Get a key at [vercel.com/ai-gateway](https://vercel.com/ai-gateway).
+### How model IDs work
+
+All model references in config use the `provider/model` format — a single string that identifies both the AI provider and the specific model:
+
+```
+anthropic/claude-sonnet-4.5
+openai/gpt-5.2
+google/gemini-3-flash
+perplexity/sonar-pro
+openai/text-embedding-3-small
+```
+
+The provider prefix (before the `/`) tells the Vercel AI Gateway which backend to route to. The model suffix (after the `/`) selects the specific model from that provider.
 
 ---
 
@@ -76,15 +88,7 @@ Configure your AI assistants. Only `operator` is required.
 }
 ```
 
-| Agent | Purpose |
-|-------|---------|
-| `operator` | Main AI (required) |
-| `coder` | Programming specialist |
-| `research` | Information and explanations |
-| `webSearchNative` | Live web search |
-| `webSearchTool` | Web search with external API |
-
-See [Agents](/agents) for details.
+See [Agents](/agents) for details on each agent's purpose.
 
 ---
 
@@ -101,20 +105,13 @@ Capabilities you give to your agents.
 }
 ```
 
-| Tool | Config | Description |
-|------|--------|-------------|
-| `datetime` | `{}` | Current date/time |
-| `tavilySearch` | `{ apiKey }` | Web search via Tavily |
-| `exaSearch` | `{ apiKey }` | Web search via Exa |
-| `perplexitySearch` | `{ apiKey }` | Web search via Perplexity |
-
-See [Tools](/tools) for details.
+See [Tools](/tools) for available tools and configuration.
 
 ---
 
 ## Storage
 
-Where conversation history is saved.
+Where conversation history is saved. Defaults to SQLite if omitted.
 
 ```jsonc
 "storage": {
@@ -123,18 +120,13 @@ Where conversation history is saved.
 }
 ```
 
-| Type | Description |
-|------|-------------|
-| `sqlite` | Persistent (default) |
-| `memory` | In-memory, lost on restart |
-
 See [Storage](/storage) for details.
 
 ---
 
 ## Memory
 
-Long-term recall across conversations.
+Long-term recall across conversations. Optional — omit to disable.
 
 ```jsonc
 "memory": {
@@ -144,13 +136,7 @@ Long-term recall across conversations.
 }
 ```
 
-| Field | Default | Description |
-|-------|---------|-------------|
-| `type` | `sqlite` | Memory backend |
-| `path` | `data/memory.db` | Database file location |
-| `embeddingModel` | `openai/text-embedding-3-small` | Model for semantic search |
-
-Memory is optional. See [Memory](/memory) for details.
+See [Memory](/memory) for details.
 
 ---
 
@@ -158,26 +144,12 @@ Memory is optional. See [Memory](/memory) for details.
 
 How users connect to Pandora. Each channel is enabled by being present in config.
 
-### Telegram
-
 ```jsonc
 "channels": {
   "telegram": {
     "token": "bot-token-from-botfather",
     "ownerId": "your-telegram-user-id"
-  }
-}
-```
-
-| Field | Description |
-|-------|-------------|
-| `token` | Bot token from [@BotFather](https://t.me/BotFather) |
-| `ownerId` | Your user ID from [@userinfobot](https://t.me/userinfobot) |
-
-### Web
-
-```jsonc
-"channels": {
+  },
   "web": {
     "port": 3000,
     "token": "your-secret-token"
@@ -185,16 +157,13 @@ How users connect to Pandora. Each channel is enabled by being present in config
 }
 ```
 
-| Field | Default | Description |
-|-------|---------|-------------|
-| `port` | `3000` | HTTP/WebSocket port |
-| `token` | — | Auth token for clients |
-
 See [Channels](/channels) for details.
 
 ---
 
 ## Log level
+
+Controls how much detail Pandora prints to the console.
 
 ```jsonc
 "logLevel": "normal"
@@ -202,8 +171,8 @@ See [Channels](/channels) for details.
 
 | Value | Description |
 |-------|-------------|
-| `normal` | Standard logging (default) |
-| `verbose` | Full AI prompts and responses |
+| `normal` | Metadata only: message flow, tool calls, durations (default) |
+| `verbose` | Everything in normal, plus full model prompts, system instructions, and responses |
 
 ---
 
@@ -265,4 +234,4 @@ Fix: Add the missing field.
 
 ### "Unknown store type"
 
-Use `sqlite` or `memory`, or create a [custom storage backend](/custom-storage).
+Use `sqlite` or `memory`, or create a [custom storage backend](/extensions/storage).

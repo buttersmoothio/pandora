@@ -1,10 +1,10 @@
 # Web Search Agents
 
-Live internet searches for current information. Pandora offers two approaches.
+Live internet searches for current information. Pandora offers two approaches: **native search** (model-integrated) and **tool-based search** (external API).
 
-## Native search
+## Native Search (`webSearchNative`)
 
-Uses models with built-in search capabilities. Simplest setup.
+Uses models with built-in search capabilities. The agent detects the provider from the model prefix and configures the appropriate search integration automatically.
 
 ```jsonc
 "agents": {
@@ -12,64 +12,108 @@ Uses models with built-in search capabilities. Simplest setup.
 }
 ```
 
-### Supported models
+### Provider Detection
 
-| Model | Notes |
-|-------|-------|
-| `perplexity/sonar-pro` | Best quality (recommended) |
-| `perplexity/sonar` | Faster, cheaper |
-| `google/gemini-3-flash` | Good with grounding |
+| Model prefix | Behavior | Requires |
+|-------------|----------|----------|
+| `perplexity/*` | Built-in search, no tools needed | Nothing extra |
+| `openai/*` (with "search" in name) | Uses `openai.tools.webSearch()` | `@ai-sdk/openai` |
+| `google/*` or `gemini/*` | Uses `google.tools.googleSearch()` | `@ai-sdk/google` |
+| Other models | Warns about limited support | Consider `webSearchTool` instead |
 
-### Pros
+The OpenAI and Google SDKs are **optional peer dependencies**. If the required SDK is not installed, the agent logs a warning and gracefully degrades (no search tools provided).
 
-- No additional API keys
-- Faster responses
-- Simple configuration
+### Examples
+
+Perplexity Sonar (simplest -- no extra SDK needed):
+
+```jsonc
+"agents": {
+  "webSearchNative": { "model": "perplexity/sonar-pro" }
+}
+```
+
+Google Gemini with grounding (requires `@ai-sdk/google`):
+
+```jsonc
+"agents": {
+  "webSearchNative": { "model": "google/gemini-3-flash" }
+}
+```
+
+OpenAI search model (requires `@ai-sdk/openai`):
+
+```jsonc
+"agents": {
+  "webSearchNative": { "model": "openai/gpt-4o-mini-search-preview" }
+}
+```
+
+### When to Use
+
+- You want the simplest setup with minimal configuration
+- You are already using a search-enabled model (Perplexity Sonar, Gemini, OpenAI search)
+- You want faster responses (single model call, search integrated into generation)
+- You want to avoid additional API costs beyond the model itself
 
 ---
 
-## Tool-based search
+## Tool-Based Search (`webSearchTool`)
 
-Uses external search APIs with any model.
+Uses an external search API as a tool, which works with **any model**. The agent reads `searchBackend` from its config, validates it against the search tools registry, and provides it as a tool the model can call.
 
 ```jsonc
 "tools": {
-  "tavilySearch": { "apiKey": "your-key" }
+  "tavilySearch": { "apiKey": "tvly-..." }
 },
 "agents": {
   "webSearchTool": {
-    "model": "anthropic/claude-sonnet-4.5",
+    "model": "google/gemini-3-flash",
     "searchBackend": "tavilySearch"
   }
 }
 ```
 
-### Available backends
+### Available Backends
 
-| Backend | Config key |
-|---------|------------|
-| Tavily | `tavilySearch` |
-| Exa | `exaSearch` |
-| Perplexity | `perplexitySearch` |
+| Backend | Config key | Description |
+|---------|------------|-------------|
+| Tavily | `tavilySearch` | General web search |
+| Exa | `exaSearch` | AI-powered search with content extraction |
+| Perplexity Search | `perplexitySearch` | Perplexity Search API (distinct from Sonar models) |
 
-See [Web Search Tools](/tools/web-search) for setup details.
+See [Web Search Tools](/tools/web-search) for backend setup details and API key links.
 
-### Pros
+### How It Works
 
-- Use any model you want
-- More control over search behavior
-- Some APIs offer better results for specific use cases
+1. Reads `searchBackend` from `config.ai.agents.webSearchTool`
+2. Validates the backend exists and is configured via `validateSearchBackend()`
+3. Retrieves the tool from the search tools registry via `getSearchTool()`
+4. Provides it to the model, which can call it during generation
+
+### Error Handling
+
+If the backend is misconfigured or missing, the agent returns empty tools and logs a warning. The agent still runs but cannot perform searches -- it fails safely rather than crashing.
+
+### When to Use
+
+- You want to use a model that does not have native search (e.g., Claude, Llama)
+- You want more control over the search backend and its behavior
+- You need a specific search provider for your use case (e.g., Exa for semantic/research queries)
+- You want to combine search with other tools in the same agent
 
 ---
 
 ## Comparison
 
-| | Native Search | Tool-based Search |
+| | Native Search | Tool-Based Search |
 |--|---------------|-------------------|
-| Config | `webSearchNative` agent | `webSearchTool` agent + search tool |
-| Models | Search-enabled only | Any model |
-| Extra cost | None | Search API costs |
-| Speed | Faster | Slightly slower |
+| Agent config key | `webSearchNative` | `webSearchTool` |
+| Model requirement | Search-enabled (Perplexity, OpenAI search, Gemini) | Any model |
+| Additional API keys | None (may need provider SDK installed) | Search API key required |
+| Speed | Faster (single integrated call) | Slower (model calls search tool, then processes results) |
+| Search control | Limited to provider defaults | Choice of backend, configurable per-tool |
+| Error behavior | Warns if SDK missing, degrades gracefully | Warns if backend misconfigured, returns empty tools |
 
 ## Triggers
 

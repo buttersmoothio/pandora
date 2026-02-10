@@ -1,10 +1,14 @@
 # Web Search Tools
 
-These tools power the `webSearchTool` agent. Configure one, then set it as the `searchBackend`.
+Search backends that power the `webSearchTool` agent. Each backend uses a **dual-registration pattern**: it registers as both a standalone tool (via `defineTool()`) and as a search backend (via `defineSearchTool()`), so the `webSearchTool` subagent can look it up by name.
+
+To use a backend: configure it under `ai.tools` with an API key, then reference its config key as `searchBackend` in the `webSearchTool` agent config.
+
+---
 
 ## Tavily
 
-AI-optimized web search with high-quality results.
+General web search optimized for AI applications. Uses `@tavily/ai-sdk` for direct AI SDK integration.
 
 ```jsonc
 "tools": {
@@ -20,6 +24,7 @@ AI-optimized web search with high-quality results.
 
 | | |
 |--|--|
+| Config key | `tavilySearch` |
 | Get API key | [tavily.com](https://tavily.com/) |
 | Free tier | Yes |
 | Best for | General search, news, current events |
@@ -28,7 +33,7 @@ AI-optimized web search with high-quality results.
 
 ## Exa
 
-Semantic search that finds conceptually similar content.
+AI-powered semantic search with advanced filtering and content extraction. Uses `@exalabs/ai-sdk` for direct AI SDK integration.
 
 ```jsonc
 "tools": {
@@ -44,15 +49,16 @@ Semantic search that finds conceptually similar content.
 
 | | |
 |--|--|
+| Config key | `exaSearch` |
 | Get API key | [dashboard.exa.ai](https://dashboard.exa.ai/api-keys) |
 | Free tier | Yes |
-| Best for | Research, finding related content |
+| Best for | Research, finding conceptually similar content |
 
 ---
 
 ## Perplexity Search
 
-Real-time search with filtering options.
+Perplexity Search API with real-time web search. This is the **Search API** (a tool any model can call), which is distinct from Perplexity Sonar models used with `webSearchNative`. Uses `@perplexity-ai/ai-sdk` for direct AI SDK integration.
 
 ```jsonc
 "tools": {
@@ -68,41 +74,39 @@ Real-time search with filtering options.
 
 | | |
 |--|--|
+| Config key | `perplexitySearch` |
 | Get API key | [perplexity.ai/account/api/keys](https://www.perplexity.ai/account/api/keys) |
 | Free tier | No |
-| Best for | Time-sensitive queries |
+| Best for | Time-sensitive queries, real-time information |
 
 ---
 
-## Native vs Tool-based Search
+## How Backends Work
 
-Pandora offers two approaches to web search:
+Each search tool file (e.g., `tools/tavily-search.ts`) calls two registration functions:
 
-| | Native Search | Tool-based Search |
+1. **`defineTool()`** -- registers the tool so it can be used as a standalone tool by any agent
+2. **`defineSearchTool()`** -- registers it in the search tools registry so `webSearchTool` can look it up by name via `getSearchTool()`
+
+Both registrations require the same config (an `apiKey` under the tool's config key in `ai.tools`). If the API key is missing, the factory throws an error.
+
+When the `webSearchTool` subagent starts, it:
+1. Reads `searchBackend` from its agent config
+2. Calls `validateSearchBackend()` to check the backend is registered and configured
+3. Calls `getSearchTool()` to create the tool instance
+4. Provides it to the model as a callable tool
+
+---
+
+## Native vs Tool-Based Search
+
+These tools are only needed for **tool-based search** (`webSearchTool`). If you use **native search** (`webSearchNative`) with a search-enabled model like Perplexity Sonar, you do not need any of these backends.
+
+See [Web Search Agents](/agents/web-search) for a full comparison of both approaches.
+
+| | Native Search | Tool-Based Search |
 |--|---------------|-------------------|
-| Config | `webSearchNative` agent | `webSearchTool` agent + search tool |
-| Models | Search-enabled only (Perplexity, Gemini) | Any model |
-| Extra cost | None | Search API costs |
-| Speed | Faster | Slightly slower |
-
-**Use Native** for simplicity — just set a search model:
-
-```jsonc
-"agents": {
-  "webSearchNative": { "model": "perplexity/sonar-pro" }
-}
-```
-
-**Use Tool-based** when you want a specific model (like Claude) to analyze results:
-
-```jsonc
-"tools": {
-  "tavilySearch": { "apiKey": "..." }
-},
-"agents": {
-  "webSearchTool": {
-    "model": "google/gemini-3-flash",
-    "searchBackend": "tavilySearch"
-  }
-}
-```
+| Agent config key | `webSearchNative` | `webSearchTool` |
+| Needs these backends | No | Yes (one of the above) |
+| Model requirement | Search-enabled model | Any model |
+| Additional API cost | None | Search API costs |

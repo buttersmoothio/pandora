@@ -1,0 +1,437 @@
+# WebSocket Protocol
+
+Protocol specification for Pandora's WebSocket interface. For setup instructions and feature overview, see [Web Channel](/channels/web). For the Gateway and Agent programmatic API, see [API Reference](/reference/api).
+
+## Connection
+
+- **URL:** `ws://HOST:PORT/ws?token=TOKEN`
+- Token is passed as a query parameter (URL-encode if it contains special characters)
+- Invalid or missing token causes the connection to be rejected
+- All messages are JSON-encoded
+
+## Client Messages
+
+| Type | Fields | Description |
+|------|--------|-------------|
+| `message` | `content`, `conversationId?` | Send a chat message; triggers a streaming response |
+| `watch` | `conversationId` | Subscribe to live events for a conversation (replaces previous watch) |
+| `unwatch` | `conversationId` | Unsubscribe from a watched conversation |
+| `watch-all` | — | Subscribe to `conversation-update` events from all conversations |
+| `unwatch-all` | — | Unsubscribe from all conversation updates |
+| `clear` | `conversationId?` | Clear conversation history (defaults to `web-default`) |
+
+### `message`
+
+Triggers a streaming response. Events are sent back on the same connection.
+
+```json
+{
+  "type": "message",
+  "content": "Hello!",
+  "conversationId": "my-chat"
+}
+```
+
+`conversationId` is optional — defaults to `"web-default"` if omitted.
+
+### `watch`
+
+Subscribe to live events for a specific conversation. Useful for viewing conversations from other channels (e.g., Telegram). If the conversation has an active stream, a `stream-state` event is sent immediately with the current state (for late-joining clients).
+
+Replaces any previous `watch` subscription on this connection.
+
+```json
+{
+  "type": "watch",
+  "conversationId": "telegram-123456"
+}
+```
+
+### `unwatch`
+
+```json
+{
+  "type": "unwatch",
+  "conversationId": "telegram-123456"
+}
+```
+
+### `watch-all`
+
+Subscribes to lightweight updates from all conversations. The server sends `conversation-update` events when any conversation has new activity. Used by the sidebar to know when to refresh.
+
+```json
+{ "type": "watch-all" }
+```
+
+### `unwatch-all`
+
+```json
+{ "type": "unwatch-all" }
+```
+
+### `clear`
+
+Clears conversation history. Server responds with a `cleared` event.
+
+```json
+{
+  "type": "clear",
+  "conversationId": "my-chat"
+}
+```
+
+---
+
+## Server Events
+
+All server events include a `conversationId` field. Events scoped to a subagent thread also include a `threadId` field.
+
+### Streaming
+
+| Type | Fields | Description |
+|------|--------|-------------|
+| `text-delta` | `text`, `threadId?` | Streamed text chunk |
+| `tool-call` | `toolCallId`, `toolName`, `args`, `threadId?` | Tool invocation |
+| `tool-result` | `toolCallId`, `toolName`, `result`, `threadId?` | Tool result |
+| `source-url` | `sourceId`, `url`, `title?`, `threadId?` | URL citation |
+| `source-document` | `sourceId`, `mediaType`, `title?`, `filename?`, `threadId?` | Document citation |
+| `file` | `mediaType`, `url`, `filename?`, `threadId?` | Generated file (e.g. data URI) |
+| `reasoning-delta` | `text`, `threadId?` | Chain-of-thought text |
+| `step-finish` | `usage?`, `finishReason?`, `threadId?` | Step completed with token usage |
+
+#### `text-delta`
+
+Streamed text chunk from the AI.
+
+```json
+{ "type": "text-delta", "text": "Hello", "conversationId": "my-chat" }
+```
+
+Subagent threads include `threadId`:
+
+```json
+{ "type": "text-delta", "text": "Searching...", "conversationId": "my-chat", "threadId": "thread-abc" }
+```
+
+#### `tool-call`
+
+The AI is calling a tool.
+
+```json
+{
+  "type": "tool-call",
+  "toolCallId": "call-123",
+  "toolName": "web_search",
+  "args": { "query": "weather today" },
+  "conversationId": "my-chat"
+}
+```
+
+#### `tool-result`
+
+A tool returned a result. May include `threadId` if the result came from a subagent.
+
+```json
+{
+  "type": "tool-result",
+  "toolCallId": "call-123",
+  "toolName": "web_search",
+  "result": { "results": ["..."] },
+  "conversationId": "my-chat"
+}
+```
+
+#### `source-url`
+
+Web source citation.
+
+```json
+{
+  "type": "source-url",
+  "sourceId": "src-1",
+  "url": "https://example.com",
+  "title": "Example Page",
+  "conversationId": "my-chat"
+}
+```
+
+#### `source-document`
+
+Document source citation.
+
+```json
+{
+  "type": "source-document",
+  "sourceId": "src-2",
+  "mediaType": "application/pdf",
+  "title": "Report",
+  "filename": "report.pdf",
+  "conversationId": "my-chat"
+}
+```
+
+#### `file`
+
+Generated file from the AI.
+
+```json
+{
+  "type": "file",
+  "mediaType": "image/png",
+  "url": "data:image/png;base64,...",
+  "filename": "chart.png",
+  "conversationId": "my-chat"
+}
+```
+
+#### `reasoning-delta`
+
+Streaming chain-of-thought / thinking text (when the model supports it).
+
+```json
+{
+  "type": "reasoning-delta",
+  "text": "Let me think about this...",
+  "conversationId": "my-chat"
+}
+```
+
+#### `step-finish`
+
+A processing step completed. Includes token usage.
+
+```json
+{
+  "type": "step-finish",
+  "usage": { "inputTokens": 150, "outputTokens": 42, "totalTokens": 192 },
+  "finishReason": "tool-calls",
+  "conversationId": "my-chat"
+}
+```
+
+### Memory
+
+| Type | Fields | Description |
+|------|--------|-------------|
+| `memory-context` | `facts`, `episodes` | Recalled memories, sent before generation starts |
+
+#### `memory-context`
+
+Recalled memory context for this prompt. Sent before the AI starts generating.
+
+```json
+{
+  "type": "memory-context",
+  "facts": [
+    { "content": "User prefers dark mode", "category": "preferences", "score": 0.85 }
+  ],
+  "episodes": [
+    { "content": "User: How do I...\nAssistant: You can...", "timestamp": 1700000000, "score": 0.72 }
+  ],
+  "conversationId": "my-chat"
+}
+```
+
+### Subagent Threads
+
+| Type | Fields | Description |
+|------|--------|-------------|
+| `subagent-start` | `threadId`, `toolCallId`, `subagentName` | Subagent thread started |
+| `subagent-done` | `threadId` | Subagent thread completed |
+
+#### `subagent-start`
+
+A subagent thread has started. The `threadId` identifies all subsequent events for this thread.
+
+```json
+{
+  "type": "subagent-start",
+  "threadId": "thread-abc",
+  "toolCallId": "call-456",
+  "subagentName": "researcher",
+  "conversationId": "my-chat"
+}
+```
+
+#### `subagent-done`
+
+A subagent thread has completed.
+
+```json
+{
+  "type": "subagent-done",
+  "threadId": "thread-abc",
+  "conversationId": "my-chat"
+}
+```
+
+### Cross-Channel
+
+| Type | Fields | Description |
+|------|--------|-------------|
+| `user-message` | `conversationId`, `channelName`, `content` | User message from another channel (via `watch`) |
+| `conversation-update` | `conversationId` | Conversation changed (via `watch-all`, used by sidebar) |
+
+#### `user-message`
+
+A user message arrived from another channel. Only received via `watch`.
+
+```json
+{
+  "type": "user-message",
+  "conversationId": "telegram-123",
+  "channelName": "telegram",
+  "content": "Hello from Telegram"
+}
+```
+
+#### `conversation-update`
+
+A conversation changed. Only received via `watch-all`. Used by the sidebar to refresh.
+
+```json
+{
+  "type": "conversation-update",
+  "conversationId": "telegram-123"
+}
+```
+
+#### Cross-channel example
+
+```json
+// Subscribe to a conversation from another channel
+→ { "type": "watch", "conversationId": "telegram-123456" }
+
+// Receive live events from that conversation
+← { "type": "user-message", "conversationId": "telegram-123456", "channelName": "telegram", "content": "Hello from Telegram" }
+← { "type": "text-delta", "text": "Hi there!", "conversationId": "telegram-123456" }
+← { "type": "done", "conversationId": "telegram-123456" }
+```
+
+To monitor all conversations for sidebar updates:
+
+```json
+// Subscribe to all conversation activity
+→ { "type": "watch-all" }
+
+// Receive lightweight notifications
+← { "type": "conversation-update", "conversationId": "telegram-123456" }
+```
+
+### State Sync
+
+| Type | Fields | Description |
+|------|--------|-------------|
+| `stream-state` | `conversationId`, `partialText`, `toolCalls`, `sources`, `reasoning`, `threads` | Accumulated state for late-joining clients |
+
+#### `stream-state`
+
+Current state of an active stream. Sent when a client subscribes via `watch` to a conversation that's mid-stream (late-joining). Contains accumulated text, tool calls, sources, reasoning, and subagent thread states.
+
+```json
+{
+  "type": "stream-state",
+  "conversationId": "my-chat",
+  "channelName": "web",
+  "userContent": "Original user prompt",
+  "partialText": "Text generated so far...",
+  "toolCalls": [
+    { "toolCallId": "call-123", "toolName": "web_search", "args": {}, "result": {} }
+  ],
+  "sources": [
+    { "sourceType": "url", "id": "src-1", "url": "https://example.com", "title": "Example" }
+  ],
+  "reasoning": "Accumulated reasoning text...",
+  "threads": {
+    "thread-abc": {
+      "threadId": "thread-abc",
+      "toolCallId": "call-456",
+      "subagentName": "researcher",
+      "partialText": "Thread text so far...",
+      "status": "streaming"
+    }
+  }
+}
+```
+
+### Completion and Errors
+
+| Type | Fields | Description |
+|------|--------|-------------|
+| `done` | `conversationId` | Response complete |
+| `cleared` | `conversationId` | Conversation cleared |
+| `error` | `message` | Error occurred |
+
+#### `done`
+
+The response is complete.
+
+```json
+{ "type": "done", "conversationId": "my-chat" }
+```
+
+#### `cleared`
+
+Conversation history was cleared (in response to a `clear` message).
+
+```json
+{ "type": "cleared", "conversationId": "my-chat" }
+```
+
+#### `error`
+
+An error occurred.
+
+```json
+{ "type": "error", "message": "Missing content" }
+```
+
+---
+
+## Thread Scoping
+
+- Events with a `threadId` belong to a subagent thread
+- Events without `threadId` belong to the operator (main response)
+- `subagent-start` begins a thread; `subagent-done` ends it
+- Subagent threads can emit their own `text-delta`, `tool-call`, `tool-result`, `source-*`, `reasoning-delta`, and `step-finish` events, all tagged with the same `threadId`
+
+---
+
+## Full Streaming Session
+
+A complete WebSocket session showing a message with tool use:
+
+```json
+// 1. Client sends a message
+→ { "type": "message", "content": "Search for Bun runtime", "conversationId": "my-chat" }
+
+// 2. Server sends memory context (if memory is enabled)
+← { "type": "memory-context", "facts": [...], "episodes": [...], "conversationId": "my-chat" }
+
+// 3. Server streams tool call
+← { "type": "tool-call", "toolCallId": "call-1", "toolName": "web_search", "args": { "query": "Bun runtime" }, "conversationId": "my-chat" }
+← { "type": "tool-result", "toolCallId": "call-1", "toolName": "web_search", "result": { "results": [...] }, "conversationId": "my-chat" }
+
+// 4. Server streams source citations
+← { "type": "source-url", "sourceId": "src-1", "url": "https://bun.sh", "title": "Bun", "conversationId": "my-chat" }
+
+// 5. Server streams step finish with token usage
+← { "type": "step-finish", "usage": { "inputTokens": 200, "outputTokens": 50 }, "finishReason": "tool-calls", "conversationId": "my-chat" }
+
+// 6. Server streams text response
+← { "type": "text-delta", "text": "Bun is ", "conversationId": "my-chat" }
+← { "type": "text-delta", "text": "a fast JavaScript runtime...", "conversationId": "my-chat" }
+
+// 7. Final step finish
+← { "type": "step-finish", "usage": { "inputTokens": 400, "outputTokens": 120 }, "finishReason": "stop", "conversationId": "my-chat" }
+
+// 8. Response complete
+← { "type": "done", "conversationId": "my-chat" }
+```
+
+---
+
+## Reconnection
+
+The web UI implements exponential backoff: max 10 attempts, delays from 1s to 30s. After reconnecting, re-send `watch` and `watch-all` to restore subscriptions.
