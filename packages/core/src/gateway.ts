@@ -244,23 +244,39 @@ export class Gateway {
       let memoryContext: string | undefined;
       if (this.memory) {
         try {
-          // Lower minScore since search quality is now better with indexed vectors
-          const results = await this.memory.search(content, { limit: 5, minScore: 0.35 });
+          // Fetch more chunks than needed, then dedupe by parent
+          const results = await this.memory.search(content, { limit: 10, minScore: 0.35 });
           const contextParts: string[] = [];
 
+          // Deduplicate chunks by parent - keep highest scoring chunk per parent
+          const dedupeByParent = <T extends { parentId: string; score: number }>(chunks: T[]): T[] => {
+            const byParent = new Map<string, T>();
+            for (const chunk of chunks) {
+              const existing = byParent.get(chunk.parentId);
+              if (!existing || chunk.score > existing.score) {
+                byParent.set(chunk.parentId, chunk);
+              }
+            }
+            // Return sorted by score descending
+            return [...byParent.values()].sort((a, b) => b.score - a.score);
+          };
+
+          const uniqueFacts = dedupeByParent(results.facts).slice(0, 5);
+          const uniqueEpisodes = dedupeByParent(results.episodes).slice(0, 5);
+
           // Add relevant facts first (more reliable than episodes)
-          if (results.facts.length > 0) {
+          if (uniqueFacts.length > 0) {
             contextParts.push("**Remembered:**");
-            for (const chunk of results.facts) {
+            for (const chunk of uniqueFacts) {
               contextParts.push(`- [${chunk.category ?? "knowledge"}] ${chunk.content}`);
             }
           }
 
           // Add relevant episodes (past interactions)
-          if (results.episodes.length > 0) {
+          if (uniqueEpisodes.length > 0) {
             if (contextParts.length > 0) contextParts.push("");
             contextParts.push("**Past interactions:**");
-            for (const chunk of results.episodes) {
+            for (const chunk of uniqueEpisodes) {
               const timestamp = chunk.timestamp
                 ? new Date(chunk.timestamp * 1000).toLocaleDateString()
                 : "unknown";
@@ -270,7 +286,7 @@ export class Gateway {
 
           if (contextParts.length > 0) {
             memoryContext = contextParts.join("\n");
-            logger.info("Gateway", `Auto-recalled ${results.facts.length} facts, ${results.episodes.length} episodes`);
+            logger.info("Gateway", `Auto-recalled ${uniqueFacts.length} facts, ${uniqueEpisodes.length} episodes (deduped from ${results.facts.length}/${results.episodes.length})`);
           }
         } catch (err) {
           // Memory failure should never break chat

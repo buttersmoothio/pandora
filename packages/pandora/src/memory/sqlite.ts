@@ -386,6 +386,9 @@ export class SqliteMemoryProvider implements IMemoryProvider {
   /**
    * Search chunks using indexed vector search (sqlite-vec).
    * Returns map of chunk_id -> similarity score (0-1).
+   *
+   * Uses CTE pattern per sqlite-vec docs: KNN query must be isolated,
+   * then JOINed afterward. Direct JOINs break the LIMIT/k constraint.
    */
   private searchChunksVector(
     queryVector: number[],
@@ -395,19 +398,23 @@ export class SqliteMemoryProvider implements IMemoryProvider {
     const query = new Float32Array(queryVector);
 
     // sqlite-vec uses L2 distance (lower = more similar)
+    // CTE isolates the KNN query so LIMIT is recognized
     const rows = this.db
-      .query<{ chunk_id: string; distance: number }, [Float32Array, string, number]>(
+      .query<{ chunk_id: string; distance: number }, [Float32Array, number, string]>(
         `
-        SELECT vc.chunk_id, vc.distance
-        FROM vec_chunks vc
-        JOIN memory_chunks mc ON mc.id = vc.chunk_id
-        WHERE vc.embedding MATCH ?
-          AND mc.parent_type = ?
-        ORDER BY vc.distance
-        LIMIT ?
+        WITH knn AS (
+          SELECT chunk_id, distance
+          FROM vec_chunks
+          WHERE embedding MATCH ?
+          LIMIT ?
+        )
+        SELECT knn.chunk_id, knn.distance
+        FROM knn
+        JOIN memory_chunks mc ON mc.id = knn.chunk_id
+        WHERE mc.parent_type = ?
         `
       )
-      .all(query, parentType, limit * 2);
+      .all(query, limit * 2, parentType);
 
     const results = new Map<string, number>();
     for (const row of rows) {
