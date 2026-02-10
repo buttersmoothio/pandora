@@ -6,6 +6,7 @@ Pandora is designed to be extended. You can add:
 - **Agents** — Create specialists (translator, writing assistant, data analyst)
 - **Channels** — Connect to new platforms (Discord, Slack, CLI)
 - **Storage** — Use different databases (Postgres, Redis, DynamoDB)
+- **Memory** — Use different vector databases (Postgres + pgvector, Pinecone, Qdrant)
 
 ## How it works
 
@@ -22,7 +23,10 @@ packages/pandora/src/
 ├── channels/        # Your channels go here
 │   ├── telegram/
 │   └── discord/
-└── store/           # Your storage backends go here
+├── store/           # Your storage backends go here
+│   ├── sqlite.ts
+│   └── postgres.ts
+└── memory/          # Your memory backends go here
     ├── sqlite.ts
     └── postgres.ts
 ```
@@ -35,6 +39,7 @@ packages/pandora/src/
 | [Agents](/custom-agents) | Create a specialist in ~30 lines | Easy |
 | [Channels](/custom-channels) | Connect a platform in ~100 lines | Medium |
 | [Storage](/custom-storage) | Add a database backend in ~50 lines | Medium |
+| [Memory](/custom-memory) | Add a vector database backend in ~100 lines | Medium |
 
 ## File naming
 
@@ -44,6 +49,7 @@ packages/pandora/src/
 | `subagents/*.ts` | Auto-discovered as sub-agents |
 | `channels/*/index.ts` | Auto-discovered as channels |
 | `store/*.ts` | Auto-discovered as storage backends |
+| `memory/*.ts` | Auto-discovered as memory backends |
 | `_anything.ts` | Skipped (use for helpers) |
 
 ## Project structure
@@ -63,7 +69,8 @@ packages/
         ├── tools/        # Add tools here
         ├── subagents/    # Add agents here
         ├── channels/     # Add channels here
-        └── store/        # Add storage here
+        ├── store/        # Add storage here
+        └── memory/       # Add memory here
 ```
 
 **Key insight:** All customizations go in `packages/pandora/`. Import from `@pandora/core` but don't modify it.
@@ -76,3 +83,4 @@ Pick what you want to build:
 - [Custom Agents](/custom-agents) — Create a translator, writing assistant, or specialist
 - [Custom Channels](/custom-channels) — Add Discord, Slack, or any platform
 - [Custom Storage](/custom-storage) — Use Postgres, Redis, or any database
+- [Custom Memory](/custom-memory) — Use Postgres + pgvector, Pinecone, or any vector database

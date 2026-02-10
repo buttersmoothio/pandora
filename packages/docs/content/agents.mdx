@@ -26,19 +26,19 @@ Each sub-agent has focused instructions and can use different AI models.
 
 ```jsonc
 "agents": {
-  "operator": { "model": "anthropic/claude-sonnet-4.5" }
+  "operator": { "model": "google/gemini-3-flash" }
 }
 ```
 
-The operator alone is quite capable for general use.
+The operator alone is quite capable for general use. Use a fast, tool-call capable model.
 
 ### With specialists
 
 ```jsonc
 "agents": {
-  "operator": { "model": "anthropic/claude-sonnet-4.5" },
+  "operator": { "model": "google/gemini-3-flash" },
   "coder": { "model": "anthropic/claude-sonnet-4.5" },
-  "research": { "model": "openai/gpt-4o" },
+  "research": { "model": "openai/gpt-5.2" },
   "webSearchNative": { "model": "perplexity/sonar-pro" }
 }
 ```
@@ -51,13 +51,13 @@ You can enable any combination — just include the ones you want.
 
 ### Operator (required)
 
-The main AI that handles all conversations.
+The main AI that handles all conversations and routes to specialists.
 
 | Field | Value |
 |-------|-------|
 | Config key | `operator` |
 | Purpose | General conversation, task routing |
-| Recommended models | `anthropic/claude-sonnet-4.5`, `openai/gpt-4o` |
+| Recommended models | `google/gemini-3-flash` (fast, excellent tool-calling) |
 
 ### Coder
 
@@ -79,7 +79,7 @@ Information gathering and explanations.
 |-------|-------|
 | Config key | `research` |
 | Purpose | Answering questions, explaining concepts |
-| Recommended models | `openai/gpt-4o`, `anthropic/claude-sonnet-4.5` |
+| Recommended models | `openai/gpt-5.2` (capable, thorough) |
 
 **Triggers on:** "Explain how...", "What is...", "Compare X and Y..."
 
@@ -91,7 +91,7 @@ Live internet searches using search-enabled models.
 |-------|-------|
 | Config key | `webSearchNative` |
 | Purpose | Current information, news, real-time data |
-| Supported models | `perplexity/sonar-pro`, `perplexity/sonar`, `google/gemini-2.0-flash` |
+| Supported models | `perplexity/sonar-pro` (recommended), `perplexity/sonar`, `google/gemini-3-flash` |
 
 **Triggers on:** "What happened today...", "Current price of...", "Latest news about..."
 
@@ -127,19 +127,22 @@ Use this when you want a specific model to process search results.
 
 | Strategy | Example |
 |----------|---------|
-| Same everywhere | Use `claude-sonnet-4.5` for all agents |
-| Task-optimized | Best coding model for coder, fast model for research |
-| Cost-optimized | Expensive model for operator, cheaper for simple tasks |
+| Cost-optimized | Fast model for operator, capable models for specialists |
+| Task-optimized | Best coding model for coder, search model for research |
+| Same everywhere | Use one model for simplicity |
 
-**Example: Cost-optimized**
+**Example: Recommended setup**
 
 ```jsonc
 "agents": {
-  "operator": { "model": "anthropic/claude-sonnet-4.5" },
+  "operator": { "model": "google/gemini-3-flash" },
   "coder": { "model": "anthropic/claude-sonnet-4.5" },
-  "research": { "model": "openai/gpt-4o-mini" }
+  "research": { "model": "openai/gpt-5.2" },
+  "webSearchNative": { "model": "perplexity/sonar-pro" }
 }
 ```
+
+The operator handles routing and simple tasks — use a fast, cheap model with good tool-calling. Specialists do the heavy lifting — use capable models there.
 
 ---
 

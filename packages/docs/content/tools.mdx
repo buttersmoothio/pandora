@@ -62,7 +62,7 @@ AI-optimized web search with high-quality results.
 },
 "agents": {
   "webSearchTool": {
-    "model": "anthropic/claude-sonnet-4.5",
+    "model": "google/gemini-3-flash",
     "searchBackend": "tavilySearch"
   }
 }
@@ -84,7 +84,7 @@ Semantic search that finds conceptually similar content.
 },
 "agents": {
   "webSearchTool": {
-    "model": "anthropic/claude-sonnet-4.5",
+    "model": "google/gemini-3-flash",
     "searchBackend": "exaSearch"
   }
 }
@@ -106,7 +106,7 @@ Real-time search with filtering options.
 },
 "agents": {
   "webSearchTool": {
-    "model": "anthropic/claude-sonnet-4.5",
+    "model": "google/gemini-3-flash",
     "searchBackend": "perplexitySearch"
   }
 }
@@ -147,7 +147,7 @@ Pandora offers two approaches to web search:
 },
 "agents": {
   "webSearchTool": {
-    "model": "anthropic/claude-sonnet-4.5",
+    "model": "google/gemini-3-flash",
     "searchBackend": "tavilySearch"
   }
 }
@@ -166,9 +166,9 @@ Pandora offers two approaches to web search:
       "tavilySearch": { "apiKey": "tvly-..." }
     },
     "agents": {
-      "operator": { "model": "anthropic/claude-sonnet-4.5" },
+      "operator": { "model": "google/gemini-3-flash" },
       "webSearchTool": {
-        "model": "anthropic/claude-sonnet-4.5",
+        "model": "google/gemini-3-flash",
         "searchBackend": "tavilySearch"
       }
     }

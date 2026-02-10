@@ -31,7 +31,7 @@ The smallest working configuration:
   "ai": {
     "gateway": { "apiKey": "YOUR_VERCEL_AI_GATEWAY_KEY" },
     "agents": {
-      "operator": { "model": "anthropic/claude-sonnet-4.5" }
+      "operator": { "model": "google/gemini-3-flash" }
     }
   },
   "channels": {
@@ -68,9 +68,9 @@ Configure your AI assistants. Only `operator` is required.
 ```jsonc
 "ai": {
   "agents": {
-    "operator": { "model": "anthropic/claude-sonnet-4.5" },
+    "operator": { "model": "google/gemini-3-flash" },
     "coder": { "model": "anthropic/claude-sonnet-4.5" },
-    "research": { "model": "openai/gpt-4o" },
+    "research": { "model": "openai/gpt-5.2" },
     "webSearchNative": { "model": "perplexity/sonar-pro" }
   }
 }
@@ -129,6 +129,28 @@ Where conversation history is saved.
 | `memory` | In-memory, lost on restart |
 
 See [Storage](/storage) for details.
+
+---
+
+## Memory
+
+Long-term recall across conversations.
+
+```jsonc
+"memory": {
+  "type": "sqlite",
+  "path": "data/memory.db",
+  "embeddingModel": "openai/text-embedding-3-small"
+}
+```
+
+| Field | Default | Description |
+|-------|---------|-------------|
+| `type` | `sqlite` | Memory backend |
+| `path` | `data/memory.db` | Database file location |
+| `embeddingModel` | `openai/text-embedding-3-small` | Model for semantic search |
+
+Memory is optional. See [Memory](/memory) for details.
 
 ---
 
@@ -197,9 +219,9 @@ See [Channels](/channels) for details.
       "tavilySearch": { "apiKey": "tvly-..." }
     },
     "agents": {
-      "operator": { "model": "anthropic/claude-sonnet-4.5" },
+      "operator": { "model": "google/gemini-3-flash" },
       "coder": { "model": "anthropic/claude-sonnet-4.5" },
-      "research": { "model": "openai/gpt-4o" },
+      "research": { "model": "openai/gpt-5.2" },
       "webSearchNative": { "model": "perplexity/sonar-pro" }
     }
   },
@@ -217,7 +239,12 @@ See [Channels](/channels) for details.
       "token": "secret"
     }
   },
-  "logLevel": "normal"
+  "logLevel": "normal",
+  "memory": {
+    "type": "sqlite",
+    "path": "data/memory.db",
+    "embeddingModel": "openai/text-embedding-3-small"
+  }
 }
 ```
 

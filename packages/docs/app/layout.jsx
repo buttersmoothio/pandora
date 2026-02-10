@@ -21,7 +21,7 @@ const navbar = (
         Pandora
       </span>
     }
-    projectLink="https://github.com/your-username/pandora"
+    projectLink="https://github.com/mprasanjith/pandora"
   />
 )
 
@@ -43,7 +43,7 @@ export default async function RootLayout({ children }) {
         <Layout
           navbar={navbar}
           pageMap={await getPageMap()}
-          docsRepositoryBase="https://github.com/your-username/pandora/tree/main/docs"
+          docsRepositoryBase="https://github.com/mprasanjith/pandora/tree/master/packages/docs"
           footer={footer}
           sidebar={{ defaultMenuCollapseLevel: 1 }}
           toc={{ backToTop: true }}

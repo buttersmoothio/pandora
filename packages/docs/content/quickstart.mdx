@@ -34,7 +34,7 @@ Edit `config.jsonc` with your keys:
       "apiKey": "YOUR_VERCEL_AI_GATEWAY_KEY"
     },
     "agents": {
-      "operator": { "model": "anthropic/claude-sonnet-4.5" }
+      "operator": { "model": "google/gemini-3-flash" }
     }
   },
   "channels": {
@@ -97,9 +97,9 @@ Make your AI smarter with sub-agents:
 
 ```jsonc
 "agents": {
-  "operator": { "model": "anthropic/claude-sonnet-4.5" },
+  "operator": { "model": "google/gemini-3-flash" },
   "coder": { "model": "anthropic/claude-sonnet-4.5" },
-  "research": { "model": "openai/gpt-4o" }
+  "research": { "model": "openai/gpt-5.2" }
 }
 ```
 
@@ -111,12 +111,26 @@ For live internet searches:
 
 ```jsonc
 "agents": {
-  "operator": { "model": "anthropic/claude-sonnet-4.5" },
+  "operator": { "model": "google/gemini-3-flash" },
   "webSearchNative": { "model": "perplexity/sonar-pro" }
 }
 ```
 
 See [Tools](/tools) for more options.
+
+### Add long-term memory
+
+Let Pandora remember across conversations:
+
+```jsonc
+"memory": {
+  "type": "sqlite",
+  "path": "data/memory.db",
+  "embeddingModel": "openai/text-embedding-3-small"
+}
+```
+
+See [Memory](/memory) for details.
 
 ### Build your own extensions
 

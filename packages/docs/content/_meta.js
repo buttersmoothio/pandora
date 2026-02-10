@@ -10,6 +10,7 @@ export default {
   tools: "Tools",
   channels: "Channels",
   storage: "Storage",
+  memory: "Memory",
   "-- Building Extensions": {
     type: "separator",
     title: "Building Extensions"
@@ -19,6 +20,7 @@ export default {
   "custom-agents": "Custom Agents",
   "custom-channels": "Custom Channels",
   "custom-storage": "Custom Storage",
+  "custom-memory": "Custom Memory",
   "-- Reference": {
     type: "separator",
     title: "Reference"

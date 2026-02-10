@@ -21,12 +21,13 @@ This page explains Pandora's internals. You don't need to read this to use Pando
 │                       Gateway                            │
 │        Routes messages, manages history, calls AI        │
 └─────────────────────────────────────────────────────────┘
-                    │           │
-                    ▼           ▼
-┌────────────────────────┐  ┌────────────────────────────┐
-│         Store          │  │          Agent             │
-│  Persists conversations │  │  Operator + Sub-agents    │
-└────────────────────────┘  └────────────────────────────┘
+              │           │           │
+              ▼           ▼           ▼
+┌──────────────────┐  ┌──────────┐  ┌────────────────────┐
+│      Store       │  │  Memory  │  │       Agent        │
+│ Conversations    │  │ Episodic │  │ Operator + Agents  │
+│                  │  │ Semantic │  │                    │
+└──────────────────┘  └──────────┘  └────────────────────┘
 ```
 
 ## Components
@@ -61,6 +62,15 @@ Persists conversation history. Implementations:
 - **SQLite** — File-based, persistent
 - **Memory** — In-memory, for testing
 
+### Memory
+
+Provides long-term recall across conversations. Two types:
+
+- **Episodic** — Automatic logging of interactions (gateway-managed)
+- **Semantic** — Agent-controlled facts, preferences, knowledge
+
+Uses vector embeddings for semantic search. Episodes are linked to conversations and cleaned up with them.
+
 ### Agent
 
 The AI brain. Contains:
@@ -83,7 +93,8 @@ What happens when you send "Hello" to Telegram:
 3. Gateway.handleMessage()
    - Save user message to store
    - Load conversation history
-   - Call agent.chat(history, capabilities)
+   - Auto-recall: Search memory for relevant context
+   - Call agent.chat(history, capabilities, memoryContext)
 4. Agent.chat()
    - Build system prompt with capabilities and tools
    - Send to AI model
@@ -92,6 +103,7 @@ What happens when you send "Hello" to Telegram:
    - Return final response
 5. Gateway (continued)
    - Save AI response to store
+   - Auto-episode: Store interaction in memory
    - Return response text
 6. TelegramChannel (continued)
    - Format for Telegram (HTML, chunking)
@@ -223,6 +235,7 @@ Pandora uses the [Vercel AI SDK](https://sdk.vercel.ai) and Vercel AI Gateway:
 - **Consistent interface** — Same code for any model
 
 Model IDs use `provider/model` format:
-- `anthropic/claude-sonnet-4.5`
-- `openai/gpt-4o`
-- `google/gemini-2.0-flash`
+- `google/gemini-3-flash` (recommended for operator)
+- `anthropic/claude-sonnet-4.5` (recommended for coder)
+- `openai/gpt-5.2` (recommended for research)
+- `perplexity/sonar-pro` (recommended for web search)

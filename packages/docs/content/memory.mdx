@@ -1,0 +1,215 @@
+# Memory
+
+Memory gives Pandora long-term recall across conversations. It automatically remembers past interactions and lets the AI store facts, preferences, and knowledge.
+
+## Quick start
+
+**SQLite memory (recommended):**
+
+```jsonc
+"memory": {
+  "type": "sqlite",
+  "path": "data/memory.db",
+  "embeddingModel": "openai/text-embedding-3-small"
+}
+```
+
+Memory is optional. Without it, Pandora only sees messages from the current conversation.
+
+---
+
+## How it works
+
+Pandora has two types of memory:
+
+### Episodic memory (automatic)
+
+Every interaction is automatically saved as an **episode**. Before responding, Pandora searches these episodes for relevant context.
+
+```
+User: "What's the weather in Tokyo?"
+      ↓
+[Search memory for: "weather Tokyo"]
+      ↓
+Found: [2 days ago] "User asked about weather. Prefers Celsius."
+      ↓
+Response includes context about past preference
+```
+
+Episodes are linked to conversations and cleaned up when you delete a conversation.
+
+### Semantic memory (agent-controlled)
+
+The AI can explicitly store **facts** — user preferences, knowledge, and instructions — using memory tools:
+
+- `remember` — Store a fact, preference, or instruction
+- `recall` — Search memories for relevant information
+- `getMemory` — Fetch full content of a memory record
+- `forget` — Delete an outdated or incorrect fact
+
+```
+User: "I prefer dark mode for all apps"
+      ↓
+AI uses remember tool: "User prefers dark mode"
+      ↓
+Next conversation: AI recalls this preference
+```
+
+---
+
+## Configuration
+
+```jsonc
+"memory": {
+  "type": "sqlite",
+  "path": "data/memory.db",
+  "embeddingModel": "openai/text-embedding-3-small"
+}
+```
+
+| Field | Default | Description |
+|-------|---------|-------------|
+| `type` | `sqlite` | Memory backend |
+| `path` | `data/memory.db` | Database file location |
+| `embeddingModel` | `openai/text-embedding-3-small` | Model for semantic search |
+
+### Embedding models
+
+Embedding models convert text into vectors for semantic search. Supported models:
+
+| Model | Dimensions | Best for |
+|-------|------------|----------|
+| `openai/text-embedding-3-small` | 1536 | Fast, good quality (default) |
+| `openai/text-embedding-3-large` | 3072 | Higher quality, slower |
+
+The gateway API key is used for embedding requests.
+
+---
+
+## Memory tools
+
+When memory is configured, the agent gets these tools automatically:
+
+### remember
+
+Store information for future reference.
+
+```
+"Remember that I prefer TypeScript over JavaScript"
+→ Stores: [user_preference] "User prefers TypeScript over JavaScript"
+```
+
+**Categories:**
+- `user_preference` — Personal preferences
+- `knowledge` — Facts and information
+- `instruction` — Directives and rules
+
+### recall
+
+Search memories for relevant information.
+
+```
+"What programming languages have we discussed?"
+→ Searches episodes and facts for programming language mentions
+```
+
+### getMemory
+
+Fetch full content of a memory by ID. Use when `recall` returns a chunk and you need more context.
+
+### forget
+
+Delete a stored fact by ID. Useful for correcting outdated information.
+
+```
+"Forget my preference for tabs over spaces"
+→ Deletes the relevant fact
+```
+
+---
+
+## How search works
+
+Memory uses **hybrid search** combining:
+
+1. **Vector similarity** (70% weight) — Finds semantically similar content
+2. **BM25 keyword** (30% weight) — Finds exact word matches
+
+This combination catches both conceptual matches ("coding preferences") and exact terms ("TypeScript").
+
+### Chunking
+
+Long content is split into overlapping chunks (~400 tokens each) for better embedding quality. Search returns the most relevant chunks, and you can use `getMemory` to fetch the full record.
+
+---
+
+## Full example
+
+```jsonc
+{
+  "$schema": "./config.schema.jsonc",
+  "ai": {
+    "gateway": { "apiKey": "your-gateway-key" },
+    "agents": {
+      "operator": { "model": "google/gemini-3-flash" }
+    }
+  },
+  "storage": {
+    "type": "sqlite",
+    "path": "data/pandora.db"
+  },
+  "memory": {
+    "type": "sqlite",
+    "path": "data/memory.db",
+    "embeddingModel": "openai/text-embedding-3-small"
+  },
+  "channels": {
+    "telegram": {
+      "token": "bot-token",
+      "ownerId": "user-id"
+    }
+  }
+}
+```
+
+---
+
+## When to use memory
+
+**Use memory when:**
+- You want Pandora to remember preferences across sessions
+- You have recurring topics or projects
+- You want context from past conversations
+
+**Skip memory when:**
+- You prefer fresh starts each conversation
+- You're testing or developing
+- Privacy is a concern (memory persists data)
+
+---
+
+## Managing memory
+
+### Backup
+
+```bash
+cp data/memory.db data/memory.db.backup
+```
+
+### Clear all memory
+
+```bash
+rm data/memory.db
+```
+
+### View memory stats
+
+```bash
+sqlite3 data/memory.db "SELECT COUNT(*) FROM memory_episodes; SELECT COUNT(*) FROM memory_facts;"
+```
+
+---
+
+## Create your own
+
+Want a different vector database? See [Custom Memory](/custom-memory) to build your own backend.
