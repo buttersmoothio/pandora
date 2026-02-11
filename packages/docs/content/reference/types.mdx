@@ -587,7 +587,7 @@ interface IMemoryProvider {
   /** Search both memory types and return combined results */
   search(
     query: string,
-    opts?: { limit?: number; minScore?: number }
+    opts?: { limit?: number; minScore?: number; excludeConversationId?: string }
   ): Promise<MemorySearchResults>;
 
   /** Close the provider (release resources) */
@@ -599,7 +599,7 @@ interface IMemoryProvider {
 |---|---|---|
 | `episodic` | `IEpisodicMemory \| null` | Episodic memory interface, or `null` if the provider does not support it. |
 | `semantic` | `ISemanticMemory \| null` | Semantic memory interface, or `null` if the provider does not support it. |
-| `search(query, opts?)` | `Promise<MemorySearchResults>` | Search across both memory types simultaneously. Returns combined chunks. |
+| `search(query, opts?)` | `Promise<MemorySearchResults>` | Search across both memory types simultaneously. Returns combined chunks. `excludeConversationId` filters out episodes from the specified conversation. |
 | `close()` | `Promise<void>` | Release all resources held by the provider. |
 
 ### IEpisodicMemory

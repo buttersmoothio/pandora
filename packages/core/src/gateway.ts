@@ -245,12 +245,12 @@ export class Gateway {
       // Load history for agent
       const history = await this.store.getHistory(conversationId);
 
-      // Auto-recall: search memory for relevant context (if memory is available)
+      // Auto-recall: search memory for brief context hints (if memory is available)
+      // Injects truncated summaries with IDs — the model can use getMemory() for full details.
       let memoryContext: string | undefined;
       if (this.memory) {
         try {
-          // Fetch more chunks than needed, then dedupe by parent
-          const results = await this.memory.search(content, { limit: 10, minScore: 0.35, excludeConversationId: conversationId });
+          const results = await this.memory.search(content, { limit: 8, minScore: 0.5, excludeConversationId: conversationId });
           const contextParts: string[] = [];
 
           // Deduplicate chunks by parent - keep highest scoring chunk per parent
@@ -262,22 +262,22 @@ export class Gateway {
                 byParent.set(chunk.parentId, chunk);
               }
             }
-            // Return sorted by score descending
             return [...byParent.values()].sort((a, b) => b.score - a.score);
           };
 
-          const uniqueFacts = dedupeByParent(results.facts).slice(0, 5);
-          const uniqueEpisodes = dedupeByParent(results.episodes).slice(0, 5);
+          const uniqueFacts = dedupeByParent(results.facts).slice(0, 3);
+          const uniqueEpisodes = dedupeByParent(results.episodes).slice(0, 2);
 
-          // Add relevant facts first (more reliable than episodes)
+          const truncate = (text: string, max: number) =>
+            text.length <= max ? text : text.slice(0, max) + "…";
+
           if (uniqueFacts.length > 0) {
             contextParts.push("**Remembered:**");
             for (const chunk of uniqueFacts) {
-              contextParts.push(`- [${chunk.category ?? "knowledge"}] ${chunk.content}`);
+              contextParts.push(`- [${chunk.category ?? "knowledge"}] ${truncate(chunk.content, 120)} (id: ${chunk.parentId})`);
             }
           }
 
-          // Add relevant episodes (past interactions)
           if (uniqueEpisodes.length > 0) {
             if (contextParts.length > 0) contextParts.push("");
             contextParts.push("**Past interactions:**");
@@ -285,23 +285,24 @@ export class Gateway {
               const timestamp = chunk.timestamp
                 ? new Date(chunk.timestamp * 1000).toLocaleDateString()
                 : "unknown";
-              contextParts.push(`- [${timestamp}] ${chunk.content}`);
+              contextParts.push(`- [${timestamp}] ${truncate(chunk.content, 120)} (id: ${chunk.parentId})`);
             }
           }
 
           if (contextParts.length > 0) {
+            contextParts.push("");
+            contextParts.push("Use `getMemory` with an ID above to retrieve the full content if needed.");
             memoryContext = contextParts.join("\n");
             logger.info("Gateway", `Auto-recalled ${uniqueFacts.length} facts, ${uniqueEpisodes.length} episodes (deduped from ${results.facts.length}/${results.episodes.length})`);
 
-            // Store memory event data for persistence after assistant message is created
             streamState.memoryContext = {
               facts: uniqueFacts.map(f => ({
-                content: f.content,
+                content: truncate(f.content, 120),
                 category: f.category,
                 score: f.score,
               })),
               episodes: uniqueEpisodes.map(e => ({
-                content: e.content,
+                content: truncate(e.content, 120),
                 timestamp: e.timestamp,
                 score: e.score,
               })),

@@ -64,7 +64,7 @@ Streaming message processing. Yields text deltas as they arrive. The optional `o
 **Behavior:**
 - Acquires a per-conversation lock (5-minute timeout) to prevent message interleaving
 - Stores the user message and creates an assistant message shell before streaming begins
-- Auto-recalls memory before the agent prompt (limit: 10, minScore: 0.35, top 5 facts + 5 episodes after deduplication)
+- Auto-recalls memory hints before the agent prompt (limit: 8, minScore: 0.50, top 3 facts + 2 episodes after deduplication, truncated to 120 chars with IDs for on-demand retrieval via `getMemory`)
 - Persists all parts incrementally as they stream in (text, tool calls, reasoning, sources, files)
 - Manages subagent thread setup and persistence via `SubagentContext`
 - Auto-creates an episodic memory entry after the response completes (fire-and-forget)

@@ -207,15 +207,18 @@ Memory provides long-term recall across conversations. The Gateway integrates me
 
 When a message arrives, the Gateway searches memory for relevant context:
 
-1. Search with the user's message text (`limit: 10`, `minScore: 0.35`)
+1. Search with the user's message text (`limit: 8`, `minScore: 0.50`, excluding episodes from the current conversation)
 2. Deduplicate results by parent (keep highest-scoring chunk per parent memory)
-3. Take the top **5 facts** and top **5 episodes**
-4. Format them into system instructions:
-   - Facts appear under `**Remembered:**` with their category
-   - Episodes appear under `**Past interactions:**` with their timestamp
+3. Take the top **3 facts** and top **2 episodes**
+4. Format them as **truncated hints** (120 chars) with parent IDs:
+   - Facts appear under `**Remembered:**` with their category and ID
+   - Episodes appear under `**Past interactions:**` with their timestamp and ID
+   - A footer instructs the agent to use `getMemory` with the ID for full content
 5. Inject as `memoryContext` into the agent prompt
 6. Emit a `memory-context` event so the UI can display what was recalled
 7. Persist as a `memory-context` part on the assistant message
+
+This keeps the system prompt lightweight. The agent can pull full details on-demand via `getMemory(id)`.
 
 Memory failures never break chat -- they are caught and logged as warnings.
 

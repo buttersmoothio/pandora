@@ -57,7 +57,7 @@ Next conversation: AI recalls this preference
 
 The Gateway handles two automatic memory operations on every message, transparently and without the agent using any tools.
 
-**Auto-recall** — Before passing a message to the agent, the Gateway searches memory for relevant context and injects the most relevant facts and episodes into the system prompt. The agent always has relevant background information available, even if it never explicitly calls `recall`.
+**Auto-recall** — Before passing a message to the agent, the Gateway searches memory for relevant context and injects brief summaries (truncated with IDs) of the most relevant facts and episodes into the system prompt. The agent can use `getMemory` to retrieve full details on demand. Episodes from the current conversation are excluded to avoid redundancy.
 
 **Auto-episode** — After the agent finishes responding, the Gateway stores the interaction as an episodic memory. This runs in the background without blocking the response.
 

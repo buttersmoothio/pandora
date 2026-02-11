@@ -269,15 +269,20 @@ class PostgresMemoryProvider implements IMemoryProvider {
     },
   };
 
-  async search(query: string, opts = {}): Promise<MemorySearchResults> {
-    const { limit = 10, minScore = 0.5 } = opts;
+  async search(query: string, opts: { limit?: number; minScore?: number; excludeConversationId?: string } = {}): Promise<MemorySearchResults> {
+    const { limit = 10, minScore = 0.5, excludeConversationId } = opts;
 
     const [episodes, facts] = await Promise.all([
       this.episodic.searchEpisodes(query, { limit, minScore }),
       this.semantic.searchFacts(query, { limit, minScore }),
     ]);
 
-    return { episodes, facts };
+    // Filter out episodes from the excluded conversation (used by auto-recall)
+    const filteredEpisodes = excludeConversationId
+      ? episodes.filter((e) => e.conversationId !== excludeConversationId)
+      : episodes;
+
+    return { episodes: filteredEpisodes, facts };
   }
 
   async close(): Promise<void> {
