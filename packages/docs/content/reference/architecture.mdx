@@ -1,33 +1,18 @@
+import { FileTree } from 'nextra/components'
+
 # Architecture
 
 This page explains Pandora's internals. You don't need to read this to use Pandora — it's for those who want to understand how it works under the hood.
 
 ## Overview
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                     Your device                          │
-│                 (Telegram, Browser)                      │
-└─────────────────────────────────────────────────────────┘
-                          │
-                          ▼
-┌─────────────────────────────────────────────────────────┐
-│                       Channel                            │
-│             Receives messages, sends responses           │
-└─────────────────────────────────────────────────────────┘
-                          │
-                          ▼
-┌─────────────────────────────────────────────────────────┐
-│                       Gateway                            │
-│        Routes messages, manages history, calls AI        │
-└─────────────────────────────────────────────────────────┘
-              │           │           │
-              ▼           ▼           ▼
-┌──────────────────┐  ┌──────────┐  ┌────────────────────┐
-│      Store       │  │  Memory  │  │       Agent        │
-│ Conversations    │  │ Episodic │  │ Operator + Agents  │
-│                  │  │ Semantic │  │                    │
-└──────────────────┘  └──────────┘  └────────────────────┘
+```mermaid
+graph TD
+  Device["Your Device\n(Telegram, Browser)"] --> Channel["Channel\nReceives messages, sends responses"]
+  Channel --> Gateway["Gateway\nRoutes messages, manages history, calls AI"]
+  Gateway --> Store["Store\nConversations"]
+  Gateway --> Memory["Memory\nEpisodic · Semantic"]
+  Gateway --> Agent["Agent\nOperator + Agents"]
 ```
 
 ## Components
@@ -87,31 +72,29 @@ The AI brain. Contains:
 
 What happens when you send "Hello" to Telegram:
 
-```
-1. Telegram servers → Pandora webhook/polling
-2. TelegramChannel.onMessage()
-   - Extract text, user ID, chat ID
-   - Build Message object
-   - Call gateway.handleMessage(message, capabilities)
-3. Gateway.handleMessage()
-   - Save user message to store
-   - Load conversation history
-   - Auto-recall: Search memory for relevant context
-   - Call agent.chat(history, capabilities, memoryContext)
-4. Agent.chat()
-   - Build system prompt with capabilities and tools
-   - Send to AI model
-   - Decide: respond directly or delegate
-   - If delegating: call sub-agent, get result
-   - Return final response
-5. Gateway (continued)
-   - Save AI response to store
-   - Auto-episode: Store interaction in memory
-   - Return response text
-6. TelegramChannel (continued)
-   - Format for Telegram (HTML, chunking)
-   - Send via Telegram API
-7. You see the response
+```mermaid
+sequenceDiagram
+  participant User as Telegram
+  participant Channel as TelegramChannel
+  participant GW as Gateway
+  participant Agent
+  participant Store
+  participant Memory
+
+  User->>Channel: "Hello"
+  Channel->>Channel: Extract text, user ID, chat ID
+  Channel->>GW: handleMessage(message, capabilities)
+  GW->>Store: Save user message
+  GW->>Store: Load conversation history
+  GW->>Memory: Auto-recall relevant context
+  GW->>Agent: chat(history, capabilities, memoryContext)
+  Agent->>Agent: Build system prompt, send to AI model
+  Agent-->>GW: Response (or delegate to sub-agent)
+  GW->>Store: Save AI response
+  GW->>Memory: Auto-episode (fire-and-forget)
+  GW-->>Channel: Response text
+  Channel->>Channel: Format for Telegram (HTML, chunking)
+  Channel-->>User: Send via Telegram API
 ```
 
 ---
@@ -120,31 +103,18 @@ What happens when you send "Hello" to Telegram:
 
 The operator can delegate to specialists:
 
-```
-User: "Write a Python function to sort a list"
-         │
-         ▼
-┌─────────────────────────────────────────────────────────┐
-│                       Operator                           │
-│                                                          │
-│  "This is a coding question. Delegating to coder."      │
-│  → Calls the "coder" tool                               │
-└─────────────────────────────────────────────────────────┘
-         │
-         ▼
-┌─────────────────────────────────────────────────────────┐
-│                     Coder Agent                          │
-│                                                          │
-│  Specialized instructions for programming               │
-│  Returns detailed code response                          │
-└─────────────────────────────────────────────────────────┘
-         │
-         ▼
-┌─────────────────────────────────────────────────────────┐
-│                       Operator                           │
-│                                                          │
-│  Receives coder's response, sends to user               │
-└─────────────────────────────────────────────────────────┘
+```mermaid
+sequenceDiagram
+  participant User
+  participant Operator
+  participant Coder as Coder Agent
+
+  User->>Operator: "Write a Python function to sort a list"
+  Operator->>Operator: This is a coding question — delegating
+  Operator->>Coder: Calls "coder" tool
+  Coder->>Coder: Specialized instructions for programming
+  Coder-->>Operator: Detailed code response
+  Operator-->>User: Sends response to user
 ```
 
 Each sub-agent appears as a tool to the operator. When called, the Gateway creates a child thread (see [Subagent thread lifecycle](#subagent-thread-lifecycle)) with its own conversation, streams the subagent's response with thread-scoped events, and returns the result to the operator.
@@ -330,25 +300,29 @@ Files starting with `_` are skipped.
 
 ## Package structure
 
-```
-packages/
-├── core/           @pandora/core (framework)
-│   └── src/
-│       ├── agent.ts      # Agent runtime
-│       ├── gateway.ts    # Message routing hub
-│       ├── providers.ts  # Model factory (createModel, createEmbeddingModel)
-│       ├── config.ts     # Config loading/validation
-│       ├── loader.ts     # Auto-discovery
-│       └── registries/   # Extension registries
-│
-└── pandora/        @pandora/app (your extensions)
-    └── src/
-        ├── index.ts      # Entry point
-        ├── tools/        # Tool implementations
-        ├── subagents/    # Sub-agent definitions
-        ├── channels/     # Channel implementations
-        └── store/        # Storage backends
-```
+<FileTree>
+  <FileTree.Folder name="packages" defaultOpen>
+    <FileTree.Folder name="core — @pandora/core (framework)" defaultOpen>
+      <FileTree.Folder name="src" defaultOpen>
+        <FileTree.File name="agent.ts — Agent runtime" />
+        <FileTree.File name="gateway.ts — Message routing hub" />
+        <FileTree.File name="providers.ts — Model factory (createModel, createEmbeddingModel)" />
+        <FileTree.File name="config.ts — Config loading/validation" />
+        <FileTree.File name="loader.ts — Auto-discovery" />
+        <FileTree.Folder name="registries — Extension registries" />
+      </FileTree.Folder>
+    </FileTree.Folder>
+    <FileTree.Folder name="pandora — @pandora/app (your extensions)" defaultOpen>
+      <FileTree.Folder name="src" defaultOpen>
+        <FileTree.File name="index.ts — Entry point" />
+        <FileTree.Folder name="tools — Tool implementations" />
+        <FileTree.Folder name="subagents — Sub-agent definitions" />
+        <FileTree.Folder name="channels — Channel implementations" />
+        <FileTree.Folder name="store — Storage backends" />
+      </FileTree.Folder>
+    </FileTree.Folder>
+  </FileTree.Folder>
+</FileTree>
 
 The separation means you can customize everything in `@pandora/app` without touching core.
 

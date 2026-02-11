@@ -1,3 +1,5 @@
+import { Callout } from 'nextra/components'
+
 # SQLite Memory
 
 File-based memory with vector search. The default and recommended option.
@@ -86,7 +88,8 @@ sqlite3 data/memory.db "SELECT COUNT(*) FROM memory_episodes; SELECT COUNT(*) FR
 The sections below document the internal architecture of the SQLite memory provider.
 Source files: `packages/pandora/src/memory/sqlite.ts` and `memory/chunker.ts`.
 
-### Database schema
+<details>
+<summary>### Database schema</summary>
 
 The database runs in WAL mode with foreign keys enabled. Six tables make up the schema:
 
@@ -152,7 +155,10 @@ insert, update, and delete.
 | `idx_facts_category` | `memory_facts.category` |
 | `idx_chunks_parent` | `memory_chunks(parent_id, parent_type)` |
 
-### Chunking strategy
+</details>
+
+<details>
+<summary>### Chunking strategy</summary>
 
 Content is split into overlapping chunks before embedding. This happens in
 `memory/chunker.ts` using the tiktoken library with the `cl100k_base` encoding
@@ -175,7 +181,10 @@ Content is split into overlapping chunks before embedding. This happens in
 Each chunk carries position metadata (`startOffset`, `endOffset`, `chunkIndex`) so the
 original text location is recoverable.
 
-### Hybrid search algorithm
+</details>
+
+<details>
+<summary>### Hybrid search algorithm</summary>
 
 Every search query runs two scoring passes and merges the results.
 
@@ -212,7 +221,10 @@ Scores from both passes are merged across the union of all matching chunk IDs.
 Chunks missing from one pass receive a score of 0 for that component.
 Results below the `minScore` threshold (default 0.5) are discarded.
 
-### Fact deduplication
+</details>
+
+<details>
+<summary>### Fact deduplication</summary>
 
 When `upsertFact()` is called, the first chunk of the new fact is compared against the
 first chunks of all existing facts using cosine similarity.
@@ -224,7 +236,10 @@ first chunks of all existing facts using cosine similarity.
 
 This prevents near-duplicate facts from accumulating over time.
 
-### Episodic memory operations
+</details>
+
+<details>
+<summary>### Episodic memory operations</summary>
 
 | Method | Description |
 |--------|-------------|
@@ -234,7 +249,10 @@ This prevents near-duplicate facts from accumulating over time.
 | `deleteEpisode(id)` | Deletes the episode and all its chunks (from `memory_chunks`, `vec_chunks`, and FTS5). |
 | `deleteEpisodesForConversation(conversationId)` | Bulk-deletes all episodes for a conversation and their associated chunks. Returns the count of deleted episodes. |
 
-### Semantic memory operations
+</details>
+
+<details>
+<summary>### Semantic memory operations</summary>
 
 | Method | Description |
 |--------|-------------|
@@ -243,7 +261,12 @@ This prevents near-duplicate facts from accumulating over time.
 | `getFact(id)` | Fetches a single fact by ID. |
 | `deleteFact(id)` | Deletes the fact and all its chunks. |
 
-### Unified search
+</details>
+
+<details>
+<summary>### Unified search</summary>
 
 The top-level `search(query, opts?)` method runs `searchEpisodes` and `searchFacts`
 in parallel (via `Promise.all`) and returns combined results as `{ episodes, facts }`.
+
+</details>

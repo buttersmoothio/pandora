@@ -1,3 +1,5 @@
+import { Callout, Steps, Cards } from 'nextra/components'
+
 # Quickstart
 
 Get Pandora running in 5 minutes.
@@ -8,7 +10,9 @@ Get Pandora running in 5 minutes.
 - A [Vercel AI Gateway](https://vercel.com/ai-gateway) API key (gives access to 50+ AI models)
 - For Telegram: A bot token from [@BotFather](https://t.me/BotFather)
 
-## 1. Clone and install
+<Steps>
+
+### Clone and install
 
 ```bash
 git clone https://github.com/pandora-ai/pandora.git
@@ -16,7 +20,7 @@ cd pandora
 bun install
 ```
 
-## 2. Create your config
+### Create your config
 
 Copy the example config:
 
@@ -46,9 +50,11 @@ Edit `config.jsonc` with your keys:
 }
 ```
 
+<Callout type="info">
 **Getting your Telegram user ID:** Message [@userinfobot](https://t.me/userinfobot) on Telegram.
+</Callout>
 
-## 3. Start Pandora
+### Start Pandora
 
 ```bash
 bun run dev
@@ -61,103 +67,20 @@ You should see:
 [Channel] [telegram] Started (long polling mode)
 ```
 
-## 4. Chat!
+### Chat!
 
 Open Telegram and message your bot. That's it!
+
+</Steps>
 
 ---
 
 ## Next steps
 
-### Add the web interface
-
-Edit `config.jsonc` to add the web channel:
-
-```jsonc
-"channels": {
-  "telegram": { /* ... */ },
-  "web": {
-    "port": 3000,
-    "token": "pick-a-secret-token"
-  }
-}
-```
-
-Run the web UI:
-
-```bash
-bun run dev  # Starts everything
-```
-
-Open `http://localhost:3001` and enter your token.
-
-### Add specialist agents
-
-Make your AI smarter with sub-agents:
-
-```jsonc
-"agents": {
-  "operator": { "model": "google/gemini-3-flash" },
-  "coder": { "model": "anthropic/claude-sonnet-4.5" },
-  "research": { "model": "openai/gpt-5.2" }
-}
-```
-
-See [Agents](/agents) for all available specialists.
-
-### Add web search
-
-For live internet searches:
-
-```jsonc
-"agents": {
-  "operator": { "model": "google/gemini-3-flash" },
-  "webSearchNative": { "model": "perplexity/sonar-pro" }
-}
-```
-
-See [Tools](/tools) for more options.
-
-### Add long-term memory
-
-Let Pandora remember across conversations:
-
-```jsonc
-"memory": {
-  "type": "sqlite",
-  "path": "data/memory.db",
-  "embeddingModel": "openai/text-embedding-3-small"
-}
-```
-
-See [Memory](/memory) for details.
-
-### Build your own extensions
-
-Want a custom tool? A Discord channel? Check out [Building Extensions](/extensions).
-
----
-
-## Troubleshooting
-
-### "Config validation failed"
-
-Check that all required fields are present. The error message tells you which field is missing:
-
-```
-Config validation error:
-  ai.gateway.apiKey: Required
-```
-
-### Bot doesn't respond
-
-1. Check the token is correct (copy exactly from BotFather)
-2. Check your user ID matches `ownerId` exactly
-3. Try sending `/start` to the bot
-4. Check the console for errors
-
-### Need help?
-
-- Check the [Configuration](/configuration) reference
-- Look at `config.example.jsonc` for a complete example
-- Open an issue on GitHub
+<Cards>
+  <Cards.Card title="Configuration" href="/configuration" />
+  <Cards.Card title="Agents" href="/agents" />
+  <Cards.Card title="Web UI" href="/channels/web" />
+  <Cards.Card title="Memory" href="/memory" />
+  <Cards.Card title="Building Extensions" href="/extensions/overview" />
+</Cards>

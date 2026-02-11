@@ -28,10 +28,9 @@ The operator is the only **required** agent. It is configured at `ai.agents.oper
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `model` | `string` | *required* | Gateway model ID (e.g. `"google/gemini-3-flash"`, `"anthropic/claude-sonnet-4.5"`) |
-| `temperature` | `number` | `0` | Sampling temperature (0 = deterministic, up to 2) |
-| `maxOutputTokens` | `number` | — | Maximum tokens in the response |
+| `temperature` | `number` | `0` | Controls randomness. `0` = almost deterministic, higher values = more random. |
+| `maxOutputTokens` | `number` | — | Maximum number of tokens to generate |
 | `maxSteps` | `number` | `20` | Maximum tool loop iterations before stopping |
-| `toolChoice` | `string` | — | Tool calling strategy: `"auto"`, `"required"`, or `"none"` |
 
 ## How it works
 

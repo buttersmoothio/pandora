@@ -16,6 +16,7 @@
     "react-dom": "^19.2.4"
   },
   "devDependencies": {
+    "@theguild/remark-mermaid": "^0.3.0",
     "pagefind": "^1.4.0"
   }
 }

@@ -1,14 +1,22 @@
+import { Steps, Callout } from 'nextra/components'
+
 # Telegram
 
 Chat with Pandora from your phone via a Telegram bot. Owner-only, supports text, photos, documents, voice, audio, and video.
 
 ## Setup
 
-1. **Create a bot** — Message [@BotFather](https://t.me/BotFather), send `/newbot`, follow the prompts. Save the token.
+<Steps>
 
-2. **Get your user ID** — Message [@userinfobot](https://t.me/userinfobot). Save your ID.
+### Create a bot
 
-3. **Configure Pandora**
+Message [@BotFather](https://t.me/BotFather), send `/newbot`, follow the prompts. Save the token.
+
+### Get your user ID
+
+Message [@userinfobot](https://t.me/userinfobot). Save your ID.
+
+### Configure Pandora
 
 ```jsonc
 "channels": {
@@ -19,13 +27,15 @@ Chat with Pandora from your phone via a Telegram bot. Owner-only, supports text,
 }
 ```
 
-4. **Start and chat**
+### Start and chat
 
 ```bash
 bun run dev
 ```
 
 Message your bot on Telegram!
+
+</Steps>
 
 ---
 
@@ -65,7 +75,9 @@ The bot handles six message types. Each is extracted into an `Attachment` and fo
 
 ## Security
 
+<Callout type="warning">
 The bot only responds to the configured `ownerId`. Messages from any other user are silently ignored (logged but not replied to). The `/start` command is the one exception -- non-owners receive a brief "this bot is private" reply.
+</Callout>
 
 ---
 

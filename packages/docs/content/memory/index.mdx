@@ -1,3 +1,5 @@
+import { Callout, Cards } from 'nextra/components'
+
 # Memory
 
 Memory gives Pandora long-term recall across conversations. It automatically remembers past interactions and lets the AI store facts, preferences, and knowledge.
@@ -168,22 +170,20 @@ Long content is split into overlapping chunks (~400 tokens each) for better embe
 
 ## When to use memory
 
-**Use memory when:**
-- You want Pandora to remember preferences across sessions
-- You have recurring topics or projects
-- You want context from past conversations
+<Callout type="info">
+**Use memory when** you want Pandora to remember preferences across sessions, have recurring topics or projects, or want context from past conversations.
+</Callout>
 
-**Skip memory when:**
-- You prefer fresh starts each conversation
-- You're testing or developing
-- Privacy is a concern (memory persists data)
+<Callout type="warning">
+**Skip memory when** you prefer fresh starts each conversation, are testing or developing, or privacy is a concern (memory persists data).
+</Callout>
 
 ## Built-in backends
 
-| Backend | Description |
-|---------|-------------|
-| [SQLite](/memory/sqlite) | File-based with vector search |
+<Cards>
+  <Cards.Card title="SQLite" href="/memory/sqlite" />
+</Cards>
 
 ## Create your own
 
-Want a different vector database? See [Custom Memory](/extensions/memory) to build your own backend.
+Want a different vector database? See [Custom Memory](/extensions/custom-memory) to build your own backend.

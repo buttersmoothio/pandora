@@ -1,3 +1,5 @@
+import { Steps, Tabs } from 'nextra/components'
+
 # Custom Agents
 
 Sub-agents are specialists that the operator can delegate to. This guide walks you through creating one.
@@ -6,7 +8,9 @@ Sub-agents are specialists that the operator can delegate to. This guide walks y
 
 Let's build a translator that handles language translation tasks.
 
-### Step 1: Create the file
+<Steps>
+
+### Create the file
 
 Create `packages/pandora/src/subagents/translator.ts`:
 
@@ -38,7 +42,7 @@ When translating:
 });
 ```
 
-### Step 2: Add to config
+### Add to config
 
 Edit `config.jsonc`:
 
@@ -49,11 +53,13 @@ Edit `config.jsonc`:
 }
 ```
 
-### Step 3: Done!
+### Done!
 
 Restart Pandora. Now you can ask "Translate 'Hello, how are you?' to Japanese."
 
 The operator will recognize this as a translation task and delegate to your translator agent.
+
+</Steps>
 
 ---
 
@@ -250,7 +256,8 @@ This is useful for subagents that only fetch external data and should not store 
 
 ## More examples
 
-### Writing assistant
+<Tabs items={['Writing assistant', 'Data analyst', 'Summarizer']}>
+<Tabs.Tab>
 
 ```typescript
 export default defineSubagent({
@@ -276,7 +283,8 @@ Ask clarifying questions if the request is ambiguous.`,
 });
 ```
 
-### Data analyst
+</Tabs.Tab>
+<Tabs.Tab>
 
 ```typescript
 export default defineSubagent({
@@ -303,7 +311,8 @@ Be precise with numbers and explain your methodology.`,
 });
 ```
 
-### Summarizer
+</Tabs.Tab>
+<Tabs.Tab>
 
 ```typescript
 export default defineSubagent({
@@ -330,6 +339,9 @@ longer for complex ones.`,
   inputField: "content",
 });
 ```
+
+</Tabs.Tab>
+</Tabs>
 
 ---
 

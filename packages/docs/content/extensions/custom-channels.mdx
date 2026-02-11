@@ -1,3 +1,5 @@
+import { Steps, Tabs } from 'nextra/components'
+
 # Custom Channels
 
 Channels connect Pandora to messaging platforms. This guide walks you through creating one.
@@ -6,13 +8,15 @@ Channels connect Pandora to messaging platforms. This guide walks you through cr
 
 Let's build a Discord channel that lets you chat with Pandora from Discord.
 
-### Step 1: Install dependencies
+<Steps>
+
+### Install dependencies
 
 ```bash
 bun add discord.js
 ```
 
-### Step 2: Create the file
+### Create the file
 
 Create `packages/pandora/src/channels/discord/index.ts`:
 
@@ -109,7 +113,7 @@ export default defineChannel({
 });
 ```
 
-### Step 3: Add to config
+### Add to config
 
 ```jsonc
 "channels": {
@@ -120,9 +124,11 @@ export default defineChannel({
 }
 ```
 
-### Step 4: Done!
+### Done!
 
 Restart Pandora. Message your Discord bot!
+
+</Steps>
 
 ---
 
@@ -285,7 +291,8 @@ There is also `gateway.getStreamingHandler()` which yields text deltas without t
 
 ## More examples
 
-### Slack channel
+<Tabs items={['Slack', 'CLI']}>
+<Tabs.Tab>
 
 ```typescript
 import { App } from "@slack/bolt";
@@ -327,7 +334,8 @@ class SlackChannel implements Channel {
 }
 ```
 
-### CLI channel
+</Tabs.Tab>
+<Tabs.Tab>
 
 ```typescript
 import * as readline from "readline";
@@ -378,6 +386,9 @@ class CLIChannel implements Channel {
   }
 }
 ```
+
+</Tabs.Tab>
+</Tabs>
 
 ---
 

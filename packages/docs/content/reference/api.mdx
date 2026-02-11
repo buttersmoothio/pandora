@@ -199,9 +199,8 @@ Get a streaming handler that also accepts an `onEvent` callback for tool calls, 
 
 ### Types
 
-#### `ActiveStreamState`
-
-State of an active stream, used by late-joining subscribers to catch up.
+<details>
+<summary>**`ActiveStreamState`** — State for late-joining subscribers</summary>
 
 ```typescript
 interface ActiveStreamState {
@@ -230,9 +229,10 @@ interface ActiveStreamState {
 }
 ```
 
-#### `ActiveThreadState`
+</details>
 
-State of an active subagent thread within a stream.
+<details>
+<summary>**`ActiveThreadState`** — Subagent thread state within a stream</summary>
 
 ```typescript
 interface ActiveThreadState {
@@ -244,9 +244,10 @@ interface ActiveThreadState {
 }
 ```
 
-#### `ConversationInfo`
+</details>
 
-Summary information about a stored conversation.
+<details>
+<summary>**`ConversationInfo`** — Summary of a stored conversation</summary>
 
 ```typescript
 interface ConversationInfo {
@@ -262,6 +263,8 @@ interface ConversationInfo {
   subagentName?: string;
 }
 ```
+
+</details>
 
 ---
 

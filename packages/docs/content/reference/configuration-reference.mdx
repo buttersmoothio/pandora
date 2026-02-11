@@ -66,10 +66,9 @@ Each agent accepts the following fields:
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
 | `model` | `string` | **Yes** | — | Gateway model ID in `provider/model` format (e.g. `anthropic/claude-sonnet-4.5`, `openai/gpt-4o`, `google/gemini-2.0-flash`). |
-| `temperature` | `number` | No | — | Sampling temperature. Range: `0` (deterministic) to `2` (maximum creativity). |
-| `maxOutputTokens` | `number` | No | — | Maximum tokens in the model response. Must be a positive integer. |
+| `temperature` | `number` | No | — | Controls randomness. `0` = almost deterministic, higher values = more random. |
+| `maxOutputTokens` | `number` | No | — | Maximum number of tokens to generate. Must be a positive integer. |
 | `maxSteps` | `number` | No | `20` | Maximum tool loop steps before the agent stops. Must be a positive integer. |
-| `toolChoice` | `string` | No | — | Tool calling strategy: `"auto"`, `"required"`, or `"none"`. |
 | `searchBackend` | `string` | No | — | Search backend tool name. Only used by the `webSearchTool` agent. |
 
 #### Known agents
@@ -135,7 +134,7 @@ Web search using an external search API tool. Works with any model but requires 
 
 #### Custom agents
 
-The `agents` object uses a catchall schema, so you can add any sub-agent name beyond the built-in ones. Custom sub-agents are defined via `defineSubagent()` in `packages/pandora/src/subagents/`. See [Creating extensions](/extensions/creating) for details.
+The `agents` object uses a catchall schema, so you can add any sub-agent name beyond the built-in ones. Custom sub-agents are defined via `defineSubagent()` in `packages/pandora/src/subagents/`. See [Creating extensions](/extensions/overview) for details.
 
 ### `ai.tools`
 
@@ -329,7 +328,6 @@ After parsing, `validateConfig()` runs the following checks. Startup fails if an
 4. **Zod schema validation.** All fields are validated against their Zod schemas at parse time:
    - `temperature` must be between `0` and `2`.
    - `maxOutputTokens` and `maxSteps` must be positive integers.
-   - `toolChoice` must be one of `"auto"`, `"required"`, or `"none"`.
    - `logLevel` must be one of `"normal"` or `"verbose"`.
 
 ---

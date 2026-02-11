@@ -6,9 +6,21 @@ Information gathering and explanations specialist.
 
 ```jsonc
 "agents": {
-  "research": { "model": "openai/gpt-5.2" }
+  "research": {
+    "model": "openai/gpt-5.2",
+    "maxOutputTokens": 4096
+  }
 }
 ```
+
+All agents share the same config options. See [Configuration Reference](/reference/configuration-reference#aiagents) for details.
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `model` | `string` | *required* | Gateway model ID (e.g. `"openai/gpt-5.2"`) |
+| `temperature` | `number` | — | Controls randomness. `0` = almost deterministic, higher values = more random. |
+| `maxOutputTokens` | `number` | — | Maximum number of tokens to generate |
+| `maxSteps` | `number` | `20` | Maximum tool loop iterations before stopping |
 
 ## Purpose
 

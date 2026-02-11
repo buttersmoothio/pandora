@@ -1,6 +1,8 @@
+import { Callout } from 'nextra/components'
+
 # Configuration
 
-Pandora uses a single file: `config.jsonc`. This page walks through the main sections. For an exhaustive field-by-field reference, see [Configuration Reference](/reference/configuration).
+Pandora uses a single file: `config.jsonc`. This page walks through the main sections. For an exhaustive field-by-field reference, see [Configuration Reference](/reference/configuration-reference).
 
 ## Getting started
 
@@ -12,14 +14,9 @@ cp config.example.jsonc config.jsonc
 
 The config uses JSONC format — you can use comments (`//`) and trailing commas.
 
-For IDE autocompletion, add the schema reference:
-
-```jsonc
-{
-  "$schema": "./config.schema.jsonc",
-  // ... rest of config
-}
-```
+<Callout type="info">
+For IDE autocompletion, add `"$schema": "./config.schema.jsonc"` at the top of your config file.
+</Callout>
 
 ## Minimal config
 
@@ -69,7 +66,7 @@ perplexity/sonar-pro
 openai/text-embedding-3-small
 ```
 
-The provider prefix (before the `/`) tells the Vercel AI Gateway which backend to route to. The model suffix (after the `/`) selects the specific model from that provider.
+The provider prefix (before the `/`) tells the Vercel AI Gateway which backend to route to. The model suffix (after the `/`) selects the specific model from that provider. Browse the [full list of supported models](https://vercel.com/ai-gateway/models).
 
 ---
 
@@ -217,21 +214,3 @@ Controls how much detail Pandora prints to the console.
 }
 ```
 
----
-
-## Troubleshooting
-
-### "Config validation failed"
-
-The error message tells you which field is wrong:
-
-```
-Config validation error:
-  ai.gateway.apiKey: Required
-```
-
-Fix: Add the missing field.
-
-### "Unknown store type"
-
-Use `sqlite` or `memory`, or create a [custom storage backend](/extensions/storage).

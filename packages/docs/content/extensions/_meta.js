@@ -1,8 +1,8 @@
 export default {
-  index: "Overview",
-  tools: "Custom Tools",
-  agents: "Custom Agents",
-  channels: "Custom Channels",
-  storage: "Custom Storage",
-  memory: "Custom Memory"
+  overview: "Overview",
+  "custom-tools": "Custom Tools",
+  "custom-agents": "Custom Agents",
+  "custom-channels": "Custom Channels",
+  "custom-storage": "Custom Storage",
+  "custom-memory": "Custom Memory"
 }

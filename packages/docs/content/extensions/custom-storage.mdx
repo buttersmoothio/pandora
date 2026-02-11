@@ -1,3 +1,5 @@
+import { Steps, Tabs } from 'nextra/components'
+
 # Custom Storage
 
 Storage backends persist conversation history. This guide walks you through creating one.
@@ -6,13 +8,15 @@ Storage backends persist conversation history. This guide walks you through crea
 
 Let's build a Postgres storage backend.
 
-### Step 1: Install dependencies
+<Steps>
+
+### Install dependencies
 
 ```bash
 bun add pg
 ```
 
-### Step 2: Create the file
+### Create the file
 
 Create `packages/pandora/src/store/postgres.ts`:
 
@@ -73,7 +77,7 @@ export default defineStore({
 });
 ```
 
-### Step 3: Create the table
+### Create the table
 
 Run this SQL on your Postgres database:
 
@@ -89,7 +93,7 @@ CREATE TABLE messages (
 CREATE INDEX idx_messages_conversation ON messages(conversation_id);
 ```
 
-### Step 4: Add to config
+### Add to config
 
 ```jsonc
 "storage": {
@@ -98,9 +102,11 @@ CREATE INDEX idx_messages_conversation ON messages(conversation_id);
 }
 ```
 
-### Step 5: Done!
+### Done!
 
 Restart Pandora. Conversations are now stored in Postgres.
+
+</Steps>
 
 ---
 
@@ -240,7 +246,8 @@ return {
 
 ## More examples
 
-### Redis backend
+<Tabs items={['Redis', 'MongoDB']}>
+<Tabs.Tab>
 
 ```typescript
 import { createClient } from "redis";
@@ -291,7 +298,8 @@ Config:
 }
 ```
 
-### MongoDB backend
+</Tabs.Tab>
+<Tabs.Tab>
 
 ```typescript
 import { MongoClient, Collection } from "mongodb";
@@ -352,6 +360,9 @@ Config:
   "database": "pandora"
 }
 ```
+
+</Tabs.Tab>
+</Tabs>
 
 ---
 

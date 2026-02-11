@@ -6,7 +6,7 @@
  * self-registers using defineSubagent().
  */
 
-import { ToolLoopAgent, stepCountIs, tool, type Tool, type ToolChoice } from "ai";
+import { ToolLoopAgent, stepCountIs, tool, type Tool } from "ai";
 import type { z } from "zod";
 import { createModel } from "../providers";
 import type { AIConfig } from "../config";
@@ -100,7 +100,6 @@ export function createSubagentFromDefinition(
     temperature: agentConfig.temperature,
     maxOutputTokens: agentConfig.maxOutputTokens,
     stopWhen: agentConfig.maxSteps ? stepCountIs(agentConfig.maxSteps) : undefined,
-    toolChoice: agentConfig.toolChoice as ToolChoice<any> | undefined,
     instructions: definition.instructions,
     tools,
     onStepFinish: ({ toolCalls, toolResults, text, finishReason, usage }) => {

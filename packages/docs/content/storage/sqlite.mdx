@@ -1,3 +1,5 @@
+import { Callout } from 'nextra/components'
+
 # SQLite Storage
 
 File-based database. The default and recommended option.
@@ -34,21 +36,18 @@ cp data/pandora.db data/pandora.db.backup
 ```bash
 # Clear a specific conversation (messages and parts cascade-delete)
 sqlite3 data/pandora.db "DELETE FROM conversations WHERE id = 'your-id';"
-
-# Clear everything
-rm data/pandora.db
 ```
+
+<Callout type="warning">
+To clear **everything**, delete the database file: `rm data/pandora.db`. Pandora will recreate it on next start.
+</Callout>
 
 ---
 
 ## Schema Reference
 
-Three tables store all conversation data: `conversations`, `messages`, and `message_parts`.
-Deleting a conversation cascades through messages and parts automatically.
-
-### conversations
-
-Holds both top-level user conversations and subagent threads.
+<details>
+<summary>**conversations** — Holds both top-level user conversations and subagent threads.</summary>
 
 ```sql
 CREATE TABLE conversations (
@@ -75,9 +74,10 @@ CREATE INDEX idx_conversations_parent ON conversations (parent_conversation_id);
 | `parent_tool_call_id` | The tool call ID that triggered the subagent delegation |
 | `subagent_name` | Which subagent owns this thread |
 
-### messages
+</details>
 
-Metadata for each message. Content lives in `message_parts`.
+<details>
+<summary>**messages** — Metadata for each message. Content lives in `message_parts`.</summary>
 
 ```sql
 CREATE TABLE messages (
@@ -95,9 +95,10 @@ CREATE TABLE messages (
 CREATE INDEX idx_messages_conversation ON messages (conversation_id, created_at);
 ```
 
-### message_parts
+</details>
 
-Ordered, heterogeneous content parts for each message. Each part is stored as a JSON blob.
+<details>
+<summary>**message_parts** — Ordered, heterogeneous content parts for each message.</summary>
 
 ```sql
 CREATE TABLE message_parts (
@@ -119,6 +120,8 @@ CREATE INDEX idx_parts_message ON message_parts (message_id, part_index);
 |-------------|---------------------|
 | `text` | `{ type: "text", text: "...", state: "streaming" \| "done" }` |
 | `dynamic-tool` | `{ type: "dynamic-tool", toolCallId, toolName, input, state, output?, threadId? }` |
+
+</details>
 
 ---
 

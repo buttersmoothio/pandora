@@ -1,3 +1,5 @@
+import { Callout } from 'nextra/components'
+
 # Security
 
 Pandora is designed as a **single-owner personal assistant**. One person owns everything — all channels, conversations, and access.
@@ -75,12 +77,9 @@ If running on a VPS:
 
 ### Public internet
 
-Pandora is **not designed for public deployment**. If you must:
-
-1. Use HTTPS via reverse proxy
-2. Add rate limiting at proxy level
-3. Consider HTTP basic auth as second layer
-4. Monitor logs for suspicious activity
+<Callout type="error">
+Pandora is **not designed for public deployment**. If you must expose it publicly, use HTTPS via reverse proxy, add rate limiting, consider HTTP basic auth as a second layer, and monitor logs for suspicious activity.
+</Callout>
 
 ## Not supported
 

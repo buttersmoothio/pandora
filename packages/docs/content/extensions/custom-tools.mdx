@@ -1,3 +1,5 @@
+import { Steps, Tabs, Callout } from 'nextra/components'
+
 # Custom Tools
 
 Tools give your AI new capabilities. This guide walks you through creating one.
@@ -6,7 +8,9 @@ Tools give your AI new capabilities. This guide walks you through creating one.
 
 Let's build a weather tool that fetches current conditions.
 
-### Step 1: Create the file
+<Steps>
+
+### Create the file
 
 Create `packages/pandora/src/tools/weather.ts`:
 
@@ -43,7 +47,7 @@ export default defineTool({
 });
 ```
 
-### Step 2: Add to config
+### Add to config
 
 Edit `config.jsonc`:
 
@@ -55,9 +59,11 @@ Edit `config.jsonc`:
 }
 ```
 
-### Step 3: Done!
+### Done!
 
 Restart Pandora. Now you can ask "What's the weather in Tokyo?"
+
+</Steps>
 
 ---
 
@@ -165,7 +171,9 @@ Config:
 
 ## Error handling
 
-Throw errors to signal failure. The AI will see the error message:
+<Callout type="info">
+Throw errors to signal failure. The AI will see the error message and can adjust its approach.
+</Callout>
 
 ```typescript
 execute: async ({ ticker }) => {
@@ -184,7 +192,8 @@ execute: async ({ ticker }) => {
 
 ## More examples
 
-### Database query
+<Tabs items={['Database query', 'HTTP API call']}>
+<Tabs.Tab>
 
 ```typescript
 export default defineTool({
@@ -216,7 +225,8 @@ export default defineTool({
 });
 ```
 
-### HTTP API call
+</Tabs.Tab>
+<Tabs.Tab>
 
 ```typescript
 export default defineTool({
@@ -250,6 +260,9 @@ export default defineTool({
   }),
 });
 ```
+
+</Tabs.Tab>
+</Tabs>
 
 ---
 

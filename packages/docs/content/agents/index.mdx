@@ -1,3 +1,5 @@
+import { Cards, Tabs } from 'nextra/components'
+
 # Agents
 
 Pandora uses a multi-agent system where a main **operator** can delegate tasks to specialized **sub-agents**.
@@ -22,7 +24,8 @@ Each sub-agent has focused instructions and can use different AI models.
 
 ## Configuration
 
-### Operator only (minimal)
+<Tabs items={['Operator only (minimal)', 'With specialists']}>
+<Tabs.Tab>
 
 ```jsonc
 "agents": {
@@ -32,7 +35,8 @@ Each sub-agent has focused instructions and can use different AI models.
 
 The operator alone is quite capable for general use. Use a fast, tool-call capable model.
 
-### With specialists
+</Tabs.Tab>
+<Tabs.Tab>
 
 ```jsonc
 "agents": {
@@ -45,14 +49,17 @@ The operator alone is quite capable for general use. Use a fast, tool-call capab
 
 You can enable any combination — just include the ones you want.
 
+</Tabs.Tab>
+</Tabs>
+
 ## Built-in agents
 
-| Agent | Purpose | Recommended model |
-|-------|---------|-------------------|
-| [Operator](/agents/operator) | Main assistant, task routing | `google/gemini-3-flash` |
-| [Coder](/agents/coder) | Programming tasks | `anthropic/claude-sonnet-4.5` |
-| [Research](/agents/research) | Information gathering | `openai/gpt-5.2` |
-| [Web Search](/agents/web-search) | Live internet searches | `perplexity/sonar-pro` |
+<Cards>
+  <Cards.Card title="Operator" href="/agents/operator" />
+  <Cards.Card title="Coder" href="/agents/coder" />
+  <Cards.Card title="Research" href="/agents/research" />
+  <Cards.Card title="Web Search" href="/agents/web-search" />
+</Cards>
 
 ## Choosing models
 
@@ -88,4 +95,4 @@ The operator handles routing and simple tasks — use a fast, cheap model with g
 
 Want a translator? Writing assistant? Data analyst?
 
-See [Custom Agents](/extensions/agents) to create your own specialist.
+See [Custom Agents](/extensions/custom-agents) to create your own specialist.

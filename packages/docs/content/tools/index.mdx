@@ -1,3 +1,5 @@
+import { Cards } from 'nextra/components'
+
 # Tools
 
 Tools give your AI agents extra capabilities — like getting the current time, searching the web, or calling APIs.
@@ -32,10 +34,10 @@ Tools are then available to all agents automatically.
 
 ## Built-in tools
 
-| Tool | Description | API Key |
-|------|-------------|---------|
-| [datetime](/tools/datetime) | Current date and time | None |
-| [Web Search](/tools/web-search) | Search the internet | Required |
+<Cards>
+  <Cards.Card title="datetime" href="/tools/datetime" />
+  <Cards.Card title="Web Search" href="/tools/web-search" />
+</Cards>
 
 ## Full example
 
@@ -62,4 +64,4 @@ Tools are then available to all agents automatically.
 
 Want weather, stock prices, or custom API integrations?
 
-See [Custom Tools](/extensions/tools) to build your own.
+See [Custom Tools](/extensions/custom-tools) to build your own.

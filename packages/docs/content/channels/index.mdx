@@ -1,13 +1,15 @@
+import { Cards } from 'nextra/components'
+
 # Channels
 
 Channels connect Pandora to messaging platforms. Out of the box, you get **Telegram** and **Web**.
 
 ## Built-in channels
 
-| Channel | Description |
-|---------|-------------|
-| [Telegram](/channels/telegram) | Chat from your phone via a Telegram bot |
-| [Web](/channels/web) | Browser-based chat with streaming |
+<Cards>
+  <Cards.Card title="Telegram" href="/channels/telegram" />
+  <Cards.Card title="Web" href="/channels/web" />
+</Cards>
 
 ## Running multiple channels
 
@@ -30,4 +32,4 @@ Both channels share the same conversation history. A chat started on Telegram ap
 
 Want Discord? Slack? A CLI interface?
 
-See [Custom Channels](/extensions/channels) to build your own.
+See [Custom Channels](/extensions/custom-channels) to build your own.

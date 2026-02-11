@@ -1,6 +1,6 @@
 export default {
   architecture: "Architecture",
-  configuration: "Configuration Reference",
+  "configuration-reference": "Configuration Reference",
   types: "Types & Interfaces",
   api: "API Reference",
   "websocket-protocol": "WebSocket Protocol",

@@ -20,10 +20,10 @@ export default {
     type: "separator",
     title: "Building Extensions"
   },
-  extensions: "Extensions",
+  extensions: { display: "children" },
   "-- Reference": {
     type: "separator",
     title: "Reference"
   },
-  reference: "Reference"
+  reference: { display: "children" }
 }

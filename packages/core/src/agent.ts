@@ -5,7 +5,7 @@
  * specialized tasks to subagents (coding, research, etc.) via tools.
  */
 
-import { ToolLoopAgent, stepCountIs, convertToModelMessages, type Tool, type ToolChoice, type ToolExecutionOptions } from "ai";
+import { ToolLoopAgent, stepCountIs, convertToModelMessages, type Tool, type ToolExecutionOptions } from "ai";
 import { createModel } from "./providers";
 import {
   getSubagentDefinitions,
@@ -330,7 +330,6 @@ export class Agent {
       temperature: operatorConfig.temperature ?? 0,
       maxOutputTokens: operatorConfig.maxOutputTokens,
       stopWhen: stepCountIs(operatorConfig.maxSteps ?? 20),
-      toolChoice: operatorConfig.toolChoice as ToolChoice<any> | undefined,
       instructions,
       tools,
       onStepFinish: ({ toolCalls, toolResults, text, finishReason, usage }) => {

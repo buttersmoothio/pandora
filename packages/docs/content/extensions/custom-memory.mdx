@@ -1,3 +1,5 @@
+import { Steps } from 'nextra/components'
+
 # Custom Memory
 
 Memory backends provide persistent vector-based memory for Pandora. This guide walks you through creating one.
@@ -6,13 +8,15 @@ Memory backends provide persistent vector-based memory for Pandora. This guide w
 
 Let's build a memory backend using Postgres with the pgvector extension.
 
-### Step 1: Install dependencies
+<Steps>
+
+### Install dependencies
 
 ```bash
 bun add pg
 ```
 
-### Step 2: Create the file
+### Create the file
 
 Create `packages/pandora/src/memory/postgres.ts`:
 
@@ -287,7 +291,7 @@ export default defineMemory({
 });
 ```
 
-### Step 3: Add to config
+### Add to config
 
 ```jsonc
 "memory": {
@@ -297,9 +301,11 @@ export default defineMemory({
 }
 ```
 
-### Step 4: Done!
+### Done!
 
 Restart Pandora. Memory is now stored in Postgres with pgvector.
+
+</Steps>
 
 ---
 

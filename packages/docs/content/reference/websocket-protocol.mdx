@@ -100,6 +100,9 @@ All server events include a `conversationId` field. Events scoped to a subagent 
 | `reasoning-delta` | `text`, `threadId?` | Chain-of-thought text |
 | `step-finish` | `usage?`, `finishReason?`, `threadId?` | Step completed with token usage |
 
+<details>
+<summary>**Streaming event details** — JSON examples for each event type</summary>
+
 #### `text-delta`
 
 Streamed text chunk from the AI.
@@ -210,11 +213,16 @@ A processing step completed. Includes token usage.
 }
 ```
 
+</details>
+
 ### Memory
 
 | Type | Fields | Description |
 |------|--------|-------------|
 | `memory-context` | `facts`, `episodes` | Recalled memories, sent before generation starts |
+
+<details>
+<summary>**Memory event details**</summary>
 
 #### `memory-context`
 
@@ -233,12 +241,17 @@ Recalled memory context for this prompt. Sent before the AI starts generating.
 }
 ```
 
+</details>
+
 ### Subagent Threads
 
 | Type | Fields | Description |
 |------|--------|-------------|
 | `subagent-start` | `threadId`, `toolCallId`, `subagentName` | Subagent thread started |
 | `subagent-done` | `threadId` | Subagent thread completed |
+
+<details>
+<summary>**Subagent thread event details**</summary>
 
 #### `subagent-start`
 
@@ -265,6 +278,8 @@ A subagent thread has completed.
   "conversationId": "my-chat"
 }
 ```
+
+</details>
 
 ### Cross-Channel
 
@@ -325,6 +340,9 @@ To monitor all conversations for sidebar updates:
 |------|--------|-------------|
 | `stream-state` | `conversationId`, `partialText`, `toolCalls`, `sources`, `reasoning`, `threads` | Accumulated state for late-joining clients |
 
+<details>
+<summary>**`stream-state` details** — Full schema for late-joining state sync</summary>
+
 #### `stream-state`
 
 Current state of an active stream. Sent when a client subscribes via `watch` to a conversation that's mid-stream (late-joining). Contains accumulated text, tool calls, sources, reasoning, and subagent thread states.
@@ -354,6 +372,8 @@ Current state of an active stream. Sent when a client subscribes via `watch` to 
   }
 }
 ```
+
+</details>
 
 ### Completion and Errors
 

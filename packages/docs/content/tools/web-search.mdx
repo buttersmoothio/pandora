@@ -1,3 +1,5 @@
+import { Callout } from 'nextra/components'
+
 # Web Search Tools
 
 Search backends that power the `webSearchTool` agent. Each backend uses a **dual-registration pattern**: it registers as both a standalone tool (via `defineTool()`) and as a search backend (via `defineSearchTool()`), so the `webSearchTool` subagent can look it up by name.
@@ -100,9 +102,9 @@ When the `webSearchTool` subagent starts, it:
 
 ## Native vs Tool-Based Search
 
-These tools are only needed for **tool-based search** (`webSearchTool`). If you use **native search** (`webSearchNative`) with a search-enabled model like Perplexity Sonar, you do not need any of these backends.
-
-See [Web Search Agents](/agents/web-search) for a full comparison of both approaches.
+<Callout type="info">
+These tools are only needed for **tool-based search** (`webSearchTool`). If you use **native search** (`webSearchNative`) with a search-enabled model like Perplexity Sonar, you do not need any of these backends. See [Web Search Agents](/agents/web-search) for a full comparison.
+</Callout>
 
 | | Native Search | Tool-Based Search |
 |--|---------------|-------------------|
