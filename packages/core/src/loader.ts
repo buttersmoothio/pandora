@@ -7,6 +7,7 @@
 
 import { Glob } from "bun";
 import { resolve, relative } from "node:path";
+import { logger } from "./logger";
 
 /**
  * Auto-discover and import all TypeScript files in a directory.
@@ -47,9 +48,16 @@ export async function loadExtensions(
   // Sort for consistent load order
   files.sort();
 
+  logger.debug("Loader", `Discovered ${files.length} extension(s)`, { directory });
+
   // Import all discovered files
   for (const file of files) {
-    await import(file);
+    try {
+      await import(file);
+    } catch (error) {
+      logger.error("Loader", `Failed to load extension: ${file}`, error);
+      throw error;
+    }
   }
 }
 
@@ -71,8 +79,15 @@ export async function loadChannels(directory: string): Promise<void> {
   // Sort for consistent load order
   files.sort();
 
+  logger.debug("Loader", `Discovered ${files.length} channel(s)`, { directory });
+
   // Import all discovered channel index files
   for (const file of files) {
-    await import(file);
+    try {
+      await import(file);
+    } catch (error) {
+      logger.error("Loader", `Failed to load channel: ${file}`, error);
+      throw error;
+    }
   }
 }

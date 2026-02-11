@@ -6,6 +6,7 @@
  */
 
 import type { Tool } from "ai";
+import { logger } from "../logger";
 
 /**
  * Tool-specific configuration (varies per tool)
@@ -62,6 +63,7 @@ const registry = new Map<string, ToolFactory>();
  */
 export function defineTool(registration: ToolRegistration): ToolRegistration {
   registry.set(registration.name, registration.factory);
+  logger.debug("Registry", "Tool registered", { name: registration.name });
   return registration;
 }
 
@@ -104,5 +106,6 @@ export function createToolsForAgent(
     }
   }
 
+  logger.debug("Registry", `Created ${Object.keys(tools).length} tool(s) for agent`, { agent: agentName });
   return tools;
 }

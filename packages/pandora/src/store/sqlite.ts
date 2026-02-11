@@ -220,6 +220,7 @@ export class SqliteStore implements IMessageStore {
 
   /** @inheritdoc */
   async clearHistory(conversationId: string): Promise<void> {
+    logger.info("Store", "Clearing conversation history", { conversationId });
     // Messages and parts cascade-delete due to FK constraint
     this.db.run(`DELETE FROM messages WHERE conversation_id = ?`, [
       conversationId,
@@ -440,12 +441,14 @@ export class SqliteStore implements IMessageStore {
 
   /** @inheritdoc */
   async deleteConversation(conversationId: string): Promise<void> {
+    logger.info("Store", "Deleting conversation", { conversationId });
     // Messages and parts cascade-delete due to FK constraint
     this.db.run(`DELETE FROM conversations WHERE id = ?`, [conversationId]);
   }
 
   /** @inheritdoc */
   async close(): Promise<void> {
+    logger.info("Store", "Closing SQLite store");
     this.db.close();
   }
 

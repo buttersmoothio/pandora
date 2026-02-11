@@ -645,9 +645,14 @@ export class Gateway {
       const durationMs = Date.now() - startTime;
       logger.messageSent(channelName, conversationId, fullText.length, durationMs);
     } catch (error) {
+      logger.error("Gateway", "Message stream failed", error);
       // Finalize the message to avoid zombie streaming state in the store
       if (assistantMessageId) {
-        try { await this.store.finalizeMessage(assistantMessageId); } catch { /* best-effort */ }
+        try {
+          await this.store.finalizeMessage(assistantMessageId);
+        } catch (finalizeError) {
+          logger.warn("Gateway", "Failed to finalize message after error", { messageId: assistantMessageId });
+        }
       }
 
       this.emit(conversationId, {
@@ -696,6 +701,7 @@ export class Gateway {
    * @param conversationId - Conversation/chat ID to clear.
    */
   async clearConversation(conversationId: string): Promise<void> {
+    logger.info("Gateway", "Clearing conversation", { conversationId });
     await this.store.clearHistory(conversationId);
     this.emit(conversationId, { type: "cleared", conversationId });
   }
@@ -707,6 +713,7 @@ export class Gateway {
 
   /** Delete a conversation and all its messages. */
   async deleteConversation(conversationId: string): Promise<void> {
+    logger.info("Gateway", "Deleting conversation", { conversationId });
     // Delete conversation from store
     await this.store.deleteConversation(conversationId);
 

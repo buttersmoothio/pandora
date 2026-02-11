@@ -96,7 +96,12 @@ async function main(): Promise<void> {
 
   // Start all channels
   for (const channel of channels) {
-    await channel.start();
+    try {
+      await channel.start();
+    } catch (error) {
+      logger.error("Startup", `Failed to start channel: ${channel.name}`, error);
+      throw error;
+    }
   }
 
   // Check if any channels are enabled
@@ -112,14 +117,26 @@ async function main(): Promise<void> {
     logger.startup(`Shutdown requested (${signal})`);
 
     for (const channel of channels) {
-      await channel.stop();
+      try {
+        await channel.stop();
+      } catch (error) {
+        logger.error("Shutdown", `Failed to stop channel: ${channel.name}`, error);
+      }
     }
 
     if (memory) {
-      await memory.close();
+      try {
+        await memory.close();
+      } catch (error) {
+        logger.error("Shutdown", "Failed to close memory provider", error);
+      }
     }
 
-    await store.close();
+    try {
+      await store.close();
+    } catch (error) {
+      logger.error("Shutdown", "Failed to close store", error);
+    }
 
     logger.startup("Shutdown complete");
     process.exit(0);

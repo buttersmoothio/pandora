@@ -57,6 +57,7 @@ const registry = new Map<string, SubagentDefinition>();
  */
 export function defineSubagent(definition: SubagentDefinition): SubagentDefinition {
   registry.set(definition.name, definition);
+  logger.debug("Registry", "Subagent registered", { name: definition.name });
   return definition;
 }
 

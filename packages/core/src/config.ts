@@ -8,6 +8,7 @@
 import { resolve, dirname } from "node:path";
 import { parse } from "jsonc-parser";
 import { z } from "zod";
+import { logger } from "./logger";
 
 /**
  * Schema for AI Gateway configuration
@@ -128,6 +129,7 @@ export type TelegramConfig = ChannelConfig & { token: string; ownerId: string };
 export async function loadConfig(
   configPath: string = "../../config.jsonc"
 ): Promise<Config> {
+  logger.debug("Config", "Loading configuration", { path: configPath });
   const file = Bun.file(configPath);
 
   if (!(await file.exists())) {
@@ -161,6 +163,7 @@ export async function loadConfig(
   }
 
   result.data.personality = personalityContent;
+  logger.debug("Config", "Personality loaded", { path: personalityPath });
 
   // Resolve storage and memory paths relative to the config file directory
   const configDir = dirname(configPath);
@@ -171,6 +174,7 @@ export async function loadConfig(
     result.data.memory.path = resolve(configDir, result.data.memory.path);
   }
 
+  logger.debug("Config", "Configuration loaded successfully");
   return result.data;
 }
 
@@ -212,4 +216,6 @@ export function validateConfig(
       `Configuration errors:\n${errors.map((e) => `  - ${e}`).join("\n")}`
     );
   }
+
+  logger.debug("Config", "Configuration validated successfully");
 }

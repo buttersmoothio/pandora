@@ -158,6 +158,7 @@ export class Agent {
    * @param personality - Loaded personality content for the operator's system prompt.
    */
   static async create(config: AIConfig, personality: string): Promise<Agent> {
+    logger.debug("Agent", "Creating agent");
     const agent = new Agent(config, personality);
 
     // Resolve action tools from config (tools self-assign to agents via their `agents` field)
@@ -168,6 +169,7 @@ export class Agent {
       // Check if this subagent is configured
       const agentConfig = config.agents[definition.configKey as keyof typeof config.agents];
       if (!agentConfig) {
+        logger.debug("Agent", "Skipping unconfigured subagent", { name: definition.name });
         continue; // Subagent not enabled in config
       }
 
@@ -195,6 +197,10 @@ export class Agent {
       agent.subagentNames.add(definition.name);
     }
 
+    logger.debug("Agent", "Agent created", {
+      tools: Object.keys(agent.actionTools).length,
+      subagents: agent.subagentNames.size,
+    });
     return agent;
   }
 

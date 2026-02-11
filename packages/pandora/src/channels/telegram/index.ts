@@ -98,7 +98,7 @@ export class TelegramChannel implements Channel {
         "Clean slate. Go ahead.",
         "Ready. What do you need?",
       ];
-      await ctx.reply(greetings[Math.floor(Math.random() * greetings.length)]);
+      await ctx.reply(greetings[Math.floor(Math.random() * greetings.length)]!);
     });
 
     // Handle text messages (non-commands)

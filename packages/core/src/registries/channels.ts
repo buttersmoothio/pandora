@@ -8,6 +8,7 @@
 import type { Gateway } from "../gateway";
 import type { Config } from "../config";
 import type { Channel, ChannelCapabilities } from "../types";
+import { logger } from "../logger";
 
 // Re-export types that channel implementations need
 export type { Channel, ChannelCapabilities } from "../types";
@@ -43,6 +44,7 @@ const registry = new Map<string, ChannelFactory>();
  */
 export function defineChannel(factory: ChannelFactory): ChannelFactory {
   registry.set(factory.name, factory);
+  logger.debug("Registry", "Channel registered", { name: factory.name });
   return factory;
 }
 
@@ -69,9 +71,11 @@ export function createChannels(config: Config, gateway: Gateway): Channel[] {
 
     if (channelConfig) {
       channels.push(factory.create(channelConfig, gateway));
+      logger.debug("Registry", "Channel created", { name: factory.name });
     }
   }
 
+  logger.debug("Registry", `Created ${channels.length} channel(s)`);
   return channels;
 }
 

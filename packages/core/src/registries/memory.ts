@@ -6,6 +6,7 @@
  */
 
 import type { MemoryConfig } from "../config";
+import { logger } from "../logger";
 
 // ============================================================================
 // Constants
@@ -182,6 +183,7 @@ let cachedProvider: IMemoryProvider | null = null;
  */
 export function defineMemory(factory: MemoryFactoryRegistration): MemoryFactoryRegistration {
   registry.set(factory.type, factory);
+  logger.debug("Registry", "Memory provider registered", { type: factory.type });
   return factory;
 }
 
@@ -208,9 +210,11 @@ export async function createMemory(config?: MemoryConfig): Promise<IMemoryProvid
 
   // Return cached instance if available
   if (cachedProvider) {
+    logger.debug("Registry", "Returning cached memory provider");
     return cachedProvider;
   }
 
+  logger.debug("Registry", "Creating memory provider", { type: config.type });
   const factory = registry.get(config.type);
 
   if (!factory) {

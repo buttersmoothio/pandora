@@ -7,6 +7,7 @@
 
 import type { UIMessage, PandoraMessagePart, MessageMeta } from "../types";
 import type { StorageConfig } from "../config";
+import { logger } from "../logger";
 
 // Re-export MessageMeta for convenience
 export type { MessageMeta } from "../types";
@@ -175,6 +176,7 @@ const registry = new Map<string, StoreFactory>();
  */
 export function defineStore(factory: StoreFactory): StoreFactory {
   registry.set(factory.type, factory);
+  logger.debug("Registry", "Store registered", { type: factory.type });
   return factory;
 }
 
@@ -202,5 +204,6 @@ export function createStore(config: StorageConfig): IMessageStore {
     );
   }
 
+  logger.debug("Registry", "Creating store", { type: config.type });
   return factory.create(config);
 }

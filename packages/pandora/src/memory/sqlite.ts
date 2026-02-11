@@ -245,9 +245,14 @@ export class SqliteMemoryProvider implements IMemoryProvider {
   private async embedBatch(texts: string[]): Promise<number[][]> {
     if (texts.length === 0) return [];
 
-    const model = createEmbeddingModel(this.embeddingModel, this.apiKey);
-    const { embeddings } = await embedMany({ model, values: texts });
-    return embeddings;
+    try {
+      const model = createEmbeddingModel(this.embeddingModel, this.apiKey);
+      const { embeddings } = await embedMany({ model, values: texts });
+      return embeddings;
+    } catch (error) {
+      logger.error("Memory", `Embedding failed for ${texts.length} text(s)`, error);
+      throw error;
+    }
   }
 
   /**
@@ -311,6 +316,8 @@ export class SqliteMemoryProvider implements IMemoryProvider {
       `DELETE FROM memory_chunks WHERE parent_id = ? AND parent_type = ?`,
       [parentId, parentType]
     );
+
+    logger.debug("Memory", `Deleted ${chunkIds.length} chunk(s)`, { parentId, parentType });
   }
 
   /**
@@ -363,6 +370,7 @@ export class SqliteMemoryProvider implements IMemoryProvider {
         .all(...params);
     } catch {
       // FTS5 query failed (malformed query) - return empty results
+      logger.warn("Memory", "BM25 search failed", { query });
       return results;
     }
 
