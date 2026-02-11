@@ -166,10 +166,22 @@ Tool configurations keyed by tool name. Each value is a free-form object contain
 
 **`datetime`**
 
-Returns the current date and time. No configuration needed.
+Returns the current date and time. Auto-detects the system timezone. No API key needed.
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `timezone` | `string` | No | System timezone | IANA timezone override (e.g., `America/New_York`, `Asia/Tokyo`). |
 
 ```jsonc
 "datetime": {}
+```
+
+Or with an explicit timezone:
+
+```jsonc
+"datetime": {
+  "timezone": "America/New_York"
+}
 ```
 
 **`tavilySearch`**

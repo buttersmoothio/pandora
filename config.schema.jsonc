@@ -37,6 +37,20 @@
             "type": "object",
             "description": "Tool-specific configuration (e.g., API keys)"
           },
+          "properties": {
+            "datetime": {
+              "type": "object",
+              "description": "Date/time tool. Returns the current date and time. Auto-detects the system timezone.",
+              "properties": {
+                "timezone": {
+                  "type": "string",
+                  "description": "Override the default timezone with an IANA timezone string. If omitted, uses the system timezone.",
+                  "examples": ["America/New_York", "Europe/London", "Asia/Tokyo", "Asia/Colombo"]
+                }
+              },
+              "additionalProperties": false
+            }
+          },
           "examples": [
             {
               "datetime": {},

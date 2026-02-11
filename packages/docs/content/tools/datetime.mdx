@@ -2,6 +2,8 @@
 
 Returns the current date and time. No API key needed.
 
+The tool automatically uses the system timezone. You can override it in the config.
+
 ## Configuration
 
 ```jsonc
@@ -9,6 +11,20 @@ Returns the current date and time. No API key needed.
   "datetime": {}
 }
 ```
+
+To override the default timezone:
+
+```jsonc
+"tools": {
+  "datetime": {
+    "timezone": "America/New_York"
+  }
+}
+```
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `timezone` | `string` | No | System timezone | IANA timezone (e.g., `America/New_York`, `Asia/Tokyo`). |
 
 ## Example uses
 

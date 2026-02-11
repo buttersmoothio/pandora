@@ -39,8 +39,6 @@ function buildOperatorInstructions(
   const parts: string[] = [
     personality,
     "",
-    `Current time: ${new Date().toISOString()}`,
-    "",
   ];
 
   // Add channel capability information
