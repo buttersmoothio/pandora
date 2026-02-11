@@ -3,11 +3,16 @@
   "title": "Pandora AI Agent Configuration",
   "description": "Configuration schema for the Pandora AI Agent. Agents, channels, and storage backends are auto-discovered at runtime.",
   "type": "object",
-  "required": ["ai"],
+  "required": ["personality", "ai"],
   "properties": {
     "$schema": {
       "type": "string",
       "description": "JSON Schema reference for IDE autocompletion"
+    },
+    "personality": {
+      "type": "string",
+      "description": "Path to a markdown file that defines the agent's identity, personality traits, and communication style. The file contents are injected into the operator's system prompt.",
+      "examples": ["personality.md", "config/personality.md"]
     },
     "ai": {
       "type": "object",

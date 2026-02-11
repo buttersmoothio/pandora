@@ -68,7 +68,7 @@ async function main(): Promise<void> {
 
   // Initialize core components
   const store = createStore(config.storage);
-  const agent = await Agent.create(config.ai);
+  const agent = await Agent.create(config.ai, config.personality);
 
   // Initialize memory if configured (auto-injects tools into agent)
   let memory: IMemoryProvider | null = null;

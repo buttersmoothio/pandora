@@ -92,10 +92,13 @@ export class TelegramChannel implements Channel {
         conversationId: this.activeConversationId,
       });
 
-      await ctx.reply(
-        "Hello! I'm <i>Pandora</i>, your AI assistant. Send me a message and I'll respond.",
-        { parse_mode: "HTML" }
-      );
+      const greetings = [
+        "New conversation started. What's up?",
+        "Fresh start. What are we working on?",
+        "Clean slate. Go ahead.",
+        "Ready. What do you need?",
+      ];
+      await ctx.reply(greetings[Math.floor(Math.random() * greetings.length)]);
     });
 
     // Handle text messages (non-commands)

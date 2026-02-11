@@ -23,11 +23,33 @@ Add the `$schema` key for IDE autocompletion:
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
 | `$schema` | `string` | No | — | Path to the JSON Schema file for IDE autocompletion. |
+| `personality` | `string` | **Yes** | — | Path to a markdown file defining the agent's identity and tone. |
 | `ai` | `object` | **Yes** | — | AI configuration: gateway credentials, tools, and agent definitions. |
 | `channels` | `object` | No | `{}` | Channel configurations. A channel is enabled by being present. |
 | `storage` | `object` | No | `{ type: "sqlite", path: "data/pandora.db" }` | Conversation storage backend. |
 | `memory` | `object` | No | — | Long-term memory (episodic + semantic). Omit to disable. |
 | `logLevel` | `string` | No | `"normal"` | Logging verbosity: `"normal"` or `"verbose"`. |
+
+---
+
+## `personality`
+
+Path to a markdown file that defines the operator agent's identity, personality traits, and communication style. The file contents are loaded at startup and injected into the operator's system prompt, replacing the default greeting.
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `personality` | `string` | **Yes** | — | Relative path (from `config.jsonc`) to a `.md` file. |
+
+```jsonc
+"personality": "personality.md"
+```
+
+**Validation rules:**
+
+1. The file must exist at the resolved path (relative to the config file's directory).
+2. The file must not be empty after trimming whitespace.
+
+A default `personality.md` ships at the monorepo root. Edit it to customize the agent's behavior without changing code.
 
 ---
 
@@ -322,10 +344,11 @@ Controls logging verbosity.
 
 After parsing, `validateConfig()` runs the following checks. Startup fails if any rule is violated.
 
-1. **Operator agent must be configured.** The `ai.agents.operator` object must be present with at least a `model` field.
-2. **AI Gateway API key is required.** The `ai.gateway.apiKey` must be a non-empty string.
-3. **Each tool in `ai.tools` must be a known registered tool.** Every key in `ai.tools` is checked against the tool registry (auto-discovered from `packages/pandora/src/tools/`). Unknown tool names produce an error.
-4. **Zod schema validation.** All fields are validated against their Zod schemas at parse time:
+1. **Personality file must exist and be non-empty.** The `personality` path is resolved relative to `config.jsonc`. The file must exist and contain non-whitespace content.
+2. **Operator agent must be configured.** The `ai.agents.operator` object must be present with at least a `model` field.
+3. **AI Gateway API key is required.** The `ai.gateway.apiKey` must be a non-empty string.
+4. **Each tool in `ai.tools` must be a known registered tool.** Every key in `ai.tools` is checked against the tool registry (auto-discovered from `packages/pandora/src/tools/`). Unknown tool names produce an error.
+5. **Zod schema validation.** All fields are validated against their Zod schemas at parse time:
    - `temperature` must be between `0` and `2`.
    - `maxOutputTokens` and `maxSteps` must be positive integers.
    - `logLevel` must be one of `"normal"` or `"verbose"`.
@@ -340,6 +363,9 @@ A fully configured `config.jsonc` with all sections populated:
 {
   // IDE autocompletion
   "$schema": "./config.schema.jsonc",
+
+  // Agent personality
+  "personality": "personality.md",
 
   "ai": {
     "gateway": {

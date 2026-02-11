@@ -30,13 +30,14 @@ import { logger } from "./logger";
  * @returns System instruction string for the operator.
  */
 function buildOperatorInstructions(
+  personality: string,
   actionTools: Record<string, Tool>,
   subagentTools: Record<string, Tool>,
   capabilities: ChannelCapabilities,
   memoryContext?: string
 ): string {
   const parts: string[] = [
-    "You are a helpful AI assistant.",
+    personality,
     "",
     `Current time: ${new Date().toISOString()}`,
     "",
@@ -59,7 +60,7 @@ function buildOperatorInstructions(
 
   // Add recalled memories if available
   if (memoryContext) {
-    parts.push("## Relevant Memories");
+    parts.push("# Relevant Memories");
     parts.push("");
     parts.push(memoryContext);
     parts.push("");
@@ -68,6 +69,7 @@ function buildOperatorInstructions(
   // Add action tools section with descriptions
   const actionToolNames = Object.keys(actionTools);
   if (actionToolNames.length > 0) {
+    parts.push("# Tools");
     parts.push("You have access to tools:");
     for (const name of actionToolNames) {
       const desc = actionTools[name]?.description;
@@ -93,40 +95,32 @@ function buildOperatorInstructions(
   const hasMemoryTools = MEMORY_TOOL_NAMES.some((name) => name in actionTools);
   if (hasMemoryTools) {
     parts.push("");
-    parts.push("## Memory Guidelines");
+    parts.push("# Memory");
     parts.push("");
-    parts.push("You have long-term memory that persists across conversations.");
+    parts.push("You have long-term memory. Use it like someone who actually pays attention.");
     parts.push("");
-    parts.push("**When to remember:**");
-    parts.push("- User explicitly states a preference: 'I prefer...', 'I always...', 'Don't...'");
-    parts.push("- User corrects you: store the correction as an instruction");
-    parts.push("- Important facts about the user's context: their job, projects, tech stack, constraints");
-    parts.push("- Recurring patterns: if user asks the same type of question twice, remember their preference");
-    parts.push("- Decisions made: when user chooses between options, remember their choice for next time");
+    parts.push("**Remember when it matters:**");
+    parts.push("- Preferences, corrections, and standing orders — these aren't one-offs");
+    parts.push("- Context that shapes future answers: job, stack, projects, constraints");
+    parts.push("- Patterns and decisions, so you don't ask what they've already told you");
     parts.push("");
-    parts.push("**When to recall:**");
-    parts.push("- When user references something from the past: 'like before', 'that thing', 'as we discussed'");
-    parts.push("- Before answering questions that might relate to past context or preferences");
-    parts.push("- When starting a new topic that might have relevant history");
-    parts.push("- When user asks about their preferences or past decisions");
+    parts.push("**Recall before you guess:**");
+    parts.push("- Any whiff of past context: 'like before', 'that thing', 'remember when'");
+    parts.push("- Questions where what you already know about them would change your answer");
+    parts.push("- Call `recall` FIRST. Don't wing it from the current conversation alone.");
     parts.push("");
-    parts.push("**IMPORTANT**: When the user references the past or asks about their preferences,");
-    parts.push("call `recall` BEFORE answering. Don't guess based on the current conversation alone.");
+    parts.push("**Use memories, don't perform them:**");
+    parts.push("- Let context shape your answer — don't narrate that you remembered.");
+    parts.push("- If they ask something fresh, answer fresh. No recaps of past conversations.");
+    parts.push("- Go deeper with what you know, don't repeat what they already know.");
     parts.push("");
     parts.push("**Categories for `remember`:**");
-    parts.push("- `user_preference`: personal preferences, communication style, tool/language choices");
-    parts.push("- `knowledge`: facts about their projects, tech stack, team, constraints");
-    parts.push("- `instruction`: standing orders ('always do X', 'never do Y', 'format code as...')");
+    parts.push("- `user_preference`: tone, tools, formats, workflow preferences");
+    parts.push("- `knowledge`: projects, team, stack, constraints");
+    parts.push("- `instruction`: standing orders — 'always X', 'never Y'");
     parts.push("");
-    parts.push("**Tools:**");
-    parts.push("- `remember`: store a fact, preference, or instruction for future reference");
-    parts.push("- `recall`: search memories by query (searches both past interactions and stored facts)");
-    parts.push("- `getMemory`: fetch full content of a memory record by ID (episode or fact)");
-    parts.push("- `forget`: delete an outdated or incorrect fact by ID");
+    parts.push("**Tools:** `remember` (store), `recall` (search), `getMemory` (full detail by ID), `forget` (delete)");
   }
-
-  parts.push("");
-  parts.push("Be concise and helpful.");
 
   return parts.join("\n");
 }
@@ -142,6 +136,7 @@ type SubagentToolFactory = (ctx: SubagentContext, toolCallId: string) => Tool;
  */
 export class Agent {
   private config: AIConfig;
+  private personality: string;
   private actionTools: Record<string, Tool>;
   private subagentToolFactories: Record<string, SubagentToolFactory>;
   private subagentNames: Set<string>;
@@ -149,8 +144,9 @@ export class Agent {
   private subagentsWithoutMemory: Set<string>;
 
   /** Use `Agent.create()` instead of constructing directly. */
-  private constructor(config: AIConfig) {
+  private constructor(config: AIConfig, personality: string) {
     this.config = config;
+    this.personality = personality;
     this.actionTools = {};
     this.subagentToolFactories = {};
     this.subagentNames = new Set();
@@ -161,9 +157,10 @@ export class Agent {
    * Create and initialize an Agent, resolving async tool providers.
    *
    * @param config - AI config (gateway, agents, tools).
+   * @param personality - Loaded personality content for the operator's system prompt.
    */
-  static async create(config: AIConfig): Promise<Agent> {
-    const agent = new Agent(config);
+  static async create(config: AIConfig, personality: string): Promise<Agent> {
+    const agent = new Agent(config, personality);
 
     // Resolve action tools from config (tools self-assign to agents via their `agents` field)
     agent.actionTools = createToolsForAgent("operator", config.tools ?? {});
@@ -319,6 +316,7 @@ export class Agent {
     }
 
     const instructions = buildOperatorInstructions(
+      this.personality,
       this.actionTools,
       subagentToolsForInstructions,
       capabilities,

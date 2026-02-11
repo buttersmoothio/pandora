@@ -145,7 +145,7 @@ export interface IMemoryProvider {
   /** Search both memory types and return combined results */
   search(
     query: string,
-    opts?: { limit?: number; minScore?: number }
+    opts?: { limit?: number; minScore?: number; excludeConversationId?: string }
   ): Promise<MemorySearchResults>;
 
   /** Close the provider (release resources) */

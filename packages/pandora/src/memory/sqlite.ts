@@ -134,7 +134,7 @@ export class SqliteMemoryProvider implements IMemoryProvider {
    * @param config - Memory config (path, embeddingModel, apiKey)
    */
   static async create(config: MemoryConfig): Promise<SqliteMemoryProvider> {
-    const dbPath = config.path ?? "data/memory.db";
+    const dbPath = config.path!;
 
     // Ensure parent directory exists
     const dir = dirname(dbPath);
@@ -794,8 +794,8 @@ export class SqliteMemoryProvider implements IMemoryProvider {
   // IMemoryProvider implementation
   // ============================================================================
 
-  async search(query: string, opts: { limit?: number; minScore?: number } = {}): Promise<MemorySearchResults> {
-    const { limit = 10, minScore = 0.5 } = opts;
+  async search(query: string, opts: { limit?: number; minScore?: number; excludeConversationId?: string } = {}): Promise<MemorySearchResults> {
+    const { limit = 10, minScore = 0.5, excludeConversationId } = opts;
 
     // Search both memory types in parallel
     const [episodes, facts] = await Promise.all([
@@ -803,7 +803,12 @@ export class SqliteMemoryProvider implements IMemoryProvider {
       this.semantic.searchFacts(query, { limit, minScore }),
     ]);
 
-    return { episodes, facts };
+    // Filter out episodes from the current conversation to avoid redundancy
+    const filteredEpisodes = excludeConversationId
+      ? episodes.filter((e) => e.conversationId !== excludeConversationId)
+      : episodes;
+
+    return { episodes: filteredEpisodes, facts };
   }
 
   async close(): Promise<void> {

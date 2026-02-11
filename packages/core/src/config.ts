@@ -5,6 +5,7 @@
  * to allow user-defined extensions without modifying this file.
  */
 
+import { resolve, dirname } from "node:path";
 import { parse } from "jsonc-parser";
 import { z } from "zod";
 
@@ -89,6 +90,7 @@ const memoryConfigSchema = z.object({
  * Full configuration schema
  */
 const configSchema = z.object({
+  personality: z.string().min(1, "Personality file path is required"),
   ai: aiConfigSchema,
   channels: channelsConfigSchema,
   storage: storageConfigSchema.optional().default({ type: "sqlite", path: "data/pandora.db" }),
@@ -142,6 +144,31 @@ export async function loadConfig(
       .map((e) => `  - ${String(e.path.join("."))}: ${e.message}`)
       .join("\n");
     throw new Error(`Invalid configuration:\n${errors}`);
+  }
+
+  // Resolve and load personality file
+  const personalityPath = resolve(dirname(configPath), result.data.personality);
+  const personalityFile = Bun.file(personalityPath);
+
+  if (!(await personalityFile.exists())) {
+    throw new Error(`Personality file not found: ${personalityPath}`);
+  }
+
+  const personalityContent = (await personalityFile.text()).trim();
+
+  if (!personalityContent) {
+    throw new Error(`Personality file is empty: ${personalityPath}`);
+  }
+
+  result.data.personality = personalityContent;
+
+  // Resolve storage and memory paths relative to the config file directory
+  const configDir = dirname(configPath);
+  if (result.data.storage?.path) {
+    result.data.storage.path = resolve(configDir, result.data.storage.path);
+  }
+  if (result.data.memory?.path) {
+    result.data.memory.path = resolve(configDir, result.data.memory.path);
   }
 
   return result.data;

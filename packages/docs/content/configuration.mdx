@@ -25,6 +25,7 @@ The smallest recommended configuration:
 ```jsonc
 {
   "$schema": "./config.schema.jsonc",
+  "personality": "personality.md",
   "ai": {
     "gateway": { "apiKey": "YOUR_VERCEL_AI_GATEWAY_KEY" },
     "agents": {
@@ -40,6 +41,20 @@ The smallest recommended configuration:
   }
 }
 ```
+
+---
+
+## Personality
+
+Define who your AI is. The `personality` field points to a markdown file whose contents are injected into the operator's system prompt.
+
+```jsonc
+"personality": "personality.md"
+```
+
+A default `personality.md` ships at the monorepo root. Edit it to change the agent's identity, tone, and behavior — no code changes needed.
+
+See [Configuration Reference](/reference/configuration-reference#personality) for validation rules.
 
 ---
 
@@ -179,6 +194,7 @@ Controls how much detail Pandora prints to the console.
 ```jsonc
 {
   "$schema": "./config.schema.jsonc",
+  "personality": "personality.md",
   "ai": {
     "gateway": { "apiKey": "your-gateway-key" },
     "tools": {

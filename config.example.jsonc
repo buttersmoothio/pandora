@@ -2,6 +2,9 @@
   // Enable IDE autocompletion
   "$schema": "./config.schema.jsonc",
 
+  // Path to your personality file (defines the agent's identity and tone)
+  "personality": "personality.md",
+
   "ai": {
     // Your Vercel AI Gateway key
     // Get one at: https://vercel.com/ai-gateway

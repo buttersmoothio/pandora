@@ -250,7 +250,7 @@ export class Gateway {
       if (this.memory) {
         try {
           // Fetch more chunks than needed, then dedupe by parent
-          const results = await this.memory.search(content, { limit: 10, minScore: 0.35 });
+          const results = await this.memory.search(content, { limit: 10, minScore: 0.35, excludeConversationId: conversationId });
           const contextParts: string[] = [];
 
           // Deduplicate chunks by parent - keep highest scoring chunk per parent
