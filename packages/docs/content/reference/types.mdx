@@ -280,6 +280,26 @@ Every `StreamEvent` variant can also appear as a `GatewayEvent` with `conversati
 
 ---
 
+## Request Context
+
+Per-request state available to tools and other code running within a gateway request. Set automatically by the Gateway via `AsyncLocalStorage`.
+
+```ts
+interface RequestContext {
+  /** Current conversation ID */
+  conversationId: string;
+  /** Channel this request originated from */
+  channelName: string;
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `conversationId` | `string` | The conversation being processed |
+| `channelName` | `string` | The channel the message originated from |
+
+---
+
 ## Store Interface
 
 The storage abstraction for persisting conversation history. All backends (SQLite, in-memory, etc.) implement this interface.

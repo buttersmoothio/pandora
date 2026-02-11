@@ -63,6 +63,7 @@ Streaming message processing. Yields text deltas as they arrive. The optional `o
 
 **Behavior:**
 - Acquires a per-conversation lock (5-minute timeout) to prevent message interleaving
+- Establishes a [`RequestContext`](/reference/types#request-context) for the duration of the request (available to tools via `requestContext.getStore()`)
 - Stores the user message and creates an assistant message shell before streaming begins
 - Auto-recalls memory hints before the agent prompt (limit: 8, minScore: 0.50, top 3 facts + 2 episodes after deduplication, truncated to 120 chars with IDs for on-demand retrieval via `getMemory`)
 - Persists all parts incrementally as they stream in (text, tool calls, reasoning, sources, files)

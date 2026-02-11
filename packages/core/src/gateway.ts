@@ -10,6 +10,7 @@
 
 import type { Agent } from "./agent";
 import type { IMessageStore, ConversationInfo, SubagentContext, IMemoryProvider } from "./registries";
+import { requestContext } from "./context";
 import type {
   Message,
   ChannelCapabilities,
@@ -213,6 +214,7 @@ export class Gateway {
     let assistantMessageId: string | undefined;
 
     try {
+      requestContext.enterWith({ conversationId, channelName });
       const startTime = Date.now();
       const meta: MessageMeta = { channelName, userId };
 

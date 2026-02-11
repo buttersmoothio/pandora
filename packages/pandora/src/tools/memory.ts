@@ -9,7 +9,7 @@
 
 import { tool, type Tool } from "ai";
 import { z } from "zod";
-import { MEMORY_TOOL_NAMES, type IMemoryProvider } from "@pandora/core";
+import { MEMORY_TOOL_NAMES, requestContext, type IMemoryProvider } from "@pandora/core";
 
 // Re-export for convenience
 export { MEMORY_TOOL_NAMES };
@@ -84,12 +84,16 @@ export function createMemoryTools(provider: IMemoryProvider): Record<string, Too
         .describe("Maximum number of results to return"),
     }),
     execute: async ({ query, type, limit }) => {
+      const excludeConversationId = requestContext.getStore()?.conversationId;
       const opts = { limit: limit ?? 5, minScore: 0.5 };
 
       if (type === "episodes" && provider.episodic) {
         const chunks = await provider.episodic.searchEpisodes(query, opts);
+        const filtered = excludeConversationId
+          ? chunks.filter((c) => c.conversationId !== excludeConversationId)
+          : chunks;
         return {
-          episodes: chunks.map((c) => ({
+          episodes: filtered.map((c) => ({
             chunkId: c.chunkId,
             content: c.content,
             score: c.score.toFixed(3),
@@ -118,7 +122,7 @@ export function createMemoryTools(provider: IMemoryProvider): Record<string, Too
       }
 
       // Search all
-      const results = await provider.search(query, opts);
+      const results = await provider.search(query, { ...opts, excludeConversationId });
       return {
         episodes: results.episodes.map((c) => ({
           chunkId: c.chunkId,

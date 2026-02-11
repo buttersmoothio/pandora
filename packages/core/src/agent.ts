@@ -23,8 +23,8 @@ import { logger } from "./logger";
  * Build operator system instructions from channel capabilities and available tools.
  *
  * @internal
- * @param actionTools - Action tools available to this agent (name → Tool).
- * @param subagentTools - Subagent delegation tools (name → Tool, e.g. `coder`, `research`).
+ * @param actionTools - Action tools available to this agent (checked for memory tools).
+ * @param hasSubagents - Whether subagent delegation tools are available.
  * @param capabilities - Channel capabilities (rich text, max length, etc.).
  * @param memoryContext - Optional recalled memories to include in context.
  * @returns System instruction string for the operator.
@@ -32,7 +32,7 @@ import { logger } from "./logger";
 function buildOperatorInstructions(
   personality: string,
   actionTools: Record<string, Tool>,
-  subagentTools: Record<string, Tool>,
+  hasSubagents: boolean,
   capabilities: ChannelCapabilities,
   memoryContext?: string
 ): string {
@@ -64,35 +64,17 @@ function buildOperatorInstructions(
     parts.push("");
   }
 
-  // Add action tools section with descriptions
-  const actionToolNames = Object.keys(actionTools);
-  if (actionToolNames.length > 0) {
-    parts.push("# Tools");
-    parts.push("You have access to tools:");
-    for (const name of actionToolNames) {
-      const desc = actionTools[name]?.description;
-      parts.push(desc ? `- '${name}': ${desc}` : `- '${name}'`);
-    }
+  // Add delegation guidance if subagents are available
+  if (hasSubagents) {
+    parts.push(
+      "Delegate to the appropriate agent tools where supported, rather than handling it directly."
+    );
     parts.push("");
-  }
-
-  // Add delegation instructions if subagents are available
-  const subagentToolNames = Object.keys(subagentTools);
-  if (subagentToolNames.length > 0) {
-    parts.push("For specialized tasks, delegate to the appropriate tool:");
-    for (const name of subagentToolNames) {
-      const desc = subagentTools[name]?.description;
-      parts.push(desc ? `- '${name}': ${desc}` : `- '${name}'`);
-    }
-
-    parts.push("");
-    parts.push("Otherwise, handle the conversation directly.");
   }
 
   // Add memory usage instructions if memory tools are available
   const hasMemoryTools = MEMORY_TOOL_NAMES.some((name) => name in actionTools);
   if (hasMemoryTools) {
-    parts.push("");
     parts.push("# Memory");
     parts.push("");
     parts.push("You have long-term memory. Use it like someone who actually pays attention.");
@@ -112,12 +94,6 @@ function buildOperatorInstructions(
     parts.push("- If they ask something fresh, answer fresh. No recaps of past conversations.");
     parts.push("- Go deeper with what you know, don't repeat what they already know.");
     parts.push("");
-    parts.push("**Categories for `remember`:**");
-    parts.push("- `user_preference`: tone, tools, formats, workflow preferences");
-    parts.push("- `knowledge`: projects, team, stack, constraints");
-    parts.push("- `instruction`: standing orders — 'always X', 'never Y'");
-    parts.push("");
-    parts.push("**Tools:** `remember` (store), `recall` (search), `getMemory` (full detail by ID), `forget` (delete)");
   }
 
   return parts.join("\n");
@@ -308,21 +284,10 @@ export class Agent {
       ? this.createRequestTools(subagentCtx)
       : { ...this.actionTools };
 
-    // Build a dummy subagentTools object for instructions (just need names/descriptions)
-    const subagentToolsForInstructions: Record<string, Tool> = {};
-    for (const name of this.subagentNames) {
-      const factory = this.subagentToolFactories[name];
-      if (factory) {
-        // Create a temporary tool just to get its description
-        const tempTool = factory({ ...subagentCtx! } as SubagentContext, "");
-        subagentToolsForInstructions[name] = tempTool;
-      }
-    }
-
     const instructions = buildOperatorInstructions(
       this.personality,
       this.actionTools,
-      subagentToolsForInstructions,
+      this.subagentNames.size > 0,
       capabilities,
       memoryContext
     );

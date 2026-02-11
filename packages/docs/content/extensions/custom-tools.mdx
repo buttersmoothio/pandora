@@ -340,6 +340,42 @@ without changing the framework.
 
 ---
 
+## Accessing request context
+
+Tools can access per-request data (conversation ID, channel name) via `requestContext`:
+
+```typescript
+import { tool } from "ai";
+import { z } from "zod";
+import { defineTool, requestContext } from "@pandora/core";
+
+export default defineTool({
+  name: "myTool",
+
+  factory: () => ({
+    name: "myTool",
+
+    tool: tool({
+      description: "A tool that uses request context",
+      parameters: z.object({ query: z.string() }),
+
+      execute: async ({ query }) => {
+        const ctx = requestContext.getStore();
+
+        // ctx?.conversationId — current conversation
+        // ctx?.channelName — originating channel (e.g. "telegram", "web")
+
+        return `Running in conversation ${ctx?.conversationId}`;
+      },
+    }),
+  }),
+});
+```
+
+The context is set automatically by the Gateway for each request and is concurrency-safe. See [Architecture: Request context](/reference/architecture#request-context) for how it works.
+
+---
+
 ## Tips
 
 - **Keep tools focused** — One tool, one purpose

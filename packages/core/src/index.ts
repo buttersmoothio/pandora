@@ -9,6 +9,9 @@
 export { Agent } from "./agent";
 export { Gateway, type ActiveStreamState, type ActiveThreadState } from "./gateway";
 
+// Request context
+export { requestContext, type RequestContext } from "./context";
+
 // Configuration
 export {
   loadConfig,

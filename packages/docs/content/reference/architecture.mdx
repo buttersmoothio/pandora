@@ -179,6 +179,27 @@ The Gateway acquires a **per-conversation lock** before processing each message.
 
 ---
 
+## Request context
+
+The Gateway establishes a `RequestContext` at the start of each message using Node.js `AsyncLocalStorage`. This makes per-request data (conversation ID, channel name) available to any code running within that request — tools, subagents, memory operations — without explicit parameter threading.
+
+```ts
+import { requestContext } from "@pandora/core";
+
+// Inside any tool execute, subagent, or helper:
+const ctx = requestContext.getStore();
+ctx?.conversationId  // current conversation
+ctx?.channelName     // originating channel
+```
+
+This is concurrency-safe: each request gets its own isolated store, even when multiple conversations are processed in parallel. The context is set via `enterWith()` in `handleMessageStream` and scoped to the async resource of that generator.
+
+The built-in memory tools use this to exclude the current conversation from recall results (avoiding returning information the agent already has in its history).
+
+See [`RequestContext`](/reference/types#request-context) for the type definition.
+
+---
+
 ## Late-joining subscribers
 
 When a web client connects (or switches tabs) while a conversation is already streaming, it needs to catch up on partial progress. The Gateway maintains an `ActiveStreamState` for each in-progress conversation:
