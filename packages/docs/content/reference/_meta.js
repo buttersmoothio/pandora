@@ -4,6 +4,5 @@ export default {
   types: "Types & Interfaces",
   api: "API Reference",
   "websocket-protocol": "WebSocket Protocol",
-  security: "Security",
-  comparison: "Pandora vs Others"
+  security: "Security"
 }

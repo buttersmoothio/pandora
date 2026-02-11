@@ -50,9 +50,25 @@ The docs (`packages/docs/content/`) are the single source of truth. Read the rel
 - JSDoc on public APIs (concise). `/** One-liner */` for simple fields
 - Use Telegram channel as reference pattern for new channels
 
+## Documentation Conventions
+
+The docs have four sections with strict content boundaries:
+
+| Section | Audience | Content allowed | Content NOT allowed |
+|---------|----------|-----------------|---------------------|
+| **Getting Started** | New users | What Pandora is, why use it, get running | Config details, internals |
+| **Using Pandora** | Day-to-day users | Config tables, feature descriptions, "what/why/how to configure" | SQL schemas, algorithm weights, source file paths, class/method names, code internals |
+| **Building Extensions** | Developers writing custom code | Templates, patterns, API surfaces for extension authors | User-facing setup steps (link instead) |
+| **Reference** | Anyone needing exhaustive detail | Schemas, types, API surfaces, architecture, algorithms, internals | Getting-started material |
+
+**Rules:**
+- "Using Pandora" pages must never contain: SQL schemas, algorithm parameters (weights, thresholds, token counts), source file paths (`packages/*/src/...`), class/method names (`ToolLoopAgent`, `addActionTools()`, `defineSubagent()`), or numbered implementation steps.
+- When removing internals from a user page, add a brief description + link to the relevant reference page.
+- Implementation details moved out of user pages go into `reference/architecture.mdx` under `<details>` blocks.
+
 ## Post-Change Checklist
 
-After every code change, update the relevant docs:
+After every code change, update the relevant docs (respecting the section boundaries above):
 
 - [ ] Types changed → `reference/types.mdx`
 - [ ] REST endpoints changed → `reference/api.mdx`
@@ -65,3 +81,4 @@ After every code change, update the relevant docs:
 - [ ] Store interface changed → `storage/*.mdx`, `extensions/storage.mdx`
 - [ ] Memory interface changed → `memory/*.mdx`, `extensions/memory.mdx`
 - [ ] Extension patterns changed → `extensions/*.mdx`
+- [ ] Internals moved → Ensure corresponding addition in `reference/architecture.mdx`

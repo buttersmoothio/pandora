@@ -5,6 +5,7 @@ export default {
   },
   index: "Introduction",
   quickstart: "Quickstart",
+  comparison: "Pandora vs Others",
   "-- Using Pandora": {
     type: "separator",
     title: "Using Pandora"

@@ -1,4 +1,4 @@
-import { Callout, Steps, Cards } from 'nextra/components'
+import { Callout, Steps, Cards, Tabs } from 'nextra/components'
 
 # Quickstart
 
@@ -8,7 +8,10 @@ Get Pandora running in 5 minutes.
 
 - [Bun](https://bun.sh) installed (`curl -fsSL https://bun.sh/install | bash`)
 - A [Vercel AI Gateway](https://vercel.com/ai-gateway) API key (gives access to 50+ AI models)
-- For Telegram: A bot token from [@BotFather](https://t.me/BotFather)
+- For Telegram (optional): A bot token from [@BotFather](https://t.me/BotFather)
+
+<Tabs items={['Web UI', 'Telegram']}>
+<Tabs.Tab>
 
 <Steps>
 
@@ -38,7 +41,64 @@ Edit `config.jsonc` with your keys:
       "apiKey": "YOUR_VERCEL_AI_GATEWAY_KEY"
     },
     "agents": {
-      "operator": { "model": "google/gemini-3-flash" }
+      "operator": { "model": "google/gemini-3-flash" },
+      "webSearchNative": { "model": "perplexity/sonar-pro" }
+    }
+  },
+  "channels": {
+    "web": {
+      "port": 3000,
+      "token": "pick-a-secret-token"
+    }
+  }
+}
+```
+
+### Start Pandora
+
+```bash
+bun run dev
+```
+
+### Chat!
+
+Open `http://localhost:3001` and enter your token. That's it!
+
+</Steps>
+
+</Tabs.Tab>
+<Tabs.Tab>
+
+<Steps>
+
+### Clone and install
+
+```bash
+git clone https://github.com/pandora-ai/pandora.git
+cd pandora
+bun install
+```
+
+### Create your config
+
+Copy the example config:
+
+```bash
+cp config.example.jsonc config.jsonc
+```
+
+Edit `config.jsonc` with your keys:
+
+```jsonc
+{
+  "$schema": "./config.schema.jsonc",
+  "ai": {
+    "gateway": {
+      "apiKey": "YOUR_VERCEL_AI_GATEWAY_KEY"
+    },
+    "agents": {
+      "operator": { "model": "google/gemini-3-flash" },
+      "webSearchNative": { "model": "perplexity/sonar-pro" }
     }
   },
   "channels": {
@@ -72,6 +132,9 @@ You should see:
 Open Telegram and message your bot. That's it!
 
 </Steps>
+
+</Tabs.Tab>
+</Tabs>
 
 ---
 

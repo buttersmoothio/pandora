@@ -20,7 +20,7 @@ For IDE autocompletion, add `"$schema": "./config.schema.jsonc"` at the top of y
 
 ## Minimal config
 
-The smallest working configuration:
+The smallest recommended configuration:
 
 ```jsonc
 {
@@ -28,7 +28,8 @@ The smallest working configuration:
   "ai": {
     "gateway": { "apiKey": "YOUR_VERCEL_AI_GATEWAY_KEY" },
     "agents": {
-      "operator": { "model": "google/gemini-3-flash" }
+      "operator": { "model": "google/gemini-3-flash" },
+      "webSearchNative": { "model": "perplexity/sonar-pro" }
     }
   },
   "channels": {

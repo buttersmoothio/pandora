@@ -60,17 +60,15 @@ Requests with missing or invalid tokens receive a `401 Unauthorized` response.
 
 ## API and Protocol
 
-The web channel exposes HTTP REST endpoints and a WebSocket interface on the configured port (default 3000).
+The web channel exposes HTTP REST endpoints and a WebSocket interface on the configured port (default 3000). For full details see:
 
-- **REST API** — CRUD for conversations, non-streaming message endpoint, token validation. See the [API Reference](/reference/api#rest-api) for all endpoints with request/response examples.
-- **WebSocket** — Streaming chat, cross-channel watching, conversation subscriptions. See the [WebSocket Protocol](/reference/websocket-protocol) for the full message type reference, JSON examples, and a session walkthrough.
+- [REST API Reference](/reference/api#rest-api) — CRUD for conversations, non-streaming message endpoint, token validation
+- [WebSocket Protocol](/reference/websocket-protocol) — Streaming chat, cross-channel watching, conversation subscriptions
 
 ---
 
 ## Cross-Channel Streaming
 
-The web UI can watch **any** conversation, including from other channels like Telegram. When you open a conversation in the sidebar, the UI subscribes to its live events — you see text deltas, tool calls, and subagent threads in real time regardless of which channel originated the conversation.
+The web UI can watch **any** conversation, including from other channels like Telegram. When you open a conversation in the sidebar, the UI subscribes to its live events — you see text, tool calls, and subagent threads in real time regardless of which channel originated the conversation.
 
-The sidebar uses a separate `watch-all` subscription to receive lightweight notifications when any conversation has new activity, so it can refresh counts and timestamps without polling.
-
-See the [WebSocket Protocol — Cross-Channel](/reference/websocket-protocol#cross-channel) section for message examples.
+See the [WebSocket Protocol — Cross-Channel](/reference/websocket-protocol#cross-channel) section for details.

@@ -41,8 +41,6 @@ Message your bot on Telegram!
 
 ## Capabilities
 
-The Telegram channel declares the following fixed capabilities:
-
 | Capability | Value |
 |------------|-------|
 | `supportsImages` | `true` |
@@ -56,20 +54,18 @@ The Telegram channel declares the following fixed capabilities:
 
 ## Supported Input Types
 
-The bot handles six message types. Each is extracted into an `Attachment` and forwarded to the gateway.
+The bot handles six message types:
 
-| Type | Attachment `type` | Fields |
-|------|-------------------|--------|
-| **Text** | *(none)* | Plain text content |
-| **Photo** | `image` | `fileId`, `size`, `caption` (largest resolution selected) |
-| **Document** | `file` | `fileId`, `mimeType`, `filename`, `size`, `caption` |
-| **Voice** | `audio` | `fileId`, `mimeType`, `size`, `duration` |
-| **Audio** | `audio` | `fileId`, `mimeType`, `filename`, `size`, `duration`, `caption` |
-| **Video** | `video` | `fileId`, `mimeType`, `filename`, `size`, `duration`, `caption` |
+| Type | Description |
+|------|-------------|
+| **Text** | Plain text content |
+| **Photo** | Image attachment (largest resolution selected) |
+| **Document** | File attachment with metadata |
+| **Voice** | Voice message in Ogg format |
+| **Audio** | Audio file with metadata |
+| **Video** | Video file with metadata |
 
-- **Photos** always pick the largest available resolution (last element in the array).
-- **Voice messages** carry Telegram's native Ogg format.
-- **Captions** are used as the message text when present; otherwise a placeholder like `[Photo received]` or `[Voice message: 12s]` is used.
+Captions are used as the message text when present; otherwise a placeholder like `[Photo received]` or `[Voice message: 12s]` is used.
 
 ---
 
@@ -92,49 +88,15 @@ The bot only responds to the configured `ownerId`. Messages from any other user 
 ## Conversation Management
 
 - On first message (or after a restart), the bot resumes the **most recent conversation** from the store. This provides cross-channel continuity -- a conversation started on the web UI can be continued in Telegram.
-- `/start` creates a brand-new conversation ID (`conv-{timestamp}`), discarding the previous one.
+- `/start` creates a brand-new conversation ID, discarding the previous one.
 - Conversations are visible from all channels. A Telegram conversation appears in the web UI sidebar and can be watched live.
 
 ---
 
 ## Response Formatting
 
-Pandora's responses are markdown. Before sending to Telegram, they pass through a **remark/rehype pipeline** (`format.ts`) that converts markdown into Telegram-compatible HTML.
+Responses support rich formatting — markdown is automatically converted to Telegram-compatible HTML (bold, italic, code blocks, links, blockquotes, lists, etc.). If formatting fails, the response falls back to plain text.
 
-### Markdown to Telegram HTML Conversion
+Long responses are automatically split into multiple messages to stay within Telegram's character limit.
 
-| Markdown | Telegram HTML |
-|----------|---------------|
-| Headings (`# …`) | `<b>…</b>` + newline (Telegram has no heading support) |
-| Paragraphs | Unwrapped text + double newline |
-| **Bold** | `<b>` / `<strong>` |
-| *Italic* | `<i>` / `<em>` |
-| Underline | `<u>` |
-| ~~Strikethrough~~ | `<s>` |
-| [Links](…) | `<a href="…">` |
-| `inline code` | `<code>` |
-| Code blocks | `<pre>` |
-| > Blockquotes | `<blockquote>` |
-| Unordered lists | Bullet points (`•`) as plain text |
-| Ordered lists | Numbered (`1.`, `2.`, …) as plain text |
-| Images | Alt text only (not rendered) |
-| `<br>` / `<hr>` | Newline |
-| Unknown tags | Unwrapped to content (children kept, tag discarded) |
-
-Runs of three or more consecutive newlines are collapsed to two, and the final output is trimmed.
-
-If Telegram rejects the HTML (parse error), the channel falls back to sending the chunk as **plain text**.
-
-### Message Chunking
-
-Responses longer than **4096 characters** are automatically split into multiple messages:
-
-- Split points prefer **newlines**, then **spaces**, to avoid breaking mid-word.
-- If no good split point exists in the first half of the chunk, it hard-splits at 4096.
-- The **first chunk** is sent as a reply (quotes the user's message). Subsequent chunks are sent as standalone messages.
-
----
-
-## Typing Indicator
-
-The bot sends a `typing` chat action before processing each message, so users see the "typing..." indicator while the AI generates a response.
+The bot shows a typing indicator while generating responses.

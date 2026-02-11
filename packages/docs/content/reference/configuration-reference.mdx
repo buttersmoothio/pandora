@@ -59,7 +59,7 @@ The API key is used internally by the providers system in `@pandora/core`. When 
 
 ### `ai.agents`
 
-Agent configurations keyed by agent name. The `operator` agent is required; all others are optional sub-agents that the operator can delegate to.
+Agent configurations keyed by agent name. The `operator` agent is required; all others are optional subagents that the operator can delegate to.
 
 Each agent accepts the following fields:
 
@@ -75,7 +75,7 @@ Each agent accepts the following fields:
 
 **`operator`** (required)
 
-The main orchestrator agent. Handles general conversation and delegates to sub-agents when appropriate. This is the only required agent.
+The main orchestrator agent. Handles general conversation and delegates to subagents when appropriate. This is the only required agent.
 
 ```jsonc
 "operator": {
@@ -134,7 +134,7 @@ Web search using an external search API tool. Works with any model but requires 
 
 #### Custom agents
 
-The `agents` object uses a catchall schema, so you can add any sub-agent name beyond the built-in ones. Custom sub-agents are defined via `defineSubagent()` in `packages/pandora/src/subagents/`. See [Creating extensions](/extensions/overview) for details.
+The `agents` object uses a catchall schema, so you can add any subagent name beyond the built-in ones. Custom subagents are defined via `defineSubagent()` in `packages/pandora/src/subagents/`. See [Creating extensions](/extensions/overview) for details.
 
 ### `ai.tools`
 
@@ -367,7 +367,7 @@ A fully configured `config.jsonc` with all sections populated:
         "maxSteps": 20
       },
 
-      // Optional sub-agents
+      // Optional subagents
       "coder": {
         "model": "anthropic/claude-sonnet-4.5",
         "temperature": 0.2

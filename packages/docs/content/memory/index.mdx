@@ -55,39 +55,19 @@ Next conversation: AI recalls this preference
 
 ## Automatic behavior
 
-The Gateway handles two automatic memory operations on every message. These happen transparently, without the agent using any tools.
+The Gateway handles two automatic memory operations on every message, transparently and without the agent using any tools.
 
-### Auto-recall (before each prompt)
+**Auto-recall** — Before passing a message to the agent, the Gateway searches memory for relevant context and injects the most relevant facts and episodes into the system prompt. The agent always has relevant background information available, even if it never explicitly calls `recall`.
 
-Before passing a message to the agent, the Gateway automatically:
-
-1. Searches memory using the user's message (limit: 10, minScore: 0.35)
-2. Deduplicates chunks by parent record (keeps the highest-scoring chunk per parent)
-3. Selects the top 5 facts and top 5 episodes
-4. Injects them into the system instructions as memory context
-
-This means the agent always has relevant background information available, even if it never explicitly calls `recall`.
-
-### Auto-episode (after each response)
-
-After the agent finishes responding, the Gateway automatically:
-
-1. Stores the interaction (user message + assistant response) as an episodic memory
-2. Runs fire-and-forget (does not block the response from being delivered)
-
-This ensures every conversation contributes to long-term memory without the agent needing to decide what to save.
+**Auto-episode** — After the agent finishes responding, the Gateway stores the interaction as an episodic memory. This runs in the background without blocking the response.
 
 ## Memory tools
 
-Memory tools are **not** auto-discovered like other tools. They are special-cased:
-
-1. `createMemoryTools(provider)` in `packages/pandora/src/tools/memory.ts` creates the tool definitions
-2. They are injected into the agent via `agent.addActionTools()` in `packages/pandora/src/index.ts`
-3. Only available when the `memory` section exists in config
+When memory is configured, the agent has access to four tools:
 
 ### remember
 
-Store a fact, preference, or piece of knowledge for future reference. Only available when semantic memory is enabled.
+Store a fact, preference, or piece of knowledge for future reference.
 
 ```
 "Remember that I prefer TypeScript over JavaScript"
@@ -103,11 +83,11 @@ Store a fact, preference, or piece of knowledge for future reference. Only avail
 - `knowledge` — Facts and information
 - `instruction` — Directives and rules
 
-**Deduplication:** When storing a fact, the system checks existing facts for cosine similarity. If a fact with similarity >= 0.92 already exists, it is **updated** instead of creating a duplicate. This keeps memory clean over time.
+Near-duplicate facts are automatically updated instead of creating duplicates, keeping memory clean over time.
 
 ### recall
 
-Search memories for relevant information. Always available when memory is configured.
+Search memories for relevant information.
 
 ```
 "What programming languages have we discussed?"
@@ -117,13 +97,13 @@ Search memories for relevant information. Always available when memory is config
 **Input:**
 - `query` (string) — What to search for in memory
 - `type` (optional) — `all`, `episodes`, or `facts` (defaults to `all`)
-- `limit` (optional) — Maximum results, 1-20 (defaults to 5, minScore: 0.5)
+- `limit` (optional) — Maximum results, 1-20 (defaults to 5)
 
 Returns chunks with relevance scores from both episodic and semantic memories.
 
 ### getMemory
 
-Fetch the full content of a memory record by its ID. Always available when memory is configured. Use when `recall` returns a chunk and you need the complete context.
+Fetch the full content of a memory record by its ID. Use when `recall` returns a chunk and you need the complete context.
 
 **Input:**
 - `id` (string) — The parent ID from recall search results
@@ -131,7 +111,7 @@ Fetch the full content of a memory record by its ID. Always available when memor
 
 ### forget
 
-Delete a stored fact by its ID. Only available when semantic memory is enabled. Episodic memories cannot be deleted directly — they are cleaned up automatically when conversations are deleted.
+Delete a stored fact by its ID. Episodic memories cannot be deleted directly — they are cleaned up automatically when conversations are deleted.
 
 ```
 "Forget my preference for tabs over spaces"
@@ -140,33 +120,6 @@ Delete a stored fact by its ID. Only available when semantic memory is enabled. 
 
 **Input:**
 - `id` (string) — The parent ID of the fact to delete (from recall results)
-
-## Subagent memory opt-out
-
-By default, all subagents have access to memory tools. A subagent can opt out by setting `useMemory: false` in its `defineSubagent()` definition:
-
-```ts
-defineSubagent({
-  name: "web-search",
-  // ...
-  useMemory: false, // No memory tools for this subagent
-});
-```
-
-When `useMemory` is `false`, the memory tools (`remember`, `recall`, `getMemory`, `forget`) are filtered out of that subagent's tool set. This is useful for subagents that only fetch external data and should not store or recall memories.
-
-## How search works
-
-Memory uses **hybrid search** combining:
-
-1. **Vector similarity** (70% weight) — Finds semantically similar content
-2. **BM25 keyword** (30% weight) — Finds exact word matches
-
-This combination catches both conceptual matches ("coding preferences") and exact terms ("TypeScript").
-
-### Chunking
-
-Long content is split into overlapping chunks (~400 tokens each) for better embedding quality. Search returns the most relevant chunks, and you can use `getMemory` to fetch the full record.
 
 ## When to use memory
 
@@ -177,6 +130,8 @@ Long content is split into overlapping chunks (~400 tokens each) for better embe
 <Callout type="warning">
 **Skip memory when** you prefer fresh starts each conversation, are testing or developing, or privacy is a concern (memory persists data).
 </Callout>
+
+For implementation details (search algorithms, chunking strategy, deduplication thresholds), see [Architecture — Memory Internals](/reference/architecture#memory-internals).
 
 ## Built-in backends
 

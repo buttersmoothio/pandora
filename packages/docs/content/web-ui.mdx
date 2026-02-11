@@ -2,26 +2,7 @@
 
 Pandora's web interface is a Next.js app with real-time streaming, conversation management, and cross-channel visibility.
 
-## Getting Started
-
-1. Configure the web channel in `config.jsonc`:
-
-```jsonc
-"channels": {
-  "web": {
-    "port": 3000,
-    "token": "pick-a-secret-token"
-  }
-}
-```
-
-2. Start everything:
-
-```bash
-bun run dev
-```
-
-3. Open `http://localhost:3001` and enter your token.
+For setup instructions, see [Web Channel](/channels/web).
 
 ## Authentication
 
@@ -32,6 +13,8 @@ The web UI supports two ways to provide your token:
 
 You can also configure a custom backend URL: `http://localhost:3001?backend=ws://custom-host:3000/ws`
 
+For backend authentication details (HTTP headers, WebSocket tokens), see [Web Channel — Authentication](/channels/web#authentication).
+
 ## Features
 
 ### Conversation Sidebar
@@ -39,7 +22,7 @@ You can also configure a custom backend URL: `http://localhost:3001?backend=ws:/
 - Lists all conversations from all channels (Telegram, Web, etc.).
 - Shows channel badge, message count, and last activity.
 - Create new conversations or delete existing ones.
-- Real-time updates when conversations change (via `watch-all`).
+- Real-time updates when conversations change.
 
 ### Streaming Responses
 
@@ -72,12 +55,11 @@ You can also configure a custom backend URL: `http://localhost:3001?backend=ws:/
 ### Theme Toggle
 
 - Light and dark mode (sun/moon toggle in the header).
-- Persists via next-themes.
 
 ### Connection Status
 
 - Shows connected/disconnected/reconnecting status.
-- Auto-reconnects with exponential backoff (max 10 attempts, 1s--30s delays).
+- Auto-reconnects with exponential backoff.
 - Re-subscribes to watched conversations after reconnecting.
 
 ## Tech Stack

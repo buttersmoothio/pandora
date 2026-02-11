@@ -1,6 +1,6 @@
 # Operator
 
-The operator is the core agent at the heart of Pandora. It is **not** a plugin or extension — it is the main `Agent` class implemented in `@pandora/core`, created once at startup via the async factory `Agent.create(config.ai)`. Every message from every channel flows through the operator.
+The operator is the core agent at the heart of Pandora. Every message from every channel flows through it — it handles general conversation, coordinates tools, and routes tasks to subagents.
 
 ## Configuration
 
@@ -34,52 +34,14 @@ The operator is the only **required** agent. It is configured at `ai.agents.oper
 
 ## How it works
 
-### System prompt construction
+The operator builds its context dynamically on every request, including channel capabilities, available tools, subagent descriptions, and any recalled memories. It then streams a response, calling tools or delegating to subagents as needed.
 
-The operator builds its system instructions dynamically on every request. The prompt is assembled from:
+- **Tools** — The operator has access to all configured action tools plus memory tools (when memory is enabled).
+- **Delegation** — Each configured subagent appears as a tool the operator can call. The operator decides when to delegate based on the subagent's description, and always receives the subagent's response before replying to the user.
+- **Streaming** — Responses stream in real time on channels that support it (like the web UI). Non-streaming channels (like Telegram) collect the full response before sending.
 
-1. **Channel capabilities** — whether the channel supports rich text (markdown) or plain text, and any maximum message length constraint.
-2. **Available tools** — a list of all action tools the operator can call, with their descriptions.
-3. **Available subagents** — delegation tools for each configured subagent, with their `toolDescription` fields so the AI knows when to delegate.
-4. **Memory context** — if memory is configured and relevant memories were recalled, they are injected into the prompt under a "Relevant Memories" section.
-5. **Memory guidelines** — if memory tools are available, detailed instructions on when to remember, recall, and what categories to use.
-
-### Tool access
-
-The operator has access to:
-
-- **All action tools** that don't have agent restrictions (tools self-assign to agents via their `agents` field in `defineTool()`).
-- **Delegation tools** for each configured subagent, which let the operator hand off specialized tasks.
-- **Memory tools** (`remember`, `recall`, `getMemory`, `forget`) if memory is configured.
-
-Tools can be added after agent creation via `addActionTools()`, which is how memory tools are injected at startup.
-
-### Delegation to subagents
-
-Subagents are **not** called directly. Instead, each subagent is exposed to the operator as a regular tool. When you define a subagent with `defineSubagent()`, its `toolDescription` becomes the tool's description that the operator AI model sees.
-
-The operator AI decides when to delegate based on these descriptions. The delegation tool accepts the subagent's `inputSchema` as input and returns `{ text, threadId }` — the subagent's response text and an optional thread ID for context continuity.
-
-The operator always receives the subagent's response and can add its own context before replying to the user.
-
-### Streaming
-
-The operator uses the Vercel AI SDK's `ToolLoopAgent` for streaming. The `chatStream()` method is an async generator that:
-
-1. Converts conversation history to AI SDK model messages.
-2. Creates a `ToolLoopAgent` with the operator's model, tools, and dynamically-built instructions.
-3. Streams the response via `fullStream`, yielding text deltas and emitting events for tool calls, tool results, sources, reasoning, and file attachments.
-
-Non-streaming channels (like Telegram) use the `chat()` method, which internally delegates to `chatStream()` and collects the full response.
+For a detailed walkthrough of how the operator processes messages, delegates to subagents, and manages streaming, see [Architecture](/reference/architecture).
 
 ## Model selection
 
-The operator model handles general conversation, tool coordination, and routing decisions to subagents. Choose based on your priorities:
-
-| Priority | Recommended models |
-|----------|--------------------|
-| Fast and cost-effective | `google/gemini-3-flash`, `openai/gpt-4o-mini` |
-| Balanced quality | `anthropic/claude-sonnet-4.5`, `openai/gpt-4o` |
-| Maximum quality | `anthropic/claude-opus-4`, `openai/gpt-4.5` |
-
-Since the operator handles every message, model cost and latency directly affect the responsiveness of all conversations across all channels.
+The operator handles every message, so model cost and latency directly affect responsiveness across all channels. Use a fast model with good tool-calling support. See [Choosing models](/agents#choosing-models) for recommendations.

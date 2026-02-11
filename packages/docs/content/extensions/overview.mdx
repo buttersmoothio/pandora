@@ -5,7 +5,7 @@ import { Cards, FileTree } from 'nextra/components'
 Pandora is designed to be extended. You can add:
 
 - **Tools** — Give your AI new capabilities (weather, APIs, database queries)
-- **Agents** — Create specialists (translator, writing assistant, data analyst)
+- **Agents** — Create subagents (translator, writing assistant, data analyst)
 - **Channels** — Connect to new platforms (Discord, Slack, CLI)
 - **Storage** — Use different databases (Postgres, Redis, DynamoDB)
 - **Memory** — Use different vector databases (Postgres + pgvector, Pinecone, Qdrant)
@@ -58,7 +58,7 @@ Extensions are **auto-discovered**. Create a file in the right folder, and Pando
 | Pattern | Effect |
 |---------|--------|
 | `tools/*.ts` | Auto-discovered as tools |
-| `subagents/*.ts` | Auto-discovered as sub-agents |
+| `subagents/*.ts` | Auto-discovered as subagents |
 | `channels/*/index.ts` | Auto-discovered as channels |
 | `store/*.ts` | Auto-discovered as storage backends |
 | `memory/*.ts` | Auto-discovered as memory backends |

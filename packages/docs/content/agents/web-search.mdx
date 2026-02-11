@@ -14,17 +14,6 @@ Uses models with built-in search capabilities. The agent detects the provider fr
 }
 ```
 
-### Provider Detection
-
-| Model prefix | Behavior | Requires |
-|-------------|----------|----------|
-| `perplexity/*` | Built-in search, no tools needed | Nothing extra |
-| `openai/*` (with "search" in name) | Uses `openai.tools.webSearch()` | `@ai-sdk/openai` |
-| `google/*` or `gemini/*` | Uses `google.tools.googleSearch()` | `@ai-sdk/google` |
-| Other models | Warns about limited support | Consider `webSearchTool` instead |
-
-The OpenAI and Google SDKs are **optional peer dependencies**. If the required SDK is not installed, the agent logs a warning and gracefully degrades (no search tools provided).
-
 ### Examples
 
 Perplexity Sonar (simplest -- no extra SDK needed):
@@ -62,7 +51,7 @@ OpenAI search model (requires `@ai-sdk/openai`):
 
 ## Tool-Based Search (`webSearchTool`)
 
-Uses an external search API as a tool, which works with **any model**. The agent reads `searchBackend` from its config, validates it against the search tools registry, and provides it as a tool the model can call.
+Uses an external search API as a tool, which works with **any model**. Configure a search backend under `ai.tools`, then reference it in the agent config.
 
 ```jsonc
 "tools": {
@@ -86,17 +75,6 @@ Uses an external search API as a tool, which works with **any model**. The agent
 
 See [Web Search Tools](/tools/web-search) for backend setup details and API key links.
 
-### How It Works
-
-1. Reads `searchBackend` from `config.ai.agents.webSearchTool`
-2. Validates the backend exists and is configured via `validateSearchBackend()`
-3. Retrieves the tool from the search tools registry via `getSearchTool()`
-4. Provides it to the model, which can call it during generation
-
-### Error Handling
-
-If the backend is misconfigured or missing, the agent returns empty tools and logs a warning. The agent still runs but cannot perform searches -- it fails safely rather than crashing.
-
 ### When to Use
 
 - You want to use a model that does not have native search (e.g., Claude, Llama)
@@ -115,7 +93,6 @@ If the backend is misconfigured or missing, the agent returns empty tools and lo
 | Additional API keys | None (may need provider SDK installed) | Search API key required |
 | Speed | Faster (single integrated call) | Slower (model calls search tool, then processes results) |
 | Search control | Limited to provider defaults | Choice of backend, configurable per-tool |
-| Error behavior | Warns if SDK missing, degrades gracefully | Warns if backend misconfigured, returns empty tools |
 
 ## Triggers
 

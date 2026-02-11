@@ -2,7 +2,7 @@ import { Cards, Tabs } from 'nextra/components'
 
 # Agents
 
-Pandora uses a multi-agent system where a main **operator** can delegate tasks to specialized **sub-agents**.
+Pandora uses a multi-agent system where a main **operator** can delegate tasks to **subagents**.
 
 ## How it works
 
@@ -11,29 +11,30 @@ User Message → Operator → Response
                   ↓
             (decides to delegate)
                   ↓
-              Sub-agent → Back to Operator → Response
+              Subagent → Back to Operator → Response
 ```
 
-The **operator** is your main AI assistant. It handles most conversations directly, but when it recognizes a specialized task, it can delegate to a sub-agent:
+The **operator** is your main AI assistant. It handles most conversations directly, but when it recognizes a specialized task, it can delegate to a subagent:
 
 - Coding question? → Delegates to `coder`
 - Need research? → Delegates to `research`
 - Need current info? → Delegates to `webSearchNative`
 
-Each sub-agent has focused instructions and can use different AI models.
+Each subagent has its own instructions and can use a different AI model.
 
 ## Configuration
 
-<Tabs items={['Operator only (minimal)', 'With specialists']}>
+<Tabs items={['Recommended', 'With all subagents']}>
 <Tabs.Tab>
 
 ```jsonc
 "agents": {
-  "operator": { "model": "google/gemini-3-flash" }
+  "operator": { "model": "google/gemini-3-flash" },
+  "webSearchNative": { "model": "perplexity/sonar-pro" }
 }
 ```
 
-The operator alone is quite capable for general use. Use a fast, tool-call capable model.
+We recommend always enabling `webSearchNative` — it gives the operator access to live internet search, which is useful for a wide range of questions. Without it, the operator can only answer from its training data.
 
 </Tabs.Tab>
 <Tabs.Tab>
@@ -65,7 +66,7 @@ You can enable any combination — just include the ones you want.
 
 | Strategy | Example |
 |----------|---------|
-| Cost-optimized | Fast model for operator, capable models for specialists |
+| Cost-optimized | Fast model for operator, capable models for subagents |
 | Task-optimized | Best coding model for coder, search model for research |
 | Same everywhere | Use one model for simplicity |
 
@@ -74,25 +75,24 @@ You can enable any combination — just include the ones you want.
 ```jsonc
 "agents": {
   "operator": { "model": "google/gemini-3-flash" },
+  "webSearchNative": { "model": "perplexity/sonar-pro" },
   "coder": { "model": "anthropic/claude-sonnet-4.5" },
-  "research": { "model": "openai/gpt-5.2" },
-  "webSearchNative": { "model": "perplexity/sonar-pro" }
+  "research": { "model": "openai/gpt-5.2" }
 }
 ```
 
-The operator handles routing and simple tasks — use a fast, cheap model with good tool-calling. Specialists do the heavy lifting — use capable models there.
+The operator handles routing and simple tasks — use a fast, cheap model with good tool-calling. Always include `webSearchNative` for live internet access. Other subagents are optional and do the heavy lifting for their domains — use capable models there.
 
-## Do I need sub-agents?
+## Do I need subagents?
 
-**Start without them** if you're just getting started. The operator handles most things well.
+**Always enable `webSearchNative`** — it gives the operator live internet access, which is valuable for almost any use case.
 
-**Add sub-agents** when you frequently ask certain types of questions:
+**Add more subagents** when you frequently ask certain types of questions:
 - Lots of coding → add `coder`
 - Need explanations → add `research`
-- Need current info → add `webSearchNative`
 
 ## Create your own
 
 Want a translator? Writing assistant? Data analyst?
 
-See [Custom Agents](/extensions/custom-agents) to create your own specialist.
+See [Custom Agents](/extensions/custom-agents) to create your own subagent.

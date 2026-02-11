@@ -2,15 +2,17 @@ import { Callout } from 'nextra/components'
 
 # Web Search Tools
 
-Search backends that power the `webSearchTool` agent. Each backend uses a **dual-registration pattern**: it registers as both a standalone tool (via `defineTool()`) and as a search backend (via `defineSearchTool()`), so the `webSearchTool` subagent can look it up by name.
+Search backends that power the `webSearchTool` agent. Configure a backend under `ai.tools` with an API key, then reference its config key as `searchBackend` in the `webSearchTool` agent config.
 
-To use a backend: configure it under `ai.tools` with an API key, then reference its config key as `searchBackend` in the `webSearchTool` agent config.
+<Callout type="info">
+These tools are only needed for **tool-based search** (`webSearchTool`). If you use **native search** (`webSearchNative`) with a search-enabled model like Perplexity Sonar, you do not need any of these backends. See [Web Search Agents](/agents/web-search) for a full comparison.
+</Callout>
 
 ---
 
 ## Tavily
 
-General web search optimized for AI applications. Uses `@tavily/ai-sdk` for direct AI SDK integration.
+General web search optimized for AI applications.
 
 ```jsonc
 "tools": {
@@ -35,7 +37,7 @@ General web search optimized for AI applications. Uses `@tavily/ai-sdk` for dire
 
 ## Exa
 
-AI-powered semantic search with advanced filtering and content extraction. Uses `@exalabs/ai-sdk` for direct AI SDK integration.
+AI-powered semantic search with advanced filtering and content extraction.
 
 ```jsonc
 "tools": {
@@ -60,7 +62,7 @@ AI-powered semantic search with advanced filtering and content extraction. Uses 
 
 ## Perplexity Search
 
-Perplexity Search API with real-time web search. This is the **Search API** (a tool any model can call), which is distinct from Perplexity Sonar models used with `webSearchNative`. Uses `@perplexity-ai/ai-sdk` for direct AI SDK integration.
+Perplexity Search API with real-time web search. This is the **Search API** (a tool any model can call), which is distinct from Perplexity Sonar models used with `webSearchNative`.
 
 ```jsonc
 "tools": {
@@ -80,35 +82,3 @@ Perplexity Search API with real-time web search. This is the **Search API** (a t
 | Get API key | [perplexity.ai/account/api/keys](https://www.perplexity.ai/account/api/keys) |
 | Free tier | No |
 | Best for | Time-sensitive queries, real-time information |
-
----
-
-## How Backends Work
-
-Each search tool file (e.g., `tools/tavily-search.ts`) calls two registration functions:
-
-1. **`defineTool()`** -- registers the tool so it can be used as a standalone tool by any agent
-2. **`defineSearchTool()`** -- registers it in the search tools registry so `webSearchTool` can look it up by name via `getSearchTool()`
-
-Both registrations require the same config (an `apiKey` under the tool's config key in `ai.tools`). If the API key is missing, the factory throws an error.
-
-When the `webSearchTool` subagent starts, it:
-1. Reads `searchBackend` from its agent config
-2. Calls `validateSearchBackend()` to check the backend is registered and configured
-3. Calls `getSearchTool()` to create the tool instance
-4. Provides it to the model as a callable tool
-
----
-
-## Native vs Tool-Based Search
-
-<Callout type="info">
-These tools are only needed for **tool-based search** (`webSearchTool`). If you use **native search** (`webSearchNative`) with a search-enabled model like Perplexity Sonar, you do not need any of these backends. See [Web Search Agents](/agents/web-search) for a full comparison.
-</Callout>
-
-| | Native Search | Tool-Based Search |
-|--|---------------|-------------------|
-| Agent config key | `webSearchNative` | `webSearchTool` |
-| Needs these backends | No | Yes (one of the above) |
-| Model requirement | Search-enabled model | Any model |
-| Additional API cost | None | Search API costs |
