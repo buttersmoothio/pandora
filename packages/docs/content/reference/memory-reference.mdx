@@ -1,0 +1,432 @@
+# Memory
+
+Reference for the memory system's types, interfaces, and internals. Memory provides episodic (interaction history) and semantic (facts/preferences) recall across conversations.
+
+All types can be imported directly:
+
+```ts
+import type {
+  Episode, Fact, MemoryChunk, MemorySearchResults,
+  IMemoryProvider, IEpisodicMemory, ISemanticMemory
+} from "@pandora/core";
+```
+
+---
+
+## Types
+
+### Episode
+
+An episodic memory record representing a past interaction event or conversation summary.
+
+```ts
+interface Episode {
+  id: string;
+  /** Summary of the interaction (user message + truncated assistant response) */
+  content: string;
+  /** Source conversation ID */
+  conversationId?: string;
+  /** Channel where this occurred */
+  channelName?: string;
+  /** User involved */
+  userId?: string;
+  /** Unix timestamp (seconds) */
+  timestamp: number;
+  /** Importance score (0-1) */
+  importance: number;
+  /** Optional tags for filtering */
+  tags: string[];
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | `string` | Unique episode identifier. |
+| `content` | `string` | Summary of the interaction (user message + truncated assistant response). |
+| `conversationId` | `string` | The conversation this episode was extracted from. |
+| `channelName` | `string` | Channel where the interaction occurred. |
+| `userId` | `string` | The user involved in the interaction. |
+| `timestamp` | `number` | When the interaction occurred (Unix epoch seconds). |
+| `importance` | `number` | Importance score from `0` to `1`. Higher values indicate more significant interactions. |
+| `tags` | `string[]` | Tags for categorical filtering. |
+
+### Fact
+
+A semantic memory record representing a piece of knowledge, user preference, or instruction.
+
+```ts
+interface Fact {
+  id: string;
+  /** The fact/preference/knowledge content */
+  content: string;
+  /** Category: user_preference, knowledge, instruction */
+  category: string;
+  /** Unix timestamp (seconds) */
+  createdAt: number;
+  /** Unix timestamp (seconds) */
+  updatedAt: number;
+  /** Source of this fact (e.g., conversation ID) */
+  source?: string;
+  /** Confidence score (0-1) */
+  confidence: number;
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | `string` | Unique fact identifier. |
+| `content` | `string` | The fact, preference, or knowledge content. |
+| `category` | `string` | Category such as `"user_preference"`, `"knowledge"`, or `"instruction"`. |
+| `createdAt` | `number` | When this fact was first recorded (Unix epoch seconds). |
+| `updatedAt` | `number` | When this fact was last updated (Unix epoch seconds). |
+| `source` | `string` | Source of the fact (e.g. a conversation ID). |
+| `confidence` | `number` | Confidence score from `0` to `1`. |
+
+### MemoryChunk
+
+A chunk from memory search results. Memory records are split into chunks for embedding, and search returns the most relevant chunks.
+
+```ts
+interface MemoryChunk {
+  /** Chunk ID */
+  chunkId: string;
+  /** Chunk text content */
+  content: string;
+  /** Parent record ID */
+  parentId: string;
+  /** Parent record type */
+  parentType: "episode" | "fact";
+  /** Hybrid search score (0-1) */
+  score: number;
+  /** Chunk index within parent (0-based) */
+  chunkIndex: number;
+  /** Unix timestamp - episodes only */
+  timestamp?: number;
+  /** Conversation ID - episodes only */
+  conversationId?: string;
+  /** Category - facts only */
+  category?: string;
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `chunkId` | `string` | Unique chunk identifier. |
+| `content` | `string` | The text content of this chunk. |
+| `parentId` | `string` | ID of the parent `Episode` or `Fact` record. |
+| `parentType` | `"episode" \| "fact"` | Whether this chunk belongs to an episode or a fact. |
+| `score` | `number` | Hybrid search relevance score from `0` to `1`. |
+| `chunkIndex` | `number` | Position of this chunk within the parent record (0-based). |
+| `timestamp` | `number` | Unix timestamp. Present only for episode chunks. |
+| `conversationId` | `string` | Conversation ID. Present only for episode chunks. |
+| `category` | `string` | Fact category. Present only for fact chunks. |
+
+### MemorySearchResult
+
+Generic search result wrapper with a relevance score. Used for backward compatibility.
+
+```ts
+interface MemorySearchResult<T> {
+  item: T;
+  /** Cosine similarity score (0-1) */
+  score: number;
+}
+```
+
+### MemorySearchResults
+
+Combined chunk search results returned by `IMemoryProvider.search()`.
+
+```ts
+interface MemorySearchResults {
+  /** Matching chunks from episodic memory */
+  episodes: MemoryChunk[];
+  /** Matching chunks from semantic memory */
+  facts: MemoryChunk[];
+}
+```
+
+---
+
+## Interfaces
+
+### IMemoryProvider
+
+The top-level memory provider interface. Exposes optional episodic and semantic capabilities, a unified search method, and resource cleanup.
+
+```ts
+interface IMemoryProvider {
+  /** Episodic memory capability (null if not supported) */
+  readonly episodic: IEpisodicMemory | null;
+  /** Semantic memory capability (null if not supported) */
+  readonly semantic: ISemanticMemory | null;
+
+  /** Search both memory types and return combined results */
+  search(
+    query: string,
+    opts?: { limit?: number; minScore?: number; excludeConversationId?: string }
+  ): Promise<MemorySearchResults>;
+
+  /** Close the provider (release resources) */
+  close(): Promise<void>;
+}
+```
+
+| Member | Type | Description |
+|---|---|---|
+| `episodic` | `IEpisodicMemory \| null` | Episodic memory interface, or `null` if the provider does not support it. |
+| `semantic` | `ISemanticMemory \| null` | Semantic memory interface, or `null` if the provider does not support it. |
+| `search(query, opts?)` | `Promise<MemorySearchResults>` | Search across both memory types simultaneously. Returns combined chunks. `excludeConversationId` filters out episodes from the specified conversation. |
+| `close()` | `Promise<void>` | Release all resources held by the provider. |
+
+### IEpisodicMemory
+
+Interface for episodic memory -- automatic logging of interaction events and past conversation summaries.
+
+```ts
+interface IEpisodicMemory {
+  /** Add an episode (gateway calls this automatically after each turn) */
+  addEpisode(episode: Omit<Episode, "id">): Promise<string>;
+
+  /** Search episodes by semantic similarity (returns matching chunks) */
+  searchEpisodes(
+    query: string,
+    opts?: { limit?: number; minScore?: number; since?: number }
+  ): Promise<MemoryChunk[]>;
+
+  /** Get a specific episode by ID */
+  getEpisode(id: string): Promise<Episode | null>;
+
+  /** Delete a specific episode */
+  deleteEpisode(id: string): Promise<void>;
+
+  /** Delete all episodes for a conversation (called when conversation is deleted) */
+  deleteEpisodesForConversation(conversationId: string): Promise<number>;
+}
+```
+
+| Method | Returns | Description |
+|---|---|---|
+| `addEpisode(episode)` | `Promise<string>` | Store a new episode. The `id` field is generated automatically. Returns the episode ID. The gateway calls this after each conversation turn. |
+| `searchEpisodes(query, opts?)` | `Promise<MemoryChunk[]>` | Search episodes by semantic similarity. Options: `limit` (max results), `minScore` (threshold 0-1), `since` (Unix timestamp filter). |
+| `getEpisode(id)` | `Promise<Episode \| null>` | Retrieve a specific episode by its ID. Returns `null` if not found. |
+| `deleteEpisode(id)` | `Promise<void>` | Delete a specific episode and its chunks. |
+| `deleteEpisodesForConversation(conversationId)` | `Promise<number>` | Delete all episodes associated with a conversation. Returns the count of deleted episodes. Called when a conversation is deleted. |
+
+### ISemanticMemory
+
+Interface for semantic memory -- agent-controlled storage of facts, preferences, and knowledge.
+
+```ts
+interface ISemanticMemory {
+  /** Create or update a fact (deduplicates by similarity) */
+  upsertFact(fact: Omit<Fact, "id" | "createdAt" | "updatedAt">): Promise<string>;
+
+  /** Search facts by semantic similarity (returns matching chunks) */
+  searchFacts(
+    query: string,
+    opts?: { limit?: number; minScore?: number; category?: string }
+  ): Promise<MemoryChunk[]>;
+
+  /** Delete a specific fact */
+  deleteFact(id: string): Promise<void>;
+
+  /** Get a fact by ID */
+  getFact(id: string): Promise<Fact | null>;
+}
+```
+
+| Method | Returns | Description |
+|---|---|---|
+| `upsertFact(fact)` | `Promise<string>` | Create or update a fact. Deduplicates by semantic similarity -- if a sufficiently similar fact exists, it is updated instead of creating a duplicate. The `id`, `createdAt`, and `updatedAt` fields are managed automatically. Returns the fact ID. |
+| `searchFacts(query, opts?)` | `Promise<MemoryChunk[]>` | Search facts by semantic similarity. Options: `limit` (max results), `minScore` (threshold 0-1), `category` (filter by fact category). |
+| `deleteFact(id)` | `Promise<void>` | Delete a specific fact and its chunks. |
+| `getFact(id)` | `Promise<Fact \| null>` | Retrieve a specific fact by its ID. Returns `null` if not found. |
+
+---
+
+## Memory internals
+
+The SQLite memory provider stores episodic and semantic memories with vector embeddings for hybrid search. See [Memory](/memory) for configuration and [SQLite Memory](/memory/sqlite) for backend setup.
+
+<details>
+<summary>**Database schema**</summary>
+
+The database runs in WAL mode with foreign keys enabled. Six tables make up the schema:
+
+```sql
+-- Episodic memory (interaction logs)
+CREATE TABLE memory_episodes (
+  id TEXT PRIMARY KEY,
+  content TEXT NOT NULL,
+  conversation_id TEXT,
+  channel_name TEXT,
+  user_id TEXT,
+  timestamp INTEGER NOT NULL,
+  importance REAL DEFAULT 0.5,
+  tags TEXT                       -- JSON array of strings
+);
+
+-- Semantic memory (facts / knowledge)
+CREATE TABLE memory_facts (
+  id TEXT PRIMARY KEY,
+  content TEXT NOT NULL,
+  category TEXT NOT NULL,         -- 'user_preference' | 'knowledge' | 'instruction'
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  source TEXT,
+  confidence REAL DEFAULT 1.0
+);
+
+-- Chunks with embeddings (for both episodes and facts)
+CREATE TABLE memory_chunks (
+  id TEXT PRIMARY KEY,
+  parent_id TEXT NOT NULL,        -- FK to episode or fact
+  parent_type TEXT NOT NULL       -- 'episode' | 'fact'
+    CHECK(parent_type IN ('episode', 'fact')),
+  content TEXT NOT NULL,
+  vector TEXT NOT NULL,           -- JSON array of floats
+  start_offset INTEGER NOT NULL,
+  end_offset INTEGER NOT NULL,
+  chunk_index INTEGER NOT NULL
+);
+
+-- FTS5 full-text search index (content-synced with memory_chunks)
+CREATE VIRTUAL TABLE memory_chunks_fts USING fts5(
+  content,
+  content='memory_chunks',
+  content_rowid='rowid'
+);
+
+-- sqlite-vec vector index for KNN search
+CREATE VIRTUAL TABLE vec_chunks USING vec0(
+  chunk_id TEXT PRIMARY KEY,
+  embedding float[1536]
+);
+```
+
+Triggers keep `memory_chunks_fts` automatically synchronized with `memory_chunks` on
+insert, update, and delete.
+
+**Indices:**
+
+| Index | Column(s) |
+|-------|-----------|
+| `idx_episodes_timestamp` | `memory_episodes.timestamp DESC` |
+| `idx_facts_category` | `memory_facts.category` |
+| `idx_chunks_parent` | `memory_chunks(parent_id, parent_type)` |
+
+</details>
+
+<details>
+<summary>**Chunking strategy**</summary>
+
+Content is split into overlapping chunks before embedding using the tiktoken library
+with the `cl100k_base` encoding (GPT-4 / text-embedding-3 tokenizer).
+
+| Parameter | Value | Purpose |
+|-----------|-------|---------|
+| Target size | ~400 tokens | Optimal embedding window |
+| Overlap | 80 tokens | Context continuity between chunks |
+| Minimum size | 50 tokens | Avoids tiny trailing chunks (merged into previous) |
+
+**Splitting algorithm:**
+
+1. If the text fits within the target size (≤400 tokens), return it as a single chunk.
+2. Split text on sentence boundaries (`.`, `!`, `?` followed by whitespace) to keep chunks semantically coherent.
+3. Accumulate sentences until the running token count reaches the target.
+4. Emit a chunk, then start the next chunk with enough trailing sentences to provide ~80 tokens of overlap.
+5. If the final remaining text is below the minimum (50 tokens), merge it into the previous chunk instead of creating a tiny chunk.
+
+Each chunk carries position metadata (`startOffset`, `endOffset`, `chunkIndex`) so the
+original text location is recoverable.
+
+</details>
+
+<details>
+<summary>**Hybrid search algorithm**</summary>
+
+Every search query runs two scoring passes and merges the results.
+
+**1. Vector search (70% weight)**
+
+Uses the `sqlite-vec` extension for KNN indexed lookup (O(log n) instead of brute-force O(n)).
+The query text is embedded, then matched against `vec_chunks` using L2 distance.
+L2 distance is converted to a 0-1 similarity score:
+
+```
+similarity = max(0, 1 - distance^2 / 2)
+```
+
+The KNN query is isolated in a CTE (per sqlite-vec documentation) so the `LIMIT`
+constraint is respected, then JOINed to `memory_chunks` to filter by `parent_type`.
+
+**2. BM25 keyword search (30% weight)**
+
+Uses the FTS5 `MATCH` operator with BM25 scoring on `memory_chunks_fts`.
+Query text is sanitized before matching: quotes and newlines are removed, words are
+extracted and stripped of leading/trailing punctuation, then joined with `OR` for
+flexible matching. Malformed queries that cause FTS5 errors are caught gracefully and
+return empty results.
+
+Raw BM25 scores are min-max normalized to a 0-1 range.
+
+**3. Score merging**
+
+```
+finalScore = 0.7 * vectorScore + 0.3 * bm25Score
+```
+
+Scores from both passes are merged across the union of all matching chunk IDs.
+Chunks missing from one pass receive a score of 0 for that component.
+Results below the `minScore` threshold (default 0.5) are discarded.
+
+</details>
+
+<details>
+<summary>**Fact deduplication**</summary>
+
+When `upsertFact()` is called, the first chunk of the new fact is compared against the
+first chunks of all existing facts using cosine similarity.
+
+- **Threshold:** 0.92
+- If an existing fact has similarity >= 0.92, its content, category, source, and
+  confidence are updated in place and its chunks are re-embedded.
+- If no match is found, a new fact is created.
+
+This prevents near-duplicate facts from accumulating over time.
+
+</details>
+
+<details>
+<summary>**Episodic memory operations**</summary>
+
+| Method | Description |
+|--------|-------------|
+| `addEpisode(episode)` | Inserts the episode record, chunks the content, batch embeds all chunks, stores chunks in `memory_chunks` + `vec_chunks` (FTS5 entries are auto-synced via triggers). |
+| `searchEpisodes(query, opts?)` | Runs hybrid search (vector + BM25). Supports optional `since` timestamp filter and `minScore` / `limit` options. |
+| `getEpisode(id)` | Fetches a single episode by ID. |
+| `deleteEpisode(id)` | Deletes the episode and all its chunks (from `memory_chunks`, `vec_chunks`, and FTS5). |
+| `deleteEpisodesForConversation(conversationId)` | Bulk-deletes all episodes for a conversation and their associated chunks. Returns the count of deleted episodes. |
+
+</details>
+
+<details>
+<summary>**Semantic memory operations**</summary>
+
+| Method | Description |
+|--------|-------------|
+| `upsertFact(fact)` | Smart upsert with cosine-similarity deduplication (threshold 0.92). Chunks content, batch embeds, then either updates an existing fact or creates a new one. |
+| `searchFacts(query, opts?)` | Runs hybrid search (vector + BM25). Supports optional `category` filter and `minScore` / `limit` options. |
+| `getFact(id)` | Fetches a single fact by ID. |
+| `deleteFact(id)` | Deletes the fact and all its chunks. |
+
+</details>
+
+<details>
+<summary>**Unified search**</summary>
+
+The top-level `search(query, opts?)` method runs `searchEpisodes` and `searchFacts`
+in parallel (via `Promise.all`) and returns combined results as `{ episodes, facts }`.
+
+</details>

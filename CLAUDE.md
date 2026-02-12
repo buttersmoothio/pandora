@@ -29,11 +29,15 @@ The docs (`packages/docs/content/`) are the single source of truth. Read the rel
 | Topic | Doc path |
 |-------|----------|
 | Architecture & message flow | `reference/architecture.mdx` |
-| Gateway & Agent API | `reference/api.mdx` |
-| REST endpoints | `reference/api.mdx` (REST API section) |
+| Gateway API | `reference/gateway.mdx` |
+| Agent API | `reference/agent.mdx` |
+| REST endpoints | `reference/rest-api.mdx` |
+| Streaming events | `reference/streaming.mdx` |
 | WebSocket protocol | `reference/websocket-protocol.mdx` |
-| Types (Message, StreamEvent, etc.) | `reference/types.mdx` |
-| Configuration fields | `reference/configuration.mdx` |
+| Types (Message, Channel, etc.) | `reference/types.mdx` |
+| Store interface & internals | `reference/store.mdx` |
+| Memory types, interfaces & internals | `reference/memory-reference.mdx` |
+| Configuration fields | `reference/configuration-reference.mdx` |
 | Configuration guide | `configuration.mdx` |
 | Extension system (channels, tools, subagents, store, memory) | `extensions/*.mdx` |
 | Web channel setup | `channels/web.mdx` |
@@ -71,14 +75,16 @@ The docs have four sections with strict content boundaries:
 After every code change, update the relevant docs (respecting the section boundaries above):
 
 - [ ] Types changed → `reference/types.mdx`
-- [ ] REST endpoints changed → `reference/api.mdx`
+- [ ] REST endpoints changed → `reference/rest-api.mdx`
 - [ ] WebSocket events changed → `reference/websocket-protocol.mdx`
-- [ ] Config schema changed → `reference/configuration.mdx`
-- [ ] Gateway/Agent API changed → `reference/api.mdx`
+- [ ] Config schema changed → `reference/configuration-reference.mdx`
+- [ ] Gateway API changed → `reference/gateway.mdx`
+- [ ] Agent API changed → `reference/agent.mdx`
+- [ ] Streaming events changed → `reference/streaming.mdx`
 - [ ] New/changed tool → `tools/*.mdx`, `extensions/tools.mdx`
 - [ ] New/changed subagent → `agents/*.mdx`
 - [ ] New/changed channel → `channels/*.mdx`, `extensions/channels.mdx`
-- [ ] Store interface changed → `storage/*.mdx`, `extensions/storage.mdx`
-- [ ] Memory interface changed → `memory/*.mdx`, `extensions/memory.mdx`
+- [ ] Store interface changed → `reference/store.mdx`, `storage/*.mdx`, `extensions/storage.mdx`
+- [ ] Memory interface changed → `reference/memory-reference.mdx`, `memory/*.mdx`, `extensions/memory.mdx`
 - [ ] Extension patterns changed → `extensions/*.mdx`
 - [ ] Internals moved → Ensure corresponding addition in `reference/architecture.mdx`

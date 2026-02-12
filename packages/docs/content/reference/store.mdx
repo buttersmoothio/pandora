@@ -1,0 +1,274 @@
+# Store
+
+Reference for the message store interface and storage internals. The store persists conversation history, messages, and message parts.
+
+All types can be imported directly:
+
+```ts
+import type { IMessageStore, ConversationInfo } from "@pandora/core";
+```
+
+---
+
+## IMessageStore
+
+The storage abstraction for persisting conversation history. All backends (SQLite, in-memory, etc.) implement this interface.
+
+```ts
+interface IMessageStore {
+  // --- Message Management ---
+
+  addMessage(
+    conversationId: string,
+    message: Omit<UIMessage, "id">,
+    meta?: MessageMeta
+  ): Promise<string>;
+
+  getHistory(conversationId: string): Promise<UIMessage[]>;
+
+  clearHistory(conversationId: string): Promise<void>;
+
+  // --- Streaming Persistence ---
+
+  createMessage(
+    conversationId: string,
+    role: "user" | "assistant",
+    meta?: MessageMeta
+  ): Promise<string>;
+
+  appendPart(messageId: string, part: PandoraMessagePart): Promise<void>;
+
+  updateTextPart(messageId: string, text: string): Promise<void>;
+
+  updateToolResult(
+    messageId: string,
+    toolCallId: string,
+    result: unknown
+  ): Promise<void>;
+
+  finalizeMessage(messageId: string): Promise<void>;
+
+  accumulateUsage(
+    messageId: string,
+    usage: { inputTokens?: number; outputTokens?: number; totalTokens?: number }
+  ): Promise<void>;
+
+  // --- Conversation Management ---
+
+  listConversations(channelName?: string): Promise<ConversationInfo[]>;
+
+  deleteConversation(conversationId: string): Promise<void>;
+
+  close(): Promise<void>;
+
+  // --- Subagent Thread Management ---
+
+  createSubagentConversation(
+    parentId: string,
+    toolCallId: string,
+    subagentName: string,
+    meta?: MessageMeta
+  ): Promise<string>;
+
+  linkToolToThread(
+    messageId: string,
+    toolCallId: string,
+    threadId: string
+  ): Promise<void>;
+
+  getChildThreads(conversationId: string): Promise<ConversationInfo[]>;
+}
+```
+
+### Message management methods
+
+| Method | Returns | Description |
+|---|---|---|
+| `addMessage(conversationId, message, meta?)` | `Promise<string>` | Store a complete message. Returns the generated message ID. For non-streaming use cases where the full message is already available. |
+| `getHistory(conversationId)` | `Promise<UIMessage[]>` | Retrieve the full conversation history as an ordered array of messages. |
+| `clearHistory(conversationId)` | `Promise<void>` | Delete all messages in a conversation while keeping the conversation record. |
+
+### Streaming persistence methods
+
+These methods support incremental message building during streaming. The typical flow is: `createMessage` -> `appendPart`/`updateTextPart` (repeated) -> `finalizeMessage`.
+
+| Method | Returns | Description |
+|---|---|---|
+| `createMessage(conversationId, role, meta?)` | `Promise<string>` | Create an empty message shell before streaming begins. Returns the message ID. |
+| `appendPart(messageId, part)` | `Promise<void>` | Append a message part (text, tool call, source, reasoning, etc.) to an existing message. |
+| `updateTextPart(messageId, text)` | `Promise<void>` | Update the last text part with accumulated content. Called repeatedly during streaming as text deltas arrive. |
+| `updateToolResult(messageId, toolCallId, result)` | `Promise<void>` | Update a tool call part with its result, transitioning its state from `input-available` to `output-available`. |
+| `finalizeMessage(messageId)` | `Promise<void>` | Mark a message as complete. Transitions the text part state from `streaming` to `done`. |
+| `accumulateUsage(messageId, usage)` | `Promise<void>` | Add token usage counts to a message. Called on each `step-finish` event to accumulate totals across steps. |
+
+### Conversation management methods
+
+| Method | Returns | Description |
+|---|---|---|
+| `listConversations(channelName?)` | `Promise<ConversationInfo[]>` | List conversations ordered by most recently updated. Optionally filter by channel name. |
+| `deleteConversation(conversationId)` | `Promise<void>` | Delete a conversation and all its messages permanently. |
+| `close()` | `Promise<void>` | Gracefully shut down the store -- flush pending writes, release connections, clean up resources. |
+
+### Subagent thread methods
+
+| Method | Returns | Description |
+|---|---|---|
+| `createSubagentConversation(parentId, toolCallId, subagentName, meta?)` | `Promise<string>` | Create a child conversation for a subagent execution, linked to the parent via tool call ID. Returns the new conversation ID. |
+| `linkToolToThread(messageId, toolCallId, threadId)` | `Promise<void>` | Link a tool call part to the subagent thread it spawned. Adds a `threadId` field to the tool part. |
+| `getChildThreads(conversationId)` | `Promise<ConversationInfo[]>` | Get all subagent threads that are children of a given conversation. |
+
+---
+
+## ConversationInfo
+
+Summary information about a stored conversation, returned by `listConversations` and `getChildThreads`.
+
+```ts
+interface ConversationInfo {
+  id: string;
+  /** Channel that created this conversation */
+  channelName: string | null;
+  /** Unix epoch seconds */
+  createdAt: number;
+  /** Unix epoch seconds */
+  updatedAt: number;
+  /** First user message, truncated */
+  preview: string;
+  /** Total number of messages */
+  messageCount: number;
+  /** Conversation type: 'root' for top-level, 'subagent' for child threads */
+  type?: "root" | "subagent";
+  /** Parent conversation ID (for subagent threads) */
+  parentConversationId?: string;
+  /** Tool call ID that spawned this thread (for subagent threads) */
+  parentToolCallId?: string;
+  /** Subagent name (for subagent threads) */
+  subagentName?: string;
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | `string` | Unique conversation identifier. |
+| `channelName` | `string \| null` | The channel that created this conversation, or `null` if unknown. |
+| `createdAt` | `number` | Creation timestamp (Unix epoch seconds). |
+| `updatedAt` | `number` | Last update timestamp (Unix epoch seconds). |
+| `preview` | `string` | Truncated first user message, used for display in conversation lists. |
+| `messageCount` | `number` | Total number of messages in the conversation. |
+| `type` | `"root" \| "subagent"` | `"root"` for top-level conversations, `"subagent"` for child threads. |
+| `parentConversationId` | `string` | Parent conversation ID. Only present for subagent threads. |
+| `parentToolCallId` | `string` | The tool call ID that spawned this thread. Only present for subagent threads. |
+| `subagentName` | `string` | Name of the subagent. Only present for subagent threads. |
+
+---
+
+## Storage internals
+
+The SQLite storage provider persists conversations, messages, and message parts. See [SQLite Storage](/storage/sqlite) for configuration.
+
+<details>
+<summary>**Schema: conversations, messages, message_parts**</summary>
+
+**conversations** — Holds both top-level user conversations and subagent threads.
+
+```sql
+CREATE TABLE conversations (
+  id TEXT PRIMARY KEY,
+  channel_name TEXT,
+  user_id TEXT,
+  type TEXT NOT NULL DEFAULT 'root',       -- 'root' | 'subagent'
+  parent_conversation_id TEXT,              -- FK → conversations.id (subagent threads only)
+  parent_tool_call_id TEXT,                 -- tool call that spawned this thread
+  subagent_name TEXT,                       -- e.g. 'coder', 'research'
+  created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+  updated_at INTEGER NOT NULL DEFAULT (unixepoch()),
+  FOREIGN KEY (parent_conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
+);
+
+-- Fast parent lookup for child threads
+CREATE INDEX idx_conversations_parent ON conversations (parent_conversation_id);
+```
+
+| Column | Purpose |
+|--------|---------|
+| `type` | `'root'` for user conversations, `'subagent'` for delegated threads |
+| `parent_conversation_id` | Links a subagent thread back to its parent conversation |
+| `parent_tool_call_id` | The tool call ID that triggered the subagent delegation |
+| `subagent_name` | Which subagent owns this thread |
+
+**messages** — Metadata for each message. Content lives in `message_parts`.
+
+```sql
+CREATE TABLE messages (
+  id TEXT PRIMARY KEY,
+  conversation_id TEXT NOT NULL,            -- FK → conversations.id
+  role TEXT NOT NULL,                        -- 'user' | 'assistant'
+  channel_name TEXT,
+  input_tokens INTEGER NOT NULL DEFAULT 0,
+  output_tokens INTEGER NOT NULL DEFAULT 0,
+  total_tokens INTEGER NOT NULL DEFAULT 0,
+  created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+  FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_messages_conversation ON messages (conversation_id, created_at);
+```
+
+**message_parts** — Ordered, heterogeneous content parts for each message.
+
+```sql
+CREATE TABLE message_parts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  message_id TEXT NOT NULL,                 -- FK → messages.id
+  part_index INTEGER NOT NULL,
+  part_type TEXT NOT NULL,                  -- 'text' | 'dynamic-tool'
+  part_data TEXT NOT NULL,                  -- JSON blob
+  created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+  FOREIGN KEY (message_id) REFERENCES messages(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_parts_message ON message_parts (message_id, part_index);
+```
+
+**Part types:**
+
+| `part_type` | `part_data` contains |
+|-------------|---------------------|
+| `text` | `{ type: "text", text: "...", state: "streaming" \| "done" }` |
+| `dynamic-tool` | `{ type: "dynamic-tool", toolCallId, toolName, input, state, output?, threadId? }` |
+
+</details>
+
+<details>
+<summary>**Streaming persistence flow**</summary>
+
+During a streaming response, the store is updated incrementally so progress is never lost:
+
+1. **`createMessage(conversationId, role)`** -- creates an empty message shell (no parts yet).
+2. **`appendPart(messageId, part)`** -- adds a text or tool-call part with the next index.
+3. **`updateTextPart(messageId, text)`** -- replaces the text content of the last text part as deltas arrive.
+4. **`updateToolResult(messageId, toolCallId, result)`** -- sets `state: "output-available"` and writes the tool output when the tool finishes.
+5. **`finalizeMessage(messageId)`** -- flips all text parts from `state: "streaming"` to `state: "done"`.
+6. **`accumulateUsage(messageId, usage)`** -- adds token counts (input, output, total) to the message row. Accumulated across multi-step tool loops.
+
+</details>
+
+<details>
+<summary>**Subagent thread storage**</summary>
+
+When the agent delegates work to a subagent, a child conversation is created:
+
+| Method | Purpose |
+|--------|---------|
+| `createSubagentConversation(parentId, toolCallId, subagentName)` | Creates a child conversation with `type: 'subagent'` |
+| `linkToolToThread(messageId, toolCallId, threadId)` | Adds `threadId` to the parent's tool-call part so the UI can link to it |
+| `getChildThreads(conversationId)` | Returns all subagent conversations for a parent |
+
+**Conversation types:**
+
+- **root** -- Top-level conversations initiated by users from any channel.
+- **subagent** -- Thread spawned by a tool-call delegation. Has `parent_conversation_id`, `parent_tool_call_id`, and `subagent_name` set.
+
+Subagent threads are excluded from `listConversations()` results so they don't clutter the conversation list. They are only accessible through `getChildThreads()` on their parent.
+
+</details>
