@@ -14,6 +14,7 @@ export type {
   StepStartUIPart,
   UIDataTypes,
   UITools,
+  LanguageModelUsage,
 } from "ai";
 
 // UIMessagePart with default type parameters for simpler usage
@@ -21,6 +22,7 @@ import type {
   UIMessagePart as AIUIMessagePart,
   UIDataTypes,
   UITools,
+  LanguageModelUsage,
 } from "ai";
 
 /** AI SDK message part type with default generics. */
@@ -149,6 +151,9 @@ export type StreamingMessageHandler = (
   capabilities: ChannelCapabilities
 ) => AsyncGenerator<string, void>;
 
+// Import context types for stream events
+import type { ContextState, ConversationStats } from "./context/types";
+
 /**
  * Events emitted during streaming for tool call visibility.
  * Delivered via callback alongside the text stream.
@@ -164,7 +169,7 @@ export type StreamEvent =
   | { type: "source-document"; sourceId: string; mediaType: string; title: string; filename?: string; providerMetadata?: Record<string, unknown>; threadId?: string }
   | { type: "reasoning-delta"; text: string; threadId?: string }
   | { type: "step-start"; threadId?: string }
-  | { type: "step-finish"; usage: { inputTokens?: number; outputTokens?: number; totalTokens?: number }; finishReason: string; threadId?: string }
+  | { type: "step-finish"; usage: LanguageModelUsage; finishReason: string; threadId?: string }
   | { type: "file"; mediaType: string; url: string; filename?: string; threadId?: string }
   // Memory context recalled for this prompt
   | {
@@ -174,7 +179,11 @@ export type StreamEvent =
     }
   // Subagent lifecycle events (UI sets up/tears down thread listeners)
   | { type: "subagent-start"; threadId: string; toolCallId: string; subagentName: string }
-  | { type: "subagent-done"; threadId: string };
+  | { type: "subagent-done"; threadId: string }
+  // Context management events
+  | { type: "context-state"; conversationId: string; threadId?: string; state: ContextState }
+  | { type: "compaction"; conversationId: string; beforeTokens: number; afterTokens: number; removed: number; episodeId?: string }
+  | { type: "conversation-stats"; conversationId: string; stats: ConversationStats };
 
 /**
  * Events emitted by the Gateway's pub/sub system for cross-channel streaming.

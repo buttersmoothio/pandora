@@ -57,6 +57,51 @@ export interface TokenUsage {
   totalTokens: number;
 }
 
+/** Context health status */
+export interface ContextHealth {
+  usedTokens: number;
+  remainingTokens: number;
+  percentUsed: number;
+  isHealthy: boolean;
+  shouldCompact: boolean;
+  tokensToRemove: number;
+}
+
+/** Context limits */
+export interface ContextLimits {
+  input: number;
+  output: number;
+  total: number;
+}
+
+/** Token costs (matches tokenlens TokenCosts format) */
+export interface TokenCosts {
+  inputTokenCostUSD: number;
+  outputTokenCostUSD: number;
+  reasoningTokenCostUSD: number | null;
+  cacheReadTokenCostUSD: number | null;
+  cacheWriteTokenCostUSD: number | null;
+  totalTokenCostUSD: number;
+}
+
+/** Context state for an agent */
+export interface ContextState {
+  modelId: string;
+  limits: ContextLimits;
+  health: ContextHealth;
+  costs: TokenCosts;
+  lastTurn?: TokenUsage;
+}
+
+/** Conversation stats (aggregated across operator + subagents) */
+export interface ConversationStats {
+  operator: ContextState;
+  subagents: Record<string, ContextState>;
+  totalCostUSD: number;
+  totalInputTokens: number;
+  totalOutputTokens: number;
+}
+
 interface UsePandoraChatOptions {
   /** WebSocket URL, e.g. "ws://localhost:3000/ws" */
   url: string;
@@ -85,6 +130,10 @@ interface UsePandoraChatReturn {
   setThreads: React.Dispatch<React.SetStateAction<Map<string, SubagentThread>>>;
   /** Token usage for the current/last response */
   usage: TokenUsage | null;
+  /** Current context state (null if context management not enabled) */
+  contextState: ContextState | null;
+  /** Conversation stats (updated after each turn) */
+  conversationStats: ConversationStats | null;
 }
 
 const MAX_RECONNECT_ATTEMPTS = 10;
@@ -103,6 +152,8 @@ export function usePandoraChat({
   const [input, setInput] = useState("");
   const [threads, setThreads] = useState<Map<string, SubagentThread>>(new Map());
   const [usage, setUsage] = useState<TokenUsage | null>(null);
+  const [contextState, setContextState] = useState<ContextState | null>(null);
+  const [conversationStats, setConversationStats] = useState<ConversationStats | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const streamingIdRef = useRef<string | null>(null);
   const conversationIdRef = useRef(conversationId);
@@ -120,6 +171,8 @@ export function usePandoraChat({
     setMessages([]);
     setThreads(new Map());
     setUsage(null);
+    setContextState(null);
+    setConversationStats(null);
     streamingIdRef.current = null;
     setStatus("ready");
   }, [conversationId]);
@@ -353,6 +406,29 @@ export function usePandoraChat({
             setStatus("error");
             break;
           }
+          case "context-state": {
+            if (!isCurrentConversation) break;
+            const stateData = data as unknown as { state: ContextState };
+            if (stateData.state) {
+              setContextState(stateData.state);
+            }
+            break;
+          }
+          case "conversation-stats": {
+            if (!isCurrentConversation) break;
+            const statsData = data as unknown as { stats: ConversationStats };
+            if (statsData.stats) {
+              setConversationStats(statsData.stats);
+            }
+            break;
+          }
+          case "compaction": {
+            // Compaction event - could show a notification or update UI
+            // For now, we just log it - the history will be refreshed
+            if (!isCurrentConversation) break;
+            console.log("[Compaction]", data);
+            break;
+          }
           case "subagent-start": {
             if (!isCurrentConversation) break;
             const { threadId, toolCallId, subagentName } = data;
@@ -579,5 +655,7 @@ export function usePandoraChat({
     threads,
     setThreads,
     usage,
+    contextState,
+    conversationStats,
   };
 }

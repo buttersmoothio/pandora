@@ -191,6 +191,13 @@ export class WebChannel implements Channel {
               ws.send(JSON.stringify({ type: "stream-state", ...activeState }));
             }
 
+            // Send context state for the conversation (for UI display)
+            channel.gateway.getContextState(conversationId).then((state) => {
+              ws.send(JSON.stringify({ type: "context-state", conversationId, state }));
+            }).catch((err) => {
+              logger.warn("Web", `Failed to get context state: ${err instanceof Error ? err.message : String(err)}`);
+            });
+
             wsData.unsubscribe = channel.gateway.subscribe(conversationId, (event: GatewayEvent) => {
               // Skip events during self-processing to avoid duplicates
               // (the message handler sends events directly for web-initiated messages)

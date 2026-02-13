@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { nanoid } from "nanoid";
-import { usePandoraChat, type TokenUsage } from "@/hooks/use-pandora-chat";
+import { usePandoraChat } from "@/hooks/use-pandora-chat";
 import { SubagentPanel } from "@/components/subagent-panel";
 import { MemoryPanel } from "@/components/memory-panel";
 import { MessagePartsRenderer } from "@/components/message-parts-renderer";
@@ -45,11 +45,17 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+  Context,
+  ContextTrigger,
+  ContextContent,
+  ContextContentHeader,
+  ContextContentBody,
+  ContextContentFooter,
+  ContextInputUsage,
+  ContextOutputUsage,
+  ContextReasoningUsage,
+  ContextCacheUsage,
+} from "@/components/ai-elements/context";
 
 function ConnectionIndicator({ status }: { status: ConnectionStatus }) {
   if (status === "connected") return null;
@@ -66,35 +72,6 @@ function ConnectionIndicator({ status }: { status: ConnectionStatus }) {
   );
 }
 
-/** Format token count with K suffix for thousands */
-function formatTokens(count: number): string {
-  if (count >= 1000) {
-    return `${(count / 1000).toFixed(1)}K`;
-  }
-  return count.toString();
-}
-
-function TokenUsageDisplay({ usage }: { usage: TokenUsage | null }) {
-  if (!usage || usage.totalTokens === 0) return null;
-
-  return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <span className="text-xs text-muted-foreground">
-            {formatTokens(usage.totalTokens)} tokens
-          </span>
-        </TooltipTrigger>
-        <TooltipContent side="top">
-          <div className="text-xs">
-            <div>Input: {formatTokens(usage.inputTokens)}</div>
-            <div>Output: {formatTokens(usage.outputTokens)}</div>
-          </div>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  );
-}
 
 const DEFAULT_WS_URL =
   process.env.NEXT_PUBLIC_PANDORA_WS_URL ?? "ws://localhost:3000/ws";
@@ -301,6 +278,7 @@ function ChatInterface({
     threads,
     setThreads,
     usage,
+    contextState,
   } = usePandoraChat({ url: wsUrl, token, conversationId, onConversationUpdate: debouncedRefresh });
 
   // Get the selected thread
@@ -551,7 +529,45 @@ function ChatInterface({
               disabled={isStreaming}
             />
             <PromptInputFooter>
-              <TokenUsageDisplay usage={usage} />
+              {contextState ? (
+                <Context
+                  maxTokens={contextState.limits.input}
+                  usedTokens={contextState.health.usedTokens}
+                  isHealthy={contextState.health.isHealthy}
+                  modelId={contextState.modelId}
+                  usage={{
+                    inputTokens: usage?.inputTokens,
+                    outputTokens: usage?.outputTokens,
+                  }}
+                  costs={{
+                    inputUSD: contextState.costs.inputTokenCostUSD,
+                    outputUSD: contextState.costs.outputTokenCostUSD,
+                    reasoningUSD: contextState.costs.reasoningTokenCostUSD ?? undefined,
+                    cacheReadUSD: contextState.costs.cacheReadTokenCostUSD ?? undefined,
+                    cacheWriteUSD: contextState.costs.cacheWriteTokenCostUSD ?? undefined,
+                    totalUSD: contextState.costs.totalTokenCostUSD,
+                  }}
+                >
+                  <ContextTrigger />
+                  <ContextContent>
+                    <ContextContentHeader />
+                    <ContextContentBody>
+                      <ContextInputUsage />
+                      <ContextOutputUsage />
+                      <ContextReasoningUsage />
+                      <ContextCacheUsage />
+                    </ContextContentBody>
+                    <ContextContentFooter />
+                  </ContextContent>
+                </Context>
+              ) : usage && usage.totalTokens > 0 ? (
+                <span className="text-xs text-muted-foreground">
+                  {usage.totalTokens >= 1000
+                    ? `${(usage.totalTokens / 1000).toFixed(1)}K`
+                    : usage.totalTokens}{" "}
+                  tokens
+                </span>
+              ) : null}
               <PromptInputSubmit status={status} />
             </PromptInputFooter>
           </PromptInput>

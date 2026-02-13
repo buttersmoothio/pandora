@@ -9,6 +9,31 @@ import type { UIMessage, PandoraMessagePart, MessageMeta } from "../types";
 import type { StorageConfig } from "../config";
 import { logger } from "../logger";
 
+// ============================================================================
+// Token Usage Types
+// ============================================================================
+
+/** Extended token usage for storage (includes cache and reasoning tokens) */
+export interface StoredUsage {
+  inputTokens?: number;
+  outputTokens?: number;
+  totalTokens?: number;
+  cacheReadTokens?: number;
+  cacheWriteTokens?: number;
+  reasoningTokens?: number;
+}
+
+/** Aggregated usage across all messages in a conversation */
+export interface ConversationUsage {
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+  cacheReadTokens: number;
+  cacheWriteTokens: number;
+  reasoningTokens: number;
+  messageCount: number;
+}
+
 // Re-export MessageMeta for convenience
 export type { MessageMeta } from "../types";
 
@@ -61,6 +86,12 @@ export interface IMessageStore {
   /** Get the full conversation history for a conversation */
   getHistory(conversationId: string): Promise<UIMessage[]>;
 
+  /**
+   * Replace entire conversation history with new messages.
+   * Used by compaction to replace old messages with summary + recent messages.
+   */
+  replaceHistory(conversationId: string, messages: UIMessage[]): Promise<void>;
+
   /** Clear all messages in a conversation */
   clearHistory(conversationId: string): Promise<void>;
 
@@ -106,11 +137,25 @@ export interface IMessageStore {
   /**
    * Accumulate token usage for a message.
    * Called on each step-finish to add tokens to running totals.
+   * Includes cache and reasoning tokens for accurate cost computation.
    */
   accumulateUsage(
     messageId: string,
-    usage: { inputTokens?: number; outputTokens?: number; totalTokens?: number }
+    usage: StoredUsage,
+    modelId?: string
   ): Promise<void>;
+
+  /**
+   * Get aggregated usage across all messages in a conversation.
+   * Used for on-demand cost computation.
+   */
+  getConversationUsage(conversationId: string): Promise<ConversationUsage>;
+
+  /**
+   * Get the last assistant message's usage (context size at most recent turn).
+   * Returns the inputTokens which represents the full context sent to the model.
+   */
+  getLastMessageUsage(conversationId: string): Promise<{ inputTokens: number; outputTokens: number } | null>;
 
   // === Conversation Management ===
 

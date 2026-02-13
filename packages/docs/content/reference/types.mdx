@@ -225,3 +225,113 @@ interface RequestContext {
 |---|---|---|
 | `conversationId` | `string` | The conversation being processed |
 | `channelName` | `string` | The channel the message originated from |
+
+---
+
+## Context Management Types
+
+Types for tracking context window usage, costs, and health. These are emitted via stream events when context management is enabled.
+
+For event schemas, see [Streaming & Events](/reference/streaming#context-management-events).
+
+### TokenUsage
+
+Token counts from a single turn/step.
+
+```ts
+interface TokenUsage {
+  inputTokens: number;
+  outputTokens: number;
+  reasoningTokens?: number;
+  cachedInputTokens?: number;
+  totalTokens: number;
+}
+```
+
+### TokenCosts
+
+USD cost breakdown for a conversation.
+
+```ts
+interface TokenCosts {
+  inputUSD: number;
+  outputUSD: number;
+  reasoningUSD: number;
+  cacheReadUSD: number;
+  cacheWriteUSD: number;
+  totalUSD: number;
+}
+```
+
+### ContextHealth
+
+Current context window health status.
+
+```ts
+interface ContextHealth {
+  /** Tokens currently in context */
+  usedTokens: number;
+  /** Tokens available for new input */
+  remainingTokens: number;
+  /** Usage as percentage (0-100) */
+  percentUsed: number;
+  /** Context is within safe limits */
+  isHealthy: boolean;
+  /** Compaction recommended */
+  shouldCompact: boolean;
+  /** Tokens to remove if compacting */
+  tokensToRemove: number;
+}
+```
+
+### ContextLimits
+
+Model context limits from TokenLens metadata.
+
+```ts
+interface ContextLimits {
+  /** Max input tokens */
+  input: number;
+  /** Max output tokens */
+  output: number;
+  /** Max total context (input + output) */
+  total: number;
+}
+```
+
+### ContextState
+
+Complete context state for an agent, emitted via `context-state` events.
+
+```ts
+interface ContextState {
+  /** Model identifier (e.g., "anthropic/claude-sonnet-4.5") */
+  modelId: string;
+  /** Context limits */
+  limits: ContextLimits;
+  /** Current health status */
+  health: ContextHealth;
+  /** Accumulated costs */
+  costs: TokenCosts;
+  /** Usage from last completed turn */
+  lastTurn?: TokenUsage;
+}
+```
+
+### ConversationStats
+
+Aggregated stats across operator and subagents, emitted via `conversation-stats` events.
+
+```ts
+interface ConversationStats {
+  /** Operator context state */
+  operator: ContextState;
+  /** Subagent states by threadId */
+  subagents: Record<string, ContextState>;
+  /** Total cost across all agents */
+  totalCostUSD: number;
+  /** Total input tokens (last turn, all agents) */
+  totalInputTokens: number;
+  /** Total output tokens (last turn, all agents) */
+  totalOutputTokens: number;
+}

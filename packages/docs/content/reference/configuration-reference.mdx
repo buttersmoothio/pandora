@@ -30,6 +30,8 @@ Add the `$schema` key for IDE autocompletion:
 | `memory` | `object` | No | — | Long-term memory (episodic + semantic). Omit to disable. |
 | `logLevel` | `string` | No | `"normal"` | Logging verbosity: `"normal"` or `"verbose"`. |
 
+> **Note:** Context management (compaction, token tracking, cost tracking) is always enabled. Configure the optional `summarizer` agent to use a different model for summarization.
+
 ---
 
 ## `personality`
@@ -151,6 +153,19 @@ Web search using an external search API tool. Works with any model but requires 
 "webSearchTool": {
   "model": "anthropic/claude-sonnet-4.5",
   "searchBackend": "tavilySearch"
+}
+```
+
+**`summarizer`**
+
+Optional agent used for context compaction. When conversations approach context limits, this agent summarizes older messages to make room. If not configured, defaults to the operator model.
+
+Use a faster/cheaper model for summarization to reduce costs:
+
+```jsonc
+"summarizer": {
+  "model": "anthropic/claude-haiku",
+  "temperature": 0
 }
 ```
 
@@ -422,6 +437,12 @@ A fully configured `config.jsonc` with all sections populated:
       "webSearchTool": {
         "model": "anthropic/claude-sonnet-4.5",
         "searchBackend": "tavilySearch"
+      },
+
+      // Optional: use a cheaper model for context summarization
+      "summarizer": {
+        "model": "anthropic/claude-haiku",
+        "temperature": 0
       }
     }
   },

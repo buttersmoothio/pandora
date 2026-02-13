@@ -7,10 +7,10 @@
 
 // Core classes
 export { Agent } from "./agent";
-export { Gateway, type ActiveStreamState, type ActiveThreadState } from "./gateway";
+export { Gateway, type ActiveStreamState, type ActiveThreadState, type GatewayContextOptions } from "./gateway";
 
-// Request context
-export { requestContext, type RequestContext } from "./context";
+// Request context (AsyncLocalStorage for per-request data)
+export { requestContext, type RequestContext } from "./request-context";
 
 // Configuration
 export {
@@ -67,3 +67,6 @@ export { generateId, convertToModelMessages } from "./types";
 
 // Registries - all extension points
 export * from "./registries";
+
+// Context management
+export * from "./context";

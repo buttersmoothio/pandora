@@ -44,6 +44,8 @@ export {
   type IMessageStore,
   type ConversationInfo,
   type MessageMeta,
+  type StoredUsage,
+  type ConversationUsage,
   type StoreFactory,
   defineStore,
   getAvailableStoreTypes,

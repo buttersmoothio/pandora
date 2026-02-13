@@ -29,11 +29,15 @@ interface ConversationMeta {
   subagentName?: string;
 }
 
-/** Token usage for a message */
+/** Token usage for a message (includes cache and reasoning tokens) */
 interface MessageUsage {
   inputTokens: number;
   outputTokens: number;
   totalTokens: number;
+  cacheReadTokens: number;
+  cacheWriteTokens: number;
+  reasoningTokens: number;
+  modelId?: string;
 }
 
 /** Extended message with channelName, usage, and Pandora-specific parts */
@@ -100,6 +104,31 @@ export class MemoryStore implements IMessageStore {
   async getHistory(conversationId: string): Promise<UIMessage[]> {
     // Cast is safe: PandoraMessagePart extends UIMessagePart
     return (this.conversations.get(conversationId) ?? []) as UIMessage[];
+  }
+
+  /** @inheritdoc */
+  async replaceHistory(conversationId: string, messages: UIMessage[]): Promise<void> {
+    // Clear existing messages
+    const existing = this.conversations.get(conversationId);
+    if (existing) {
+      for (const msg of existing) {
+        this.messagesById.delete(msg.id);
+      }
+    }
+
+    // Add new messages
+    const newMessages: MessageWithChannel[] = messages.map((msg) => ({
+      id: msg.id,
+      role: msg.role,
+      parts: [...msg.parts] as PandoraMessagePart[],
+    }));
+
+    this.conversations.set(conversationId, newMessages);
+
+    // Update message ID index
+    for (const msg of newMessages) {
+      this.messagesById.set(msg.id, msg);
+    }
   }
 
   /** @inheritdoc */
@@ -216,7 +245,15 @@ export class MemoryStore implements IMessageStore {
   /** @inheritdoc */
   async accumulateUsage(
     messageId: string,
-    usage: { inputTokens?: number; outputTokens?: number; totalTokens?: number }
+    usage: {
+      inputTokens?: number;
+      outputTokens?: number;
+      totalTokens?: number;
+      cacheReadTokens?: number;
+      cacheWriteTokens?: number;
+      reasoningTokens?: number;
+    },
+    modelId?: string
   ): Promise<void> {
     const message = this.messagesById.get(messageId);
     if (!message) {
@@ -224,12 +261,82 @@ export class MemoryStore implements IMessageStore {
     }
 
     if (!message.usage) {
-      message.usage = { inputTokens: 0, outputTokens: 0, totalTokens: 0 };
+      message.usage = {
+        inputTokens: 0,
+        outputTokens: 0,
+        totalTokens: 0,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
+        reasoningTokens: 0,
+      };
     }
 
     message.usage.inputTokens += usage.inputTokens ?? 0;
     message.usage.outputTokens += usage.outputTokens ?? 0;
     message.usage.totalTokens += usage.totalTokens ?? 0;
+    message.usage.cacheReadTokens += usage.cacheReadTokens ?? 0;
+    message.usage.cacheWriteTokens += usage.cacheWriteTokens ?? 0;
+    message.usage.reasoningTokens += usage.reasoningTokens ?? 0;
+
+    if (modelId && !message.usage.modelId) {
+      message.usage.modelId = modelId;
+    }
+  }
+
+  /** @inheritdoc */
+  async getConversationUsage(conversationId: string): Promise<{
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
+    cacheReadTokens: number;
+    cacheWriteTokens: number;
+    reasoningTokens: number;
+    messageCount: number;
+  }> {
+    const messages = this.conversations.get(conversationId) ?? [];
+
+    let inputTokens = 0;
+    let outputTokens = 0;
+    let totalTokens = 0;
+    let cacheReadTokens = 0;
+    let cacheWriteTokens = 0;
+    let reasoningTokens = 0;
+
+    for (const msg of messages) {
+      if (msg.usage) {
+        inputTokens += msg.usage.inputTokens;
+        outputTokens += msg.usage.outputTokens;
+        totalTokens += msg.usage.totalTokens;
+        cacheReadTokens += msg.usage.cacheReadTokens;
+        cacheWriteTokens += msg.usage.cacheWriteTokens;
+        reasoningTokens += msg.usage.reasoningTokens;
+      }
+    }
+
+    return {
+      inputTokens,
+      outputTokens,
+      totalTokens,
+      cacheReadTokens,
+      cacheWriteTokens,
+      reasoningTokens,
+      messageCount: messages.length,
+    };
+  }
+
+  /** @inheritdoc */
+  async getLastMessageUsage(conversationId: string): Promise<{ inputTokens: number; outputTokens: number } | null> {
+    const messages = this.conversations.get(conversationId) ?? [];
+
+    // Find last assistant message with usage
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const msg = messages[i]!;
+      if (msg.role === "assistant" && msg.usage && msg.usage.inputTokens > 0) {
+        return { inputTokens: msg.usage.inputTokens, outputTokens: msg.usage.outputTokens };
+      }
+    }
+
+    return null;
   }
 
   /** @inheritdoc */

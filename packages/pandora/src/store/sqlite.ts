@@ -30,9 +30,13 @@ interface MessageRow {
   conversation_id: string;
   role: string;
   channel_name: string | null;
+  model_id: string | null;
   input_tokens: number;
   output_tokens: number;
   total_tokens: number;
+  cache_read_tokens: number;
+  cache_write_tokens: number;
+  reasoning_tokens: number;
   created_at: number;
 }
 
@@ -100,9 +104,13 @@ export class SqliteStore implements IMessageStore {
         conversation_id TEXT NOT NULL,
         role TEXT NOT NULL,
         channel_name TEXT,
+        model_id TEXT,
         input_tokens INTEGER NOT NULL DEFAULT 0,
         output_tokens INTEGER NOT NULL DEFAULT 0,
         total_tokens INTEGER NOT NULL DEFAULT 0,
+        cache_read_tokens INTEGER NOT NULL DEFAULT 0,
+        cache_write_tokens INTEGER NOT NULL DEFAULT 0,
+        reasoning_tokens INTEGER NOT NULL DEFAULT 0,
         created_at INTEGER NOT NULL DEFAULT (unixepoch()),
         FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
       )
@@ -216,6 +224,51 @@ export class SqliteStore implements IMessageStore {
     }
 
     return result;
+  }
+
+  /** @inheritdoc */
+  async replaceHistory(conversationId: string, messages: UIMessage[]): Promise<void> {
+    logger.info("Store", "Replacing conversation history", { conversationId, messageCount: messages.length });
+
+    // Use a transaction to ensure atomicity
+    this.db.run("BEGIN TRANSACTION");
+
+    try {
+      // Delete existing messages (parts cascade-delete)
+      this.db.run(`DELETE FROM messages WHERE conversation_id = ?`, [conversationId]);
+
+      // Insert new messages with their parts
+      for (const message of messages) {
+        const messageId = message.id ?? generateId();
+
+        this.db.run(
+          `INSERT INTO messages (id, conversation_id, role, channel_name) VALUES (?, ?, ?, ?)`,
+          [messageId, conversationId, message.role, null]
+        );
+
+        // Insert all parts
+        for (let i = 0; i < message.parts.length; i++) {
+          const part = message.parts[i];
+          if (part) {
+            this.db.run(
+              `INSERT INTO message_parts (message_id, part_index, part_type, part_data) VALUES (?, ?, ?, ?)`,
+              [messageId, i, part.type, JSON.stringify(part)]
+            );
+          }
+        }
+      }
+
+      // Update conversation timestamp
+      this.db.run(
+        `UPDATE conversations SET updated_at = unixepoch() WHERE id = ?`,
+        [conversationId]
+      );
+
+      this.db.run("COMMIT");
+    } catch (err) {
+      this.db.run("ROLLBACK");
+      throw err;
+    }
   }
 
   /** @inheritdoc */
@@ -348,21 +401,123 @@ export class SqliteStore implements IMessageStore {
   /** @inheritdoc */
   async accumulateUsage(
     messageId: string,
-    usage: { inputTokens?: number; outputTokens?: number; totalTokens?: number }
+    usage: {
+      inputTokens?: number;
+      outputTokens?: number;
+      totalTokens?: number;
+      cacheReadTokens?: number;
+      cacheWriteTokens?: number;
+      reasoningTokens?: number;
+    },
+    modelId?: string
   ): Promise<void> {
-    this.db.run(
-      `UPDATE messages SET
-        input_tokens = input_tokens + ?,
-        output_tokens = output_tokens + ?,
-        total_tokens = total_tokens + ?
-       WHERE id = ?`,
-      [
-        usage.inputTokens ?? 0,
-        usage.outputTokens ?? 0,
-        usage.totalTokens ?? 0,
-        messageId,
-      ]
-    );
+    // Update usage and optionally set model_id (only if provided and not already set)
+    if (modelId) {
+      this.db.run(
+        `UPDATE messages SET
+          model_id = COALESCE(model_id, ?),
+          input_tokens = input_tokens + ?,
+          output_tokens = output_tokens + ?,
+          total_tokens = total_tokens + ?,
+          cache_read_tokens = cache_read_tokens + ?,
+          cache_write_tokens = cache_write_tokens + ?,
+          reasoning_tokens = reasoning_tokens + ?
+         WHERE id = ?`,
+        [
+          modelId,
+          usage.inputTokens ?? 0,
+          usage.outputTokens ?? 0,
+          usage.totalTokens ?? 0,
+          usage.cacheReadTokens ?? 0,
+          usage.cacheWriteTokens ?? 0,
+          usage.reasoningTokens ?? 0,
+          messageId,
+        ]
+      );
+    } else {
+      this.db.run(
+        `UPDATE messages SET
+          input_tokens = input_tokens + ?,
+          output_tokens = output_tokens + ?,
+          total_tokens = total_tokens + ?,
+          cache_read_tokens = cache_read_tokens + ?,
+          cache_write_tokens = cache_write_tokens + ?,
+          reasoning_tokens = reasoning_tokens + ?
+         WHERE id = ?`,
+        [
+          usage.inputTokens ?? 0,
+          usage.outputTokens ?? 0,
+          usage.totalTokens ?? 0,
+          usage.cacheReadTokens ?? 0,
+          usage.cacheWriteTokens ?? 0,
+          usage.reasoningTokens ?? 0,
+          messageId,
+        ]
+      );
+    }
+  }
+
+  /** @inheritdoc */
+  async getConversationUsage(conversationId: string): Promise<{
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
+    cacheReadTokens: number;
+    cacheWriteTokens: number;
+    reasoningTokens: number;
+    messageCount: number;
+  }> {
+    type UsageRow = {
+      input_tokens: number;
+      output_tokens: number;
+      total_tokens: number;
+      cache_read_tokens: number;
+      cache_write_tokens: number;
+      reasoning_tokens: number;
+      message_count: number;
+    };
+
+    const row = this.db
+      .query<UsageRow, [string]>(
+        `SELECT
+          COALESCE(SUM(input_tokens), 0) as input_tokens,
+          COALESCE(SUM(output_tokens), 0) as output_tokens,
+          COALESCE(SUM(total_tokens), 0) as total_tokens,
+          COALESCE(SUM(cache_read_tokens), 0) as cache_read_tokens,
+          COALESCE(SUM(cache_write_tokens), 0) as cache_write_tokens,
+          COALESCE(SUM(reasoning_tokens), 0) as reasoning_tokens,
+          COUNT(*) as message_count
+         FROM messages
+         WHERE conversation_id = ?`
+      )
+      .get(conversationId);
+
+    return {
+      inputTokens: row?.input_tokens ?? 0,
+      outputTokens: row?.output_tokens ?? 0,
+      totalTokens: row?.total_tokens ?? 0,
+      cacheReadTokens: row?.cache_read_tokens ?? 0,
+      cacheWriteTokens: row?.cache_write_tokens ?? 0,
+      reasoningTokens: row?.reasoning_tokens ?? 0,
+      messageCount: row?.message_count ?? 0,
+    };
+  }
+
+  /** @inheritdoc */
+  async getLastMessageUsage(conversationId: string): Promise<{ inputTokens: number; outputTokens: number } | null> {
+    type UsageRow = { input_tokens: number; output_tokens: number };
+    const row = this.db
+      .query<UsageRow, [string]>(
+        `SELECT input_tokens, output_tokens
+         FROM messages
+         WHERE conversation_id = ? AND role = 'assistant' AND input_tokens > 0
+         ORDER BY rowid DESC
+         LIMIT 1`
+      )
+      .get(conversationId);
+
+    if (!row) return null;
+    return { inputTokens: row.input_tokens, outputTokens: row.output_tokens };
   }
 
   /** @inheritdoc */

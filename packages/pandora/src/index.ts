@@ -16,11 +16,13 @@ import {
   createMemory,
   createChannels,
   getAvailableToolNames,
+  createModel,
   Agent,
   Gateway,
   logger,
   type Channel,
   type IMemoryProvider,
+  type GatewayContextOptions,
 } from "@pandora/core";
 import { createMemoryTools } from "./tools/memory";
 
@@ -89,7 +91,18 @@ async function main(): Promise<void> {
     }
   }
 
-  const gateway = new Gateway(store, agent, memory);
+  // Context management is always enabled
+  // Use summarizer agent if configured, otherwise fall back to operator model
+  const summarizerConfig = config.ai.agents.summarizer ?? operatorConfig;
+  const contextOptions: GatewayContextOptions = {
+    operatorModelId: operatorConfig.model,
+    summaryModel: createModel(summarizerConfig.model, config.ai.gateway.apiKey),
+  };
+  logger.startup("Context management enabled", {
+    summaryModel: summarizerConfig.model,
+  });
+
+  const gateway = new Gateway(store, agent, memory, contextOptions);
 
   // Create all enabled channels from registry
   const channels: Channel[] = createChannels(config, gateway);

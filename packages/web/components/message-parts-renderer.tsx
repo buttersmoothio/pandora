@@ -44,22 +44,24 @@ function formatTokens(count: number): string {
   return count.toString();
 }
 
-/** Token usage display for a message */
+/** Token usage display for a message - shows output tokens (what the model generated) */
 function MessageUsageDisplay({ usage }: { usage: TokenUsage }) {
-  if (usage.totalTokens === 0) return null;
+  // Show output tokens - this is what the model actually generated for this response
+  // inputTokens includes full context history which is shown in the Context component
+  if (usage.outputTokens === 0) return null;
 
   return (
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
           <span className="text-[10px] text-muted-foreground/60">
-            {formatTokens(usage.totalTokens)} tokens
+            {formatTokens(usage.outputTokens)} out
           </span>
         </TooltipTrigger>
         <TooltipContent side="top">
           <div className="text-xs">
-            <div>Input: {formatTokens(usage.inputTokens)}</div>
-            <div>Output: {formatTokens(usage.outputTokens)}</div>
+            <div>Output: {formatTokens(usage.outputTokens)} tokens</div>
+            <div className="text-muted-foreground">Context: {formatTokens(usage.inputTokens)} tokens</div>
           </div>
         </TooltipContent>
       </Tooltip>

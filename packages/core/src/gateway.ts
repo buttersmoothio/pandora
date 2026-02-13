@@ -6,11 +6,13 @@
  * - Stores them in MessageStore (incrementally during streaming)
  * - Passes to Agent with history
  * - Parts are persisted as they stream in
+ * - Manages context window tracking and compaction
  */
 
+import type { LanguageModel } from "ai";
 import type { Agent } from "./agent";
 import type { IMessageStore, ConversationInfo, SubagentContext, IMemoryProvider } from "./registries";
-import { requestContext } from "./context";
+import { requestContext } from "./request-context";
 import type {
   Message,
   ChannelCapabilities,
@@ -25,6 +27,7 @@ import type {
   MessageMeta,
 } from "./types";
 import { logger } from "./logger";
+import { ContextManager, CompactionManager, type ContextState, type TokenUsage, type TokenCosts } from "./context";
 
 /** Per-thread state for parallel thread support */
 interface ThreadContext {
@@ -39,6 +42,14 @@ interface ThreadContext {
 const LOCK_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
 
 type GatewayListener = (event: GatewayEvent) => void;
+
+/** Options for Gateway context management */
+export interface GatewayContextOptions {
+  /** Operator model ID for context tracking (e.g., "anthropic/claude-sonnet-4.5") */
+  operatorModelId: string;
+  /** Model to use for summarization */
+  summaryModel: LanguageModel;
+}
 
 /** State of an active subagent thread for late-joining subscribers. */
 export interface ActiveThreadState {
@@ -75,18 +86,32 @@ export class Gateway {
   private conversationLocks = new Map<string, Promise<void>>();
   /** Optional memory provider for auto-recall and auto-episode. */
   private memory: IMemoryProvider | null;
+  /** Context manager for token counting and health tracking. */
+  private contextManager: ContextManager;
+  /** Compaction manager for conversation summarization. */
+  private compactionManager: CompactionManager;
+  /** Operator model ID for context tracking. */
+  private operatorModelId: string;
+  /** Model to use for summarization. */
+  private summaryModel: LanguageModel;
 
   /**
    * @param store - Message store for conversation history.
    * @param agent - AI agent for generating responses.
    * @param memory - Optional memory provider for auto-recall and auto-episode.
+   * @param contextOptions - Context management configuration (always enabled).
    */
   constructor(
     private store: IMessageStore,
     private agent: Agent,
-    memory?: IMemoryProvider | null
+    memory: IMemoryProvider | null,
+    contextOptions: GatewayContextOptions
   ) {
-    this.memory = memory ?? null;
+    this.memory = memory;
+    this.operatorModelId = contextOptions.operatorModelId;
+    this.summaryModel = contextOptions.summaryModel;
+    this.contextManager = new ContextManager();
+    this.compactionManager = new CompactionManager(this.contextManager);
   }
 
   /**
@@ -245,7 +270,82 @@ export class Gateway {
       } as TextUIPart);
 
       // Load history for agent
-      const history = await this.store.getHistory(conversationId);
+      let history = await this.store.getHistory(conversationId);
+
+      // Track accumulated usage for this turn
+      let turnUsage: TokenUsage = {
+        inputTokens: 0,
+        outputTokens: 0,
+        totalTokens: 0,
+      };
+
+      // Compute accumulated costs on-demand from stored usage
+      const storedUsage = await this.store.getConversationUsage(conversationId);
+      const accumulatedCosts = await this.contextManager.computeCostsFromUsage(
+        this.operatorModelId,
+        storedUsage
+      );
+      let contextState = await this.contextManager.getState(this.operatorModelId, history, accumulatedCosts);
+
+      // Emit context state to subscribers
+      const contextEvent: StreamEvent = {
+        type: "context-state",
+        conversationId,
+        state: contextState,
+      };
+      onEvent?.(contextEvent);
+      this.emit(conversationId, { ...contextEvent, conversationId });
+
+      // Check if compaction is needed BEFORE this turn
+      if (contextState.health.shouldCompact) {
+        logger.info("Gateway", `Context at ${contextState.health.percentUsed.toFixed(1)}%, triggering compaction`);
+
+        const compactionResult = await this.compactionManager.compact(
+          history,
+          contextState.health,
+          this.summaryModel
+        );
+
+        // Update history with compacted version
+        history = compactionResult.history;
+
+        // Store compacted history back
+        await this.store.replaceHistory(conversationId, history);
+
+        // Create episode from the summarized content (replaces per-turn episode)
+        let episodeId: string | undefined;
+        if (this.memory?.episodic && compactionResult.summary) {
+          try {
+            episodeId = await this.memory.episodic.addEpisode({
+              content: compactionResult.summary,
+              conversationId,
+              channelName,
+              userId,
+              timestamp: Math.floor(Date.now() / 1000),
+              importance: 0.7, // Higher importance for summarized content
+              tags: ["compaction"],
+            });
+            logger.info("Gateway", `Created compaction episode: ${episodeId}`);
+          } catch (err) {
+            logger.warn("Gateway", `Failed to create compaction episode: ${err instanceof Error ? err.message : String(err)}`);
+          }
+        }
+
+        // Emit compaction event
+        const compactionEvent: StreamEvent = {
+          type: "compaction",
+          conversationId,
+          beforeTokens: compactionResult.beforeTokens,
+          afterTokens: compactionResult.afterTokens,
+          removed: compactionResult.removedCount,
+          episodeId,
+        };
+        onEvent?.(compactionEvent);
+        this.emit(conversationId, { ...compactionEvent, conversationId });
+
+        // Refresh context state after compaction
+        contextState = await this.contextManager.getState(this.operatorModelId, history, contextState.costs);
+      }
 
       // Auto-recall: search memory for brief context hints (if memory is available)
       // Injects truncated summaries with IDs — the model can use getMemory() for full details.
@@ -551,9 +651,24 @@ export class Gateway {
             if (!isThread) {
               streamState.reasoning = "";
             }
-            // Accumulate token usage
+            // Accumulate token usage with full details (for store and context tracking)
             if (event.usage) {
-              await this.store.accumulateUsage(targetMessageId, event.usage);
+              // Extract all token details from LanguageModelUsage
+              const usage = {
+                inputTokens: event.usage.inputTokens ?? 0,
+                outputTokens: event.usage.outputTokens ?? 0,
+                totalTokens: event.usage.totalTokens ?? 0,
+                cacheReadTokens: event.usage.inputTokenDetails?.cacheReadTokens ?? 0,
+                cacheWriteTokens: event.usage.inputTokenDetails?.cacheWriteTokens ?? 0,
+                reasoningTokens: event.usage.outputTokenDetails?.reasoningTokens ?? 0,
+              };
+              await this.store.accumulateUsage(targetMessageId, usage, this.operatorModelId);
+              // Track usage for this turn (operator only)
+              if (!isThread) {
+                turnUsage.inputTokens += usage.inputTokens;
+                turnUsage.outputTokens += usage.outputTokens;
+                turnUsage.totalTokens += usage.totalTokens;
+              }
             }
             break;
           }
@@ -624,23 +739,22 @@ export class Gateway {
       // Finalize the assistant message (set text part state to done)
       await this.store.finalizeMessage(assistantMessageId);
 
-      // Auto-episode: store an episode for this interaction (fire-and-forget)
-      if (this.memory?.episodic && fullText) {
-        const episodeContent = `User: ${content}\nAssistant: ${fullText}`;
+      // Update context state with turn usage (costs already computed on-demand)
+      contextState = await this.contextManager.updateAfterTurn(contextState, turnUsage);
 
-        // Fire-and-forget - don't await or block on episode storage
-        this.memory.episodic.addEpisode({
-          content: episodeContent,
-          conversationId,
-          channelName,
-          userId,
-          timestamp: Math.floor(Date.now() / 1000),
-          importance: 0.5,
-          tags: [],
-        }).catch((err) => {
-          logger.warn("Gateway", `Auto-episode failed: ${err instanceof Error ? err.message : String(err)}`);
-        });
-      }
+      // Emit conversation stats (aggregated across operator + subagents)
+      const stats = this.contextManager.aggregateStats(contextState, {});
+      const statsEvent: StreamEvent = {
+        type: "conversation-stats",
+        conversationId,
+        stats,
+      };
+      onEvent?.(statsEvent);
+      this.emit(conversationId, { ...statsEvent, conversationId });
+
+      // NOTE: Per-turn auto-episode has been removed.
+      // Episodes are now created during compaction events (see compaction handling above).
+      // This results in higher-quality, consolidated episodes instead of low-value per-turn fragments.
 
       this.emit(conversationId, { type: "done", conversationId });
 
@@ -734,6 +848,27 @@ export class Gateway {
     conversationId: string
   ): Promise<UIMessage[]> {
     return this.store.getHistory(conversationId);
+  }
+
+  /**
+   * Get context state for a conversation (for UI display on load).
+   * Computes token usage, health, and costs from stored history.
+   * Uses actual API token counts when available (more accurate than estimation).
+   */
+  async getContextState(conversationId: string): Promise<ContextState> {
+    const history = await this.store.getHistory(conversationId);
+    const storedUsage = await this.store.getConversationUsage(conversationId);
+    const accumulatedCosts = await this.contextManager.computeCostsFromUsage(
+      this.operatorModelId,
+      storedUsage
+    );
+
+    // Get actual context size from last assistant message's inputTokens
+    // This is the real token count from the API, not an estimate
+    const lastUsage = await this.store.getLastMessageUsage(conversationId);
+    const actualUsedTokens = lastUsage?.inputTokens;
+
+    return this.contextManager.getState(this.operatorModelId, history, accumulatedCosts, actualUsedTokens);
   }
 
   /** Get child threads (subagent conversations) for a parent conversation. */

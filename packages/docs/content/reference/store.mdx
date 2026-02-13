@@ -5,7 +5,7 @@ Reference for the message store interface and storage internals. The store persi
 All types can be imported directly:
 
 ```ts
-import type { IMessageStore, ConversationInfo } from "@pandora/core";
+import type { IMessageStore, ConversationInfo, StoredUsage, ConversationUsage } from "@pandora/core";
 ```
 
 ---
@@ -50,8 +50,11 @@ interface IMessageStore {
 
   accumulateUsage(
     messageId: string,
-    usage: { inputTokens?: number; outputTokens?: number; totalTokens?: number }
+    usage: StoredUsage,
+    modelId?: string
   ): Promise<void>;
+
+  getConversationUsage(conversationId: string): Promise<ConversationUsage>;
 
   // --- Conversation Management ---
 
@@ -99,7 +102,8 @@ These methods support incremental message building during streaming. The typical
 | `updateTextPart(messageId, text)` | `Promise<void>` | Update the last text part with accumulated content. Called repeatedly during streaming as text deltas arrive. |
 | `updateToolResult(messageId, toolCallId, result)` | `Promise<void>` | Update a tool call part with its result, transitioning its state from `input-available` to `output-available`. |
 | `finalizeMessage(messageId)` | `Promise<void>` | Mark a message as complete. Transitions the text part state from `streaming` to `done`. |
-| `accumulateUsage(messageId, usage)` | `Promise<void>` | Add token usage counts to a message. Called on each `step-finish` event to accumulate totals across steps. |
+| `accumulateUsage(messageId, usage, modelId?)` | `Promise<void>` | Add token usage counts (including cache and reasoning tokens) to a message. Called on each `step-finish` event. |
+| `getConversationUsage(conversationId)` | `Promise<ConversationUsage>` | Aggregate usage across all messages in a conversation. Used for on-demand cost computation. |
 
 ### Conversation management methods
 
@@ -162,6 +166,60 @@ interface ConversationInfo {
 
 ---
 
+## StoredUsage
+
+Extended token usage for storage, including cache and reasoning tokens for accurate cost computation.
+
+```ts
+interface StoredUsage {
+  inputTokens?: number;
+  outputTokens?: number;
+  totalTokens?: number;
+  cacheReadTokens?: number;
+  cacheWriteTokens?: number;
+  reasoningTokens?: number;
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `inputTokens` | `number` | Total input tokens for this step. |
+| `outputTokens` | `number` | Total output tokens for this step. |
+| `totalTokens` | `number` | Combined total tokens. |
+| `cacheReadTokens` | `number` | Cached input tokens read (Anthropic prompt caching). |
+| `cacheWriteTokens` | `number` | Cached input tokens written (Anthropic prompt caching). |
+| `reasoningTokens` | `number` | Reasoning tokens (OpenAI o1 models). |
+
+---
+
+## ConversationUsage
+
+Aggregated usage across all messages in a conversation, returned by `getConversationUsage`.
+
+```ts
+interface ConversationUsage {
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+  cacheReadTokens: number;
+  cacheWriteTokens: number;
+  reasoningTokens: number;
+  messageCount: number;
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `inputTokens` | `number` | Sum of input tokens across all messages. |
+| `outputTokens` | `number` | Sum of output tokens across all messages. |
+| `totalTokens` | `number` | Sum of total tokens across all messages. |
+| `cacheReadTokens` | `number` | Sum of cache read tokens (Anthropic prompt caching). |
+| `cacheWriteTokens` | `number` | Sum of cache write tokens (Anthropic prompt caching). |
+| `reasoningTokens` | `number` | Sum of reasoning tokens (OpenAI o1 models). |
+| `messageCount` | `number` | Number of messages in the conversation. |
+
+---
+
 ## Storage internals
 
 The SQLite storage provider persists conversations, messages, and message parts. See [SQLite Storage](/storage/sqlite) for configuration.
@@ -196,7 +254,7 @@ CREATE INDEX idx_conversations_parent ON conversations (parent_conversation_id);
 | `parent_tool_call_id` | The tool call ID that triggered the subagent delegation |
 | `subagent_name` | Which subagent owns this thread |
 
-**messages** — Metadata for each message. Content lives in `message_parts`.
+**messages** — Metadata and token usage for each message. Content lives in `message_parts`.
 
 ```sql
 CREATE TABLE messages (
@@ -204,15 +262,26 @@ CREATE TABLE messages (
   conversation_id TEXT NOT NULL,            -- FK → conversations.id
   role TEXT NOT NULL,                        -- 'user' | 'assistant'
   channel_name TEXT,
+  model_id TEXT,                             -- Model used (for cost computation)
   input_tokens INTEGER NOT NULL DEFAULT 0,
   output_tokens INTEGER NOT NULL DEFAULT 0,
   total_tokens INTEGER NOT NULL DEFAULT 0,
+  cache_read_tokens INTEGER NOT NULL DEFAULT 0,   -- Anthropic prompt caching
+  cache_write_tokens INTEGER NOT NULL DEFAULT 0,  -- Anthropic prompt caching
+  reasoning_tokens INTEGER NOT NULL DEFAULT 0,    -- OpenAI o1 reasoning
   created_at INTEGER NOT NULL DEFAULT (unixepoch()),
   FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
 );
 
 CREATE INDEX idx_messages_conversation ON messages (conversation_id, created_at);
 ```
+
+| Column | Purpose |
+|--------|---------|
+| `model_id` | The model ID used for this message (for cost computation) |
+| `cache_read_tokens` | Cached input tokens read (Anthropic prompt caching) |
+| `cache_write_tokens` | Cached input tokens written (Anthropic prompt caching) |
+| `reasoning_tokens` | Reasoning tokens (OpenAI o1 models) |
 
 **message_parts** — Ordered, heterogeneous content parts for each message.
 
@@ -249,7 +318,10 @@ During a streaming response, the store is updated incrementally so progress is n
 3. **`updateTextPart(messageId, text)`** -- replaces the text content of the last text part as deltas arrive.
 4. **`updateToolResult(messageId, toolCallId, result)`** -- sets `state: "output-available"` and writes the tool output when the tool finishes.
 5. **`finalizeMessage(messageId)`** -- flips all text parts from `state: "streaming"` to `state: "done"`.
-6. **`accumulateUsage(messageId, usage)`** -- adds token counts (input, output, total) to the message row. Accumulated across multi-step tool loops.
+6. **`accumulateUsage(messageId, usage, modelId)`** -- adds token counts (input, output, total, cache, reasoning) to the message row. Accumulated across multi-step tool loops.
+
+To compute conversation costs on-demand (e.g., for `conversation-stats` events):
+- **`getConversationUsage(conversationId)`** -- aggregates usage across all messages, then costs are computed via TokenLens lookup.
 
 </details>
 
