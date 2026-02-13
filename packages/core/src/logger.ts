@@ -184,7 +184,7 @@ export const logger = {
    * @param finishReason - Why the step finished (e.g. "tool-calls", "stop").
    * @param text - Any intermediate text the model produced in this step.
    * @param toolCallCount - Number of tool calls made in this step.
-   * @param usage - Token usage for this step, if available.
+   * @param usage - Token usage for this step, if available (AI SDK v6 LanguageModelUsage format).
    */
   stepFinish(
     agentName: string,
@@ -192,7 +192,7 @@ export const logger = {
     finishReason: string,
     text?: string,
     toolCallCount?: number,
-    usage?: { promptTokens?: number; completionTokens?: number; totalTokens?: number }
+    usage?: { inputTokens?: number; outputTokens?: number; totalTokens?: number }
   ): void {
     const meta: Record<string, unknown> = {
       agent: agentName,
@@ -203,8 +203,8 @@ export const logger = {
       meta.toolCalls = toolCallCount;
     }
     if (usage) {
-      if (usage.promptTokens !== undefined) meta.promptTokens = usage.promptTokens;
-      if (usage.completionTokens !== undefined) meta.completionTokens = usage.completionTokens;
+      if (usage.inputTokens !== undefined) meta.inputTokens = usage.inputTokens;
+      if (usage.outputTokens !== undefined) meta.outputTokens = usage.outputTokens;
       if (usage.totalTokens !== undefined) meta.totalTokens = usage.totalTokens;
     }
 

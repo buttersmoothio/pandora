@@ -6,6 +6,17 @@ import type { SubagentThread } from "@/hooks/use-pandora-chat";
 import { Shimmer } from "@/components/ai-elements/shimmer";
 import { MessagePartsRenderer } from "@/components/message-parts-renderer";
 
+/** Format token count with K/M suffix */
+function formatTokens(count: number): string {
+  if (count >= 1_000_000) {
+    return `${(count / 1_000_000).toFixed(1)}M`;
+  }
+  if (count >= 1_000) {
+    return `${(count / 1_000).toFixed(1)}K`;
+  }
+  return count.toString();
+}
+
 interface SubagentPanelProps {
   thread: SubagentThread;
   onClose: () => void;
@@ -58,6 +69,28 @@ export function SubagentPanel({ thread, onClose }: SubagentPanelProps) {
               <span className="text-xs text-muted-foreground">
                 {isLoading ? "Loading..." : "Processing..."}
               </span>
+            </div>
+          </div>
+        )}
+
+        {/* Token usage display */}
+        {thread.usage && thread.usage.totalTokens > 0 && (
+          <div className="border-t bg-muted/30 px-4 py-2">
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <div className="flex items-center gap-3">
+                <span>
+                  <span className="text-foreground">{formatTokens(thread.usage.inputTokens)}</span> in
+                </span>
+                <span>
+                  <span className="text-foreground">{formatTokens(thread.usage.outputTokens)}</span> out
+                </span>
+                {thread.usage.reasoningTokens > 0 && (
+                  <span>
+                    <span className="text-foreground">{formatTokens(thread.usage.reasoningTokens)}</span> reasoning
+                  </span>
+                )}
+              </div>
+              <span>{formatTokens(thread.usage.totalTokens)} total</span>
             </div>
           </div>
         )}

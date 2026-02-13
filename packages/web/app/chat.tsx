@@ -274,7 +274,6 @@ function ChatInterface({
     setInput,
     sendMessage,
     clearConversation,
-    sendWatch,
     threads,
     setThreads,
     usage,
@@ -365,15 +364,14 @@ function ChatInterface({
     async (id: string) => {
       pendingConversationRef.current = id;
       setConversationId(id);
+      // Watch is sent automatically by useEffect when conversationId changes
       const history = await loadHistory(id);
       // Skip if user switched to a different conversation while loading
       if (pendingConversationRef.current !== id) return;
       // Set history (includes any in-progress messages from the store)
       setMessages(history);
-      // Subscribe to live updates - if there's an active stream, stream-state will mark it
-      sendWatch();
     },
-    [loadHistory, setMessages, sendWatch]
+    [loadHistory, setMessages]
   );
 
   const handleDeleteConversation = useCallback(
@@ -529,24 +527,27 @@ function ChatInterface({
               disabled={isStreaming}
             />
             <PromptInputFooter>
-              {contextState ? (
+              {(contextState || (usage && usage.totalTokens > 0)) && (
                 <Context
-                  maxTokens={contextState.limits.input}
-                  usedTokens={contextState.health.usedTokens}
-                  isHealthy={contextState.health.isHealthy}
-                  modelId={contextState.modelId}
+                  maxTokens={contextState?.limits.input ?? 200000}
+                  usedTokens={contextState?.health.usedTokens ?? 0}
+                  isHealthy={contextState?.health.isHealthy ?? true}
+                  modelId={contextState?.modelId}
                   usage={{
                     inputTokens: usage?.inputTokens,
                     outputTokens: usage?.outputTokens,
+                    reasoningTokens: usage?.reasoningTokens,
+                    cacheReadTokens: usage?.cacheReadTokens,
+                    cacheWriteTokens: usage?.cacheWriteTokens,
                   }}
-                  costs={{
+                  costs={contextState ? {
                     inputUSD: contextState.costs.inputTokenCostUSD,
                     outputUSD: contextState.costs.outputTokenCostUSD,
                     reasoningUSD: contextState.costs.reasoningTokenCostUSD ?? undefined,
                     cacheReadUSD: contextState.costs.cacheReadTokenCostUSD ?? undefined,
                     cacheWriteUSD: contextState.costs.cacheWriteTokenCostUSD ?? undefined,
                     totalUSD: contextState.costs.totalTokenCostUSD,
-                  }}
+                  } : undefined}
                 >
                   <ContextTrigger />
                   <ContextContent>
@@ -560,14 +561,7 @@ function ChatInterface({
                     <ContextContentFooter />
                   </ContextContent>
                 </Context>
-              ) : usage && usage.totalTokens > 0 ? (
-                <span className="text-xs text-muted-foreground">
-                  {usage.totalTokens >= 1000
-                    ? `${(usage.totalTokens / 1000).toFixed(1)}K`
-                    : usage.totalTokens}{" "}
-                  tokens
-                </span>
-              ) : null}
+              )}
               <PromptInputSubmit status={status} />
             </PromptInputFooter>
           </PromptInput>

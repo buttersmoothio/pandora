@@ -46,15 +46,20 @@ export interface SubagentThread {
   subagentName: string;
   messages: PandoraMessage[];
   status: "loading" | "streaming" | "done";
+  /** Accumulated token usage for this thread */
+  usage?: TokenUsage;
 }
 
 export type ConnectionStatus = "connected" | "disconnected" | "reconnecting";
 
-/** Token usage for a response */
+/** Token usage for a response (matches AI SDK v6 LanguageModelUsage) */
 export interface TokenUsage {
   inputTokens: number;
   outputTokens: number;
   totalTokens: number;
+  cacheReadTokens: number;
+  cacheWriteTokens: number;
+  reasoningTokens: number;
 }
 
 /** Context health status */
@@ -166,7 +171,7 @@ export function usePandoraChat({
   conversationIdRef.current = conversationId;
   onConversationUpdateRef.current = onConversationUpdate;
 
-  // Reset state when conversation changes (watch is sent manually after history loads)
+  // Reset state and subscribe to new conversation when conversationId changes
   useEffect(() => {
     setMessages([]);
     setThreads(new Map());
@@ -175,6 +180,12 @@ export function usePandoraChat({
     setConversationStats(null);
     streamingIdRef.current = null;
     setStatus("ready");
+
+    // Send watch for the new conversation to get context state
+    const ws = wsRef.current;
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: "watch", conversationId }));
+    }
   }, [conversationId]);
 
   // Connect WebSocket with reconnection
@@ -350,18 +361,32 @@ export function usePandoraChat({
           case "step-finish": {
             if (!isCurrentConversation) break;
             const id = streamingIdRef.current;
-            // Accumulate token usage across steps
+            // Accumulate token usage across steps (extract all token details)
             if (data.usage) {
-              const delta = {
-                inputTokens: data.usage.inputTokens ?? 0,
-                outputTokens: data.usage.outputTokens ?? 0,
-                totalTokens: data.usage.totalTokens ?? 0,
+              // Extract nested token details from LanguageModelUsage
+              const usageData = data.usage as {
+                inputTokens?: number;
+                outputTokens?: number;
+                totalTokens?: number;
+                inputTokenDetails?: { cacheReadTokens?: number; cacheWriteTokens?: number };
+                outputTokenDetails?: { reasoningTokens?: number };
+              };
+              const delta: TokenUsage = {
+                inputTokens: usageData.inputTokens ?? 0,
+                outputTokens: usageData.outputTokens ?? 0,
+                totalTokens: usageData.totalTokens ?? 0,
+                cacheReadTokens: usageData.inputTokenDetails?.cacheReadTokens ?? 0,
+                cacheWriteTokens: usageData.inputTokenDetails?.cacheWriteTokens ?? 0,
+                reasoningTokens: usageData.outputTokenDetails?.reasoningTokens ?? 0,
               };
               // Update current response usage state (for live display)
               setUsage((prev) => ({
                 inputTokens: (prev?.inputTokens ?? 0) + delta.inputTokens,
                 outputTokens: (prev?.outputTokens ?? 0) + delta.outputTokens,
                 totalTokens: (prev?.totalTokens ?? 0) + delta.totalTokens,
+                cacheReadTokens: (prev?.cacheReadTokens ?? 0) + delta.cacheReadTokens,
+                cacheWriteTokens: (prev?.cacheWriteTokens ?? 0) + delta.cacheWriteTokens,
+                reasoningTokens: (prev?.reasoningTokens ?? 0) + delta.reasoningTokens,
               }));
               // Also update the message's usage field (for persistence)
               if (id) {
@@ -374,6 +399,9 @@ export function usePandoraChat({
                             inputTokens: (msg.usage?.inputTokens ?? 0) + delta.inputTokens,
                             outputTokens: (msg.usage?.outputTokens ?? 0) + delta.outputTokens,
                             totalTokens: (msg.usage?.totalTokens ?? 0) + delta.totalTokens,
+                            cacheReadTokens: (msg.usage?.cacheReadTokens ?? 0) + delta.cacheReadTokens,
+                            cacheWriteTokens: (msg.usage?.cacheWriteTokens ?? 0) + delta.cacheWriteTokens,
+                            reasoningTokens: (msg.usage?.reasoningTokens ?? 0) + delta.reasoningTokens,
                           },
                         }
                       : msg
@@ -526,6 +554,42 @@ export function usePandoraChat({
             setThreads((prev) => updateThreadLastMessage(prev, threadId, (msg) =>
               appendReasoningDelta(msg, data.text ?? "")
             ));
+          } else if (data.type === "step-finish") {
+            // Accumulate token usage for subagent thread
+            if (data.usage) {
+              const usageData = data.usage as {
+                inputTokens?: number;
+                outputTokens?: number;
+                totalTokens?: number;
+                inputTokenDetails?: { cacheReadTokens?: number; cacheWriteTokens?: number };
+                outputTokenDetails?: { reasoningTokens?: number };
+              };
+              const delta: TokenUsage = {
+                inputTokens: usageData.inputTokens ?? 0,
+                outputTokens: usageData.outputTokens ?? 0,
+                totalTokens: usageData.totalTokens ?? 0,
+                cacheReadTokens: usageData.inputTokenDetails?.cacheReadTokens ?? 0,
+                cacheWriteTokens: usageData.inputTokenDetails?.cacheWriteTokens ?? 0,
+                reasoningTokens: usageData.outputTokenDetails?.reasoningTokens ?? 0,
+              };
+              setThreads((prev) => {
+                const thread = prev.get(threadId);
+                if (!thread) return prev;
+                const next = new Map(prev);
+                next.set(threadId, {
+                  ...thread,
+                  usage: {
+                    inputTokens: (thread.usage?.inputTokens ?? 0) + delta.inputTokens,
+                    outputTokens: (thread.usage?.outputTokens ?? 0) + delta.outputTokens,
+                    totalTokens: (thread.usage?.totalTokens ?? 0) + delta.totalTokens,
+                    cacheReadTokens: (thread.usage?.cacheReadTokens ?? 0) + delta.cacheReadTokens,
+                    cacheWriteTokens: (thread.usage?.cacheWriteTokens ?? 0) + delta.cacheWriteTokens,
+                    reasoningTokens: (thread.usage?.reasoningTokens ?? 0) + delta.reasoningTokens,
+                  },
+                });
+                return next;
+              });
+            }
           } else {
             // All other events: create and append part
             const newPart = createPartFromEvent(data.type, data as Record<string, unknown>);
