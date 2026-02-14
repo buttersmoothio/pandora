@@ -39,9 +39,10 @@ List all conversations across all channels, ordered by most recently updated.
 **Response:**
 ```json
 {
+  "ok": true,
   "conversations": [
     {
-      "id": "web-1234567890",
+      "id": "web-default",
       "channelName": "web",
       "createdAt": 1700000000,
       "updatedAt": 1700001000,
@@ -62,6 +63,7 @@ Get the full message history for a conversation. Messages are AI SDK `UIMessage`
 **Response:**
 ```json
 {
+  "ok": true,
   "messages": [
     {
       "id": "msg-abc",
@@ -86,6 +88,7 @@ Get subagent thread conversations that are children of the specified conversatio
 **Response:**
 ```json
 {
+  "ok": true,
   "threads": [
     {
       "id": "thread-xyz",
@@ -95,7 +98,7 @@ Get subagent thread conversations that are children of the specified conversatio
       "preview": "Write a sorting function...",
       "messageCount": 2,
       "type": "subagent",
-      "parentConversationId": "web-1234567890",
+      "parentConversationId": "web-default",
       "parentToolCallId": "call-abc",
       "subagentName": "coder"
     }
@@ -124,23 +127,23 @@ Send a message and receive a complete (non-streaming) response.
 ```json
 {
   "content": "What is the weather today?",
-  "conversationId": "web-my-conversation"
+  "conversationId": "my-conversation"
 }
 ```
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `content` | `string` | Yes | Message text |
-| `conversationId` | `string` | No | Conversation ID (auto-generated if omitted) |
+| `conversationId` | `string` | No | Defaults to `"web-default"` |
 
 **Response:**
 ```json
-{ "response": "I don't have access to weather data..." }
+{ "ok": true, "response": "I don't have access to weather data..." }
 ```
 
 **Errors:**
-- `400` -- Missing `content` field
-- `500` -- Internal processing error
+- `400` -- `{ "error": "Missing content" }`
+- `500` -- `{ "error": "Internal error" }`
 
 ---
 
@@ -163,6 +166,23 @@ Clear all messages in a conversation.
 ```json
 { "ok": true }
 ```
+
+---
+
+## Error Responses
+
+All error responses return JSON with an `error` field:
+
+```json
+{ "error": "Error message here" }
+```
+
+| Status | Description |
+|--------|-------------|
+| `400` | Bad request (e.g., missing required field) |
+| `401` | Unauthorized (invalid or missing token) |
+| `404` | Not found |
+| `500` | Internal server error |
 
 ---
 

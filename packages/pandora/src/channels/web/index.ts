@@ -102,7 +102,7 @@ export class WebChannel implements Channel {
             }
 
             const conversations = await channel.gateway.listConversations();
-            return jsonResponse({ conversations });
+            return jsonResponse({ ok: true, conversations });
           },
         },
 
@@ -124,7 +124,7 @@ export class WebChannel implements Channel {
             const message: Message = {
               channelName: channel.name,
               userId: token,
-              conversationId: body.conversationId ?? `web-${Date.now()}`,
+              conversationId: body.conversationId ?? "web-default",
               content: body.content,
             };
 
@@ -133,7 +133,7 @@ export class WebChannel implements Channel {
                 message,
                 channel.capabilities
               );
-              return jsonResponse({ response });
+              return jsonResponse({ ok: true, response });
             } catch (error) {
               logger.error("Web", "Error processing message", error);
               return jsonResponse({ error: "Internal error" }, 500);
@@ -237,7 +237,7 @@ export class WebChannel implements Channel {
           if (data.type === "message") {
             if (!data.content) {
               ws.send(
-                JSON.stringify({ type: "error", message: "Missing content" })
+                JSON.stringify({ type: "error", message: "Missing content", conversationId })
               );
               return;
             }
@@ -278,6 +278,7 @@ export class WebChannel implements Channel {
                   type: "error",
                   message:
                     error instanceof Error ? error.message : "Internal error",
+                  conversationId,
                 })
               );
             } finally {
@@ -290,6 +291,7 @@ export class WebChannel implements Channel {
             JSON.stringify({
               type: "error",
               message: `Unknown type: ${data.type}`,
+              conversationId,
             })
           );
         },
@@ -314,12 +316,12 @@ export class WebChannel implements Channel {
         if (url.pathname === "/ws") {
           const token = url.searchParams.get("token");
           if (!token || token !== channel.token) {
-            return new Response("Unauthorized", { status: 401 });
+            return jsonResponse({ error: "Unauthorized" }, 401);
           }
 
           const upgraded = server.upgrade(req, { data: { token } });
           if (upgraded) return undefined;
-          return new Response("WebSocket upgrade failed", { status: 500 });
+          return jsonResponse({ error: "WebSocket upgrade failed" }, 500);
         }
 
         // Dynamic routes: /api/conversations/:id/history, /api/conversations/:id/threads, /api/conversations/:id
@@ -334,7 +336,7 @@ export class WebChannel implements Channel {
           const id = decodeURIComponent(historyMatch[1]!);
           return channel.gateway
             .getConversationHistory(id)
-            .then((messages) => jsonResponse({ messages }));
+            .then((messages) => jsonResponse({ ok: true, messages }));
         }
 
         const threadsMatch = url.pathname.match(
@@ -348,7 +350,7 @@ export class WebChannel implements Channel {
           const id = decodeURIComponent(threadsMatch[1]!);
           return channel.gateway
             .getChildThreads(id)
-            .then((threads) => jsonResponse({ threads }));
+            .then((threads) => jsonResponse({ ok: true, threads }));
         }
 
         const deleteMatch = url.pathname.match(
@@ -365,7 +367,7 @@ export class WebChannel implements Channel {
             .then(() => jsonResponse({ ok: true }));
         }
 
-        return new Response("Not found", { status: 404 });
+        return jsonResponse({ error: "Not found" }, 404);
       },
     });
 

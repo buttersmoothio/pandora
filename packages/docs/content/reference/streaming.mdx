@@ -66,7 +66,9 @@ type StreamEvent =
 
 ## GatewayEvent
 
-Events emitted by the Gateway's pub/sub system for cross-channel streaming. These wrap `StreamEvent`s with a `conversationId` field, plus gateway-specific event types.
+Events emitted by the Gateway's pub/sub system for cross-channel streaming. The Gateway wraps every `StreamEvent` with a `conversationId` field, plus adds gateway-specific event types for lifecycle events.
+
+**Key difference:** `StreamEvent` is what the agent emits internally; `GatewayEvent` is what clients receive over WebSocket. The gateway adds `conversationId` to every event so clients know which conversation the event belongs to.
 
 ```ts
 type GatewayEvent =

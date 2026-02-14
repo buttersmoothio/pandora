@@ -98,6 +98,7 @@ All server events include a `conversationId` field. Events scoped to a subagent 
 | `source-document` | `sourceId`, `mediaType`, `title?`, `filename?`, `threadId?` | Document citation |
 | `file` | `mediaType`, `url`, `filename?`, `threadId?` | Generated file (e.g. data URI) |
 | `reasoning-delta` | `text`, `threadId?` | Chain-of-thought text |
+| `step-start` | `threadId?` | Step beginning (one LLM call in tool loop) |
 | `step-finish` | `usage?`, `finishReason?`, `threadId?` | Step completed with token usage |
 
 <details>
@@ -200,14 +201,36 @@ Streaming chain-of-thought / thinking text (when the model supports it).
 }
 ```
 
+#### `step-start`
+
+Marks the beginning of an agent step (one LLM call in the tool loop). Can be used for loading indicators.
+
+```json
+{
+  "type": "step-start",
+  "conversationId": "my-chat"
+}
+```
+
 #### `step-finish`
 
-A processing step completed. Includes token usage.
+A processing step completed. Includes detailed token usage.
 
 ```json
 {
   "type": "step-finish",
-  "usage": { "inputTokens": 150, "outputTokens": 42, "totalTokens": 192 },
+  "usage": {
+    "inputTokens": 150,
+    "outputTokens": 42,
+    "totalTokens": 192,
+    "inputTokenDetails": {
+      "cacheReadTokens": 100,
+      "cacheWriteTokens": 50
+    },
+    "outputTokenDetails": {
+      "reasoningTokens": 10
+    }
+  },
   "finishReason": "tool-calls",
   "conversationId": "my-chat"
 }
@@ -375,13 +398,87 @@ Current state of an active stream. Sent when a client subscribes via `watch` to 
 
 </details>
 
+### Context Management
+
+| Type | Fields | Description |
+|------|--------|-------------|
+| `context-state` | `conversationId`, `state` | Current context window state (usage, health, costs) |
+| `conversation-stats` | `conversationId`, `stats` | Aggregated stats after turn completion |
+| `compaction` | `conversationId`, `beforeTokens`, `afterTokens`, `removed`, `episodeId?` | Conversation was compacted |
+
+<details>
+<summary>**Context management event details**</summary>
+
+#### `context-state`
+
+Current context window state, sent when watching a conversation.
+
+```json
+{
+  "type": "context-state",
+  "conversationId": "my-chat",
+  "state": {
+    "modelId": "claude-sonnet-4-20250514",
+    "limits": { "input": 200000, "output": 8192, "total": 208192 },
+    "health": {
+      "usedTokens": 5000,
+      "remainingTokens": 195000,
+      "percentUsed": 2.5,
+      "isHealthy": true,
+      "shouldCompact": false,
+      "tokensToRemove": 0
+    },
+    "costs": {
+      "inputTokenCostUSD": 0.015,
+      "outputTokenCostUSD": 0.075,
+      "totalTokenCostUSD": 0.09
+    }
+  }
+}
+```
+
+#### `conversation-stats`
+
+Aggregated statistics after turn completion.
+
+```json
+{
+  "type": "conversation-stats",
+  "conversationId": "my-chat",
+  "stats": {
+    "operator": { /* ContextState */ },
+    "subagents": { "researcher": { /* ContextState */ } },
+    "totalCostUSD": 0.12,
+    "totalInputTokens": 5000,
+    "totalOutputTokens": 1500
+  }
+}
+```
+
+#### `compaction`
+
+Older messages were summarized to free context space.
+
+```json
+{
+  "type": "compaction",
+  "conversationId": "my-chat",
+  "beforeTokens": 180000,
+  "afterTokens": 50000,
+  "removed": 24,
+  "episodeId": "ep-abc123"
+}
+```
+
+</details>
+
 ### Completion and Errors
 
 | Type | Fields | Description |
 |------|--------|-------------|
 | `done` | `conversationId` | Response complete |
 | `cleared` | `conversationId` | Conversation cleared |
-| `error` | `message` | Error occurred |
+| `error` | `message`, `conversationId` | Error occurred |
 
 #### `done`
 
@@ -401,10 +498,10 @@ Conversation history was cleared (in response to a `clear` message).
 
 #### `error`
 
-An error occurred.
+An error occurred. Includes `conversationId` when the error is scoped to a specific conversation.
 
 ```json
-{ "type": "error", "message": "Missing content" }
+{ "type": "error", "message": "Missing content", "conversationId": "my-chat" }
 ```
 
 ---
