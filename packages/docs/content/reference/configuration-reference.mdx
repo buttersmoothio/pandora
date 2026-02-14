@@ -28,6 +28,7 @@ Add the `$schema` key for IDE autocompletion:
 | `channels` | `object` | No | `{}` | Channel configurations. A channel is enabled by being present. |
 | `storage` | `object` | No | `{ type: "sqlite", path: "data/pandora.db" }` | Conversation storage backend. |
 | `memory` | `object` | No | — | Long-term memory (episodic + semantic). Omit to disable. |
+| `scheduler` | `object` | No | — | Scheduled tasks (reminders, recurring tasks). Omit to disable. |
 | `logLevel` | `string` | No | `"normal"` | Logging verbosity: `"normal"` or `"verbose"`. |
 
 > **Note:** Context management (compaction, token tracking, cost tracking) is always enabled. Configure the optional `summarizer` agent to use a different model for summarization.
@@ -352,6 +353,49 @@ The schema uses `passthrough()`, so custom memory providers can accept additiona
 
 ---
 
+## `scheduler`
+
+Scheduled task configuration. Enables features like:
+
+- **Reminders** -- "Remind me in 2 hours to check the build"
+- **Recurring tasks** -- "Every day at 9am, summarize my emails"
+- **Follow-ups** -- "Check back on this tomorrow"
+
+Omit this section entirely to disable scheduling.
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `enabled` | `boolean` | No | `true` | Whether the scheduler is active. Set to `false` to disable without removing the config. |
+| `type` | `string` | No | `"simple"` | Scheduler backend type. Built-in option: `"simple"` (in-memory + setInterval). |
+| `pollInterval` | `number` | No | `10000` | How often to check for due tasks, in milliseconds. Minimum: `1000`. |
+
+The schema uses `passthrough()`, so custom scheduler backends can accept additional fields.
+
+### Built-in backends
+
+**`simple`** -- In-memory scheduler using `setInterval`. Tasks are recovered from the store on startup. Suitable for single-instance deployments.
+
+```jsonc
+"scheduler": {
+  "type": "simple",
+  "pollInterval": 10000
+}
+```
+
+### Minimal configuration
+
+To enable scheduling with defaults:
+
+```jsonc
+"scheduler": {}
+```
+
+This uses `type: "simple"` with a 10-second poll interval.
+
+> **Note:** Scheduled tasks require a persistent storage backend (SQLite). The in-memory store does not support scheduling.
+
+---
+
 ## `logLevel`
 
 Controls logging verbosity.
@@ -467,6 +511,11 @@ A fully configured `config.jsonc` with all sections populated:
     "type": "sqlite",
     "path": "data/memory.db",
     "embeddingModel": "openai/text-embedding-3-small"
+  },
+
+  "scheduler": {
+    "type": "simple",
+    "pollInterval": 10000
   },
 
   "logLevel": "normal"

@@ -153,6 +153,29 @@ See [Memory](/memory) for details.
 
 ---
 
+## Scheduler
+
+Schedule reminders and recurring tasks. Optional — omit to disable.
+
+```jsonc
+"scheduler": {
+  "type": "simple",
+  "pollInterval": 10000
+}
+```
+
+When enabled, the agent gains scheduling tools:
+- **scheduleReminder** — "Remind me in 2 hours to check the deployment"
+- **scheduleRecurring** — "Every morning at 9am, send me a standup reminder"
+- **listScheduled** — View pending tasks
+- **cancelScheduled** — Cancel a scheduled task
+
+Tasks are stored in the database and survive restarts.
+
+See [Scheduler Tools](/tools/scheduler) for usage details.
+
+---
+
 ## Channels
 
 How users connect to Pandora. Each channel is enabled by being present in config.
@@ -227,6 +250,10 @@ Controls how much detail Pandora prints to the console.
     "type": "sqlite",
     "path": "data/memory.db",
     "embeddingModel": "openai/text-embedding-3-small"
+  },
+  "scheduler": {
+    "type": "simple",
+    "pollInterval": 10000
   }
 }
 ```

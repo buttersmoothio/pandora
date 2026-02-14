@@ -1,0 +1,202 @@
+# Scheduler
+
+Reference for the scheduler interface and registry. The scheduler handles timing for scheduled tasks; task metadata is stored separately in the [Store](/reference/store#scheduled-task-methods).
+
+All types can be imported directly:
+
+```ts
+import type { IScheduler, SchedulerCallback, SchedulerConfig } from "@pandora/core";
+```
+
+---
+
+## IScheduler
+
+The scheduler abstraction for timing task execution. All backends (simple, Redis, BullMQ, etc.) implement this interface.
+
+```ts
+interface IScheduler {
+  /**
+   * Schedule a one-time task.
+   * @param taskId - Reference ID (metadata stored in Store)
+   * @param runAt - Unix epoch seconds
+   */
+  scheduleOnce(taskId: string, runAt: number): Promise<void>;
+
+  /**
+   * Schedule a recurring task.
+   * @param taskId - Reference ID (metadata stored in Store)
+   * @param cronExpression - Cron pattern (e.g., "0 9 * * *")
+   * @param timezone - Timezone for cron interpretation
+   */
+  scheduleRecurring(taskId: string, cronExpression: string, timezone?: string): Promise<void>;
+
+  /**
+   * Cancel a scheduled task.
+   */
+  cancel(taskId: string): Promise<void>;
+
+  /**
+   * Check if a task is scheduled.
+   */
+  isScheduled(taskId: string): Promise<boolean>;
+
+  /**
+   * Register callback for when tasks trigger.
+   * Only one callback is active - new registration replaces old.
+   */
+  onTrigger(callback: SchedulerCallback): void;
+
+  /**
+   * Start the scheduler (begin processing).
+   */
+  start(): Promise<void>;
+
+  /**
+   * Stop the scheduler gracefully.
+   */
+  stop(): Promise<void>;
+}
+```
+
+### Methods
+
+| Method | Returns | Description |
+|---|---|---|
+| `scheduleOnce(taskId, runAt)` | `Promise<void>` | Schedule a one-time task to run at a specific Unix timestamp. |
+| `scheduleRecurring(taskId, cronExpression, timezone?)` | `Promise<void>` | Schedule a recurring task using a cron expression. Defaults to UTC. |
+| `cancel(taskId)` | `Promise<void>` | Cancel a scheduled task. No-op if task doesn't exist. |
+| `isScheduled(taskId)` | `Promise<boolean>` | Check if a task is currently scheduled. |
+| `onTrigger(callback)` | `void` | Register the callback invoked when tasks are due. The Gateway registers this. |
+| `start()` | `Promise<void>` | Start the scheduler. Runs recovery callback to restore pending tasks. |
+| `stop()` | `Promise<void>` | Stop the scheduler gracefully. |
+
+---
+
+## SchedulerCallback
+
+Callback function invoked when a scheduled task triggers.
+
+```ts
+type SchedulerCallback = (taskId: string) => Promise<void>;
+```
+
+The Gateway registers a callback that:
+1. Looks up task metadata from the Store
+2. Builds a synthetic message with task instructions
+3. Processes through the normal agent flow
+4. Updates task status (completed/pending for recurring)
+
+---
+
+## SchedulerConfig
+
+Configuration for the scheduler, passed to `createScheduler()`.
+
+```ts
+interface SchedulerConfig {
+  /** Enable/disable the scheduler. Default: true */
+  enabled?: boolean;
+  /** Scheduler backend type. Default: "simple" */
+  type?: string;
+  /** Poll interval in milliseconds (for simple scheduler). Default: 10000 */
+  pollInterval?: number;
+}
+```
+
+See [Configuration Reference](/reference/configuration-reference#scheduler) for full details.
+
+---
+
+## Registry Functions
+
+The scheduler uses the same registry pattern as Store and Memory.
+
+### defineScheduler
+
+Register a scheduler backend implementation.
+
+```ts
+function defineScheduler(factory: SchedulerFactoryRegistration): SchedulerFactoryRegistration;
+```
+
+```ts
+interface SchedulerFactoryRegistration {
+  type: string;
+  create: (config: SchedulerConfig) => Promise<IScheduler>;
+}
+```
+
+**Example:**
+
+```ts
+import { defineScheduler } from "@pandora/core";
+
+export default defineScheduler({
+  type: "redis",
+  create: async (config) => new RedisScheduler(config),
+});
+```
+
+### createScheduler
+
+Create a scheduler instance from configuration.
+
+```ts
+function createScheduler(config?: SchedulerConfig): Promise<IScheduler | null>;
+```
+
+Returns `null` if scheduler is disabled or no config provided.
+
+### getScheduler
+
+Get the cached scheduler instance.
+
+```ts
+function getScheduler(): IScheduler | null;
+```
+
+Returns `null` if no scheduler has been created.
+
+---
+
+## Execution Flow
+
+When a scheduled task triggers:
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│  1. Scheduler detects task is due                                   │
+│  2. Scheduler calls onTrigger(taskId)                               │
+│  3. Gateway.handleScheduledTask(taskId):                            │
+│     a. Loads task metadata from Store                               │
+│     b. Updates status to 'running'                                  │
+│     c. Builds synthetic message with instructions                   │
+│     d. Processes through handleMessage()                            │
+│     e. Agent may use pushMessage tool to notify user                │
+│     f. Updates status to 'completed' or 'pending' (recurring)       │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Recovery
+
+On startup, the scheduler runs a recovery callback to restore pending tasks:
+
+1. `start()` is called
+2. Recovery callback queries `store.getPendingTasks()`
+3. Each pending task is re-registered with `scheduleOnce()` or `scheduleRecurring()`
+4. Normal polling begins
+
+This ensures scheduled tasks survive server restarts.
+
+---
+
+## Available Backends
+
+| Backend | Package | Use Case |
+|---------|---------|----------|
+| `simple` | `@pandora/app` | Single instance, development, low volume |
+
+See [Custom Scheduler](/extensions/custom-scheduler) for implementing additional backends.

@@ -155,6 +155,8 @@ interface ChannelCapabilities {
   supportsStreaming: boolean;
   /** Character limit per message (-1 for unlimited) */
   maxMessageLength: number;
+  /** Can proactively send messages to users (for scheduled tasks) */
+  supportsPush: boolean;
 }
 ```
 
@@ -166,6 +168,7 @@ interface ChannelCapabilities {
 | `supportsButtons` | `boolean` | Whether the channel supports interactive buttons or inline keyboards. |
 | `supportsStreaming` | `boolean` | Whether the channel can stream responses token-by-token. |
 | `maxMessageLength` | `number` | Maximum characters per message. Use `-1` for unlimited. |
+| `supportsPush` | `boolean` | Whether the channel can proactively send messages (for scheduled reminders). |
 
 ### Channel
 
@@ -181,6 +184,23 @@ interface Channel {
   start(): Promise<void>;
   /** Stop the channel gracefully */
   stop(): Promise<void>;
+}
+```
+
+### ChannelPusher
+
+Extension of Channel for channels that support proactive push notifications. Channels with `supportsPush: true` should implement this interface.
+
+```ts
+interface ChannelPusher extends Channel {
+  /**
+   * Send a proactive message to a user.
+   * Used for scheduled reminders and notifications.
+   *
+   * @param userId - User identifier (channel-specific format)
+   * @param content - Message content to send
+   */
+  push(userId: string, content: string): Promise<void>;
 }
 ```
 
@@ -218,6 +238,8 @@ interface RequestContext {
   conversationId: string;
   /** Channel this request originated from */
   channelName: string;
+  /** User ID this request originated from */
+  userId: string;
 }
 ```
 
@@ -225,6 +247,7 @@ interface RequestContext {
 |---|---|---|
 | `conversationId` | `string` | The conversation being processed |
 | `channelName` | `string` | The channel the message originated from |
+| `userId` | `string` | The user ID in the channel's native format |
 
 ---
 
@@ -335,3 +358,99 @@ interface ConversationStats {
   /** Total output tokens (last turn, all agents) */
   totalOutputTokens: number;
 }
+```
+
+---
+
+## Scheduled Task Types
+
+Types for the scheduler system. See [Store](/reference/store#scheduled-task-methods) for the store methods that use these types.
+
+### ScheduledTask
+
+A scheduled task record stored in the database.
+
+```ts
+interface ScheduledTask {
+  id: string;
+  conversationId: string;
+  channelName: string;
+  userId: string;
+
+  /** Task scheduling type */
+  type: "once" | "recurring";
+  /** Task category for display and behavior */
+  taskType: "reminder" | "followup" | "custom";
+  /** Human-readable description of what to do */
+  description: string;
+  /** Optional additional context (JSON blob) */
+  context?: Record<string, unknown>;
+
+  /** For one-time tasks: when to run (Unix epoch seconds) */
+  runAt?: number;
+  /** For recurring tasks: cron expression */
+  cronExpression?: string;
+  /** Timezone for cron interpretation */
+  timezone: string;
+
+  /** Current task status */
+  status: "pending" | "running" | "completed" | "cancelled" | "failed";
+  /** Last execution time (Unix epoch seconds) */
+  lastRunAt?: number;
+  /** Number of times this task has run */
+  runCount: number;
+  /** Maximum number of runs (recurring only, null = unlimited) */
+  maxRuns?: number;
+
+  /** Last error message if failed */
+  lastError?: string;
+  /** Number of consecutive failures */
+  failureCount: number;
+  /** Maximum failures before marking as failed */
+  maxFailures: number;
+
+  /** Unix epoch seconds */
+  createdAt: number;
+  /** Unix epoch seconds */
+  updatedAt: number;
+}
+```
+
+### CreateScheduledTaskInput
+
+Input for creating a new scheduled task.
+
+```ts
+interface CreateScheduledTaskInput {
+  conversationId: string;
+  channelName: string;
+  userId: string;
+
+  type: "once" | "recurring";
+  taskType: "reminder" | "followup" | "custom";
+  description: string;
+  context?: Record<string, unknown>;
+
+  /** For one-time tasks: when to run (Unix epoch seconds) */
+  runAt?: number;
+  /** For recurring tasks: cron expression */
+  cronExpression?: string;
+  timezone?: string;
+  maxRuns?: number;
+  maxFailures?: number;
+}
+```
+
+### UpdateScheduledTaskInput
+
+Partial update for a scheduled task.
+
+```ts
+interface UpdateScheduledTaskInput {
+  status?: "pending" | "running" | "completed" | "cancelled" | "failed";
+  lastRunAt?: number;
+  runCount?: number;
+  lastError?: string;
+  failureCount?: number;
+}
+```

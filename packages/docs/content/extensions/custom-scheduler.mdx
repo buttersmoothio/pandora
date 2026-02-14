@@ -1,0 +1,402 @@
+import { Steps, Tabs } from 'nextra/components'
+
+# Custom Scheduler
+
+Scheduler backends handle timing for scheduled tasks. The default `simple` scheduler uses in-memory polling with `setInterval`. This guide walks you through creating alternative backends for distributed deployments or different timing mechanisms.
+
+## Example: Redis-based scheduler
+
+For multi-instance deployments, a Redis-backed scheduler ensures tasks are processed exactly once.
+
+<Steps>
+
+### Install dependencies
+
+```bash
+bun add ioredis
+```
+
+### Create the file
+
+Create `packages/pandora/src/scheduler/redis.ts`:
+
+```typescript
+import { defineScheduler, logger, type IScheduler, type SchedulerCallback, type SchedulerConfig } from "@pandora/core";
+import Redis from "ioredis";
+
+interface RedisSchedulerConfig extends SchedulerConfig {
+  url?: string;
+  keyPrefix?: string;
+}
+
+class RedisScheduler implements IScheduler {
+  private redis: Redis;
+  private subscriber: Redis;
+  private callback: SchedulerCallback | null = null;
+  private keyPrefix: string;
+  private running = false;
+
+  constructor(config: RedisSchedulerConfig) {
+    const url = config.url ?? "redis://localhost:6379";
+    this.redis = new Redis(url);
+    this.subscriber = new Redis(url);
+    this.keyPrefix = config.keyPrefix ?? "pandora:scheduler:";
+  }
+
+  async scheduleOnce(taskId: string, runAt: number): Promise<void> {
+    // Store in a sorted set with score = runAt
+    await this.redis.zadd(`${this.keyPrefix}tasks`, runAt, taskId);
+    logger.debug("Scheduler", "Scheduled one-time task", { taskId, runAt });
+  }
+
+  async scheduleRecurring(taskId: string, cronExpression: string, timezone?: string): Promise<void> {
+    // Store cron metadata and compute next run
+    await this.redis.hset(`${this.keyPrefix}cron:${taskId}`, {
+      cronExpression,
+      timezone: timezone ?? "UTC",
+    });
+
+    // Compute next run and add to sorted set
+    const nextRun = this.computeNextRun(cronExpression, timezone);
+    await this.redis.zadd(`${this.keyPrefix}tasks`, nextRun, taskId);
+    logger.debug("Scheduler", "Scheduled recurring task", { taskId, cronExpression });
+  }
+
+  async cancel(taskId: string): Promise<void> {
+    await this.redis.zrem(`${this.keyPrefix}tasks`, taskId);
+    await this.redis.del(`${this.keyPrefix}cron:${taskId}`);
+    logger.debug("Scheduler", "Cancelled task", { taskId });
+  }
+
+  async isScheduled(taskId: string): Promise<boolean> {
+    const score = await this.redis.zscore(`${this.keyPrefix}tasks`, taskId);
+    return score !== null;
+  }
+
+  onTrigger(callback: SchedulerCallback): void {
+    this.callback = callback;
+  }
+
+  async start(): Promise<void> {
+    if (this.running) return;
+    this.running = true;
+
+    // Start polling for due tasks
+    this.poll();
+    logger.startup("RedisScheduler started");
+  }
+
+  async stop(): Promise<void> {
+    this.running = false;
+    await this.redis.quit();
+    await this.subscriber.quit();
+    logger.info("Scheduler", "RedisScheduler stopped");
+  }
+
+  private async poll(): Promise<void> {
+    while (this.running) {
+      const now = Math.floor(Date.now() / 1000);
+
+      // Get all tasks due before now
+      const taskIds = await this.redis.zrangebyscore(
+        `${this.keyPrefix}tasks`,
+        0,
+        now
+      );
+
+      for (const taskId of taskIds) {
+        // Try to acquire lock (prevents duplicate processing)
+        const locked = await this.redis.set(
+          `${this.keyPrefix}lock:${taskId}`,
+          "1",
+          "EX",
+          60,
+          "NX"
+        );
+
+        if (locked && this.callback) {
+          try {
+            await this.callback(taskId);
+
+            // Remove from queue (or reschedule if recurring)
+            const cronData = await this.redis.hgetall(`${this.keyPrefix}cron:${taskId}`);
+            if (cronData.cronExpression) {
+              const nextRun = this.computeNextRun(cronData.cronExpression, cronData.timezone);
+              await this.redis.zadd(`${this.keyPrefix}tasks`, nextRun, taskId);
+            } else {
+              await this.redis.zrem(`${this.keyPrefix}tasks`, taskId);
+            }
+          } catch (error) {
+            logger.error("Scheduler", "Task execution failed", { taskId, error });
+          } finally {
+            await this.redis.del(`${this.keyPrefix}lock:${taskId}`);
+          }
+        }
+      }
+
+      // Sleep before next poll
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+    }
+  }
+
+  private computeNextRun(cronExpression: string, timezone?: string): number {
+    // Use cron-parser to compute next run time
+    const { CronExpressionParser } = require("cron-parser");
+    const iterator = CronExpressionParser.parse(cronExpression, { tz: timezone ?? "UTC" });
+    return Math.floor(iterator.next().toDate().getTime() / 1000);
+  }
+}
+
+export default defineScheduler({
+  type: "redis",
+  create: async (config) => new RedisScheduler(config as RedisSchedulerConfig),
+});
+```
+
+### Add to config
+
+```jsonc
+"scheduler": {
+  "type": "redis",
+  "url": "redis://localhost:6379",
+  "keyPrefix": "myapp:scheduler:"
+}
+```
+
+### Done!
+
+Restart Pandora. Scheduled tasks now use Redis for distributed timing.
+
+</Steps>
+
+---
+
+## The IScheduler interface
+
+Your scheduler backend must implement the `IScheduler` interface:
+
+```typescript
+interface IScheduler {
+  /**
+   * Schedule a one-time task.
+   * @param taskId - Reference ID (metadata stored in Store)
+   * @param runAt - Unix epoch seconds
+   */
+  scheduleOnce(taskId: string, runAt: number): Promise<void>;
+
+  /**
+   * Schedule a recurring task.
+   * @param taskId - Reference ID (metadata stored in Store)
+   * @param cronExpression - Cron pattern (e.g., "0 9 * * *")
+   * @param timezone - Timezone for cron interpretation
+   */
+  scheduleRecurring(taskId: string, cronExpression: string, timezone?: string): Promise<void>;
+
+  /**
+   * Cancel a scheduled task.
+   */
+  cancel(taskId: string): Promise<void>;
+
+  /**
+   * Check if a task is scheduled.
+   */
+  isScheduled(taskId: string): Promise<boolean>;
+
+  /**
+   * Register callback for when tasks trigger.
+   * Only one callback is active - new registration replaces old.
+   */
+  onTrigger(callback: SchedulerCallback): void;
+
+  /**
+   * Start the scheduler (begin processing).
+   */
+  start(): Promise<void>;
+
+  /**
+   * Stop the scheduler gracefully.
+   */
+  stop(): Promise<void>;
+}
+```
+
+### Key points
+
+- **Task IDs are references** — The scheduler only tracks timing. All metadata (description, context, conversation) is stored in the database via `IMessageStore`.
+- **One callback** — The Gateway registers a single `onTrigger` callback that handles all task execution.
+- **Recovery is external** — On startup, Pandora queries `store.getPendingTasks()` and re-registers them with the scheduler.
+
+---
+
+## More examples
+
+<Tabs items={['BullMQ', 'Node-cron']}>
+<Tabs.Tab>
+
+```typescript
+import { Queue, Worker } from "bullmq";
+import { defineScheduler, type IScheduler, type SchedulerCallback } from "@pandora/core";
+
+class BullMQScheduler implements IScheduler {
+  private queue: Queue;
+  private worker: Worker | null = null;
+  private callback: SchedulerCallback | null = null;
+
+  constructor(redisUrl: string) {
+    this.queue = new Queue("pandora-scheduler", {
+      connection: { url: redisUrl },
+    });
+  }
+
+  async scheduleOnce(taskId: string, runAt: number): Promise<void> {
+    const delay = runAt * 1000 - Date.now();
+    await this.queue.add("task", { taskId }, {
+      delay: Math.max(0, delay),
+      jobId: taskId,
+    });
+  }
+
+  async scheduleRecurring(taskId: string, cronExpression: string): Promise<void> {
+    await this.queue.upsertJobScheduler(taskId, {
+      pattern: cronExpression,
+    }, {
+      name: "task",
+      data: { taskId },
+    });
+  }
+
+  async cancel(taskId: string): Promise<void> {
+    const job = await this.queue.getJob(taskId);
+    await job?.remove();
+    await this.queue.removeJobScheduler(taskId);
+  }
+
+  async isScheduled(taskId: string): Promise<boolean> {
+    const job = await this.queue.getJob(taskId);
+    return job !== undefined;
+  }
+
+  onTrigger(callback: SchedulerCallback): void {
+    this.callback = callback;
+  }
+
+  async start(): Promise<void> {
+    this.worker = new Worker("pandora-scheduler", async (job) => {
+      if (this.callback) {
+        await this.callback(job.data.taskId);
+      }
+    }, {
+      connection: { url: this.queue.opts.connection?.url },
+    });
+  }
+
+  async stop(): Promise<void> {
+    await this.worker?.close();
+    await this.queue.close();
+  }
+}
+
+export default defineScheduler({
+  type: "bullmq",
+  create: async (config) => new BullMQScheduler((config as { redisUrl: string }).redisUrl),
+});
+```
+
+Config:
+
+```jsonc
+"scheduler": {
+  "type": "bullmq",
+  "redisUrl": "redis://localhost:6379"
+}
+```
+
+</Tabs.Tab>
+<Tabs.Tab>
+
+```typescript
+import cron from "node-cron";
+import { defineScheduler, type IScheduler, type SchedulerCallback } from "@pandora/core";
+
+class NodeCronScheduler implements IScheduler {
+  private tasks = new Map<string, cron.ScheduledTask>();
+  private oneTimeTimeouts = new Map<string, NodeJS.Timeout>();
+  private callback: SchedulerCallback | null = null;
+
+  async scheduleOnce(taskId: string, runAt: number): Promise<void> {
+    const delay = runAt * 1000 - Date.now();
+    const timeout = setTimeout(() => {
+      this.oneTimeTimeouts.delete(taskId);
+      this.callback?.(taskId);
+    }, Math.max(0, delay));
+    this.oneTimeTimeouts.set(taskId, timeout);
+  }
+
+  async scheduleRecurring(taskId: string, cronExpression: string): Promise<void> {
+    const task = cron.schedule(cronExpression, () => {
+      this.callback?.(taskId);
+    });
+    this.tasks.set(taskId, task);
+  }
+
+  async cancel(taskId: string): Promise<void> {
+    const task = this.tasks.get(taskId);
+    if (task) {
+      task.stop();
+      this.tasks.delete(taskId);
+    }
+    const timeout = this.oneTimeTimeouts.get(taskId);
+    if (timeout) {
+      clearTimeout(timeout);
+      this.oneTimeTimeouts.delete(taskId);
+    }
+  }
+
+  async isScheduled(taskId: string): Promise<boolean> {
+    return this.tasks.has(taskId) || this.oneTimeTimeouts.has(taskId);
+  }
+
+  onTrigger(callback: SchedulerCallback): void {
+    this.callback = callback;
+  }
+
+  async start(): Promise<void> {
+    // node-cron starts tasks immediately on creation
+  }
+
+  async stop(): Promise<void> {
+    for (const task of this.tasks.values()) {
+      task.stop();
+    }
+    for (const timeout of this.oneTimeTimeouts.values()) {
+      clearTimeout(timeout);
+    }
+  }
+}
+
+export default defineScheduler({
+  type: "node-cron",
+  create: async () => new NodeCronScheduler(),
+});
+```
+
+Config:
+
+```jsonc
+"scheduler": {
+  "type": "node-cron"
+}
+```
+
+</Tabs.Tab>
+</Tabs>
+
+---
+
+## Tips
+
+- **Distributed locks** — For multi-instance deployments, use Redis locks or similar to prevent duplicate task execution
+- **Persistence** — Store scheduled task metadata in the database (via `IMessageStore`), not in the scheduler
+- **Recovery** — On startup, Pandora calls `store.getPendingTasks()` and re-registers them. Your scheduler doesn't need to persist its own state.
+- **Cron parsing** — Use `cron-parser` for computing next run times from cron expressions
+- **Graceful shutdown** — Clean up timers/connections in `stop()` to prevent resource leaks

@@ -5,7 +5,15 @@ Reference for the message store interface and storage internals. The store persi
 All types can be imported directly:
 
 ```ts
-import type { IMessageStore, ConversationInfo, StoredUsage, ConversationUsage } from "@pandora/core";
+import type {
+  IMessageStore,
+  ConversationInfo,
+  StoredUsage,
+  ConversationUsage,
+  ScheduledTask,
+  CreateScheduledTaskInput,
+  UpdateScheduledTaskInput,
+} from "@pandora/core";
 ```
 
 ---
@@ -80,6 +88,20 @@ interface IMessageStore {
   ): Promise<void>;
 
   getChildThreads(conversationId: string): Promise<ConversationInfo[]>;
+
+  // --- Scheduled Task Management ---
+
+  createScheduledTask(input: CreateScheduledTaskInput): Promise<string>;
+
+  getScheduledTask(taskId: string): Promise<ScheduledTask | null>;
+
+  updateScheduledTask(taskId: string, updates: UpdateScheduledTaskInput): Promise<void>;
+
+  deleteScheduledTask(taskId: string): Promise<void>;
+
+  listScheduledTasks(conversationId: string): Promise<ScheduledTask[]>;
+
+  getPendingTasks(): Promise<ScheduledTask[]>;
 }
 ```
 
@@ -120,6 +142,19 @@ These methods support incremental message building during streaming. The typical
 | `createSubagentConversation(parentId, toolCallId, subagentName, meta?)` | `Promise<string>` | Create a child conversation for a subagent execution, linked to the parent via tool call ID. Returns the new conversation ID. |
 | `linkToolToThread(messageId, toolCallId, threadId)` | `Promise<void>` | Link a tool call part to the subagent thread it spawned. Adds a `threadId` field to the tool part. |
 | `getChildThreads(conversationId)` | `Promise<ConversationInfo[]>` | Get all subagent threads that are children of a given conversation. |
+
+### Scheduled task methods
+
+These methods manage scheduled task metadata. The [scheduler](/reference/scheduler) handles timing; the store persists task state.
+
+| Method | Returns | Description |
+|---|---|---|
+| `createScheduledTask(input)` | `Promise<string>` | Create a new scheduled task. Returns the generated task ID. See [`CreateScheduledTaskInput`](#createscheduledtaskinput). |
+| `getScheduledTask(taskId)` | `Promise<ScheduledTask \| null>` | Retrieve a task by ID. Returns `null` if not found. |
+| `updateScheduledTask(taskId, updates)` | `Promise<void>` | Update task fields (status, run count, errors). See [`UpdateScheduledTaskInput`](#updatescheduledtaskinput). |
+| `deleteScheduledTask(taskId)` | `Promise<void>` | Permanently delete a task. |
+| `listScheduledTasks(conversationId)` | `Promise<ScheduledTask[]>` | List all tasks for a conversation (any status). |
+| `getPendingTasks()` | `Promise<ScheduledTask[]>` | Get all pending tasks across all conversations. Used by the scheduler for startup recovery. |
 
 ---
 
@@ -220,6 +255,129 @@ interface ConversationUsage {
 
 ---
 
+## ScheduledTask
+
+A scheduled task record stored in the database. See [Scheduled Tasks](/reference/types#scheduled-task-types) for the full type definition.
+
+```ts
+interface ScheduledTask {
+  id: string;
+  conversationId: string;
+  channelName: string;
+  userId: string;
+
+  type: "once" | "recurring";
+  taskType: "reminder" | "followup" | "custom";
+  description: string;
+  context?: Record<string, unknown>;
+
+  runAt?: number;
+  cronExpression?: string;
+  timezone: string;
+
+  status: "pending" | "running" | "completed" | "cancelled" | "failed";
+  lastRunAt?: number;
+  runCount: number;
+  maxRuns?: number;
+
+  lastError?: string;
+  failureCount: number;
+  maxFailures: number;
+
+  createdAt: number;
+  updatedAt: number;
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | `string` | Unique task identifier. |
+| `conversationId` | `string` | Conversation this task belongs to. |
+| `channelName` | `string` | Channel where the task was created. |
+| `userId` | `string` | User who created the task. |
+| `type` | `"once" \| "recurring"` | One-time or recurring execution. |
+| `taskType` | `"reminder" \| "followup" \| "custom"` | Task category for display and behavior. |
+| `description` | `string` | Human-readable description of what to do. |
+| `context` | `Record<string, unknown>` | Optional additional context (JSON blob). |
+| `runAt` | `number` | For one-time tasks: when to run (Unix epoch seconds). |
+| `cronExpression` | `string` | For recurring tasks: cron expression. |
+| `timezone` | `string` | Timezone for cron interpretation. |
+| `status` | `string` | Current task status. |
+| `lastRunAt` | `number` | Last execution time (Unix epoch seconds). |
+| `runCount` | `number` | Number of times this task has run. |
+| `maxRuns` | `number` | Maximum runs for recurring tasks (`null` = unlimited). |
+| `lastError` | `string` | Last error message if failed. |
+| `failureCount` | `number` | Number of consecutive failures. |
+| `maxFailures` | `number` | Maximum failures before marking as failed. |
+| `createdAt` | `number` | Creation timestamp (Unix epoch seconds). |
+| `updatedAt` | `number` | Last update timestamp (Unix epoch seconds). |
+
+---
+
+## CreateScheduledTaskInput
+
+Input for creating a new scheduled task via `createScheduledTask()`.
+
+```ts
+interface CreateScheduledTaskInput {
+  conversationId: string;
+  channelName: string;
+  userId: string;
+
+  type: "once" | "recurring";
+  taskType: "reminder" | "followup" | "custom";
+  description: string;
+  context?: Record<string, unknown>;
+
+  runAt?: number;
+  cronExpression?: string;
+  timezone?: string;
+  maxRuns?: number;
+  maxFailures?: number;
+}
+```
+
+| Field | Required | Description |
+|---|---|---|
+| `conversationId` | Yes | Conversation this task belongs to. |
+| `channelName` | Yes | Channel where the task was created. |
+| `userId` | Yes | User who created the task. |
+| `type` | Yes | `"once"` for one-time, `"recurring"` for cron-based. |
+| `taskType` | Yes | Category: `"reminder"`, `"followup"`, or `"custom"`. |
+| `description` | Yes | What to do when the task triggers. |
+| `context` | No | Additional context passed to the agent. |
+| `runAt` | For `once` | Unix epoch seconds for one-time execution. |
+| `cronExpression` | For `recurring` | Cron pattern (e.g., `"0 9 * * *"`). |
+| `timezone` | No | Timezone for cron. Defaults to `"UTC"`. |
+| `maxRuns` | No | Limit for recurring tasks. Defaults to unlimited. |
+| `maxFailures` | No | Failures before marking failed. Defaults to `3`. |
+
+---
+
+## UpdateScheduledTaskInput
+
+Partial update for a scheduled task via `updateScheduledTask()`.
+
+```ts
+interface UpdateScheduledTaskInput {
+  status?: "pending" | "running" | "completed" | "cancelled" | "failed";
+  lastRunAt?: number;
+  runCount?: number;
+  lastError?: string;
+  failureCount?: number;
+}
+```
+
+| Field | Description |
+|---|---|
+| `status` | New task status. |
+| `lastRunAt` | Update last execution time. |
+| `runCount` | Update run count. |
+| `lastError` | Set error message on failure. |
+| `failureCount` | Update failure count. |
+
+---
+
 ## Storage internals
 
 The SQLite storage provider persists conversations, messages, and message parts. See [SQLite Storage](/storage/sqlite) for configuration.
@@ -305,6 +463,57 @@ CREATE INDEX idx_parts_message ON message_parts (message_id, part_index);
 |-------------|---------------------|
 | `text` | `{ type: "text", text: "...", state: "streaming" \| "done" }` |
 | `dynamic-tool` | `{ type: "dynamic-tool", toolCallId, toolName, input, state, output?, threadId? }` |
+
+</details>
+
+<details>
+<summary>**Schema: scheduled_tasks**</summary>
+
+**scheduled_tasks** — Stores metadata for scheduled reminders and recurring tasks.
+
+```sql
+CREATE TABLE scheduled_tasks (
+  id TEXT PRIMARY KEY,
+  conversation_id TEXT NOT NULL,
+  channel_name TEXT NOT NULL,
+  user_id TEXT NOT NULL,
+
+  type TEXT NOT NULL CHECK (type IN ('once', 'recurring')),
+  task_type TEXT NOT NULL,
+  description TEXT NOT NULL,
+  context TEXT,
+
+  run_at INTEGER,
+  cron_expression TEXT,
+  timezone TEXT DEFAULT 'UTC',
+
+  status TEXT NOT NULL DEFAULT 'pending',
+  last_run_at INTEGER,
+  run_count INTEGER DEFAULT 0,
+  max_runs INTEGER,
+
+  last_error TEXT,
+  failure_count INTEGER DEFAULT 0,
+  max_failures INTEGER DEFAULT 3,
+
+  created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+  updated_at INTEGER NOT NULL DEFAULT (unixepoch()),
+
+  FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_scheduled_tasks_conversation ON scheduled_tasks (conversation_id);
+CREATE INDEX idx_scheduled_tasks_status ON scheduled_tasks (status);
+```
+
+| Column | Purpose |
+|--------|---------|
+| `type` | `'once'` for one-time tasks, `'recurring'` for cron-based |
+| `task_type` | Category: `'reminder'`, `'followup'`, or `'custom'` |
+| `context` | JSON blob with additional context passed to the agent |
+| `run_at` | Unix epoch seconds for one-time execution |
+| `cron_expression` | Cron pattern for recurring tasks |
+| `status` | Current state: `'pending'`, `'running'`, `'completed'`, `'cancelled'`, `'failed'` |
 
 </details>
 

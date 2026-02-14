@@ -7,6 +7,7 @@ export default {
   "websocket-protocol": "WebSocket Protocol",
   types: "Types",
   store: "Store",
+  scheduler: "Scheduler",
   "memory-reference": "Memory",
   "configuration-reference": "Configuration",
   security: "Security"

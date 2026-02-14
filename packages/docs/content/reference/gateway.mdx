@@ -192,6 +192,93 @@ getStreamingHandlerWithEvents(): (
 
 Get a streaming handler that also accepts an `onEvent` callback for tool calls, sources, and other [stream events](/reference/streaming).
 
+---
+
+### `registerChannel`
+
+```typescript
+registerChannel(channel: Channel): void
+```
+
+Register a channel for push capability lookup. Call this for channels that support proactive push notifications (scheduled reminders).
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `channel` | `Channel` | Channel instance to register |
+
+---
+
+### `getChannel`
+
+```typescript
+getChannel(name: string): Channel | undefined
+```
+
+Get a registered channel by name. Returns `undefined` if the channel is not registered.
+
+---
+
+### `getStore`
+
+```typescript
+getStore(): IMessageStore
+```
+
+Get the message store instance. Used by the scheduler for task recovery on startup.
+
+---
+
+### `handleScheduledTask`
+
+```typescript
+handleScheduledTask(taskId: string): Promise<void>
+```
+
+Handle a scheduled task trigger. Called by the scheduler's `onTrigger` callback when a task is due.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `taskId` | `string` | ID of the triggered task |
+
+**Behavior:**
+- Looks up task metadata from the store
+- Updates task status to `running`
+- Builds a synthetic message with task instructions
+- Processes through normal message flow (agent decides whether to push)
+- Updates task status to `completed` (one-time) or `pending` (recurring)
+- Handles failures with retry logic up to `maxFailures`
+
+---
+
+### `pushToChannel`
+
+```typescript
+pushToChannel(channelName: string, userId: string, content: string): Promise<void>
+```
+
+Push a message to a user via a channel. Used by the `pushMessage` tool for scheduled task notifications.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `channelName` | `string` | Name of the channel to push through |
+| `userId` | `string` | User ID in the channel's native format |
+| `content` | `string` | Message content to send |
+
+**Throws:**
+- Error if channel is not registered
+- Error if channel doesn't support push (`supportsPush: false`)
+- Error if channel declares `supportsPush` but doesn't implement `push()`
+
+---
+
+### `getContextState`
+
+```typescript
+getContextState(conversationId: string): Promise<ContextState>
+```
+
+Get context state for a conversation (for UI display on load). Computes token usage, health, and costs from stored history.
+
 ## Types
 
 <details>
