@@ -37,6 +37,93 @@ export interface ConversationUsage {
 // Re-export MessageMeta for convenience
 export type { MessageMeta } from "../types";
 
+// ============================================================================
+// Scheduled Task Types
+// ============================================================================
+
+/** Scheduled task type */
+export type ScheduledTaskType = "once" | "recurring";
+
+/** Scheduled task category */
+export type ScheduledTaskCategory = "reminder" | "followup" | "custom";
+
+/** Scheduled task status */
+export type ScheduledTaskStatus = "pending" | "running" | "completed" | "cancelled" | "failed";
+
+/** A scheduled task record stored in the database */
+export interface ScheduledTask {
+  id: string;
+  conversationId: string;
+  channelName: string;
+  userId: string;
+
+  /** Task scheduling type */
+  type: ScheduledTaskType;
+  /** Task category for display and behavior */
+  taskType: ScheduledTaskCategory;
+  /** Human-readable description of what to do */
+  description: string;
+  /** Optional additional context (JSON blob) */
+  context?: Record<string, unknown>;
+
+  /** For one-time tasks: when to run (Unix epoch seconds) */
+  runAt?: number;
+  /** For recurring tasks: cron expression */
+  cronExpression?: string;
+  /** Timezone for cron interpretation */
+  timezone: string;
+
+  /** Current task status */
+  status: ScheduledTaskStatus;
+  /** Last execution time (Unix epoch seconds) */
+  lastRunAt?: number;
+  /** Number of times this task has run */
+  runCount: number;
+  /** Maximum number of runs (recurring only, null = unlimited) */
+  maxRuns?: number;
+
+  /** Last error message if failed */
+  lastError?: string;
+  /** Number of consecutive failures */
+  failureCount: number;
+  /** Maximum failures before marking as failed */
+  maxFailures: number;
+
+  /** Unix epoch seconds */
+  createdAt: number;
+  /** Unix epoch seconds */
+  updatedAt: number;
+}
+
+/** Input for creating a new scheduled task */
+export interface CreateScheduledTaskInput {
+  conversationId: string;
+  channelName: string;
+  userId: string;
+
+  type: ScheduledTaskType;
+  taskType: ScheduledTaskCategory;
+  description: string;
+  context?: Record<string, unknown>;
+
+  /** For one-time tasks: when to run (Unix epoch seconds) */
+  runAt?: number;
+  /** For recurring tasks: cron expression */
+  cronExpression?: string;
+  timezone?: string;
+  maxRuns?: number;
+  maxFailures?: number;
+}
+
+/** Partial update for a scheduled task */
+export interface UpdateScheduledTaskInput {
+  status?: ScheduledTaskStatus;
+  lastRunAt?: number;
+  runCount?: number;
+  lastError?: string;
+  failureCount?: number;
+}
+
 /** Summary information about a stored conversation. */
 export interface ConversationInfo {
   id: string;
@@ -196,6 +283,40 @@ export interface IMessageStore {
    * Get child threads (subagent conversations) for a parent conversation.
    */
   getChildThreads(conversationId: string): Promise<ConversationInfo[]>;
+
+  // === Scheduled Task Management ===
+
+  /**
+   * Create a new scheduled task.
+   * @returns The generated task ID
+   */
+  createScheduledTask(input: CreateScheduledTaskInput): Promise<string>;
+
+  /**
+   * Get a scheduled task by ID.
+   */
+  getScheduledTask(taskId: string): Promise<ScheduledTask | null>;
+
+  /**
+   * Update a scheduled task.
+   */
+  updateScheduledTask(taskId: string, updates: UpdateScheduledTaskInput): Promise<void>;
+
+  /**
+   * Delete a scheduled task.
+   */
+  deleteScheduledTask(taskId: string): Promise<void>;
+
+  /**
+   * List scheduled tasks for a conversation.
+   */
+  listScheduledTasks(conversationId: string): Promise<ScheduledTask[]>;
+
+  /**
+   * Get all pending tasks for recovery on startup.
+   * Returns tasks with status 'pending' that need to be rescheduled.
+   */
+  getPendingTasks(): Promise<ScheduledTask[]>;
 }
 
 /**

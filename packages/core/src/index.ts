@@ -23,6 +23,7 @@ export {
   type ChannelConfig,
   type StorageConfig,
   type MemoryConfig,
+  type SchedulerConfig,
   type LogLevel,
   type TelegramConfig,
 } from "./config";
@@ -44,6 +45,7 @@ export type {
   StreamingMessageHandler,
   ChannelCapabilities,
   Channel,
+  ChannelPusher,
   StreamEvent,
   GatewayEvent,
   MessageMeta,

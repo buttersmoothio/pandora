@@ -9,6 +9,7 @@ import {
   Gateway,
   type TelegramConfig,
   type Channel,
+  type ChannelPusher,
   type ChannelCapabilities,
   type Attachment,
   type Message,
@@ -26,10 +27,11 @@ const TELEGRAM_CAPABILITIES: ChannelCapabilities = {
   supportsButtons: true, // Inline keyboards
   supportsStreaming: false, // Would need message editing
   maxMessageLength: 4096,
+  supportsPush: true, // Telegram bots can send unsolicited messages
 };
 
 /** Telegram channel: owner-only bot, text/photo/document/voice/audio/video, HTML replies, message splitting. */
-export class TelegramChannel implements Channel {
+export class TelegramChannel implements Channel, ChannelPusher {
   readonly name = "telegram";
   readonly capabilities = TELEGRAM_CAPABILITIES;
 
@@ -339,6 +341,33 @@ export class TelegramChannel implements Channel {
   async stop(): Promise<void> {
     logger.channel("telegram", "Stopping bot");
     await this.bot.stop();
+  }
+
+  /**
+   * Push a proactive message to the user.
+   * Used for scheduled reminders and notifications.
+   *
+   * @param userId - User ID (Telegram chat ID)
+   * @param content - Message content (Markdown)
+   */
+  async push(userId: string, content: string): Promise<void> {
+    const chatId = parseInt(userId, 10);
+    const html = markdownToHtml(content);
+    const chunks = this.splitMessage(html, this.capabilities.maxMessageLength);
+
+    logger.channel("telegram", "Pushing message", { userId, chunks: chunks.length });
+
+    for (const chunk of chunks) {
+      try {
+        await this.bot.api.sendMessage(chatId, chunk, { parse_mode: "HTML" });
+      } catch (error) {
+        // Fallback to plain text if HTML parsing fails
+        logger.channel("telegram", "HTML parse failed, using plain text", {
+          error: error instanceof Error ? error.message : String(error),
+        });
+        await this.bot.api.sendMessage(chatId, chunk);
+      }
+    }
   }
 }
 

@@ -75,6 +75,8 @@ export interface ChannelCapabilities {
   supportsStreaming: boolean;
   /** Character limit per message (-1 for unlimited) */
   maxMessageLength: number;
+  /** Can proactively send messages to users (for scheduled tasks) */
+  supportsPush: boolean;
 }
 
 /**
@@ -133,6 +135,21 @@ export interface Channel {
   start(): Promise<void>;
   /** Stop the channel gracefully */
   stop(): Promise<void>;
+}
+
+/**
+ * Channel that supports proactive push notifications.
+ * Channels with supportsPush: true should implement this interface.
+ */
+export interface ChannelPusher extends Channel {
+  /**
+   * Send a proactive message to a user.
+   * Used for scheduled reminders and notifications.
+   *
+   * @param userId - User identifier (channel-specific format)
+   * @param content - Message content to send
+   */
+  push(userId: string, content: string): Promise<void>;
 }
 
 /**

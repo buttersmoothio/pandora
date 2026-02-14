@@ -88,6 +88,19 @@ const memoryConfigSchema = z.object({
 }).passthrough(); // Allow additional provider-specific fields
 
 /**
+ * Schema for scheduler configuration.
+ * Enables scheduled tasks (reminders, recurring tasks, etc.).
+ */
+const schedulerConfigSchema = z.object({
+  /** Whether the scheduler is enabled (default: true when scheduler config present) */
+  enabled: z.boolean().default(true),
+  /** Scheduler backend type (default: "simple" - setInterval-based) */
+  type: z.string().default("simple"),
+  /** Poll interval in ms for checking tasks (default: 10000ms) */
+  pollInterval: z.number().min(1000).default(10_000),
+}).passthrough(); // Allow additional scheduler-specific fields
+
+/**
  * Full configuration schema
  */
 const configSchema = z.object({
@@ -96,6 +109,7 @@ const configSchema = z.object({
   channels: channelsConfigSchema,
   storage: storageConfigSchema.optional().default({ type: "sqlite", path: "data/pandora.db" }),
   memory: memoryConfigSchema.optional(),
+  scheduler: schedulerConfigSchema.optional(),
   logLevel: logLevelSchema.optional().default("normal"),
 });
 
@@ -113,6 +127,8 @@ export type ChannelConfig = z.infer<typeof baseChannelConfigSchema>;
 export type StorageConfig = z.infer<typeof storageConfigSchema>;
 /** Memory config: type, path, embeddingModel, plus apiKey (injected at runtime). */
 export type MemoryConfig = z.infer<typeof memoryConfigSchema> & { apiKey?: string };
+/** Scheduler config: type, pollInterval, etc. */
+export type SchedulerConfig = z.infer<typeof schedulerConfigSchema>;
 /** Log level: `"normal"` (metadata only) or `"verbose"` (includes model prompts/responses). */
 export type LogLevel = z.infer<typeof logLevelSchema>;
 

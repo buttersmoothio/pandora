@@ -14,6 +14,7 @@ import {
   validateConfig,
   createStore,
   createMemory,
+  createScheduler,
   createChannels,
   getAvailableToolNames,
   createModel,
@@ -22,9 +23,12 @@ import {
   logger,
   type Channel,
   type IMemoryProvider,
+  type IScheduler,
   type GatewayContextOptions,
 } from "@pandora/core";
 import { createMemoryTools } from "./tools/memory";
+import { createSchedulerTools } from "./tools/scheduler";
+import { SimpleScheduler } from "./scheduler/simple";
 
 // Get the directory of this file for resolving extension paths
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -34,7 +38,7 @@ const configPath = resolve(rootDir, "config.jsonc");
 
 /**
  * Auto-discover and load all user extensions.
- * This triggers self-registration for subagents, channels, tools, stores, and memory providers.
+ * This triggers self-registration for subagents, channels, tools, stores, memory providers, and schedulers.
  */
 async function loadAllExtensions(): Promise<void> {
   await loadExtensions(resolve(srcDir, "subagents"));
@@ -42,6 +46,7 @@ async function loadAllExtensions(): Promise<void> {
   await loadExtensions(resolve(srcDir, "tools"));
   await loadExtensions(resolve(srcDir, "store"));
   await loadExtensions(resolve(srcDir, "memory"));
+  await loadExtensions(resolve(srcDir, "scheduler"));
 }
 
 /** Load config, init store/agent/gateway/channels, and run until shutdown. */
@@ -104,8 +109,52 @@ async function main(): Promise<void> {
 
   const gateway = new Gateway(store, agent, memory, contextOptions);
 
+  // Initialize scheduler if configured
+  let scheduler: IScheduler | null = null;
+  if (config.scheduler) {
+    scheduler = await createScheduler(config.scheduler);
+
+    if (scheduler) {
+      // Register callback with gateway for task execution
+      scheduler.onTrigger((taskId) => gateway.handleScheduledTask(taskId));
+
+      // Create and inject scheduler tools
+      const schedulerTools = createSchedulerTools(store, scheduler, gateway);
+      agent.addActionTools(schedulerTools);
+
+      // Set up recovery callback for simple scheduler
+      if (scheduler instanceof SimpleScheduler) {
+        scheduler.setRecoveryCallback(async () => {
+          const pendingTasks = await store.getPendingTasks();
+          logger.info("Scheduler", `Recovering ${pendingTasks.length} pending tasks`);
+
+          for (const task of pendingTasks) {
+            try {
+              if (task.type === "once" && task.runAt) {
+                await scheduler!.scheduleOnce(task.id, task.runAt);
+              } else if (task.type === "recurring" && task.cronExpression) {
+                await scheduler!.scheduleRecurring(task.id, task.cronExpression, task.timezone);
+              }
+            } catch (error) {
+              logger.warn("Scheduler", `Failed to recover task ${task.id}`, {
+                error: error instanceof Error ? error.message : String(error),
+              });
+            }
+          }
+        });
+      }
+
+      logger.startup("Scheduler initialized", { type: config.scheduler.type });
+    }
+  }
+
   // Create all enabled channels from registry
   const channels: Channel[] = createChannels(config, gateway);
+
+  // Register channels with gateway for push capability
+  for (const channel of channels) {
+    gateway.registerChannel(channel);
+  }
 
   // Start all channels
   for (const channel of channels) {
@@ -115,6 +164,12 @@ async function main(): Promise<void> {
       logger.error("Startup", `Failed to start channel: ${channel.name}`, error);
       throw error;
     }
+  }
+
+  // Start scheduler AFTER channels are registered and started
+  if (scheduler) {
+    await scheduler.start();
+    logger.startup("Scheduler started");
   }
 
   // Check if any channels are enabled
@@ -128,6 +183,15 @@ async function main(): Promise<void> {
   // Handle graceful shutdown
   const shutdown = async (signal: string): Promise<void> => {
     logger.startup(`Shutdown requested (${signal})`);
+
+    // Stop scheduler first (prevents new task triggers)
+    if (scheduler) {
+      try {
+        await scheduler.stop();
+      } catch (error) {
+        logger.error("Shutdown", "Failed to stop scheduler", error);
+      }
+    }
 
     for (const channel of channels) {
       try {

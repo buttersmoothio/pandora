@@ -11,11 +11,13 @@
 
 import type { LanguageModel } from "ai";
 import type { Agent } from "./agent";
-import type { IMessageStore, ConversationInfo, SubagentContext, IMemoryProvider } from "./registries";
+import type { IMessageStore, ConversationInfo, SubagentContext, IMemoryProvider, ScheduledTask } from "./registries";
 import { requestContext } from "./request-context";
 import type {
   Message,
   ChannelCapabilities,
+  Channel,
+  ChannelPusher,
   MessageHandler,
   StreamEvent,
   GatewayEvent,
@@ -77,6 +79,17 @@ export interface ActiveStreamState {
   };
 }
 
+/** Default capabilities for channels that don't specify them */
+const DEFAULT_CAPABILITIES: ChannelCapabilities = {
+  supportsImages: false,
+  supportsFiles: false,
+  supportsRichText: false,
+  supportsButtons: false,
+  supportsStreaming: false,
+  maxMessageLength: -1,
+  supportsPush: false,
+};
+
 /** Central hub: receives messages from channels, stores them, calls the agent, stores and returns the response. */
 export class Gateway {
   private listeners = new Map<string, Set<GatewayListener>>();
@@ -94,6 +107,8 @@ export class Gateway {
   private operatorModelId: string;
   /** Model to use for summarization. */
   private summaryModel: LanguageModel;
+  /** Registered channels for push capability lookup. */
+  private channels = new Map<string, Channel>();
 
   /**
    * @param store - Message store for conversation history.
@@ -113,6 +128,173 @@ export class Gateway {
     this.contextManager = new ContextManager();
     this.compactionManager = new CompactionManager(this.contextManager);
   }
+
+  // === Channel Registration for Push Capability ===
+
+  /**
+   * Register a channel for push capability lookup.
+   * Call this for channels that support proactive push notifications.
+   *
+   * @param channel - The channel to register
+   */
+  registerChannel(channel: Channel): void {
+    this.channels.set(channel.name, channel);
+    logger.debug("Gateway", "Channel registered", { name: channel.name, supportsPush: channel.capabilities.supportsPush });
+  }
+
+  /**
+   * Get a registered channel by name.
+   *
+   * @param name - Channel name
+   * @returns The channel if registered, undefined otherwise
+   */
+  getChannel(name: string): Channel | undefined {
+    return this.channels.get(name);
+  }
+
+  /**
+   * Get the message store instance.
+   * Used by scheduler for task recovery.
+   */
+  getStore(): IMessageStore {
+    return this.store;
+  }
+
+  // === Scheduled Task Handling ===
+
+  /**
+   * Handle a scheduled task trigger.
+   * Called by scheduler.onTrigger() callback.
+   *
+   * The agent processes the trigger and decides whether to push via pushMessage tool.
+   *
+   * @param taskId - ID of the triggered task
+   */
+  async handleScheduledTask(taskId: string): Promise<void> {
+    // 1. Look up task metadata from store
+    const task = await this.store.getScheduledTask(taskId);
+    if (!task) {
+      logger.warn("Gateway", "Scheduled task not found", { taskId });
+      return;
+    }
+
+    if (task.status !== "pending") {
+      logger.warn("Gateway", "Scheduled task not pending", { taskId, status: task.status });
+      return;
+    }
+
+    // 2. Update status to running
+    await this.store.updateScheduledTask(taskId, { status: "running" });
+
+    try {
+      // 3. Build synthetic message with instructions
+      const message: Message = {
+        channelName: task.channelName,
+        userId: task.userId,
+        conversationId: task.conversationId,
+        content: this.buildTriggerContent(task),
+        metadata: { scheduledTask: true, taskId },
+      };
+
+      // 4. Get channel capabilities
+      const channel = this.channels.get(task.channelName);
+      const capabilities = channel?.capabilities ?? DEFAULT_CAPABILITIES;
+
+      // 5. Process through normal message flow
+      // Agent will use pushMessage tool if it wants to notify the user
+      await this.handleMessage(message, capabilities);
+
+      // 6. Update status based on task type
+      const newRunCount = task.runCount + 1;
+      if (task.type === "once" || (task.maxRuns && newRunCount >= task.maxRuns)) {
+        await this.store.updateScheduledTask(taskId, {
+          status: "completed",
+          lastRunAt: Math.floor(Date.now() / 1000),
+          runCount: newRunCount,
+        });
+        logger.info("Gateway", "Scheduled task completed", { taskId, type: task.type });
+      } else {
+        // Recurring: reset to pending for next trigger
+        await this.store.updateScheduledTask(taskId, {
+          status: "pending",
+          lastRunAt: Math.floor(Date.now() / 1000),
+          runCount: newRunCount,
+        });
+        logger.info("Gateway", "Recurring task run completed", { taskId, runCount: newRunCount });
+      }
+    } catch (error) {
+      // Handle failure with retry logic
+      const failureCount = task.failureCount + 1;
+      const errorMsg = error instanceof Error ? error.message : String(error);
+
+      logger.error("Gateway", "Scheduled task failed", { taskId, failureCount, error: errorMsg });
+
+      if (failureCount >= task.maxFailures) {
+        await this.store.updateScheduledTask(taskId, {
+          status: "failed",
+          failureCount,
+          lastError: errorMsg,
+        });
+      } else {
+        // Keep as pending - scheduler will retry based on its timing
+        await this.store.updateScheduledTask(taskId, {
+          status: "pending",
+          failureCount,
+          lastError: errorMsg,
+        });
+      }
+    }
+  }
+
+  /**
+   * Build trigger message content for the agent.
+   */
+  private buildTriggerContent(task: ScheduledTask): string {
+    const parts = [
+      `[Scheduled ${task.taskType}]`,
+      `Task: ${task.description}`,
+    ];
+
+    if (task.context) {
+      parts.push(`Context: ${JSON.stringify(task.context)}`);
+    }
+
+    parts.push("");
+    parts.push("Use the pushMessage tool to notify the user if appropriate.");
+
+    return parts.join("\n");
+  }
+
+  /**
+   * Push a message to a user via a channel.
+   * Used by the pushMessage tool for scheduled task notifications.
+   *
+   * @param channelName - Name of the channel to push through
+   * @param userId - User ID to send to
+   * @param content - Message content
+   * @throws Error if channel doesn't exist or doesn't support push
+   */
+  async pushToChannel(channelName: string, userId: string, content: string): Promise<void> {
+    const channel = this.channels.get(channelName);
+
+    if (!channel) {
+      throw new Error(`Channel not found: ${channelName}`);
+    }
+
+    if (!channel.capabilities.supportsPush) {
+      throw new Error(`Channel "${channelName}" does not support push notifications`);
+    }
+
+    // Check if channel implements ChannelPusher
+    if (!("push" in channel) || typeof (channel as ChannelPusher).push !== "function") {
+      throw new Error(`Channel "${channelName}" declares supportsPush but doesn't implement push()`);
+    }
+
+    await (channel as ChannelPusher).push(userId, content);
+    logger.info("Gateway", "Pushed message to channel", { channelName, userId, contentLength: content.length });
+  }
+
+  // === Conversation Locking ===
 
   /**
    * Acquire a lock for a conversation. Ensures only one message is processed at a time per conversation.
@@ -239,7 +421,7 @@ export class Gateway {
     let assistantMessageId: string | undefined;
 
     try {
-      requestContext.enterWith({ conversationId, channelName });
+      requestContext.enterWith({ conversationId, channelName, userId });
       const startTime = Date.now();
       const meta: MessageMeta = { channelName, userId };
 

@@ -47,6 +47,12 @@ export {
   type StoredUsage,
   type ConversationUsage,
   type StoreFactory,
+  type ScheduledTask,
+  type ScheduledTaskType,
+  type ScheduledTaskCategory,
+  type ScheduledTaskStatus,
+  type CreateScheduledTaskInput,
+  type UpdateScheduledTaskInput,
   defineStore,
   getAvailableStoreTypes,
   createStore,
@@ -82,3 +88,15 @@ export {
   createMemory,
   getMemoryProvider,
 } from "./memory";
+
+// Scheduler registry
+export {
+  type IScheduler,
+  type SchedulerCallback,
+  type SchedulerFactory,
+  type SchedulerFactoryRegistration,
+  defineScheduler,
+  getAvailableSchedulerTypes,
+  createScheduler,
+  getScheduler,
+} from "./scheduler";

@@ -12,6 +12,8 @@
     "@pandora/core": "workspace:*",
     "@perplexity-ai/ai-sdk": "^0.1.2",
     "@tavily/ai-sdk": "^0.4.1",
+    "chrono-node": "^2.9.0",
+    "cron-parser": "^5.5.0",
     "grammy": "^1.39.3",
     "rehype-stringify": "^10.0.1",
     "remark-parse": "^11.0.0",

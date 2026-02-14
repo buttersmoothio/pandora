@@ -14,6 +14,8 @@ export interface RequestContext {
   conversationId: string;
   /** Channel this request originated from */
   channelName: string;
+  /** User ID this request originated from */
+  userId: string;
 }
 
 /** AsyncLocalStorage instance for request-scoped context. */

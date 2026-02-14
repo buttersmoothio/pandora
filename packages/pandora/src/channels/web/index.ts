@@ -17,12 +17,14 @@ import {
   Gateway,
   type ChannelConfig,
   type Channel,
+  type ChannelPusher,
   type ChannelCapabilities,
   type Message,
   type MessageHandler,
   type StreamEvent,
   type GatewayEvent,
 } from "@pandora/core";
+import type { ServerWebSocket } from "bun";
 
 type WebConfig = ChannelConfig & { token: string; port?: number };
 
@@ -33,6 +35,7 @@ const WEB_CAPABILITIES: ChannelCapabilities = {
   supportsButtons: false,
   supportsStreaming: true,
   maxMessageLength: -1,
+  supportsPush: true, // Can push via WebSocket if client connected
 };
 
 type WebSocketData = { token: string; unsubscribe?: () => void; unsubscribeAll?: () => void; processing?: boolean };
@@ -52,7 +55,7 @@ function jsonResponse(data: unknown, status = 200): Response {
 }
 
 /** Web channel: HTTP API + WebSocket streaming backed by Bun.serve(). */
-export class WebChannel implements Channel {
+export class WebChannel implements Channel, ChannelPusher {
   readonly name = "web";
   readonly capabilities = WEB_CAPABILITIES;
 
@@ -66,6 +69,8 @@ export class WebChannel implements Channel {
     onEvent?: (event: StreamEvent) => void
   ) => AsyncGenerator<string, void>;
   private server: ReturnType<typeof Bun.serve> | null = null;
+  /** Track connected clients by userId (token) for push notifications */
+  private connectedClients = new Map<string, Set<ServerWebSocket<WebSocketData>>>();
 
   constructor(config: WebConfig, gateway: Gateway) {
     this.token = config.token;
@@ -73,6 +78,27 @@ export class WebChannel implements Channel {
     this.gateway = gateway;
     this.messageHandler = gateway.getHandler();
     this.streamingHandlerWithEvents = gateway.getStreamingHandlerWithEvents();
+  }
+
+  /** Track a client connection for push capability */
+  private trackClient(ws: ServerWebSocket<WebSocketData>, userId: string): void {
+    let clients = this.connectedClients.get(userId);
+    if (!clients) {
+      clients = new Set();
+      this.connectedClients.set(userId, clients);
+    }
+    clients.add(ws);
+  }
+
+  /** Remove a client from tracking */
+  private untrackClient(ws: ServerWebSocket<WebSocketData>, userId: string): void {
+    const clients = this.connectedClients.get(userId);
+    if (clients) {
+      clients.delete(ws);
+      if (clients.size === 0) {
+        this.connectedClients.delete(userId);
+      }
+    }
   }
 
   async start(): Promise<void> {
@@ -159,7 +185,9 @@ export class WebChannel implements Channel {
 
       websocket: {
         open(ws) {
-          logger.channel("web", "WebSocket connected");
+          const wsData = ws.data as WebSocketData;
+          channel.trackClient(ws as ServerWebSocket<WebSocketData>, wsData.token);
+          logger.channel("web", "WebSocket connected", { userId: wsData.token });
         },
 
         async message(ws, raw) {
@@ -300,7 +328,8 @@ export class WebChannel implements Channel {
           const wsData = ws.data as WebSocketData;
           wsData.unsubscribe?.();
           wsData.unsubscribeAll?.();
-          logger.channel("web", "WebSocket disconnected");
+          channel.untrackClient(ws as ServerWebSocket<WebSocketData>, wsData.token);
+          logger.channel("web", "WebSocket disconnected", { userId: wsData.token });
         },
       },
 
@@ -380,6 +409,39 @@ export class WebChannel implements Channel {
   async stop(): Promise<void> {
     logger.channel("web", "Stopping server");
     this.server?.stop();
+  }
+
+  /**
+   * Push a proactive message to a user via WebSocket.
+   * Used for scheduled reminders and notifications.
+   *
+   * @param userId - User ID (token)
+   * @param content - Message content
+   */
+  async push(userId: string, content: string): Promise<void> {
+    const clients = this.connectedClients.get(userId);
+    if (!clients || clients.size === 0) {
+      logger.warn("Web", `No connected clients for push`, { userId });
+      throw new Error(`User not connected: ${userId}`);
+    }
+
+    const event = JSON.stringify({
+      type: "scheduled-push",
+      content,
+      timestamp: Date.now(),
+    });
+
+    logger.channel("web", "Pushing message", { userId, clients: clients.size });
+
+    for (const ws of clients) {
+      try {
+        ws.send(event);
+      } catch (error) {
+        logger.warn("Web", "Failed to send to client", {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
   }
 }
 

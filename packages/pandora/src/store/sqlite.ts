@@ -22,6 +22,9 @@ import {
   type UIMessage,
   type PandoraMessagePart,
   type StorageConfig,
+  type ScheduledTask,
+  type CreateScheduledTaskInput,
+  type UpdateScheduledTaskInput,
 } from "@pandora/core";
 
 /** Row type for messages table */
@@ -138,6 +141,50 @@ export class SqliteStore implements IMessageStore {
     this.db.run(`
       CREATE INDEX IF NOT EXISTS idx_parts_message
       ON message_parts (message_id, part_index)
+    `);
+
+    // Scheduled tasks table
+    this.db.run(`
+      CREATE TABLE IF NOT EXISTS scheduled_tasks (
+        id TEXT PRIMARY KEY,
+        conversation_id TEXT NOT NULL,
+        channel_name TEXT NOT NULL,
+        user_id TEXT NOT NULL,
+
+        type TEXT NOT NULL CHECK (type IN ('once', 'recurring')),
+        task_type TEXT NOT NULL CHECK (task_type IN ('reminder', 'followup', 'custom')),
+        description TEXT NOT NULL,
+        context TEXT,
+
+        run_at INTEGER,
+        cron_expression TEXT,
+        timezone TEXT NOT NULL DEFAULT 'UTC',
+
+        status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'running', 'completed', 'cancelled', 'failed')),
+        last_run_at INTEGER,
+        run_count INTEGER NOT NULL DEFAULT 0,
+        max_runs INTEGER,
+
+        last_error TEXT,
+        failure_count INTEGER NOT NULL DEFAULT 0,
+        max_failures INTEGER NOT NULL DEFAULT 3,
+
+        created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+        updated_at INTEGER NOT NULL DEFAULT (unixepoch()),
+
+        FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
+      )
+    `);
+
+    // Index for fast pending task retrieval
+    this.db.run(`
+      CREATE INDEX IF NOT EXISTS idx_scheduled_tasks_status
+      ON scheduled_tasks (status, run_at)
+    `);
+
+    this.db.run(`
+      CREATE INDEX IF NOT EXISTS idx_scheduled_tasks_conversation
+      ON scheduled_tasks (conversation_id)
     `);
   }
 
@@ -698,6 +745,238 @@ export class SqliteStore implements IMessageStore {
       parentToolCallId: row.parent_tool_call_id ?? undefined,
       subagentName: row.subagent_name ?? undefined,
     }));
+  }
+
+  // === Scheduled Task Methods ===
+
+  /** @inheritdoc */
+  async createScheduledTask(input: CreateScheduledTaskInput): Promise<string> {
+    const taskId = generateId();
+
+    this.db.run(
+      `INSERT INTO scheduled_tasks (
+        id, conversation_id, channel_name, user_id,
+        type, task_type, description, context,
+        run_at, cron_expression, timezone, max_runs, max_failures
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        taskId,
+        input.conversationId,
+        input.channelName,
+        input.userId,
+        input.type,
+        input.taskType,
+        input.description,
+        input.context ? JSON.stringify(input.context) : null,
+        input.runAt ?? null,
+        input.cronExpression ?? null,
+        input.timezone ?? "UTC",
+        input.maxRuns ?? null,
+        input.maxFailures ?? 3,
+      ]
+    );
+
+    logger.info("Store", "Created scheduled task", { taskId, type: input.type, taskType: input.taskType });
+    return taskId;
+  }
+
+  /** @inheritdoc */
+  async getScheduledTask(taskId: string): Promise<ScheduledTask | null> {
+    type TaskRow = {
+      id: string;
+      conversation_id: string;
+      channel_name: string;
+      user_id: string;
+      type: string;
+      task_type: string;
+      description: string;
+      context: string | null;
+      run_at: number | null;
+      cron_expression: string | null;
+      timezone: string;
+      status: string;
+      last_run_at: number | null;
+      run_count: number;
+      max_runs: number | null;
+      last_error: string | null;
+      failure_count: number;
+      max_failures: number;
+      created_at: number;
+      updated_at: number;
+    };
+
+    const row = this.db
+      .query<TaskRow, [string]>(
+        `SELECT * FROM scheduled_tasks WHERE id = ?`
+      )
+      .get(taskId);
+
+    if (!row) return null;
+
+    return this.rowToScheduledTask(row);
+  }
+
+  /** @inheritdoc */
+  async updateScheduledTask(taskId: string, updates: UpdateScheduledTaskInput): Promise<void> {
+    const setClauses: string[] = ["updated_at = unixepoch()"];
+    const values: (string | number | null)[] = [];
+
+    if (updates.status !== undefined) {
+      setClauses.push("status = ?");
+      values.push(updates.status);
+    }
+    if (updates.lastRunAt !== undefined) {
+      setClauses.push("last_run_at = ?");
+      values.push(updates.lastRunAt);
+    }
+    if (updates.runCount !== undefined) {
+      setClauses.push("run_count = ?");
+      values.push(updates.runCount);
+    }
+    if (updates.lastError !== undefined) {
+      setClauses.push("last_error = ?");
+      values.push(updates.lastError);
+    }
+    if (updates.failureCount !== undefined) {
+      setClauses.push("failure_count = ?");
+      values.push(updates.failureCount);
+    }
+
+    if (setClauses.length === 1) return; // Only updated_at, no actual updates
+
+    values.push(taskId);
+
+    this.db.run(
+      `UPDATE scheduled_tasks SET ${setClauses.join(", ")} WHERE id = ?`,
+      values
+    );
+
+    logger.debug("Store", "Updated scheduled task", { taskId, updates });
+  }
+
+  /** @inheritdoc */
+  async deleteScheduledTask(taskId: string): Promise<void> {
+    this.db.run(`DELETE FROM scheduled_tasks WHERE id = ?`, [taskId]);
+    logger.info("Store", "Deleted scheduled task", { taskId });
+  }
+
+  /** @inheritdoc */
+  async listScheduledTasks(conversationId: string): Promise<ScheduledTask[]> {
+    type TaskRow = {
+      id: string;
+      conversation_id: string;
+      channel_name: string;
+      user_id: string;
+      type: string;
+      task_type: string;
+      description: string;
+      context: string | null;
+      run_at: number | null;
+      cron_expression: string | null;
+      timezone: string;
+      status: string;
+      last_run_at: number | null;
+      run_count: number;
+      max_runs: number | null;
+      last_error: string | null;
+      failure_count: number;
+      max_failures: number;
+      created_at: number;
+      updated_at: number;
+    };
+
+    const rows = this.db
+      .query<TaskRow, [string]>(
+        `SELECT * FROM scheduled_tasks
+         WHERE conversation_id = ?
+         ORDER BY created_at DESC`
+      )
+      .all(conversationId);
+
+    return rows.map((row) => this.rowToScheduledTask(row));
+  }
+
+  /** @inheritdoc */
+  async getPendingTasks(): Promise<ScheduledTask[]> {
+    type TaskRow = {
+      id: string;
+      conversation_id: string;
+      channel_name: string;
+      user_id: string;
+      type: string;
+      task_type: string;
+      description: string;
+      context: string | null;
+      run_at: number | null;
+      cron_expression: string | null;
+      timezone: string;
+      status: string;
+      last_run_at: number | null;
+      run_count: number;
+      max_runs: number | null;
+      last_error: string | null;
+      failure_count: number;
+      max_failures: number;
+      created_at: number;
+      updated_at: number;
+    };
+
+    const rows = this.db
+      .query<TaskRow, []>(
+        `SELECT * FROM scheduled_tasks
+         WHERE status = 'pending'
+         ORDER BY run_at ASC NULLS LAST`
+      )
+      .all();
+
+    return rows.map((row) => this.rowToScheduledTask(row));
+  }
+
+  /** Convert a database row to a ScheduledTask object */
+  private rowToScheduledTask(row: {
+    id: string;
+    conversation_id: string;
+    channel_name: string;
+    user_id: string;
+    type: string;
+    task_type: string;
+    description: string;
+    context: string | null;
+    run_at: number | null;
+    cron_expression: string | null;
+    timezone: string;
+    status: string;
+    last_run_at: number | null;
+    run_count: number;
+    max_runs: number | null;
+    last_error: string | null;
+    failure_count: number;
+    max_failures: number;
+    created_at: number;
+    updated_at: number;
+  }): ScheduledTask {
+    return {
+      id: row.id,
+      conversationId: row.conversation_id,
+      channelName: row.channel_name,
+      userId: row.user_id,
+      type: row.type as "once" | "recurring",
+      taskType: row.task_type as "reminder" | "followup" | "custom",
+      description: row.description,
+      context: row.context ? JSON.parse(row.context) : undefined,
+      runAt: row.run_at ?? undefined,
+      cronExpression: row.cron_expression ?? undefined,
+      timezone: row.timezone,
+      status: row.status as "pending" | "running" | "completed" | "cancelled" | "failed",
+      lastRunAt: row.last_run_at ?? undefined,
+      runCount: row.run_count,
+      maxRuns: row.max_runs ?? undefined,
+      lastError: row.last_error ?? undefined,
+      failureCount: row.failure_count,
+      maxFailures: row.max_failures,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    };
   }
 }
 

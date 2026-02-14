@@ -16,6 +16,9 @@ import {
   type UIMessage,
   type PandoraMessagePart,
   type TextUIPart,
+  type ScheduledTask,
+  type CreateScheduledTaskInput,
+  type UpdateScheduledTaskInput,
 } from "@pandora/core";
 
 interface ConversationMeta {
@@ -462,6 +465,39 @@ export class MemoryStore implements IMessageStore {
     }
 
     return results.sort((a, b) => a.createdAt - b.createdAt);
+  }
+
+  // === Scheduled Task Methods ===
+  // Memory store does not support scheduled tasks (they need persistence)
+
+  /** @inheritdoc */
+  async createScheduledTask(_input: CreateScheduledTaskInput): Promise<string> {
+    throw new Error("MemoryStore does not support scheduled tasks. Use SQLite or another persistent store.");
+  }
+
+  /** @inheritdoc */
+  async getScheduledTask(_taskId: string): Promise<ScheduledTask | null> {
+    return null;
+  }
+
+  /** @inheritdoc */
+  async updateScheduledTask(_taskId: string, _updates: UpdateScheduledTaskInput): Promise<void> {
+    throw new Error("MemoryStore does not support scheduled tasks. Use SQLite or another persistent store.");
+  }
+
+  /** @inheritdoc */
+  async deleteScheduledTask(_taskId: string): Promise<void> {
+    // No-op for memory store
+  }
+
+  /** @inheritdoc */
+  async listScheduledTasks(_conversationId: string): Promise<ScheduledTask[]> {
+    return [];
+  }
+
+  /** @inheritdoc */
+  async getPendingTasks(): Promise<ScheduledTask[]> {
+    return [];
   }
 }
 
