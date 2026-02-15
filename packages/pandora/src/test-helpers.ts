@@ -1,4 +1,4 @@
-import app from '../src/index'
+import app from './index'
 
 // Mock environment for tests
 export const TEST_ENV = {

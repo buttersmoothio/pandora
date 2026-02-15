@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { request } from './helpers'
+import { request } from './test-helpers'
 
 describe('Health check', () => {
   it('GET / returns app info', async () => {
     const res = await request('/')
     expect(res.status).toBe(200)
 
-    const body = await res.json()
+    const body = (await res.json()) as Record<string, unknown>
     expect(body.name).toBe('Pandora')
     expect(body.version).toBeDefined()
     expect(body.runtime).toBeDefined()
@@ -19,7 +19,7 @@ describe('Config routes', () => {
     const res = await request('/api/config')
     expect(res.status).toBe(200)
 
-    const body = await res.json()
+    const body = (await res.json()) as Record<string, Record<string, unknown>>
     expect(body.identity).toBeDefined()
     expect(body.identity.name).toBe('Pandora')
     expect(body.models).toBeDefined()
@@ -32,7 +32,7 @@ describe('Placeholder routes', () => {
     const res = await request('/wh/telegram', { method: 'POST' })
     expect(res.status).toBe(200)
 
-    const body = await res.json()
+    const body = (await res.json()) as Record<string, unknown>
     expect(body.message).toContain('not yet implemented')
   })
 
@@ -40,7 +40,7 @@ describe('Placeholder routes', () => {
     const res = await request('/api/cron/test-task', { method: 'POST' })
     expect(res.status).toBe(200)
 
-    const body = await res.json()
+    const body = (await res.json()) as Record<string, unknown>
     expect(body.taskId).toBe('test-task')
   })
 })
@@ -50,7 +50,7 @@ describe('Error handling', () => {
     const res = await request('/unknown/path')
     expect(res.status).toBe(404)
 
-    const body = await res.json()
+    const body = (await res.json()) as Record<string, unknown>
     expect(body.error).toBe('Not Found')
   })
 })

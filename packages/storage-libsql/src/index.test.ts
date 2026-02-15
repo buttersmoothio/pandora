@@ -1,17 +1,12 @@
-import { afterEach, describe, expect, it } from 'vitest'
-import { clearStorageCache, getStorage } from '../src/storage'
+import { describe, expect, it } from 'vitest'
+import { createStorage } from './index'
 
-describe('Storage', () => {
-  afterEach(() => {
-    clearStorageCache()
-  })
+describe('LibSQL storage', () => {
+  const testEnv = { DATABASE_URL: ':memory:' }
 
-  describe('getStorage', () => {
-    // Use in-memory DB for tests to avoid filesystem dependencies
-    const testEnv = { DATABASE_URL: ':memory:' }
-
-    it('creates LibSQL storage with both mastra and config stores', async () => {
-      const { mastra, config } = await getStorage(testEnv)
+  describe('createStorage', () => {
+    it('returns mastra and config stores', async () => {
+      const { mastra, config } = await createStorage(testEnv)
       expect(mastra).toBeDefined()
       expect(mastra.id).toBe('pandora-libsql')
       expect(config).toBeDefined()
@@ -19,33 +14,14 @@ describe('Storage', () => {
       expect(typeof config.set).toBe('function')
       expect(typeof config.delete).toBe('function')
     })
-
-    it('throws for unknown provider with helpful message', async () => {
-      await expect(getStorage({ STORAGE_PROVIDER: 'unknown' })).rejects.toThrow(
-        /@pandora\/storage-unknown/,
-      )
-    })
-
-    it('caches storage instance in server mode', async () => {
-      const storage1 = await getStorage(testEnv)
-      const storage2 = await getStorage(testEnv)
-      expect(storage1.mastra).toBe(storage2.mastra)
-      expect(storage1.config).toBe(storage2.config)
-    })
-
-    it('clears cache correctly', async () => {
-      const storage1 = await getStorage(testEnv)
-      clearStorageCache()
-      const storage2 = await getStorage(testEnv)
-      expect(storage1.mastra).not.toBe(storage2.mastra)
-    })
   })
 
   describe('ConfigStore integration', () => {
-    const testEnv = { DATABASE_URL: ':memory:' }
-
     it('can store and retrieve config', async () => {
-      const { config } = await getStorage(testEnv)
+      const { config } = await createStorage(testEnv)
+      if (config.init) {
+        await config.init()
+      }
 
       // Initially empty
       const initial = await config.get()
@@ -73,13 +49,15 @@ describe('Storage', () => {
       }
       await config.set(testConfig)
 
-      // Retrieve from same store (in-memory doesn't persist across instances)
       const retrieved = await config.get()
       expect(retrieved).toEqual(testConfig)
     })
 
     it('can delete config', async () => {
-      const { config } = await getStorage(testEnv)
+      const { config } = await createStorage(testEnv)
+      if (config.init) {
+        await config.init()
+      }
 
       const testConfig = {
         identity: { name: 'ToDelete', description: 'Delete me', version: '1.0.0' },

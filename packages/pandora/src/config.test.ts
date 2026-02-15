@@ -1,6 +1,7 @@
 import type { InArgs } from '@libsql/client'
 import { createClient } from '@libsql/client'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import type { Config } from './config'
 import {
   ConfigSchema,
   clearConfigCache,
@@ -8,12 +9,12 @@ import {
   getConfig,
   resetConfig,
   updateConfig,
-} from '../src/config'
-import type { ConfigStore } from '../src/storage/config-store'
-import { SQLConfigStore } from '../src/storage/config-stores/sql'
+} from './config'
+import type { ConfigStore } from './storage/config-store'
+import { SQLConfigStore } from './storage/config-stores/sql'
 
 describe('Config', () => {
-  let configStore: ConfigStore
+  let configStore: ConfigStore<Config>
 
   beforeEach(async () => {
     // Create in-memory LibSQL client for each test
