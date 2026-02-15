@@ -1,0 +1,49 @@
+# MongoDB
+
+The MongoDB provider uses the official `mongodb` driver with document-based config storage.
+
+## Installation
+
+```bash
+bun add @pandora/storage-mongodb
+```
+
+## Configuration
+
+| Variable | Required | Default | Description |
+|---|---|---|---|
+| `STORAGE_PROVIDER` | Yes | — | Set to `mongodb` |
+| `MONGODB_URI` | Yes | — | MongoDB connection string |
+| `MONGODB_DB_NAME` | No | `pandora` | Database name |
+
+```bash
+# .env
+STORAGE_PROVIDER=mongodb
+MONGODB_URI=mongodb://localhost:27017
+MONGODB_DB_NAME=pandora
+```
+
+## How It Works
+
+The provider creates a `MongoClient`, connects, and selects the database:
+
+1. **AI storage** — conversation threads, message history, and workflow state
+2. **Config storage** — agent configuration in the `pandora_config` collection
+
+Config documents have this shape:
+
+```json
+{
+  "_id": "main",
+  "value": { /* full Config object */ },
+  "updatedAt": "2026-02-15T..."
+}
+```
+
+The config store uses `updateOne` with `upsert: true` for writes, so the collection is created automatically.
+
+## When to Use
+
+- **Flexible schemas** — document-based storage with no migrations
+- **Existing MongoDB infrastructure** — reuse your current cluster
+- **Atlas deployments** — works with MongoDB Atlas connection strings

@@ -1,0 +1,107 @@
+# Storage Architecture
+
+This page covers the internal design of Pandora's storage system.
+
+## Two-Layer Design
+
+Every storage provider produces a `StorageResult` with two independent layers:
+
+```
+StorageResult
+├── mastra: MastraCompositeStore   ← AI memory, threads, workflows
+└── config: ConfigStore<Config>    ← Agent configuration
+```
+
+**Mastra storage** handles AI-specific concerns: conversation threads, message history, workflow state, and vector embeddings. Each provider wraps a Mastra adapter package (`@mastra/libsql`, `@mastra/pg`, etc.).
+
+**ConfigStore** handles Pandora-specific configuration: agent identity, model settings, channel configs, security, and tools. This is a simple key-value interface that each provider implements.
+
+The two layers share the same database connection but manage separate tables/collections.
+
+## Convention-Based Provider Discovery
+
+Pandora discovers providers at runtime via dynamic `import()`:
+
+```ts
+// In packages/pandora/src/storage/index.ts
+const provider = env.STORAGE_PROVIDER ?? 'libsql'
+const mod = await import(`@pandora/storage-${provider}`)
+const result = await mod.createStorage(env, bindings)
+```
+
+This approach means:
+- No hardcoded provider list in the core package
+- Third-party providers work automatically if they follow the `@pandora/storage-{name}` naming convention
+- Missing providers produce clear installation instructions in the error message
+
+After import, Pandora calls `mastra.init()` and `config.init()` (if defined) to set up schemas.
+
+## Caching Strategy
+
+### Storage Instance Caching
+
+```
+┌──────────────────┐     ┌──────────────────────┐
+│   Server Mode    │     │   Serverless Mode     │
+│  (Bun, Node.js)  │     │  (Workers, Edge)      │
+├──────────────────┤     ├──────────────────────┤
+│ Cached for       │     │ Fresh instance        │
+│ process lifetime │     │ per request           │
+└──────────────────┘     └──────────────────────┘
+```
+
+In `getStorage()`, a module-level `_cached` variable stores the `StorageResult`. Server runtimes reuse this across requests. Serverless runtimes (detected via `getRuntimeKey()` returning `workerd`, `edge-light`, or `fastly`) always create fresh instances.
+
+### Config Caching
+
+Config adds a second cache layer:
+
+1. **Storage cache** — the `StorageResult` itself (described above)
+2. **Config cache** — the resolved `Config` object is cached in `_configCache` after first `getConfig()` call
+
+In server mode, the config cache is updated on `PATCH` and cleared on `DELETE`. In serverless mode, neither cache is used.
+
+## SQL Dialect Abstraction
+
+`SQLConfigStore` supports three SQL dialects through a single class:
+
+| Aspect | SQLite | PostgreSQL | MSSQL |
+|---|---|---|---|
+| JSON column type | `TEXT` | `JSONB` | `NVARCHAR(MAX)` |
+| Param placeholders | `?` | `$1, $2` | `@p1, @p2` |
+| Upsert | `ON CONFLICT DO UPDATE` | `ON CONFLICT DO UPDATE` | `MERGE` |
+| Timestamp | `datetime('now')` | `NOW()` | `GETUTCDATE()` |
+| Table existence check | `CREATE TABLE IF NOT EXISTS` | `CREATE TABLE IF NOT EXISTS` | `IF NOT EXISTS (SELECT * FROM sysobjects ...)` |
+
+The dialect is set at construction time and determines which SQL templates are used. The class itself has zero driver-specific imports — callers provide an `execute(sql, params)` function wrapping their driver.
+
+## Config Resolution Pipeline
+
+When `getConfig()` is called, configuration is assembled in three stages:
+
+```
+┌─────────────┐     ┌───────────────┐     ┌──────────────┐
+│  1. Defaults │────▶│  2. Storage   │────▶│ 3. Env Vars  │
+│  (schema)    │     │  (persisted)  │     │ (overrides)  │
+└─────────────┘     └───────────────┘     └──────────────┘
+                                                  │
+                                                  ▼
+                                          ┌──────────────┐
+                                          │ Zod validate  │
+                                          └──────────────┘
+```
+
+1. **Defaults** — `ConfigSchema.parse({})` produces a complete config with all default values
+2. **Storage** — `configStore.get()` returns previously saved config, deep-merged onto defaults
+3. **Env vars** — `loadFromEnv()` maps specific env vars to config paths (e.g., `PANDORA_NAME` → `identity.name`)
+4. **Validation** — The final merged config is validated through `ConfigSchema.parse()` to ensure type safety
+
+Deep merging is recursive: nested objects are merged key-by-key, while arrays and primitives are replaced.
+
+## Schema Validation
+
+All configuration passes through Zod validation:
+
+- `ConfigSchema.parse()` is called on every `getConfig()` — if any value is invalid, the request fails with a clear error
+- `updateConfig()` validates after merging the patch, before persisting — invalid patches are rejected
+- Default values are defined directly in the Zod schema using `.default()`, ensuring `ConfigSchema.parse({})` always produces a complete, valid config

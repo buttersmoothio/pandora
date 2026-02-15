@@ -1,0 +1,201 @@
+# Building Custom Storage Providers
+
+This guide walks through creating a custom storage provider for Pandora. Every provider is a standalone package that exports a `createStorage` function.
+
+## Core Types
+
+All types are exported from `@pandora/core/storage`:
+
+```ts
+import type {
+  Config,
+  ConfigStore,
+  StorageFactory,
+  StorageResult,
+} from '@pandora/core/storage'
+```
+
+### `StorageFactory`
+
+The function signature your package must export:
+
+```ts
+type StorageFactory = (
+  env: Record<string, string | undefined>,
+  bindings?: unknown,
+) => Promise<StorageResult>
+```
+
+- `env` — environment variables (from Hono's `env()` helper)
+- `bindings` — Cloudflare Workers bindings (`c.env`), if applicable
+
+### `StorageResult`
+
+The object your factory must return:
+
+```ts
+interface StorageResult {
+  /** Mastra storage for memory, workflows, etc. */
+  mastra: MastraCompositeStore
+  /** Pandora config storage */
+  config: ConfigStore<Config>
+}
+```
+
+### `ConfigStore<T>`
+
+The interface for config persistence:
+
+```ts
+interface ConfigStore<T = unknown> {
+  /** Get the current config, or null if not set */
+  get(): Promise<T | null>
+
+  /** Save the config (full replacement) */
+  set(config: T): Promise<void>
+
+  /** Delete the config */
+  delete(): Promise<void>
+
+  /** Initialize tables/collections if needed (optional) */
+  init?(): Promise<void>
+
+  /** Close connections (optional cleanup) */
+  close?(): Promise<void>
+}
+```
+
+## Built-in Helpers
+
+Pandora provides two reusable `ConfigStore` implementations that cover most databases.
+
+### `SQLConfigStore`
+
+For SQL databases (SQLite/LibSQL, PostgreSQL, MSSQL). You provide an `execute` function wrapping your driver:
+
+```ts
+import { SQLConfigStore } from '@pandora/core/storage'
+
+const configStore = new SQLConfigStore<Config>(
+  async (sql, params) => {
+    const result = await myDriver.query(sql, params)
+    return result.rows
+  },
+  'postgres' // dialect: 'sqlite' | 'postgres' | 'mssql'
+)
+```
+
+The `execute` function receives raw SQL and an optional params array. It must return an array of row objects.
+
+Supported dialects handle differences in:
+- Table creation syntax
+- Parameterized query placeholders (`?`, `$1`, `@p1`)
+- Upsert strategy (`ON CONFLICT` vs `MERGE`)
+- JSON storage (`TEXT`, `JSONB`, `NVARCHAR(MAX)`)
+
+### `RedisConfigStore`
+
+For Redis-like key-value stores. You provide an object with `get`, `set`, and `del` methods:
+
+```ts
+import { RedisConfigStore } from '@pandora/core/storage'
+
+const configStore = new RedisConfigStore<Config>({
+  get: (key) => myRedis.get(key),
+  set: (key, value) => myRedis.set(key, value),
+  del: (key) => myRedis.del(key),
+})
+```
+
+Config is stored under the key `pandora:config` as a JSON string.
+
+## Step-by-Step: Creating a Provider
+
+Let's build a hypothetical `@pandora/storage-sqlite` provider as an example.
+
+### 1. Create the Package
+
+```
+packages/storage-sqlite/
+  package.json
+  src/
+    index.ts
+  tsconfig.json
+```
+
+### 2. Set Up `package.json`
+
+```json
+{
+  "name": "@pandora/storage-sqlite",
+  "version": "0.0.1",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.0.0"
+  },
+  "peerDependencies": {
+    "@pandora/core": "workspace:*"
+  }
+}
+```
+
+Key conventions:
+- Package name must be `@pandora/storage-{name}` where `{name}` matches the `STORAGE_PROVIDER` value
+- `@pandora/core` is a peer dependency
+- Export `createStorage` from the package entry point
+
+### 3. Implement `createStorage`
+
+```ts
+// src/index.ts
+import Database from 'better-sqlite3'
+import type { Config, StorageFactory } from '@pandora/core/storage'
+import { SQLConfigStore } from '@pandora/core/storage'
+
+export const createStorage: StorageFactory = async (env) => {
+  const dbPath = env.DATABASE_PATH ?? 'pandora.db'
+  const db = new Database(dbPath)
+
+  // Create the Mastra storage adapter
+  // (use the appropriate @mastra/* package for your database)
+  const mastra = createMastraAdapter(db)
+
+  // Create the config store using the SQL helper
+  const config = new SQLConfigStore<Config>(
+    async (sql, params) => {
+      const stmt = db.prepare(sql)
+      return params ? stmt.all(...params) : stmt.all()
+    },
+    'sqlite'
+  )
+
+  return { mastra, config }
+}
+```
+
+### 4. Test It
+
+Set the environment variable and start Pandora:
+
+```bash
+STORAGE_PROVIDER=sqlite bun run dev
+```
+
+Verify with:
+
+```bash
+curl -X POST http://localhost:3000/api/storage/init
+```
+
+## Implementing `ConfigStore` Directly
+
+If neither `SQLConfigStore` nor `RedisConfigStore` fits your database, implement `ConfigStore` directly. See the [MongoDB](/user-guide/storage/mongodb) and [DynamoDB](/user-guide/storage/dynamodb) providers for examples of custom implementations.
+
+The key requirements:
+- `get()` must return `null` (not throw) if no config exists yet
+- `set()` performs a full replacement (upsert)
+- `delete()` should not throw if the config doesn't exist
+- `init()` is called automatically by Pandora after `createStorage` returns — use it for schema setup

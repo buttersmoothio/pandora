@@ -1,0 +1,76 @@
+# Configuration
+
+Pandora stores agent configuration in the active storage backend and exposes it through a REST API. Configuration is validated with Zod and supports layered resolution.
+
+## Config API Endpoints
+
+### Get Current Config
+
+```bash
+curl http://localhost:3000/api/config
+```
+
+Returns the fully resolved config object (defaults + stored values + env overrides).
+
+### Update Config
+
+```bash
+curl -X PATCH http://localhost:3000/api/config \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "identity": { "name": "My Assistant" },
+    "personality": { "traits": ["helpful", "witty"] }
+  }'
+```
+
+Accepts a partial config object. Values are deep-merged with the existing config, validated, and persisted to storage.
+
+### Reset to Defaults
+
+```bash
+curl -X DELETE http://localhost:3000/api/config
+```
+
+Deletes the stored config and returns the default values.
+
+## Config Resolution Order
+
+Config values are resolved in layers, where later layers override earlier ones:
+
+1. **Defaults** — built-in values defined in `ConfigSchema`
+2. **Storage** — values saved via `PATCH /api/config`
+3. **Environment variables** — runtime overrides (always win)
+
+### Supported Env Overrides
+
+| Env Variable | Config Path |
+|---|---|
+| `PANDORA_NAME` | `identity.name` |
+| `PANDORA_DESCRIPTION` | `identity.description` |
+| `MODEL_PROVIDER` | `models.default.provider` |
+| `MODEL_NAME` | `models.default.model` |
+| `TELEGRAM_BOT_TOKEN` | `channels.telegram.botToken` (also enables the channel) |
+| `DISCORD_BOT_TOKEN` | `channels.discord.botToken` (also enables the channel) |
+| `SLACK_BOT_TOKEN` | `channels.slack.botToken` (also enables the channel) |
+
+## Config Schema
+
+The full configuration schema covers these sections:
+
+| Section | Description | Key Fields |
+|---|---|---|
+| `identity` | Agent name, description, version | `name`, `description`, `version` |
+| `personality` | Traits and system prompt | `traits[]`, `systemPrompt` |
+| `models` | LLM configurations | `default`, `fast`, `reasoning` (each with `provider`, `model`, `temperature`, `maxTokens`) |
+| `memory` | Thread and message limits | `enabled`, `maxThreads`, `maxMessagesPerThread` |
+| `channels` | Messaging integrations | `telegram`, `discord`, `slack`, `web` |
+| `tools` | Tool management | `enabled[]`, `disabled[]`, `mcp.servers[]` |
+| `schedule` | Cron tasks | `tasks[]` with `id`, `cron`, `action`, `enabled` |
+| `security` | CORS, rate limiting, API keys | `allowedOrigins[]`, `rateLimiting`, `apiKeys` |
+
+## Caching
+
+Config is cached differently depending on the runtime:
+
+- **Server mode** — Config is cached in memory after first load. Updates via `PATCH` refresh the cache. `DELETE` clears it.
+- **Serverless mode** — No caching. Config is loaded fresh from storage on every request.

@@ -1,0 +1,68 @@
+# Storage Setup
+
+Get Pandora running with a database in under 5 minutes.
+
+## Default: Zero-Config SQLite
+
+Pandora uses SQLite by default with no configuration needed. Just start the server:
+
+```bash
+bun run dev
+```
+
+A local SQLite database is automatically created at `data/pandora.db` in your project root. No environment variables required.
+
+## Switching Providers
+
+Set the `STORAGE_PROVIDER` environment variable to use a different database:
+
+```bash
+# .env
+STORAGE_PROVIDER=postgres
+DATABASE_URL=postgresql://user:pass@localhost:5432/pandora
+```
+
+Then install the corresponding package:
+
+```bash
+bun add @pandora/storage-postgres
+```
+
+## Provider Quick Reference
+
+| Provider | `STORAGE_PROVIDER` | Required Env Vars | Install |
+|---|---|---|---|
+| SQLite | `libsql` (default) | None (optional `DATABASE_URL`, `DATABASE_AUTH_TOKEN`) | `@pandora/storage-libsql` |
+| PostgreSQL | `postgres` | `DATABASE_URL` | `@pandora/storage-postgres` |
+| MSSQL | `mssql` | `DATABASE_URL` | `@pandora/storage-mssql` |
+| Upstash Redis | `upstash` | `UPSTASH_URL`, `UPSTASH_TOKEN` | `@pandora/storage-upstash` |
+| MongoDB | `mongodb` | `MONGODB_URI` (optional `MONGODB_DB_NAME`) | `@pandora/storage-mongodb` |
+| DynamoDB | `dynamodb` | `DYNAMODB_TABLE_NAME` (optional `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`) | `@pandora/storage-dynamodb` |
+
+## Verifying Storage
+
+After starting the server, verify that storage is working:
+
+```bash
+# Check which provider is active
+curl http://localhost:3000/api/storage
+
+# Initialize storage and verify connectivity
+curl -X POST http://localhost:3000/api/storage/init
+```
+
+A successful response looks like:
+
+```json
+{
+  "success": true,
+  "provider": "libsql",
+  "id": "pandora-libsql"
+}
+```
+
+## Next Steps
+
+- [Storage providers in detail](/user-guide/storage) — comparison and per-provider configuration
+- [Configuration API](/user-guide/storage/configuration) — manage agent config via the REST API
+- [Building custom providers](/developer-guide/storage) — implement your own storage backend

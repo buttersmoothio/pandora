@@ -1,0 +1,47 @@
+# PostgreSQL
+
+The PostgreSQL provider uses connection pooling via `pg` and stores config as JSONB.
+
+## Installation
+
+```bash
+bun add @pandora/storage-postgres
+```
+
+## Configuration
+
+| Variable | Required | Default | Description |
+|---|---|---|---|
+| `STORAGE_PROVIDER` | Yes | — | Set to `postgres` |
+| `DATABASE_URL` | Yes | — | PostgreSQL connection string |
+
+```bash
+# .env
+STORAGE_PROVIDER=postgres
+DATABASE_URL=postgresql://user:password@localhost:5432/pandora
+```
+
+## How It Works
+
+The provider creates a `pg.Pool` connection pool and passes it to both storage layers:
+
+1. **AI storage** — conversation threads, message history, and workflow state
+2. **Config storage** — agent configuration in a `pandora_config` table with JSONB values (via `SQLConfigStore` with `postgres` dialect)
+
+The config table schema:
+
+```sql
+CREATE TABLE IF NOT EXISTS pandora_config (
+  key TEXT PRIMARY KEY,
+  value JSONB NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+Schema is created automatically via `init()`.
+
+## When to Use
+
+- **Production servers** — reliable, battle-tested relational storage
+- **Existing Postgres infrastructure** — reuse your current database
+- **Complex queries** — JSONB support for efficient config lookups

@@ -1,0 +1,39 @@
+# Storage
+
+Pandora's storage system handles two responsibilities:
+
+1. **AI storage** — conversation threads, message history, and workflow state
+2. **Config storage** — agent configuration persistence via the `ConfigStore` interface
+
+Each storage provider package bundles both layers, so you only install one package and set a few environment variables.
+
+## Provider Comparison
+
+| Provider | Type | Best For | Schema Init | Env Vars |
+|---|---|---|---|---|
+| [SQLite](/user-guide/storage/libsql) | SQLite / embedded | Local dev, edge deployments | Automatic | None required |
+| [PostgreSQL](/user-guide/storage/postgres) | Relational | Production servers, existing Postgres infra | Automatic | `DATABASE_URL` |
+| [MSSQL](/user-guide/storage/mssql) | Relational | Enterprise / Azure environments | Automatic | `DATABASE_URL` |
+| [Upstash Redis](/user-guide/storage/upstash) | Key-value | Serverless, Cloudflare Workers | Not needed | `UPSTASH_URL`, `UPSTASH_TOKEN` |
+| [MongoDB](/user-guide/storage/mongodb) | Document | Flexible schemas, existing Mongo infra | Automatic | `MONGODB_URI` |
+| [DynamoDB](/user-guide/storage/dynamodb) | Key-value / document | AWS-native, serverless at scale | Manual (table must exist) | `DYNAMODB_TABLE_NAME` |
+
+## How Provider Discovery Works
+
+Pandora uses convention-based discovery. When you set `STORAGE_PROVIDER=postgres`, Pandora dynamically imports `@pandora/storage-${provider}`:
+
+```ts
+const mod = await import(`@pandora/storage-${provider}`)
+const result = await mod.createStorage(env, bindings)
+```
+
+If the package isn't installed, you get a clear error message telling you what to install.
+
+## Caching Behavior
+
+Storage instances are cached differently based on the runtime:
+
+- **Server mode** (Bun, Node.js) — Storage is created once and cached for the process lifetime. Config is also cached in memory after first load.
+- **Serverless mode** (Cloudflare Workers, Vercel Edge) — Fresh storage instances are created per request. No in-memory caching.
+
+Pandora detects the runtime automatically via Hono's `getRuntimeKey()`.
