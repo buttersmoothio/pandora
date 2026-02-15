@@ -6,7 +6,10 @@
       "cache": false
     },
     "build": {
-      "outputs": [".next/**", "!.next/cache/**"]
+      "outputs": [".next/**", "!.next/cache/**", "dist/**"]
+    },
+    "typecheck": {
+      "cache": true
     },
     "start": {
       "dependsOn": ["build"]

@@ -1,0 +1,11 @@
+name = "pandora"
+main = "worker.ts"
+compatibility_date = "2024-01-01"
+
+[vars]
+NODE_ENV = "production"
+
+# Uncomment and configure for production
+# [env.production.vars]
+# TELEGRAM_BOT_TOKEN = ""
+# TELEGRAM_WEBHOOK_SECRET = ""
