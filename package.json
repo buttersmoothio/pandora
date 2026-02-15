@@ -22,5 +22,10 @@
   "devDependencies": {
     "@biomejs/biome": "^2.3.15",
     "turbo": "^2.8.9"
+  },
+  "dependencies": {
+    "@lancedb/lancedb": "^0.26.2",
+    "@upstash/redis": "^1.36.2",
+    "cloudflare": "^5.2.0"
   }
 }

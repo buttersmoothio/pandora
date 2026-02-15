@@ -14,15 +14,20 @@ describe('Health check', () => {
   })
 })
 
-describe('Placeholder routes', () => {
-  it('GET /api/config returns placeholder', async () => {
+describe('Config routes', () => {
+  it('GET /api/config returns default config', async () => {
     const res = await request('/api/config')
     expect(res.status).toBe(200)
 
     const body = await res.json()
-    expect(body.message).toContain('not yet implemented')
+    expect(body.identity).toBeDefined()
+    expect(body.identity.name).toBe('Pandora')
+    expect(body.models).toBeDefined()
+    expect(body.channels).toBeDefined()
   })
+})
 
+describe('Placeholder routes', () => {
   it('POST /wh/telegram returns placeholder', async () => {
     const res = await request('/wh/telegram', { method: 'POST' })
     expect(res.status).toBe(200)
