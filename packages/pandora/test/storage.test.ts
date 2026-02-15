@@ -1,20 +1,9 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { clearStorageCache, getStorage, getSupportedProviders } from '../src/storage'
+import { clearStorageCache, getStorage } from '../src/storage'
 
 describe('Storage', () => {
   afterEach(() => {
     clearStorageCache()
-  })
-
-  describe('getSupportedProviders', () => {
-    it('returns list of supported providers', () => {
-      const providers = getSupportedProviders()
-      expect(providers).toBeInstanceOf(Array)
-      expect(providers.length).toBeGreaterThan(0)
-      expect(providers).toContain('libsql')
-      expect(providers).toContain('postgres')
-      expect(providers).toContain('mongodb')
-    })
   })
 
   describe('getStorage', () => {
@@ -31,9 +20,9 @@ describe('Storage', () => {
       expect(typeof config.delete).toBe('function')
     })
 
-    it('throws for unknown provider', async () => {
+    it('throws for unknown provider with helpful message', async () => {
       await expect(getStorage({ STORAGE_PROVIDER: 'unknown' })).rejects.toThrow(
-        /Unknown storage provider.*unknown/,
+        /@pandora\/storage-unknown/,
       )
     })
 

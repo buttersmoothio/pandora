@@ -1,0 +1,18 @@
+{
+  "name": "@pandora/storage-upstash",
+  "version": "0.0.1",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@mastra/upstash": "^1.0.1",
+    "@upstash/redis": "^1.36.2"
+  },
+  "peerDependencies": {
+    "@pandora/core": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  }
+}

@@ -263,7 +263,7 @@ function deepMerge<T extends Record<string, unknown>>(base: T, override: Partial
  * Loads from storage + env vars, with caching in server mode.
  */
 export async function getConfig(
-  configStore: ConfigStore,
+  configStore: ConfigStore<Config>,
   envVars: Record<string, string | undefined> = {},
 ): Promise<Config> {
   // Return cached config in server mode
@@ -277,7 +277,7 @@ export async function getConfig(
   // Load from storage
   const storedConfig = await configStore.get()
   if (storedConfig) {
-    config = deepMerge(config, storedConfig)
+    config = deepMerge(config, storedConfig as Partial<Config>)
   }
 
   // Apply env var overrides
@@ -300,7 +300,7 @@ export async function getConfig(
  * Persists to storage.
  */
 export async function updateConfig(
-  configStore: ConfigStore,
+  configStore: ConfigStore<Config>,
   patch: Partial<Config>,
 ): Promise<Config> {
   const storedConfig = (await configStore.get()) ?? DEFAULTS
@@ -320,7 +320,7 @@ export async function updateConfig(
  * Reset configuration to defaults.
  * Deletes from storage.
  */
-export async function resetConfig(configStore: ConfigStore): Promise<Config> {
+export async function resetConfig(configStore: ConfigStore<Config>): Promise<Config> {
   _configCache = null
   await configStore.delete()
   return DEFAULTS

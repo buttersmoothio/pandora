@@ -1,3 +1,4 @@
+import type { InArgs } from '@libsql/client'
 import { createClient } from '@libsql/client'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
@@ -9,7 +10,7 @@ import {
   updateConfig,
 } from '../src/config'
 import type { ConfigStore } from '../src/storage/config-store'
-import { createLibSQLConfigStore } from '../src/storage/config-store'
+import { SQLConfigStore } from '../src/storage/config-stores/sql'
 
 describe('Config', () => {
   let configStore: ConfigStore
@@ -17,7 +18,10 @@ describe('Config', () => {
   beforeEach(async () => {
     // Create in-memory LibSQL client for each test
     const client = createClient({ url: ':memory:' })
-    configStore = createLibSQLConfigStore(client)
+    configStore = new SQLConfigStore(async (sql, params) => {
+      const result = await client.execute(params ? { sql, args: params as InArgs } : sql)
+      return result.rows as unknown[]
+    }, 'sqlite')
     await configStore.init?.()
   })
 

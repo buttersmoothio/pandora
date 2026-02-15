@@ -1,0 +1,19 @@
+{
+  "name": "@pandora/storage-libsql",
+  "version": "0.0.1",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@libsql/client": "^0.17.0",
+    "@mastra/libsql": "^1.4.0"
+  },
+  "peerDependencies": {
+    "@pandora/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.9",
+    "typescript": "^5.9.3"
+  }
+}

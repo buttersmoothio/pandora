@@ -1,15 +1,16 @@
-import type { Config } from '../config'
-
 /**
  * Abstract interface for config persistence across all storage backends.
  * Each backend implements this using its native client/driver.
+ *
+ * Generic parameter `T` lets typed consumers avoid casts after retrieval.
+ * Defaults to `unknown` so unparameterized usages still compile.
  */
-export interface ConfigStore {
+export interface ConfigStore<T = unknown> {
   /** Get the current config, or null if not set */
-  get(): Promise<Config | null>
+  get(): Promise<T | null>
 
   /** Save the config (full replacement) */
-  set(config: Config): Promise<void>
+  set(config: T): Promise<void>
 
   /** Delete the config */
   delete(): Promise<void>
@@ -20,18 +21,3 @@ export interface ConfigStore {
   /** Close any connections (optional cleanup) */
   close?(): Promise<void>
 }
-
-// Re-export for convenience
-export type { Config }
-
-// Document config stores (MongoDB, DynamoDB)
-export { DynamoDBConfigStore, MongoDBConfigStore } from './config-stores/document'
-// KV config stores (Upstash Redis)
-export { RedisConfigStore } from './config-stores/kv'
-// SQL config stores (LibSQL, Postgres, MSSQL)
-export {
-  createLibSQLConfigStore,
-  createMSSQLConfigStore,
-  createPostgresConfigStore,
-  SQLConfigStore,
-} from './config-stores/sql'

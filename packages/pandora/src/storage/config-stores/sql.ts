@@ -1,4 +1,4 @@
-import type { Config, ConfigStore } from '../config-store'
+import type { ConfigStore } from '../config-store'
 
 const TABLE_NAME = 'pandora_config'
 const CONFIG_KEY = 'main'
@@ -6,8 +6,11 @@ const CONFIG_KEY = 'main'
 /**
  * SQL-based config store for LibSQL, PostgreSQL, MSSQL, D1.
  * Uses a simple key-value table with JSON storage.
+ *
+ * This class has zero driver-specific imports - callers provide
+ * a generic `execute` function wrapping their driver.
  */
-export class SQLConfigStore implements ConfigStore {
+export class SQLConfigStore<T = unknown> implements ConfigStore<T> {
   constructor(
     private execute: (sql: string, params?: unknown[]) => Promise<unknown[]>,
     private dialect: 'sqlite' | 'postgres' | 'mssql' = 'sqlite',
@@ -94,21 +97,20 @@ export class SQLConfigStore implements ConfigStore {
     await this.execute(this.createTableSQL)
   }
 
-  async get(): Promise<Config | null> {
+  async get(): Promise<T | null> {
     try {
       const rows = await this.execute(this.selectSQL, [CONFIG_KEY])
       if (!rows || rows.length === 0) return null
 
       const row = rows[0] as { value: string | object }
-      const value = typeof row.value === 'string' ? JSON.parse(row.value) : row.value
-      return value as Config
+      return (typeof row.value === 'string' ? JSON.parse(row.value) : row.value) as T
     } catch {
       // Table might not exist yet
       return null
     }
   }
 
-  async set(config: Config): Promise<void> {
+  async set(config: T): Promise<void> {
     const value = this.dialect === 'postgres' ? config : JSON.stringify(config)
     await this.execute(this.upsertSQL, [CONFIG_KEY, value])
   }
@@ -120,44 +122,4 @@ export class SQLConfigStore implements ConfigStore {
       // Table might not exist
     }
   }
-}
-
-import type { InArgs, Client as LibSQLClient } from '@libsql/client'
-import type { ConnectionPool as MSSQLPool } from 'mssql'
-import type { Pool as PgPool } from 'pg'
-
-/**
- * Create a SQLConfigStore from a LibSQL client
- */
-export function createLibSQLConfigStore(client: LibSQLClient): SQLConfigStore {
-  return new SQLConfigStore(async (sql, params) => {
-    const result = await client.execute(params ? { sql, args: params as InArgs } : sql)
-    return result.rows as unknown[]
-  }, 'sqlite')
-}
-
-/**
- * Create a SQLConfigStore from a PostgreSQL pool/client
- */
-export function createPostgresConfigStore(pool: PgPool): SQLConfigStore {
-  return new SQLConfigStore(async (sql, params) => {
-    const result = await pool.query(sql, params)
-    return result.rows
-  }, 'postgres')
-}
-
-/**
- * Create a SQLConfigStore from an MSSQL pool
- */
-export function createMSSQLConfigStore(pool: MSSQLPool): SQLConfigStore {
-  return new SQLConfigStore(async (query, params) => {
-    const request = pool.request()
-    if (params) {
-      for (let i = 0; i < params.length; i++) {
-        request.input(`p${i + 1}`, params[i])
-      }
-    }
-    const result = await request.query(query)
-    return result.recordset
-  }, 'mssql')
 }

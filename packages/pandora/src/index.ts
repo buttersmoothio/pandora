@@ -18,7 +18,7 @@ import { logger } from 'hono/logger'
 import pkg from '../package.json'
 import { getConfig, resetConfig, updateConfig } from './config'
 import { getRuntimeKey, isServerless } from './env'
-import { getStorage, getSupportedProviders } from './storage'
+import { getStorage } from './storage'
 
 // Bindings type for Cloudflare Workers
 type Bindings = {
@@ -63,7 +63,6 @@ app.get('/api/storage', async (c) => {
 
   return c.json({
     provider,
-    supported: getSupportedProviders(),
     serverless: isServerless(),
   })
 })
