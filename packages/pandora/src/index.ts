@@ -1,7 +1,10 @@
 import 'ses'
 
 // SES lockdown - must run before any other code
-lockdown()
+// Check if already locked down (e.g., in test environment)
+if (!Object.isFrozen(Object.prototype)) {
+  lockdown()
+}
 
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'

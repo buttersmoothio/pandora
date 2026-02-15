@@ -11,6 +11,16 @@
     "typecheck": {
       "cache": true
     },
+    "test": {
+      "cache": true
+    },
+    "test:watch": {
+      "persistent": true,
+      "cache": false
+    },
+    "test:coverage": {
+      "cache": true
+    },
     "start": {
       "dependsOn": ["build"]
     }
