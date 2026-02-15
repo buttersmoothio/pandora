@@ -16,8 +16,9 @@ import { env } from 'hono/adapter'
 import { cors } from 'hono/cors'
 import { logger } from 'hono/logger'
 import pkg from '../package.json'
-import { getConfig, resetConfig, updateConfig } from './config'
+import { clearConfigCache, getConfig, resetConfig, updateConfig } from './config'
 import { getRuntimeKey, isServerless } from './env'
+import { clearMastraCache, getMastra } from './mastra'
 import { getStorage } from './storage'
 
 // Bindings type for Cloudflare Workers
@@ -98,6 +99,9 @@ app.patch('/api/config', async (c) => {
     const { config: configStore } = await getStorage(envVars, c.env)
     const patch = await c.req.json()
     const updated = await updateConfig(configStore, patch)
+    // Invalidate Mastra cache so next request rebuilds with new config
+    clearConfigCache()
+    clearMastraCache()
     return c.json(updated)
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Invalid config'
@@ -115,8 +119,12 @@ app.delete('/api/config', async (c) => {
 
 // Telegram webhook - placeholder
 app.post('/wh/telegram', async (c) => {
+  const envVars = extractStringEnv(env(c))
+  const mastra = await getMastra(envVars, c.env)
+  const operator = mastra.getAgent('operator')
   return c.json({
     message: 'Telegram webhook - not yet implemented',
+    agent: { id: operator.id, name: operator.name },
     todo: ['Verify webhook secret', 'Parse Telegram update', 'Route to agent'],
   })
 })
@@ -124,9 +132,13 @@ app.post('/wh/telegram', async (c) => {
 // Cron endpoint - placeholder
 app.post('/api/cron/:taskId', async (c) => {
   const taskId = c.req.param('taskId')
+  const envVars = extractStringEnv(env(c))
+  const mastra = await getMastra(envVars, c.env)
+  const operator = mastra.getAgent('operator')
   return c.json({
     message: 'Cron endpoint - not yet implemented',
     taskId,
+    agent: { id: operator.id, name: operator.name },
     todo: ['Authenticate request', 'Execute scheduled task'],
   })
 })
