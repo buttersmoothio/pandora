@@ -79,7 +79,7 @@ describe('createOperator', () => {
       ...DEFAULTS,
       models: {
         ...DEFAULTS.models,
-        default: { provider: 'openai', model: 'gpt-4o' },
+        operator: { provider: 'openai', model: 'gpt-4o' },
       },
     }
     const tools = loadBuiltinTools(DEFAULTS, {})

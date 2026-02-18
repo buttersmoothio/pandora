@@ -8,4 +8,3 @@ NODE_ENV = "production"
 # Uncomment and configure for production
 # [env.production.vars]
 # TELEGRAM_BOT_TOKEN = ""
-# TELEGRAM_WEBHOOK_SECRET = ""

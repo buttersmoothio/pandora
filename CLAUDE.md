@@ -8,7 +8,7 @@ Pandora is a multi-runtime AI agent framework built on Hono. See [DESIGN-DRAFT.m
 
 ```
 packages/
-  pandora/     # Core Hono server with SES hardening
+  core/        # Core Hono server with SES hardening
   docs/        # Nextra documentation site
 ```
 
@@ -22,7 +22,7 @@ bun install
 bun run dev
 
 # Run just the core server
-cd packages/pandora && bun run dev
+cd packages/core && bun run dev
 ```
 
 ## Development Commands
@@ -33,7 +33,7 @@ bun run check          # Check for issues
 bun run check:fix      # Fix issues
 
 # Type checking
-cd packages/pandora && bun run typecheck
+cd packages/core && bun run typecheck
 
 # Build
 bun run build
@@ -50,9 +50,9 @@ Run `bun run check:fix` before committing.
 
 ## Adding New Code
 
-### New endpoint in pandora
+### New endpoint in core
 
-Edit `packages/pandora/src/index.ts`:
+Edit `packages/core/src/index.ts`:
 ```typescript
 app.get('/api/my-endpoint', (c) => {
   return c.json({ message: 'Hello' })
@@ -61,7 +61,7 @@ app.get('/api/my-endpoint', (c) => {
 
 ### New environment variable
 
-1. Add to schema in `packages/pandora/src/env.ts`
+1. Add to schema in `packages/core/src/env.ts`
 2. Use via `getEnv(c)` in request handlers
 
 ## Documentation

@@ -43,8 +43,8 @@ describe('Config', () => {
     })
 
     it('has correct model defaults', () => {
-      expect(DEFAULTS.models.default.provider).toBe('anthropic')
-      expect(DEFAULTS.models.default.model).toBe('claude-sonnet-4-20250514')
+      expect(DEFAULTS.models.operator.provider).toBe('anthropic')
+      expect(DEFAULTS.models.operator.model).toBe('claude-sonnet-4-20250514')
     })
 
     it('has correct memory defaults', () => {
@@ -78,7 +78,7 @@ describe('Config', () => {
         identity: { name: 'CustomBot', description: 'A custom bot', version: '1.0.0' },
       })
       expect(result.identity.name).toBe('CustomBot')
-      expect(result.models.default.provider).toBe('anthropic')
+      expect(result.models.operator.provider).toBe('anthropic')
     })
 
     it('rejects invalid model temperature', () => {
@@ -105,12 +105,17 @@ describe('Config', () => {
     it('applies env var overrides', async () => {
       const config = await getConfig(configStore, {
         PANDORA_NAME: 'EnvBot',
+      })
+      expect(config.identity.name).toBe('EnvBot')
+    })
+
+    it('does not override models from env vars', async () => {
+      const config = await getConfig(configStore, {
         MODEL_PROVIDER: 'openai',
         MODEL_NAME: 'gpt-4',
       })
-      expect(config.identity.name).toBe('EnvBot')
-      expect(config.models.default.provider).toBe('openai')
-      expect(config.models.default.model).toBe('gpt-4')
+      expect(config.models.operator.provider).toBe('anthropic')
+      expect(config.models.operator.model).toBe('claude-sonnet-4-20250514')
     })
 
     it('applies telegram channel from env', async () => {

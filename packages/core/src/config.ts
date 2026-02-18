@@ -42,12 +42,10 @@ export const ConfigSchema = z.object({
   /** Model configurations */
   models: z
     .object({
-      default: ModelConfigSchema,
-      fast: ModelConfigSchema.optional(),
-      reasoning: ModelConfigSchema.optional(),
+      operator: ModelConfigSchema,
     })
     .default(() => ({
-      default: {
+      operator: {
         provider: 'anthropic',
         model: 'claude-sonnet-4-20250514',
       },
@@ -178,16 +176,6 @@ function loadFromEnv(envVars: Record<string, string | undefined>): Partial<Confi
   }
   if (envVars.PANDORA_DESCRIPTION) {
     partial.identity = { ...(partial.identity as object), description: envVars.PANDORA_DESCRIPTION }
-  }
-
-  // Default model
-  if (envVars.MODEL_PROVIDER || envVars.MODEL_NAME) {
-    partial.models = {
-      default: {
-        provider: envVars.MODEL_PROVIDER ?? 'anthropic',
-        model: envVars.MODEL_NAME ?? 'claude-sonnet-4-20250514',
-      },
-    }
   }
 
   // Channels

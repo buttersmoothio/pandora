@@ -31,7 +31,7 @@ export function createOperator(config: Config, tools: ToolRecord): Agent {
     id: 'operator',
     name: config.identity.name,
     instructions: buildInstructions(config),
-    model: resolveModel(config, 'default'),
+    model: resolveModel(config, 'operator'),
     tools,
   })
 }
