@@ -78,10 +78,11 @@ describe('getMastra', () => {
     expect(config.tools['current-time']).toBeDefined()
   })
 
-  it('disables logger', async () => {
+  it('passes logger instance', async () => {
     await getMastra({})
     const config = mockMastraConstructor.mock.calls[0][0]
-    expect(config.logger).toBe(false)
+    expect(config.logger).toBeTruthy()
+    expect(config.logger.info).toBeTypeOf('function')
   })
 
   it('caches instance in server mode', async () => {

@@ -2,6 +2,7 @@ import { Mastra } from '@mastra/core'
 import { createOperator } from '../agents/operator'
 import { getConfig } from '../config'
 import { isServerless } from '../env'
+import { getLogger } from '../logger'
 import { getStorage } from '../storage'
 import { loadTools } from '../tools'
 
@@ -41,7 +42,7 @@ export async function getMastra(
     agents: { operator },
     storage: mastraStorage,
     tools,
-    logger: false,
+    logger: getLogger(env),
   })
 
   // Cache in server mode

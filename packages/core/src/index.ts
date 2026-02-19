@@ -20,6 +20,7 @@ import { createUIMessageStreamResponse } from 'ai'
 import pkg from '../package.json'
 import { clearConfigCache, getConfig, resetConfig, updateConfig } from './config'
 import { getRuntimeKey, isServerless } from './env'
+import { getLogger } from './logger'
 import { clearMastraCache, getMastra } from './mastra'
 import { getStorage } from './storage'
 
@@ -72,9 +73,11 @@ app.get('/api/storage', async (c) => {
 
 // Initialize storage endpoint (useful for testing)
 app.post('/api/storage/init', async (c) => {
+  const log = getLogger()
   try {
     const envVars = extractStringEnv(env(c))
     const { mastra } = await getStorage(envVars, c.env)
+    log.info('Storage initialized', { provider: envVars.STORAGE_PROVIDER ?? 'libsql', id: mastra.id })
     return c.json({
       success: true,
       provider: envVars.STORAGE_PROVIDER ?? 'libsql',
@@ -82,6 +85,7 @@ app.post('/api/storage/init', async (c) => {
     })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error'
+    log.error('Storage init failed', { error: message })
     return c.json({ success: false, error: message }, 500)
   }
 })
@@ -96,6 +100,7 @@ app.get('/api/config', async (c) => {
 
 // Config endpoint - update config
 app.patch('/api/config', async (c) => {
+  const log = getLogger()
   try {
     const envVars = extractStringEnv(env(c))
     const { config: configStore } = await getStorage(envVars, c.env)
@@ -104,9 +109,11 @@ app.patch('/api/config', async (c) => {
     // Invalidate Mastra cache so next request rebuilds with new config
     clearConfigCache()
     clearMastraCache()
+    log.info('Config updated', { keys: Object.keys(patch) })
     return c.json(updated)
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Invalid config'
+    log.error('Config update failed', { error: message })
     return c.json({ error: message }, 400)
   }
 })
@@ -147,8 +154,10 @@ app.post('/api/cron/:taskId', async (c) => {
 
 // Chat endpoint - AI SDK compatible streaming
 app.post('/api/chat', async (c) => {
+  const log = getLogger()
   try {
     const params = await c.req.json()
+    log.info('Chat request received', { messageCount: params.messages?.length })
     const envVars = extractStringEnv(env(c))
     const mastra = await getMastra(envVars, c.env)
 
@@ -160,9 +169,11 @@ app.post('/api/chat', async (c) => {
       sendSources: true,
     })
 
+    log.debug('Chat stream created')
     return createUIMessageStreamResponse({ stream })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error'
+    log.error('Chat request failed', { error: message })
     return c.json({ error: message }, 500)
   }
 })
@@ -174,7 +185,8 @@ app.notFound((c) => {
 
 // Error handler
 app.onError((err, c) => {
-  console.error('Unhandled error:', err)
+  const log = getLogger()
+  log.error('Unhandled error', { error: err.message, path: c.req.path })
   return c.json(
     {
       error: 'Internal Server Error',
