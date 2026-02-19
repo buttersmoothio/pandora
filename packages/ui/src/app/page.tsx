@@ -21,6 +21,7 @@ import { Reasoning, ReasoningContent, ReasoningTrigger } from '@/components/ai-e
 import { Source, Sources, SourcesContent, SourcesTrigger } from '@/components/ai-elements/sources'
 import { Tool, ToolContent, ToolHeader, ToolInput, ToolOutput } from '@/components/ai-elements/tool'
 import { useConfig } from '@/hooks/use-config'
+import { getToken } from '@/lib/api'
 
 function MessageParts({
   message,
@@ -52,8 +53,8 @@ function MessageParts({
         <Sources>
           <SourcesTrigger count={sourceParts.length} />
           <SourcesContent>
-            {sourceParts.map((part, i) => (
-              <Source key={`source-${i}`} href={part.url} title={part.title || part.url} />
+            {sourceParts.map((part) => (
+              <Source key={part.url} href={part.url} title={part.title || part.url} />
             ))}
           </SourcesContent>
         </Sources>
@@ -94,6 +95,10 @@ export default function Home() {
       api: process.env.NEXT_PUBLIC_API_URL
         ? `${process.env.NEXT_PUBLIC_API_URL}/api/chat`
         : 'http://localhost:4111/api/chat',
+      headers: (): Record<string, string> => {
+        const token = getToken()
+        return token ? { Authorization: `Bearer ${token}` } : {}
+      },
     }),
   })
 

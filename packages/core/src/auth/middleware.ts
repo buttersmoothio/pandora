@@ -47,7 +47,12 @@ export function authMiddleware(getAuthStore: (c: Context) => Promise<AuthStore>)
       return c.json({ error: 'unauthorized' }, 401)
     }
 
-    const session = await verifySessionToken(store, token)
+    let session: Awaited<ReturnType<typeof verifySessionToken>>
+    try {
+      session = await verifySessionToken(store, token)
+    } catch {
+      return c.json({ error: 'unauthorized' }, 401)
+    }
     if (!session) {
       return c.json({ error: 'unauthorized' }, 401)
     }

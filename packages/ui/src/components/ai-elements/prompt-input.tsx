@@ -666,6 +666,7 @@ export const PromptInput = ({
   )
 
   const handleSubmit: FormEventHandler<HTMLFormElement> = useCallback(
+    // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: form submission handler with necessary branching
     async (event) => {
       event.preventDefault()
 
@@ -779,6 +780,7 @@ export const PromptInputTextarea = ({
   const [isComposing, setIsComposing] = useState(false)
 
   const handleKeyDown: KeyboardEventHandler<HTMLTextAreaElement> = useCallback(
+    // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: keyboard handler with necessary branching
     (e) => {
       // Call the external onKeyDown handler first
       onKeyDown?.(e)

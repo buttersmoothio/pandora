@@ -165,7 +165,7 @@ function ModelsSection() {
                         />
                         <span className="truncate">{p.name}</span>
                         {!p.configured && (
-                          <span className="ml-auto text-xs text-muted-foreground">
+                          <span className="ml-auto text-muted-foreground text-xs">
                             Not configured
                           </span>
                         )}
@@ -325,7 +325,7 @@ export default function ConfigPage() {
   return (
     <div className="flex flex-1 flex-col gap-6 p-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Configuration</h1>
+        <h1 className="font-semibold text-2xl">Configuration</h1>
         <Button
           variant="outline"
           size="sm"

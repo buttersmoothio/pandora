@@ -137,15 +137,42 @@ export function createAuthRoutes(getAuthStore: (c: Context) => Promise<AuthStore
     const store = await getAuthStore(c)
     const sessions = await store.listSessions()
 
-    // Return metadata only (no token hashes)
+    const token = extractToken(c)
+    const currentHash = token ? await hashToken(token) : null
+
     return c.json({
       sessions: sessions.map((s) => ({
+        id: s.tokenHash,
         createdAt: s.createdAt,
         expiresAt: s.expiresAt,
         userAgent: s.userAgent,
         ip: s.ip,
+        current: s.tokenHash === currentHash,
       })),
     })
+  })
+
+  // DELETE /api/auth/sessions/:id — revoke a specific session
+  auth.delete('/sessions/:id', async (c) => {
+    const store = await getAuthStore(c)
+    const targetHash = c.req.param('id')
+
+    const session = await store.getSession(targetHash)
+    if (!session) {
+      return c.json({ error: 'session_not_found' }, 404)
+    }
+
+    const token = extractToken(c)
+    const currentHash = token ? await hashToken(token) : null
+    const isCurrent = targetHash === currentHash
+
+    await store.deleteSession(targetHash)
+
+    if (isCurrent) {
+      clearCookie(c)
+    }
+
+    return c.json({ success: true, loggedOut: isCurrent })
   })
 
   // DELETE /api/auth/sessions — revoke all sessions

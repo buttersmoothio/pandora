@@ -1,6 +1,14 @@
 'use client'
 
-import { MoonIcon, PlusIcon, SettingsIcon, SunIcon, WrenchIcon } from 'lucide-react'
+import {
+  LogOutIcon,
+  MoonIcon,
+  PlusIcon,
+  SettingsIcon,
+  ShieldIcon,
+  SunIcon,
+  WrenchIcon,
+} from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useTheme } from 'next-themes'
@@ -18,15 +26,18 @@ import {
   SidebarMenuItem,
   SidebarRail,
 } from '@/components/ui/sidebar'
+import { useAuth } from '@/providers/auth-provider'
 
 const NAV_ITEMS = [
   { title: 'Configuration', href: '/config', icon: SettingsIcon },
   { title: 'Tools', href: '/tools', icon: WrenchIcon },
+  { title: 'Security', href: '/security', icon: ShieldIcon },
 ]
 
 export function AppSidebar() {
   const pathname = usePathname()
   const { setTheme, resolvedTheme } = useTheme()
+  const { logout } = useAuth()
 
   return (
     <Sidebar collapsible="icon">
@@ -75,6 +86,12 @@ export function AppSidebar() {
               <SunIcon className="dark:hidden" />
               <MoonIcon className="hidden dark:block" />
               <span>Toggle theme</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton tooltip="Logout" onClick={() => logout()}>
+              <LogOutIcon />
+              <span>Logout</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
