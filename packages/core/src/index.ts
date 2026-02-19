@@ -12,6 +12,7 @@ if (!Object.isFrozen(Object.prototype)) {
 }
 
 import { handleChatStream } from '@mastra/ai-sdk'
+import { PROVIDER_REGISTRY } from '@mastra/core/llm'
 import { createUIMessageStreamResponse } from 'ai'
 import { Hono } from 'hono'
 import { env } from 'hono/adapter'
@@ -127,6 +128,16 @@ app.delete('/api/config', async (c) => {
   const { config: configStore } = await getStorage(envVars, c.env)
   const config = await resetConfig(configStore)
   return c.json(config)
+})
+
+// Models endpoint - returns available providers and models
+app.get('/api/models', (c) => {
+  const providers = Object.entries(PROVIDER_REGISTRY).map(([id, config]) => ({
+    id,
+    name: config.name,
+    models: config.models,
+  }))
+  return c.json({ providers })
 })
 
 // Chat endpoint - AI SDK compatible streaming

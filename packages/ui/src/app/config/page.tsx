@@ -1,14 +1,24 @@
 'use client'
 
-import { Loader2Icon } from 'lucide-react'
+import { CheckIcon, ChevronsUpDownIcon, Loader2Icon } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Command,
+  CommandEmpty,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Textarea } from '@/components/ui/textarea'
 import { useConfig, useResetConfig, useUpdateConfig } from '@/hooks/use-config'
+import { useModels } from '@/hooks/use-models'
+import { cn } from '@/lib/utils'
 
 function IdentitySection() {
   const { data: config } = useConfig()
@@ -152,11 +162,14 @@ function PersonalitySection() {
 
 function ModelsSection() {
   const { data: config } = useConfig()
+  const { data: modelsData } = useModels()
   const updateConfig = useUpdateConfig()
   const [provider, setProvider] = useState('')
   const [model, setModel] = useState('')
   const [temperature, setTemperature] = useState<string>('')
   const [maxTokens, setMaxTokens] = useState<string>('')
+  const [providerOpen, setProviderOpen] = useState(false)
+  const [modelOpen, setModelOpen] = useState(false)
 
   useEffect(() => {
     if (config) {
@@ -167,6 +180,10 @@ function ModelsSection() {
     }
   }, [config])
 
+  const providers = modelsData?.providers ?? []
+  const selectedProvider = providers.find((p) => p.id === provider)
+  const models = selectedProvider?.models ?? []
+
   return (
     <Card>
       <CardHeader>
@@ -176,16 +193,80 @@ function ModelsSection() {
       <CardContent className="flex flex-col gap-4">
         <div className="grid grid-cols-2 gap-4">
           <div className="flex flex-col gap-2">
-            <Label htmlFor="model-provider">Provider</Label>
-            <Input
-              id="model-provider"
-              value={provider}
-              onChange={(e) => setProvider(e.target.value)}
-            />
+            <Label>Provider</Label>
+            <Popover open={providerOpen} onOpenChange={setProviderOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="justify-between font-normal"
+                >
+                  {selectedProvider ? selectedProvider.name : provider || 'Select provider...'}
+                  <ChevronsUpDownIcon className="ml-2 size-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="p-0">
+                <Command>
+                  <CommandInput placeholder="Search providers..." />
+                  <CommandList>
+                    <CommandEmpty>No provider found.</CommandEmpty>
+                    {providers.map((p) => (
+                      <CommandItem
+                        key={p.id}
+                        value={p.name}
+                        onSelect={() => {
+                          setProvider(p.id)
+                          if (provider !== p.id) setModel('')
+                          setProviderOpen(false)
+                        }}
+                      >
+                        <CheckIcon
+                          className={cn('mr-2 size-4', provider === p.id ? 'opacity-100' : 'opacity-0')}
+                        />
+                        {p.name}
+                      </CommandItem>
+                    ))}
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
           </div>
           <div className="flex flex-col gap-2">
-            <Label htmlFor="model-name">Model</Label>
-            <Input id="model-name" value={model} onChange={(e) => setModel(e.target.value)} />
+            <Label>Model</Label>
+            <Popover open={modelOpen} onOpenChange={setModelOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="justify-between font-normal"
+                  disabled={!provider}
+                >
+                  {model || 'Select model...'}
+                  <ChevronsUpDownIcon className="ml-2 size-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="p-0">
+                <Command>
+                  <CommandInput placeholder="Search models..." />
+                  <CommandList>
+                    <CommandEmpty>No model found.</CommandEmpty>
+                    {models.map((m) => (
+                      <CommandItem
+                        key={m}
+                        value={m}
+                        onSelect={() => {
+                          setModel(m)
+                          setModelOpen(false)
+                        }}
+                      >
+                        <CheckIcon
+                          className={cn('mr-2 size-4', model === m ? 'opacity-100' : 'opacity-0')}
+                        />
+                        {m}
+                      </CommandItem>
+                    ))}
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
           </div>
           <div className="flex flex-col gap-2">
             <Label htmlFor="model-temperature">Temperature</Label>
