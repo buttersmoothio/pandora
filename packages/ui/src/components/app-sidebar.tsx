@@ -1,6 +1,7 @@
 'use client'
 
-import { PlusIcon, SettingsIcon, WrenchIcon } from 'lucide-react'
+import { MoonIcon, PlusIcon, SettingsIcon, SunIcon, WrenchIcon } from 'lucide-react'
+import { useTheme } from 'next-themes'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { NavThreads } from '@/components/nav-threads'
@@ -25,6 +26,7 @@ const NAV_ITEMS = [
 
 export function AppSidebar() {
   const pathname = usePathname()
+  const { setTheme, resolvedTheme } = useTheme()
 
   return (
     <Sidebar collapsible="icon">
@@ -63,7 +65,20 @@ export function AppSidebar() {
         <NavThreads />
       </SidebarContent>
 
-      <SidebarFooter />
+      <SidebarFooter>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              tooltip="Toggle theme"
+              onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
+            >
+              <SunIcon className="dark:hidden" />
+              <MoonIcon className="hidden dark:block" />
+              <span>Toggle theme</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarFooter>
       <SidebarRail />
     </Sidebar>
   )
