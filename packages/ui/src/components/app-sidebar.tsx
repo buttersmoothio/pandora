@@ -1,9 +1,9 @@
 'use client'
 
 import { MoonIcon, PlusIcon, SettingsIcon, SunIcon, WrenchIcon } from 'lucide-react'
-import { useTheme } from 'next-themes'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useTheme } from 'next-themes'
 import { NavThreads } from '@/components/nav-threads'
 import {
   Sidebar,

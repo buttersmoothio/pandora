@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { request } from './test-helpers'
+import { authRequest, request } from './test-helpers'
 
 describe('Health check', () => {
-  it('GET / returns app info', async () => {
+  it('GET / returns app info with auth state', async () => {
     const res = await request('/')
     expect(res.status).toBe(200)
 
@@ -11,12 +11,14 @@ describe('Health check', () => {
     expect(typeof body.version).toBe('string')
     expect(typeof body.runtime).toBe('string')
     expect(body.serverless).toBe(false)
+    expect(body.auth).toHaveProperty('setup')
+    expect(body.auth).toHaveProperty('authenticated')
   })
 })
 
 describe('Config routes', () => {
   it('GET /api/config returns default config', async () => {
-    const res = await request('/api/config')
+    const res = await authRequest('/api/config')
     expect(res.status).toBe(200)
 
     const body = (await res.json()) as Record<string, Record<string, unknown>>
@@ -33,5 +35,18 @@ describe('Error handling', () => {
 
     const body = (await res.json()) as Record<string, unknown>
     expect(body.error).toBe('Not Found')
+  })
+})
+
+describe('Auth flow', () => {
+  it('blocks protected routes without auth', async () => {
+    const res = await request('/api/models')
+    // Either 403 (setup_required) or 401 (unauthorized) depending on setup state
+    expect([401, 403]).toContain(res.status)
+  })
+
+  it('allows protected routes with valid token', async () => {
+    const res = await authRequest('/api/models')
+    expect(res.status).toBe(200)
   })
 })

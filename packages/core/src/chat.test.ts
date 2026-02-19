@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { request } from './test-helpers'
+import { authRequest } from './test-helpers'
 
 describe('POST /api/chat validation', () => {
   it('returns 400 when messages is missing', async () => {
-    const res = await request('/api/chat', {
+    const res = await authRequest('/api/chat', {
       method: 'POST',
       body: JSON.stringify({}),
     })
@@ -13,7 +13,7 @@ describe('POST /api/chat validation', () => {
   })
 
   it('returns 400 when messages is empty array', async () => {
-    const res = await request('/api/chat', {
+    const res = await authRequest('/api/chat', {
       method: 'POST',
       body: JSON.stringify({ messages: [] }),
     })
@@ -23,7 +23,7 @@ describe('POST /api/chat validation', () => {
   })
 
   it('returns 400 when message has invalid role', async () => {
-    const res = await request('/api/chat', {
+    const res = await authRequest('/api/chat', {
       method: 'POST',
       body: JSON.stringify({
         messages: [{ role: 'system', content: 'hi' }],
@@ -35,7 +35,7 @@ describe('POST /api/chat validation', () => {
   })
 
   it('returns 400 when message is missing content', async () => {
-    const res = await request('/api/chat', {
+    const res = await authRequest('/api/chat', {
       method: 'POST',
       body: JSON.stringify({
         messages: [{ role: 'user' }],
@@ -47,7 +47,7 @@ describe('POST /api/chat validation', () => {
   })
 
   it('returns 400 when messages is not an array', async () => {
-    const res = await request('/api/chat', {
+    const res = await authRequest('/api/chat', {
       method: 'POST',
       body: JSON.stringify({ messages: 'hello' }),
     })

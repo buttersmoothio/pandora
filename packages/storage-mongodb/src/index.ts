@@ -1,10 +1,20 @@
 import { MongoDBStore } from '@mastra/mongodb'
-import type { Config, ConfigStore, StorageFactory } from '@pandora/core/storage'
+import type {
+  AuthStore,
+  Config,
+  ConfigStore,
+  PasswordCredential,
+  Session,
+  StorageFactory,
+} from '@pandora/core/storage'
 import type { Collection } from 'mongodb'
 import { MongoClient } from 'mongodb'
 
 const CONFIG_COLLECTION = 'pandora_config'
 const CONFIG_ID = 'main'
+const AUTH_CREDENTIALS_COLLECTION = 'pandora_auth_credentials'
+const AUTH_SESSIONS_COLLECTION = 'pandora_auth_sessions'
+const OWNER_KEY = 'owner'
 
 interface ConfigDocument {
   _id: string
@@ -44,6 +54,116 @@ class MongoDBConfigStore implements ConfigStore<Config> {
   }
 }
 
+interface CredentialDocument {
+  _id: string
+  hash: string
+  salt: string
+  iterations: number
+  createdAt: string
+}
+
+interface SessionDocument {
+  _id: string
+  expiresAt: Date
+  createdAt: string
+  userAgent?: string
+  ip?: string
+}
+
+class MongoDBAuthStore implements AuthStore {
+  constructor(
+    private getCredentials: () => Promise<Collection<CredentialDocument>>,
+    private getSessions: () => Promise<Collection<SessionDocument>>,
+  ) {}
+
+  async init(): Promise<void> {
+    const sessions = await this.getSessions()
+    await sessions.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 })
+  }
+
+  async getCredential(): Promise<PasswordCredential | null> {
+    try {
+      const col = await this.getCredentials()
+      const doc = await col.findOne({ _id: OWNER_KEY })
+      if (!doc) return null
+      return {
+        hash: doc.hash,
+        salt: doc.salt,
+        iterations: doc.iterations,
+        createdAt: doc.createdAt,
+      }
+    } catch {
+      return null
+    }
+  }
+
+  async setCredential(credential: PasswordCredential): Promise<void> {
+    const col = await this.getCredentials()
+    await col.updateOne(
+      { _id: OWNER_KEY },
+      {
+        $set: {
+          hash: credential.hash,
+          salt: credential.salt,
+          iterations: credential.iterations,
+          createdAt: credential.createdAt,
+        },
+      },
+      { upsert: true },
+    )
+  }
+
+  async createSession(session: Session): Promise<void> {
+    const col = await this.getSessions()
+    await col.insertOne({
+      _id: session.tokenHash,
+      expiresAt: new Date(session.expiresAt),
+      createdAt: session.createdAt,
+      userAgent: session.userAgent,
+      ip: session.ip,
+    })
+  }
+
+  async getSession(tokenHash: string): Promise<Session | null> {
+    try {
+      const col = await this.getSessions()
+      const doc = await col.findOne({ _id: tokenHash, expiresAt: { $gt: new Date() } })
+      if (!doc) return null
+      return {
+        tokenHash: doc._id,
+        expiresAt: doc.expiresAt.toISOString(),
+        createdAt: doc.createdAt,
+        userAgent: doc.userAgent,
+        ip: doc.ip,
+      }
+    } catch {
+      return null
+    }
+  }
+
+  async deleteSession(tokenHash: string): Promise<void> {
+    const col = await this.getSessions()
+    await col.deleteOne({ _id: tokenHash })
+  }
+
+  async deleteAllSessions(): Promise<void> {
+    const col = await this.getSessions()
+    await col.deleteMany({})
+  }
+
+  async listSessions(): Promise<Session[]> {
+    const col = await this.getSessions()
+    const docs = await col.find({ expiresAt: { $gt: new Date() } }).toArray()
+    return docs.map((doc) => ({
+      tokenHash: doc._id,
+      expiresAt: doc.expiresAt.toISOString(),
+      createdAt: doc.createdAt,
+      userAgent: doc.userAgent,
+      ip: doc.ip,
+    }))
+  }
+}
+
 export const createStorage: StorageFactory = async (env) => {
   if (!env.MONGODB_URI) {
     throw new Error('MONGODB_URI is required for MongoDB storage')
@@ -69,5 +189,10 @@ export const createStorage: StorageFactory = async (env) => {
     db.collection<ConfigDocument>(CONFIG_COLLECTION),
   )
 
-  return { mastra, config }
+  const auth = new MongoDBAuthStore(
+    async () => db.collection<CredentialDocument>(AUTH_CREDENTIALS_COLLECTION),
+    async () => db.collection<SessionDocument>(AUTH_SESSIONS_COLLECTION),
+  )
+
+  return { mastra, config, auth }
 }

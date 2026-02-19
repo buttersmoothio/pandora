@@ -34,13 +34,13 @@ export default function RootLayout({
         <ThemeProvider>
           <QueryProvider>
             <SidebarProvider>
-            <AppSidebar />
-            <SidebarInset>
-              <header className="flex h-12 shrink-0 items-center gap-2 border-b px-4">
-                <SidebarTrigger className="-ml-1" />
-              </header>
-              <main className="flex flex-1 flex-col">{children}</main>
-            </SidebarInset>
+              <AppSidebar />
+              <SidebarInset>
+                <header className="flex h-12 shrink-0 items-center gap-2 border-b px-4">
+                  <SidebarTrigger className="-ml-1" />
+                </header>
+                <main className="flex flex-1 flex-col">{children}</main>
+              </SidebarInset>
             </SidebarProvider>
             <Toaster />
           </QueryProvider>

@@ -137,10 +137,7 @@ function ModelsSection() {
             <Label>Provider</Label>
             <Popover open={providerOpen} onOpenChange={setProviderOpen}>
               <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className="justify-between font-normal"
-                >
+                <Button variant="outline" className="justify-between font-normal">
                   {selectedProvider ? selectedProvider.name : provider || 'Select provider...'}
                   <ChevronsUpDownIcon className="ml-2 size-4 shrink-0 opacity-50" />
                 </Button>
@@ -161,11 +158,16 @@ function ModelsSection() {
                         }}
                       >
                         <CheckIcon
-                          className={cn('mr-2 size-4', provider === p.id ? 'opacity-100' : 'opacity-0')}
+                          className={cn(
+                            'mr-2 size-4',
+                            provider === p.id ? 'opacity-100' : 'opacity-0',
+                          )}
                         />
                         <span className="truncate">{p.name}</span>
                         {!p.configured && (
-                          <span className="ml-auto text-xs text-muted-foreground">Not configured</span>
+                          <span className="ml-auto text-xs text-muted-foreground">
+                            Not configured
+                          </span>
                         )}
                       </CommandItem>
                     ))}
@@ -262,14 +264,11 @@ function ModelsSection() {
                 )}
               </li>
               <li>
-                Add the following environment variable{selectedProvider.envVars.length > 1 ? 's' : ''}
-                {' '}to your environment:
+                Add the following environment variable
+                {selectedProvider.envVars.length > 1 ? 's' : ''} to your environment:
                 <div className="mt-1.5 flex flex-wrap gap-1.5">
                   {selectedProvider.envVars.map((v) => (
-                    <code
-                      key={v}
-                      className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs"
-                    >
+                    <code key={v} className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
                       {v}
                     </code>
                   ))}

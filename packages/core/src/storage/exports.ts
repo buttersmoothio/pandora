@@ -1,3 +1,6 @@
+export type { AuthStore, PasswordCredential, Session } from '../auth/auth-store'
+export { RedisAuthStore } from '../auth/auth-stores/kv'
+export { SQLAuthStore } from '../auth/auth-stores/sql'
 export type { Config } from '../config'
 export { ConfigSchema } from '../config'
 export type { ConfigStore } from './config-store'

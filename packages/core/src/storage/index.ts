@@ -1,9 +1,11 @@
 import type { MastraCompositeStore } from '@mastra/core/storage'
+import type { AuthStore } from '../auth/auth-store'
 import type { Config } from '../config'
 import { isServerless } from '../env'
 import type { ConfigStore } from './config-store'
 
 export type { MastraCompositeStore, StorageDomains } from '@mastra/core/storage'
+export type { AuthStore } from '../auth/auth-store'
 export type { ConfigStore } from './config-store'
 
 /**
@@ -14,6 +16,8 @@ export interface StorageResult {
   mastra: MastraCompositeStore
   /** Pandora config storage */
   config: ConfigStore<Config>
+  /** Pandora auth storage */
+  auth: AuthStore
 }
 
 export type StorageFactory = (
@@ -69,6 +73,7 @@ async function createStorage(
     if (result.config.init) {
       await result.config.init()
     }
+    await result.auth.init()
     return result
   } catch (err) {
     if (err instanceof Error && 'code' in err && err.code === 'ERR_MODULE_NOT_FOUND') {

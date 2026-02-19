@@ -1,6 +1,6 @@
 import { MSSQLStore } from '@mastra/mssql'
 import type { Config, StorageFactory } from '@pandora/core/storage'
-import { SQLConfigStore } from '@pandora/core/storage'
+import { SQLAuthStore, SQLConfigStore } from '@pandora/core/storage'
 import sql from 'mssql'
 
 export const createStorage: StorageFactory = async (env) => {
@@ -16,7 +16,7 @@ export const createStorage: StorageFactory = async (env) => {
     pool,
   })
 
-  const config = new SQLConfigStore<Config>(async (query, params) => {
+  const executeMssql = async (query: string, params?: unknown[]) => {
     const request = pool.request()
     if (params) {
       for (let i = 0; i < params.length; i++) {
@@ -25,7 +25,10 @@ export const createStorage: StorageFactory = async (env) => {
     }
     const result = await request.query(query)
     return result.recordset
-  }, 'mssql')
+  }
 
-  return { mastra, config }
+  const config = new SQLConfigStore<Config>(executeMssql, 'mssql')
+  const auth = new SQLAuthStore(executeMssql, 'mssql')
+
+  return { mastra, config, auth }
 }

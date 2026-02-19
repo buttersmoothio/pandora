@@ -20,6 +20,8 @@ import { cors } from 'hono/cors'
 import { logger } from 'hono/logger'
 import { z } from 'zod'
 import pkg from '../package.json'
+import { authMiddleware } from './auth/middleware'
+import { createAuthRoutes } from './auth/routes'
 import { clearConfigCache, getConfig, resetConfig, updateConfig } from './config'
 import { getRuntimeKey, isServerless } from './env'
 import { getLogger } from './logger'
@@ -39,13 +41,47 @@ const app = new Hono<{ Bindings: Bindings }>()
 app.use('*', logger())
 app.use('*', cors())
 
-// Health check - returns runtime info
-app.get('/', (c) => {
+// Health check - returns runtime info + auth state
+app.get('/', async (c) => {
+  let authState = { setup: false, authenticated: false }
+  try {
+    const envVars = extractStringEnv(env(c))
+    const { auth: authStore } = await getStorage(envVars, c.env)
+    const credential = await authStore.getCredential()
+    const isSetup = !!credential
+
+    let authenticated = false
+    if (isSetup) {
+      // Check if current request has a valid session
+      const authHeader = c.req.header('Authorization')
+      let token: string | undefined
+      if (authHeader?.startsWith('Bearer ')) {
+        token = authHeader.slice(7)
+      } else {
+        const cookie = c.req.header('Cookie')
+        if (cookie) {
+          const match = cookie.match(/(?:^|;\s*)pandora_session=([^\s;]+)/)
+          if (match) token = match[1]
+        }
+      }
+      if (token) {
+        const { verifySessionToken } = await import('./auth/session')
+        const session = await verifySessionToken(authStore, token)
+        authenticated = !!session
+      }
+    }
+
+    authState = { setup: isSetup, authenticated }
+  } catch {
+    // If storage fails, return default auth state
+  }
+
   return c.json({
     name: 'Pandora',
     version: pkg.version,
     runtime: getRuntimeKey(),
     serverless: isServerless(),
+    auth: authState,
   })
 })
 
@@ -61,6 +97,20 @@ function extractStringEnv(raw: Record<string, unknown>): Record<string, string |
   }
   return result
 }
+
+/** Helper to get auth store from request context */
+async function getAuthStore(c: unknown) {
+  const envVars = extractStringEnv(env(c as never))
+  const bindings = (c as { env: Bindings }).env
+  const { auth } = await getStorage(envVars, bindings)
+  return auth
+}
+
+// Auth middleware — protects all /api/* routes
+app.use('/api/*', authMiddleware(getAuthStore))
+
+// Auth routes
+app.route('/api/auth', createAuthRoutes(getAuthStore))
 
 // Storage info endpoint
 app.get('/api/storage', async (c) => {

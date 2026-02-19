@@ -3,7 +3,6 @@
 import { useChat } from '@ai-sdk/react'
 import { DefaultChatTransport, isToolUIPart, type UIMessage } from 'ai'
 import { MessageSquareIcon } from 'lucide-react'
-import { useConfig } from '@/hooks/use-config'
 import {
   Conversation,
   ConversationContent,
@@ -21,6 +20,7 @@ import {
 import { Reasoning, ReasoningContent, ReasoningTrigger } from '@/components/ai-elements/reasoning'
 import { Source, Sources, SourcesContent, SourcesTrigger } from '@/components/ai-elements/sources'
 import { Tool, ToolContent, ToolHeader, ToolInput, ToolOutput } from '@/components/ai-elements/tool'
+import { useConfig } from '@/hooks/use-config'
 
 function MessageParts({
   message,

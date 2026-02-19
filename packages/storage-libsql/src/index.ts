@@ -4,7 +4,7 @@ import type { InArgs } from '@libsql/client'
 import { createClient } from '@libsql/client'
 import { LibSQLStore } from '@mastra/libsql'
 import type { Config, StorageFactory } from '@pandora/core/storage'
-import { SQLConfigStore } from '@pandora/core/storage'
+import { SQLAuthStore, SQLConfigStore } from '@pandora/core/storage'
 
 // Resolve to monorepo root: packages/storage-libsql/src -> ../../../data
 const PACKAGE_ROOT = resolve(import.meta.dirname, '..')
@@ -44,5 +44,10 @@ export const createStorage: StorageFactory = async (env) => {
 
   const config = createLibSQLConfigStore(client)
 
-  return { mastra, config }
+  const auth = new SQLAuthStore(async (sql, params) => {
+    const result = await client.execute(params ? { sql, args: params as InArgs } : sql)
+    return result.rows as unknown[]
+  }, 'sqlite')
+
+  return { mastra, config, auth }
 }

@@ -1,6 +1,6 @@
 import { PostgresStore } from '@mastra/pg'
 import type { Config, StorageFactory } from '@pandora/core/storage'
-import { SQLConfigStore } from '@pandora/core/storage'
+import { SQLAuthStore, SQLConfigStore } from '@pandora/core/storage'
 import { Pool } from 'pg'
 
 export const createStorage: StorageFactory = async (env) => {
@@ -20,5 +20,10 @@ export const createStorage: StorageFactory = async (env) => {
     return result.rows
   }, 'postgres')
 
-  return { mastra, config }
+  const auth = new SQLAuthStore(async (sql, params) => {
+    const result = await pool.query(sql, params)
+    return result.rows
+  }, 'postgres')
+
+  return { mastra, config, auth }
 }
