@@ -126,38 +126,29 @@ app.delete('/api/config', async (c) => {
   return c.json(config)
 })
 
-// Telegram webhook - placeholder
-app.post('/wh/telegram', async (c) => {
-  const envVars = extractStringEnv(env(c))
-  const mastra = await getMastra(envVars, c.env)
-  const operator = mastra.getAgent('operator')
-  return c.json({
-    message: 'Telegram webhook - not yet implemented',
-    agent: { id: operator.id, name: operator.name },
-    todo: ['Verify webhook secret', 'Parse Telegram update', 'Route to agent'],
-  })
-})
-
-// Cron endpoint - placeholder
-app.post('/api/cron/:taskId', async (c) => {
-  const taskId = c.req.param('taskId')
-  const envVars = extractStringEnv(env(c))
-  const mastra = await getMastra(envVars, c.env)
-  const operator = mastra.getAgent('operator')
-  return c.json({
-    message: 'Cron endpoint - not yet implemented',
-    taskId,
-    agent: { id: operator.id, name: operator.name },
-    todo: ['Authenticate request', 'Execute scheduled task'],
-  })
-})
-
 // Chat endpoint - AI SDK compatible streaming
 app.post('/api/chat', async (c) => {
   const log = getLogger()
   try {
     const params = await c.req.json()
-    log.info('Chat request received', { messageCount: params.messages?.length })
+
+    // Validate messages
+    const { messages } = params
+    if (!Array.isArray(messages) || messages.length === 0) {
+      return c.json({ error: 'messages must be a non-empty array' }, 400)
+    }
+
+    const validRoles = new Set(['user', 'assistant'])
+    for (const msg of messages) {
+      if (!msg.role || !validRoles.has(msg.role)) {
+        return c.json({ error: `Invalid role "${msg.role}". Must be "user" or "assistant".` }, 400)
+      }
+      if (!msg.parts && !msg.content) {
+        return c.json({ error: 'Each message must have content or parts' }, 400)
+      }
+    }
+
+    log.info('Chat request received', { messageCount: messages.length })
     const envVars = extractStringEnv(env(c))
     const mastra = await getMastra(envVars, c.env)
 

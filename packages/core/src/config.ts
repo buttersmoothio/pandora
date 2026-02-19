@@ -51,104 +51,18 @@ export const ConfigSchema = z.object({
       },
     })),
 
-  /** Memory settings */
-  memory: z
-    .object({
-      enabled: z.boolean(),
-      maxThreads: z.number().positive(),
-      maxMessagesPerThread: z.number().positive(),
-    })
-    .default(() => ({
-      enabled: true,
-      maxThreads: 100,
-      maxMessagesPerThread: 1000,
-    })),
-
-  /** Channel configurations */
-  channels: z
-    .object({
-      telegram: z
-        .object({
-          enabled: z.boolean(),
-          botToken: z.string().optional(),
-          webhookSecret: z.string().optional(),
-        })
-        .default(() => ({ enabled: false })),
-      discord: z
-        .object({
-          enabled: z.boolean(),
-          botToken: z.string().optional(),
-          applicationId: z.string().optional(),
-        })
-        .default(() => ({ enabled: false })),
-      slack: z
-        .object({
-          enabled: z.boolean(),
-          botToken: z.string().optional(),
-          signingSecret: z.string().optional(),
-        })
-        .default(() => ({ enabled: false })),
-      web: z.object({ enabled: z.boolean() }).default(() => ({ enabled: true })),
-    })
-    .default(() => ({
-      telegram: { enabled: false },
-      discord: { enabled: false },
-      slack: { enabled: false },
-      web: { enabled: true },
-    })),
-
-  /** Tool configurations */
+  /** Tool configurations — keyed by tool ID */
   tools: z
-    .object({
-      enabled: z.array(z.string()),
-      disabled: z.array(z.string()),
-      mcp: z
-        .object({
-          servers: z.array(
-            z.object({
-              name: z.string(),
-              url: z.string(),
-            }),
-          ),
-        })
-        .default(() => ({ servers: [] })),
-    })
+    .record(
+      z.string(),
+      z.object({
+        enabled: z.boolean(),
+        settings: z.record(z.string(), z.string()).optional(),
+        requireApproval: z.boolean().optional(),
+      }),
+    )
     .default(() => ({
-      enabled: [],
-      disabled: [],
-      mcp: { servers: [] },
-    })),
-
-  /** Scheduled task configurations */
-  schedule: z
-    .object({
-      tasks: z.array(
-        z.object({
-          id: z.string(),
-          cron: z.string(),
-          action: z.string(),
-          enabled: z.boolean(),
-        }),
-      ),
-    })
-    .default(() => ({ tasks: [] })),
-
-  /** Security settings */
-  security: z
-    .object({
-      allowedOrigins: z.array(z.string()),
-      rateLimiting: z
-        .object({
-          enabled: z.boolean(),
-          requestsPerMinute: z.number().positive(),
-        })
-        .default(() => ({ enabled: false, requestsPerMinute: 60 })),
-      apiKeys: z.object({ required: z.boolean() }).default(() => ({ required: false })),
-    })
-    .default(() => ({
-      allowedOrigins: ['*'],
-      rateLimiting: { enabled: false, requestsPerMinute: 60 },
-      apiKeys: { required: false },
+      'current-time': { enabled: true },
     })),
 })
 
@@ -176,40 +90,6 @@ function loadFromEnv(envVars: Record<string, string | undefined>): Partial<Confi
   }
   if (envVars.PANDORA_DESCRIPTION) {
     partial.identity = { ...(partial.identity as object), description: envVars.PANDORA_DESCRIPTION }
-  }
-
-  // Channels
-  if (envVars.TELEGRAM_BOT_TOKEN) {
-    partial.channels = {
-      ...(partial.channels as object),
-      telegram: {
-        enabled: true,
-        botToken: envVars.TELEGRAM_BOT_TOKEN,
-        webhookSecret: envVars.TELEGRAM_WEBHOOK_SECRET,
-      },
-    }
-  }
-
-  if (envVars.DISCORD_BOT_TOKEN) {
-    partial.channels = {
-      ...(partial.channels as object),
-      discord: {
-        enabled: true,
-        botToken: envVars.DISCORD_BOT_TOKEN,
-        applicationId: envVars.DISCORD_APPLICATION_ID,
-      },
-    }
-  }
-
-  if (envVars.SLACK_BOT_TOKEN) {
-    partial.channels = {
-      ...(partial.channels as object),
-      slack: {
-        enabled: true,
-        botToken: envVars.SLACK_BOT_TOKEN,
-        signingSecret: envVars.SLACK_SIGNING_SECRET,
-      },
-    }
   }
 
   return partial as Partial<Config>

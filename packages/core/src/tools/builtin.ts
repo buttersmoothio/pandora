@@ -37,25 +37,18 @@ const ALL_BUILTIN_TOOLS = {
 } as const
 
 /**
- * Load Tier 1 built-in tools, filtered by config.tools.enabled / config.tools.disabled.
- *
- * - If `enabled` is non-empty, only those tools are included.
- * - If `disabled` is non-empty, those tools are excluded.
- * - If both are empty, all built-in tools are included.
+ * Load built-in tools that are enabled in config.
  */
 export function loadBuiltinTools(
   config: Config,
   _envVars: Record<string, string | undefined>,
 ): ToolRecord {
-  const { enabled, disabled } = config.tools
   const result: ToolRecord = {}
 
   for (const [id, tool] of Object.entries(ALL_BUILTIN_TOOLS)) {
-    // If enabled list is set, only include tools in that list
-    if (enabled.length > 0 && !enabled.includes(id)) continue
-    // If disabled list is set, exclude tools in that list
-    if (disabled.includes(id)) continue
-    result[id] = tool
+    if (config.tools[id]?.enabled) {
+      result[id] = tool
+    }
   }
 
   return result

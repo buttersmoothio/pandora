@@ -1,18 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { request } from './test-helpers'
 
-describe('GET /chat', () => {
-  it('returns HTML page', async () => {
-    const res = await request('/chat')
-    expect(res.status).toBe(200)
-
-    const html = await res.text()
-    expect(html).toContain('<!DOCTYPE html>')
-    expect(html).toContain('/api/chat')
-    expect(html).toContain('Pandora Chat')
-  })
-})
-
 describe('POST /api/chat validation', () => {
   it('returns 400 when messages is missing', async () => {
     const res = await request('/api/chat', {

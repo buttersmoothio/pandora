@@ -9,31 +9,31 @@ describe('loadBuiltinTools', () => {
     expect(Object.keys(tools)).toContain('current-time')
   })
 
-  it('filters by enabled list', () => {
+  it('only loads enabled tools', () => {
     const config: Config = {
       ...DEFAULTS,
-      tools: { ...DEFAULTS.tools, enabled: ['current-time'] },
+      tools: { 'current-time': { enabled: true } },
     }
     const tools = loadBuiltinTools(config, {})
     expect(Object.keys(tools)).toEqual(['current-time'])
   })
 
-  it('excludes unknown tools from enabled list', () => {
+  it('excludes disabled tools', () => {
     const config: Config = {
       ...DEFAULTS,
-      tools: { ...DEFAULTS.tools, enabled: ['nonexistent'] },
+      tools: { 'current-time': { enabled: false } },
     }
     const tools = loadBuiltinTools(config, {})
     expect(Object.keys(tools)).toEqual([])
   })
 
-  it('filters by disabled list', () => {
+  it('ignores unknown tool IDs in config', () => {
     const config: Config = {
       ...DEFAULTS,
-      tools: { ...DEFAULTS.tools, disabled: ['current-time'] },
+      tools: { nonexistent: { enabled: true } },
     }
     const tools = loadBuiltinTools(config, {})
-    expect(Object.keys(tools)).not.toContain('current-time')
+    expect(Object.keys(tools)).toEqual([])
   })
 })
 

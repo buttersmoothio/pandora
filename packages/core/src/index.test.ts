@@ -23,25 +23,7 @@ describe('Config routes', () => {
     expect(body.identity).toBeDefined()
     expect(body.identity.name).toBe('Pandora')
     expect(body.models).toBeDefined()
-    expect(body.channels).toBeDefined()
-  })
-})
-
-describe('Placeholder routes', () => {
-  it('POST /wh/telegram returns placeholder', async () => {
-    const res = await request('/wh/telegram', { method: 'POST' })
-    expect(res.status).toBe(200)
-
-    const body = (await res.json()) as Record<string, unknown>
-    expect(body.message).toContain('not yet implemented')
-  })
-
-  it('POST /api/cron/:taskId returns placeholder', async () => {
-    const res = await request('/api/cron/test-task', { method: 'POST' })
-    expect(res.status).toBe(200)
-
-    const body = (await res.json()) as Record<string, unknown>
-    expect(body.taskId).toBe('test-task')
+    expect(body.tools).toBeDefined()
   })
 })
 

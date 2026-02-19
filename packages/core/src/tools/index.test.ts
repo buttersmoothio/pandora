@@ -11,7 +11,7 @@ describe('loadTools', () => {
   it('respects disabled config', async () => {
     const config = {
       ...DEFAULTS,
-      tools: { ...DEFAULTS.tools, disabled: ['current-time'] },
+      tools: { 'current-time': { enabled: false } },
     }
     const tools = await loadTools(config, {})
     expect(Object.keys(tools)).not.toContain('current-time')

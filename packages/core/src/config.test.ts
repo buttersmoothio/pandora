@@ -47,23 +47,8 @@ describe('Config', () => {
       expect(DEFAULTS.models.operator.model).toBe('claude-sonnet-4-20250514')
     })
 
-    it('has correct memory defaults', () => {
-      expect(DEFAULTS.memory.enabled).toBe(true)
-      expect(DEFAULTS.memory.maxThreads).toBe(100)
-      expect(DEFAULTS.memory.maxMessagesPerThread).toBe(1000)
-    })
-
-    it('has correct channel defaults', () => {
-      expect(DEFAULTS.channels.telegram.enabled).toBe(false)
-      expect(DEFAULTS.channels.discord.enabled).toBe(false)
-      expect(DEFAULTS.channels.slack.enabled).toBe(false)
-      expect(DEFAULTS.channels.web.enabled).toBe(true)
-    })
-
-    it('has correct security defaults', () => {
-      expect(DEFAULTS.security.allowedOrigins).toEqual(['*'])
-      expect(DEFAULTS.security.rateLimiting.enabled).toBe(false)
-      expect(DEFAULTS.security.apiKeys.required).toBe(false)
+    it('has correct tools defaults', () => {
+      expect(DEFAULTS.tools['current-time']).toEqual({ enabled: true })
     })
   })
 
@@ -118,33 +103,6 @@ describe('Config', () => {
       expect(config.models.operator.model).toBe('claude-sonnet-4-20250514')
     })
 
-    it('applies telegram channel from env', async () => {
-      const config = await getConfig(configStore, {
-        TELEGRAM_BOT_TOKEN: 'test-token',
-        TELEGRAM_WEBHOOK_SECRET: 'test-secret',
-      })
-      expect(config.channels.telegram.enabled).toBe(true)
-      expect(config.channels.telegram.botToken).toBe('test-token')
-      expect(config.channels.telegram.webhookSecret).toBe('test-secret')
-    })
-
-    it('applies discord channel from env', async () => {
-      const config = await getConfig(configStore, {
-        DISCORD_BOT_TOKEN: 'discord-token',
-        DISCORD_APPLICATION_ID: 'app-id',
-      })
-      expect(config.channels.discord.enabled).toBe(true)
-      expect(config.channels.discord.botToken).toBe('discord-token')
-    })
-
-    it('applies slack channel from env', async () => {
-      const config = await getConfig(configStore, {
-        SLACK_BOT_TOKEN: 'slack-token',
-        SLACK_SIGNING_SECRET: 'signing-secret',
-      })
-      expect(config.channels.slack.enabled).toBe(true)
-      expect(config.channels.slack.botToken).toBe('slack-token')
-    })
   })
 
   describe('updateConfig', () => {
