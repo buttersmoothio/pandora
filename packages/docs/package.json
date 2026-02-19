@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "next --turbopack -p 8080",
+    "dev": "NODE_OPTIONS='--no-warnings' next --turbopack -p 8080",
     "build": "next build",
     "postbuild": "pagefind --site .next/server/app --output-path public/_pagefind",
     "start": "next start -p 8080"

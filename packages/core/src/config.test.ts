@@ -102,7 +102,6 @@ describe('Config', () => {
       expect(config.models.operator.provider).toBe('anthropic')
       expect(config.models.operator.model).toBe('claude-sonnet-4-20250514')
     })
-
   })
 
   describe('updateConfig', () => {

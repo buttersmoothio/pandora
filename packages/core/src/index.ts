@@ -11,12 +11,12 @@ if (!Object.isFrozen(Object.prototype)) {
   })
 }
 
+import { handleChatStream } from '@mastra/ai-sdk'
+import { createUIMessageStreamResponse } from 'ai'
 import { Hono } from 'hono'
 import { env } from 'hono/adapter'
 import { cors } from 'hono/cors'
 import { logger } from 'hono/logger'
-import { handleChatStream } from '@mastra/ai-sdk'
-import { createUIMessageStreamResponse } from 'ai'
 import pkg from '../package.json'
 import { clearConfigCache, getConfig, resetConfig, updateConfig } from './config'
 import { getRuntimeKey, isServerless } from './env'
@@ -77,7 +77,10 @@ app.post('/api/storage/init', async (c) => {
   try {
     const envVars = extractStringEnv(env(c))
     const { mastra } = await getStorage(envVars, c.env)
-    log.info('Storage initialized', { provider: envVars.STORAGE_PROVIDER ?? 'libsql', id: mastra.id })
+    log.info('Storage initialized', {
+      provider: envVars.STORAGE_PROVIDER ?? 'libsql',
+      id: mastra.id,
+    })
     return c.json({
       success: true,
       provider: envVars.STORAGE_PROVIDER ?? 'libsql',
@@ -140,10 +143,10 @@ app.post('/api/chat', async (c) => {
 
     const validRoles = new Set(['user', 'assistant'])
     for (const msg of messages) {
-      if (!msg.role || !validRoles.has(msg.role)) {
+      if (!(msg.role && validRoles.has(msg.role))) {
         return c.json({ error: `Invalid role "${msg.role}". Must be "user" or "assistant".` }, 400)
       }
-      if (!msg.parts && !msg.content) {
+      if (!(msg.parts || msg.content)) {
         return c.json({ error: 'Each message must have content or parts' }, 400)
       }
     }
