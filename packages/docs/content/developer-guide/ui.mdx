@@ -1,0 +1,172 @@
+# Bring Your Own UI
+
+Build a custom chat frontend against Pandora's AI SDK-compatible streaming API.
+
+## Chat API Format
+
+### Request
+
+```
+POST /api/chat
+Content-Type: application/json
+```
+
+The request body follows the AI SDK `UIMessage` format:
+
+```json
+{
+  "messages": [
+    {
+      "role": "user",
+      "parts": [{ "type": "text", "text": "Hello" }]
+    }
+  ]
+}
+```
+
+### Response
+
+The response is a `UIMessageStreamResponse` — a Server-Sent Events stream that the AI SDK client libraries can consume directly. The stream emits chunks for text, tool calls, reasoning, sources, and other part types.
+
+## Using AI SDK React
+
+The recommended approach for React frontends is `useChat` with `DefaultChatTransport`:
+
+```tsx
+import { useChat } from '@ai-sdk/react'
+import { DefaultChatTransport } from 'ai'
+
+export default function Chat() {
+  const { messages, sendMessage, status } = useChat({
+    transport: new DefaultChatTransport({
+      api: 'http://localhost:4111/api/chat',
+    }),
+  })
+
+  return (
+    <div>
+      {messages.map((message) => (
+        <div key={message.id}>
+          <strong>{message.role}:</strong>
+          {message.parts.map((part, i) => {
+            if (part.type === 'text') return <p key={i}>{part.text}</p>
+            return null
+          })}
+        </div>
+      ))}
+
+      <form onSubmit={(e) => {
+        e.preventDefault()
+        const input = new FormData(e.currentTarget).get('message') as string
+        sendMessage({ text: input })
+        e.currentTarget.reset()
+      }}>
+        <input name="message" placeholder="Send a message..." />
+        <button type="submit">Send</button>
+      </form>
+    </div>
+  )
+}
+```
+
+### Key Properties
+
+| Property | Description |
+|---|---|
+| `messages` | Array of `UIMessage` objects with `role`, `id`, and `parts` |
+| `sendMessage` | Send a new user message — accepts `{ text: string }` |
+| `status` | `'ready'` \| `'submitted'` \| `'streaming'` \| `'error'` |
+
+## Message Part Types Reference
+
+Each message has a `parts` array. Here are all the part types the Pandora API can emit:
+
+| Part Type | TypeScript Type | Fields | When Emitted |
+|---|---|---|---|
+| `text` | `TextUIPart` | `text: string` | Always — LLM text output |
+| `tool-{name}` | `ToolUIPart` | `toolCallId`, `state`, `input`, `output`, `errorText` | When the agent calls a tool |
+| `reasoning` | `ReasoningUIPart` | `text: string` | When `sendReasoning: true` and model supports it |
+| `source-url` | `SourceUrlUIPart` | `url: string`, `title?: string` | When `sendSources: true` and model provides citations |
+| `step-start` | `StepStartUIPart` | — | At the start of each agent step |
+
+## Rendering Parts
+
+The standard pattern for rendering message parts:
+
+```tsx
+function MessageParts({ message }: { message: UIMessage }) {
+  return (
+    <>
+      {message.parts.map((part, i) => {
+        switch (part.type) {
+          case 'text':
+            return <p key={i}>{part.text}</p>
+          case 'reasoning':
+            return <details key={i}><summary>Thinking...</summary>{part.text}</details>
+          case 'source-url':
+            return <a key={i} href={part.url}>{part.title || part.url}</a>
+          default:
+            // Tool parts have type like "tool-current-time"
+            if (part.type.startsWith('tool-')) {
+              return (
+                <pre key={i}>
+                  Tool: {part.type} ({part.state})
+                  {part.state === 'output-available' && JSON.stringify(part.output, null, 2)}
+                </pre>
+              )
+            }
+            return null
+        }
+      })}
+    </>
+  )
+}
+```
+
+## Without AI SDK
+
+For non-React frontends (Vue, Svelte, vanilla JS), you can consume the stream manually with `fetch`:
+
+```js
+const response = await fetch('http://localhost:4111/api/chat', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    messages: [
+      { role: 'user', parts: [{ type: 'text', text: 'Hello' }] }
+    ]
+  })
+})
+
+const reader = response.body.getReader()
+const decoder = new TextDecoder()
+
+while (true) {
+  const { done, value } = await reader.read()
+  if (done) break
+  const chunk = decoder.decode(value, { stream: true })
+  // Parse SSE lines: each line is a JSON-encoded stream part
+  console.log(chunk)
+}
+```
+
+For a full implementation, see the AI SDK's `readUIMessageStream` utility which handles parsing the SSE format:
+
+```ts
+import { readUIMessageStream } from 'ai'
+
+const response = await fetch('http://localhost:4111/api/chat', { /* ... */ })
+
+for await (const chunk of readUIMessageStream(response.body)) {
+  // chunk is a typed UIMessageChunk
+  console.log(chunk)
+}
+```
+
+## CORS
+
+The core server enables CORS for all origins by default via Hono's `cors()` middleware. If you need to restrict origins in production, update the CORS config in `packages/core/src/index.ts`:
+
+```ts
+app.use('*', cors({ origin: 'https://your-ui.example.com' }))
+```
