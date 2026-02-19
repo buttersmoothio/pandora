@@ -7,20 +7,7 @@ import type { ToolRecord } from '../tools'
  * Build the system instructions from identity + personality config.
  */
 function buildInstructions(config: Config): string {
-  const { identity, personality } = config
-  const lines: string[] = []
-
-  lines.push(`You are ${identity.name}: ${identity.description}`)
-
-  if (personality.traits.length > 0) {
-    lines.push(`Your personality traits: ${personality.traits.join(', ')}.`)
-  }
-
-  if (personality.systemPrompt) {
-    lines.push(personality.systemPrompt)
-  }
-
-  return lines.join('\n\n')
+  return `You are ${config.identity.name}.\n\n${config.personality.systemPrompt}`
 }
 
 /**

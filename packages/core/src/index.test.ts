@@ -8,8 +8,8 @@ describe('Health check', () => {
 
     const body = (await res.json()) as Record<string, unknown>
     expect(body.name).toBe('Pandora')
-    expect(body.version).toBeDefined()
-    expect(body.runtime).toBeDefined()
+    expect(typeof body.version).toBe('string')
+    expect(typeof body.runtime).toBe('string')
     expect(body.serverless).toBe(false)
   })
 })
@@ -20,10 +20,9 @@ describe('Config routes', () => {
     expect(res.status).toBe(200)
 
     const body = (await res.json()) as Record<string, Record<string, unknown>>
-    expect(body.identity).toBeDefined()
     expect(body.identity.name).toBe('Pandora')
-    expect(body.models).toBeDefined()
-    expect(body.tools).toBeDefined()
+    expect(body.models.operator).toHaveProperty('provider')
+    expect(body.tools['current-time']).toEqual({ enabled: true })
   })
 })
 

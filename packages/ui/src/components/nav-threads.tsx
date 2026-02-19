@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/sidebar'
 
 const STUB_THREADS = [
-  { id: '1', title: 'Getting started with Pandora' },
+  { id: '1', title: 'Getting started' },
   { id: '2', title: 'Tool configuration help' },
   { id: '3', title: 'API integration questions' },
 ]

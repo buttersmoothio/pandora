@@ -31,27 +31,6 @@ describe('Config', () => {
     await resetConfig(configStore)
   })
 
-  describe('DEFAULTS', () => {
-    it('has correct identity defaults', () => {
-      expect(DEFAULTS.identity.name).toBe('Pandora')
-      expect(DEFAULTS.identity.description).toBe('A multi-channel AI assistant')
-      expect(DEFAULTS.identity.version).toBe('0.1.0')
-    })
-
-    it('has correct personality defaults', () => {
-      expect(DEFAULTS.personality.traits).toEqual(['helpful', 'concise', 'friendly'])
-    })
-
-    it('has correct model defaults', () => {
-      expect(DEFAULTS.models.operator.provider).toBe('anthropic')
-      expect(DEFAULTS.models.operator.model).toBe('claude-sonnet-4-20250514')
-    })
-
-    it('has correct tools defaults', () => {
-      expect(DEFAULTS.tools['current-time']).toEqual({ enabled: true })
-    })
-  })
-
   describe('ConfigSchema', () => {
     it('validates empty object with defaults', () => {
       const result = ConfigSchema.parse({})
@@ -60,7 +39,7 @@ describe('Config', () => {
 
     it('validates partial config', () => {
       const result = ConfigSchema.parse({
-        identity: { name: 'CustomBot', description: 'A custom bot', version: '1.0.0' },
+        identity: { name: 'CustomBot' },
       })
       expect(result.identity.name).toBe('CustomBot')
       expect(result.models.operator.provider).toBe('anthropic')
@@ -107,7 +86,7 @@ describe('Config', () => {
   describe('updateConfig', () => {
     it('merges partial updates', async () => {
       const updated = await updateConfig(configStore, {
-        identity: { name: 'UpdatedBot', description: 'Updated', version: '2.0.0' },
+        identity: { name: 'UpdatedBot' },
       })
       expect(updated.identity.name).toBe('UpdatedBot')
       expect(updated.models).toEqual(DEFAULTS.models)
@@ -116,7 +95,7 @@ describe('Config', () => {
     it('persists updates in subsequent getConfig calls', async () => {
       clearConfigCache() // Clear to test persistence
       await updateConfig(configStore, {
-        identity: { name: 'PersistentBot', description: 'Persistent', version: '3.0.0' },
+        identity: { name: 'PersistentBot' },
       })
       clearConfigCache() // Clear cache to force reload from storage
       const config = await getConfig(configStore, {})
@@ -127,7 +106,7 @@ describe('Config', () => {
   describe('resetConfig', () => {
     it('resets to defaults', async () => {
       await updateConfig(configStore, {
-        identity: { name: 'TempBot', description: 'Temp', version: '1.0.0' },
+        identity: { name: 'TempBot' },
       })
       const reset = await resetConfig(configStore)
       expect(reset).toEqual(DEFAULTS)
@@ -135,7 +114,7 @@ describe('Config', () => {
 
     it('clears cache', async () => {
       await updateConfig(configStore, {
-        identity: { name: 'TempBot', description: 'Temp', version: '1.0.0' },
+        identity: { name: 'TempBot' },
       })
       await resetConfig(configStore)
       const config = await getConfig(configStore, {})

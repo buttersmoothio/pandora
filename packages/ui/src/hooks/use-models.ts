@@ -5,6 +5,10 @@ export interface ProviderInfo {
   id: string
   name: string
   models: string[]
+  configured: boolean
+  docUrl?: string
+  gateway: string
+  envVars: string[]
 }
 
 interface ModelsResponse {

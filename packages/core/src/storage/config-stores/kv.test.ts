@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { RedisConfigStore } from './kv'
 
 const testConfig = {
-  identity: { name: 'Test', description: 'Test bot', version: '1.0.0' },
+  identity: { name: 'Test' },
   models: { default: { provider: 'anthropic', model: 'test' } },
 }
 

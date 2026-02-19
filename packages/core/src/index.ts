@@ -18,6 +18,7 @@ import { Hono } from 'hono'
 import { env } from 'hono/adapter'
 import { cors } from 'hono/cors'
 import { logger } from 'hono/logger'
+import { z } from 'zod'
 import pkg from '../package.json'
 import { clearConfigCache, getConfig, resetConfig, updateConfig } from './config'
 import { getRuntimeKey, isServerless } from './env'
@@ -116,6 +117,11 @@ app.patch('/api/config', async (c) => {
     log.info('Config updated', { keys: Object.keys(patch) })
     return c.json(updated)
   } catch (err) {
+    if (err instanceof z.ZodError) {
+      const messages = err.issues.map((i) => `${i.path.join('.')}: ${i.message}`)
+      log.error('Config validation failed', { issues: messages })
+      return c.json({ error: messages.join(', ') }, 400)
+    }
     const message = err instanceof Error ? err.message : 'Invalid config'
     log.error('Config update failed', { error: message })
     return c.json({ error: message }, 400)
@@ -132,11 +138,20 @@ app.delete('/api/config', async (c) => {
 
 // Models endpoint - returns available providers and models
 app.get('/api/models', (c) => {
-  const providers = Object.entries(PROVIDER_REGISTRY).map(([id, config]) => ({
-    id,
-    name: config.name,
-    models: config.models,
-  }))
+  const envVars = extractStringEnv(env(c))
+  const providers = Object.entries(PROVIDER_REGISTRY).map(([id, config]) => {
+    const keys = Array.isArray(config.apiKeyEnvVar) ? config.apiKeyEnvVar : [config.apiKeyEnvVar]
+    const configured = keys.some((key) => !!envVars[key])
+    return {
+      id,
+      name: config.name,
+      models: config.models,
+      configured,
+      docUrl: config.docUrl,
+      gateway: config.gateway,
+      envVars: keys,
+    }
+  })
   return c.json({ providers })
 })
 

@@ -52,36 +52,18 @@ describe('getMastra', () => {
     mockMastraConstructor.mockClear()
   })
 
-  it('returns a Mastra instance', async () => {
-    const mastra = await getMastra({})
-    expect(mastra).toBeDefined()
-    expect(mastra.getAgent).toBeDefined()
-  })
-
   it('creates Mastra with operator agent', async () => {
     const mastra = await getMastra({})
-    const operator = mastra.getAgent('operator')
-    expect(operator).toBeDefined()
+    const operator = mastra.getAgent('operator') as { id: string; name: string }
+    expect(operator.id).toBe('operator')
+    expect(operator.name).toBe('Pandora')
   })
 
-  it('passes storage to Mastra constructor', async () => {
+  it('passes storage, tools, and logger to Mastra constructor', async () => {
     await getMastra({})
     const config = mockMastraConstructor.mock.calls[0][0]
-    expect(config.storage).toBeDefined()
     expect(config.storage.id).toBe('test-storage')
-  })
-
-  it('passes tools to Mastra constructor', async () => {
-    await getMastra({})
-    const config = mockMastraConstructor.mock.calls[0][0]
-    expect(config.tools).toBeDefined()
-    expect(config.tools['current-time']).toBeDefined()
-  })
-
-  it('passes logger instance', async () => {
-    await getMastra({})
-    const config = mockMastraConstructor.mock.calls[0][0]
-    expect(config.logger).toBeTruthy()
+    expect(config.tools['current-time']).toHaveProperty('execute')
     expect(config.logger.info).toBeTypeOf('function')
   })
 

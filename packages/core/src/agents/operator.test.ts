@@ -33,21 +33,19 @@ describe('createOperator', () => {
     expect(agent.name).toBe('Pandora')
   })
 
-  it('builds instructions from identity and personality', () => {
+  it('builds instructions from identity name and system prompt', () => {
     const tools = loadBuiltinTools(DEFAULTS, {})
     createOperator(DEFAULTS, tools)
 
     const config = mockAgentConstructor.mock.calls.at(-1)?.[0]
-    expect(config.instructions).toContain('Pandora')
-    expect(config.instructions).toContain('A multi-channel AI assistant')
-    expect(config.instructions).toContain('helpful, concise, friendly')
+    expect(config.instructions).toContain('You are Pandora.')
+    expect(config.instructions).toContain('# Who You Are')
   })
 
   it('includes custom system prompt in instructions', () => {
     const config: Config = {
       ...DEFAULTS,
       personality: {
-        ...DEFAULTS.personality,
         systemPrompt: 'Always respond in haiku.',
       },
     }
@@ -55,6 +53,7 @@ describe('createOperator', () => {
     createOperator(config, tools)
 
     const agentConfig = mockAgentConstructor.mock.calls.at(-1)?.[0]
+    expect(agentConfig.instructions).toContain('You are Pandora.')
     expect(agentConfig.instructions).toContain('Always respond in haiku.')
   })
 

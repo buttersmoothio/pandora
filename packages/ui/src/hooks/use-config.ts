@@ -20,12 +20,9 @@ export interface ToolConfig {
 export interface Config {
   identity: {
     name: string
-    description: string
-    version: string
   }
   personality: {
-    traits: string[]
-    systemPrompt?: string
+    systemPrompt: string
   }
   models: {
     operator: ModelConfig

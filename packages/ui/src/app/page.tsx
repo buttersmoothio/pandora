@@ -3,6 +3,7 @@
 import { useChat } from '@ai-sdk/react'
 import { DefaultChatTransport, isToolUIPart, type UIMessage } from 'ai'
 import { MessageSquareIcon } from 'lucide-react'
+import { useConfig } from '@/hooks/use-config'
 import {
   Conversation,
   ConversationContent,
@@ -86,6 +87,8 @@ function MessageParts({
 }
 
 export default function Home() {
+  const { data: config } = useConfig()
+  const agentName = config?.identity.name ?? 'Pandora'
   const { messages, sendMessage, status } = useChat({
     transport: new DefaultChatTransport({
       api: process.env.NEXT_PUBLIC_API_URL
@@ -104,7 +107,7 @@ export default function Home() {
             <ConversationEmptyState
               icon={<MessageSquareIcon className="size-6" />}
               title="Start a conversation"
-              description="Send a message to begin chatting with Pandora."
+              description={`Send a message to begin chatting with ${agentName}.`}
             />
           ) : (
             messages.map((message, index) => (

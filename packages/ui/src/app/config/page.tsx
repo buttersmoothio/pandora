@@ -1,8 +1,7 @@
 'use client'
 
-import { CheckIcon, ChevronsUpDownIcon, Loader2Icon } from 'lucide-react'
+import { CheckIcon, ChevronsUpDownIcon, ExternalLinkIcon, Loader2Icon } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -24,14 +23,10 @@ function IdentitySection() {
   const { data: config } = useConfig()
   const updateConfig = useUpdateConfig()
   const [name, setName] = useState('')
-  const [description, setDescription] = useState('')
-  const [version, setVersion] = useState('')
 
   useEffect(() => {
     if (config) {
       setName(config.identity.name)
-      setDescription(config.identity.description)
-      setVersion(config.identity.version)
     }
   }, [config])
 
@@ -39,33 +34,17 @@ function IdentitySection() {
     <Card>
       <CardHeader>
         <CardTitle>Identity</CardTitle>
-        <CardDescription>Configure your agent&apos;s identity.</CardDescription>
+        <CardDescription>Configure your agent&apos;s name.</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <div className="flex flex-col gap-2">
           <Label htmlFor="identity-name">Name</Label>
           <Input id="identity-name" value={name} onChange={(e) => setName(e.target.value)} />
         </div>
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="identity-description">Description</Label>
-          <Input
-            id="identity-description"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-          />
-        </div>
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="identity-version">Version</Label>
-          <Input
-            id="identity-version"
-            value={version}
-            onChange={(e) => setVersion(e.target.value)}
-          />
-        </div>
         <Button
           className="self-end"
-          disabled={updateConfig.isPending}
-          onClick={() => updateConfig.mutate({ identity: { name, description, version } })}
+          disabled={updateConfig.isPending || !name.trim()}
+          onClick={() => updateConfig.mutate({ identity: { name } })}
         >
           {updateConfig.isPending ? <Loader2Icon className="size-4 animate-spin" /> : 'Save'}
         </Button>
@@ -77,79 +56,36 @@ function IdentitySection() {
 function PersonalitySection() {
   const { data: config } = useConfig()
   const updateConfig = useUpdateConfig()
-  const [traits, setTraits] = useState<string[]>([])
   const [systemPrompt, setSystemPrompt] = useState('')
-  const [traitInput, setTraitInput] = useState('')
 
   useEffect(() => {
     if (config) {
-      setTraits(config.personality.traits)
-      setSystemPrompt(config.personality.systemPrompt ?? '')
+      setSystemPrompt(config.personality.systemPrompt)
     }
   }, [config])
-
-  function addTrait() {
-    const value = traitInput.trim()
-    if (value && !traits.includes(value)) {
-      setTraits([...traits, value])
-      setTraitInput('')
-    }
-  }
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>Personality</CardTitle>
-        <CardDescription>Define traits and system prompt.</CardDescription>
+        <CardDescription>Define how your agent behaves and communicates.</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
-        <div className="flex flex-col gap-2">
-          <Label>Traits</Label>
-          <div className="flex flex-wrap gap-1">
-            {traits.map((trait) => (
-              <Badge
-                key={trait}
-                variant="secondary"
-                className="cursor-pointer"
-                onClick={() => setTraits(traits.filter((t) => t !== trait))}
-              >
-                {trait} &times;
-              </Badge>
-            ))}
-          </div>
-          <div className="flex gap-2">
-            <Input
-              placeholder="Add a trait..."
-              value={traitInput}
-              onChange={(e) => setTraitInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault()
-                  addTrait()
-                }
-              }}
-            />
-            <Button variant="outline" onClick={addTrait}>
-              Add
-            </Button>
-          </div>
-        </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor="system-prompt">System Prompt</Label>
           <Textarea
             id="system-prompt"
-            rows={4}
+            rows={12}
             value={systemPrompt}
             onChange={(e) => setSystemPrompt(e.target.value)}
-            placeholder="Optional system prompt override..."
           />
         </div>
         <Button
           className="self-end"
-          disabled={updateConfig.isPending}
+          disabled={updateConfig.isPending || !systemPrompt.trim()}
           onClick={() =>
             updateConfig.mutate({
-              personality: { traits, systemPrompt: systemPrompt || undefined },
+              personality: { systemPrompt },
             })
           }
         >
@@ -180,8 +116,13 @@ function ModelsSection() {
     }
   }, [config])
 
-  const providers = modelsData?.providers ?? []
-  const selectedProvider = providers.find((p) => p.id === provider)
+  const allProviders = modelsData?.providers ?? []
+  // Show configured providers first
+  const providers = [...allProviders].sort((a, b) => {
+    if (a.configured !== b.configured) return a.configured ? -1 : 1
+    return a.name.localeCompare(b.name)
+  })
+  const selectedProvider = allProviders.find((p) => p.id === provider)
   const models = selectedProvider?.models ?? []
 
   return (
@@ -222,7 +163,10 @@ function ModelsSection() {
                         <CheckIcon
                           className={cn('mr-2 size-4', provider === p.id ? 'opacity-100' : 'opacity-0')}
                         />
-                        {p.name}
+                        <span className="truncate">{p.name}</span>
+                        {!p.configured && (
+                          <span className="ml-auto text-xs text-muted-foreground">Not configured</span>
+                        )}
                       </CommandItem>
                     ))}
                   </CommandList>
@@ -293,9 +237,50 @@ function ModelsSection() {
             />
           </div>
         </div>
+        {selectedProvider && !selectedProvider.configured && (
+          <div className="rounded-md border border-yellow-500/30 bg-yellow-500/5 p-4 text-sm">
+            <p className="font-medium text-yellow-600 dark:text-yellow-400">
+              {selectedProvider.name} is not configured
+            </p>
+            <ol className="mt-2 list-inside list-decimal space-y-1.5 text-muted-foreground">
+              <li>
+                {selectedProvider.docUrl ? (
+                  <>
+                    Get an API key from the{' '}
+                    <a
+                      href={selectedProvider.docUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-foreground underline underline-offset-4 hover:text-yellow-600 dark:hover:text-yellow-400"
+                    >
+                      {selectedProvider.name} docs
+                      <ExternalLinkIcon className="size-3" />
+                    </a>
+                  </>
+                ) : (
+                  <>Get an API key from {selectedProvider.name}</>
+                )}
+              </li>
+              <li>
+                Add the following environment variable{selectedProvider.envVars.length > 1 ? 's' : ''}
+                {' '}to your environment:
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  {selectedProvider.envVars.map((v) => (
+                    <code
+                      key={v}
+                      className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs"
+                    >
+                      {v}
+                    </code>
+                  ))}
+                </div>
+              </li>
+            </ol>
+          </div>
+        )}
         <Button
           className="self-end"
-          disabled={updateConfig.isPending}
+          disabled={updateConfig.isPending || !provider || !model}
           onClick={() =>
             updateConfig.mutate({
               models: {
