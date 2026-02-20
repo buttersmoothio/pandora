@@ -41,6 +41,7 @@ export function NavThreads() {
 
   const threads = data?.threads ?? []
   const activeStreamIds = data?.activeStreamIds ?? []
+  const currentThreadId = pathname.startsWith('/chat/') ? pathname.split('/')[2] : null
 
   if (threads.length === 0) return null
 
@@ -49,44 +50,47 @@ export function NavThreads() {
       <SidebarGroupLabel>Recent Chats</SidebarGroupLabel>
       <SidebarGroupContent>
         <SidebarMenu>
-          {threads.map((thread) => (
-            <SidebarMenuItem key={thread.id}>
-              <SidebarMenuButton
-                asChild
-                isActive={pathname === `/chat/${thread.id}`}
-                tooltip={thread.title || 'Untitled'}
-              >
-                <Link href={`/chat/${thread.id}`}>
-                  {activeStreamIds.includes(thread.id) ? (
-                    <span className="relative flex size-4 items-center justify-center">
-                      <span className="absolute size-2.5 animate-ping rounded-full bg-blue-400 opacity-75" />
-                      <span className="size-2 rounded-full bg-blue-500" />
-                    </span>
-                  ) : (
-                    <MessageSquareIcon />
-                  )}
-                  <span>{thread.title || 'Untitled'}</span>
-                </Link>
-              </SidebarMenuButton>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <SidebarMenuAction showOnHover>
-                    <MoreHorizontalIcon />
-                    <span className="sr-only">More</span>
-                  </SidebarMenuAction>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent side="right" align="start">
-                  <DropdownMenuItem
-                    variant="destructive"
-                    onClick={() => setDeleteTarget(thread.id)}
-                  >
-                    <TrashIcon />
-                    Delete
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </SidebarMenuItem>
-          ))}
+          {threads.map((thread) => {
+            const href = `/chat/${thread.activeThreadId ?? thread.id}`
+            const isActive = currentThreadId
+              ? (thread.threadIds?.includes(currentThreadId) ?? thread.id === currentThreadId)
+              : false
+            const streamId = thread.activeThreadId ?? thread.id
+            return (
+              <SidebarMenuItem key={thread.id}>
+                <SidebarMenuButton asChild isActive={isActive} tooltip={thread.title || 'Untitled'}>
+                  <Link href={href}>
+                    {activeStreamIds.includes(streamId) ? (
+                      <span className="relative flex size-4 items-center justify-center">
+                        <span className="absolute size-2.5 animate-ping rounded-full bg-blue-400 opacity-75" />
+                        <span className="size-2 rounded-full bg-blue-500" />
+                      </span>
+                    ) : (
+                      <MessageSquareIcon />
+                    )}
+                    <span>{thread.title || 'Untitled'}</span>
+                  </Link>
+                </SidebarMenuButton>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <SidebarMenuAction showOnHover>
+                      <MoreHorizontalIcon />
+                      <span className="sr-only">More</span>
+                    </SidebarMenuAction>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent side="right" align="start">
+                    <DropdownMenuItem
+                      variant="destructive"
+                      onClick={() => setDeleteTarget(thread.id)}
+                    >
+                      <TrashIcon />
+                      Delete
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </SidebarMenuItem>
+            )
+          })}
         </SidebarMenu>
       </SidebarGroupContent>
 

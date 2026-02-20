@@ -13,6 +13,7 @@ if (!Object.isFrozen(Object.prototype)) {
 
 import { handleChatStream } from '@mastra/ai-sdk'
 import { PROVIDER_REGISTRY } from '@mastra/core/llm'
+import type { Memory } from '@mastra/memory'
 import { createUIMessageStreamResponse, UI_MESSAGE_STREAM_HEADERS } from 'ai'
 import { Hono } from 'hono'
 import { env } from 'hono/adapter'
@@ -216,6 +217,14 @@ app.post('/api/chat', async (c) => {
     const envVars = extractStringEnv(env(c))
     const mastra = await getMastra(envVars, c.env)
 
+    // Mark new conversations as root threads for fork filtering
+    if (!clientThreadId) {
+      const memory = await mastra.getAgent('operator').getMemory()
+      if (memory) {
+        await memory.createThread({ resourceId: 'default', threadId, metadata: { root: true } })
+      }
+    }
+
     const params = {
       messages: [{ id: crypto.randomUUID(), role: 'user' as const, parts }],
       memory: {
@@ -261,6 +270,63 @@ app.get('/api/chat/:chatId/stream', (c) => {
   })
 })
 
+/** Compute fork/branch info for a thread */
+type BranchRef = { id: string; title?: string }
+type ForkInfo = { sourceThreadId: string; forkPointIndex: number; siblings: BranchRef[] }
+
+/** Map clones to fork-point message IDs using explicit forkPointMessageId metadata. */
+function buildForksMap(clones: Awaited<ReturnType<Memory['listClones']>>) {
+  const forks: Record<string, BranchRef[]> = {}
+  for (const clone of clones) {
+    const forkPointId = clone.metadata?.forkPointMessageId
+    if (typeof forkPointId !== 'string') continue
+    if (!forks[forkPointId]) forks[forkPointId] = []
+    forks[forkPointId].push({ id: clone.id, title: clone.title ?? undefined })
+  }
+  return forks
+}
+
+/** If the thread is a fork, compute source info and siblings. */
+async function buildForkInfo(
+  mem: Memory,
+  threadId: string,
+  rawThread: { metadata?: Record<string, unknown> },
+): Promise<ForkInfo | null> {
+  const cloneMeta = mem.getCloneMetadata(rawThread as Parameters<typeof mem.getCloneMetadata>[0])
+  if (!cloneMeta) return null
+
+  const { sourceThreadId, lastMessageId } = cloneMeta
+  const { messages: sourceMessages } = await mem.recall({
+    threadId: sourceThreadId,
+    resourceId: 'default',
+  })
+  // Filter to user+assistant only to match what the UI displays
+  const chatMessages = sourceMessages.filter((m) => m.role === 'user' || m.role === 'assistant')
+  const lastIdx = lastMessageId ? chatMessages.findIndex((m) => m.id === lastMessageId) : -1
+  const forkPointIndex = lastIdx === -1 ? 0 : lastIdx + 1
+
+  const sourceClones = await mem.listClones(sourceThreadId)
+  const siblings = sourceClones
+    .filter((s) => {
+      const meta = mem.getCloneMetadata(s)
+      return meta?.lastMessageId === lastMessageId && s.id !== threadId
+    })
+    .map((s) => ({ id: s.id, title: s.title ?? undefined }))
+
+  return { sourceThreadId, forkPointIndex, siblings }
+}
+
+async function computeBranchInfo(
+  mem: Memory,
+  threadId: string,
+  rawThread: { metadata?: Record<string, unknown> },
+) {
+  const clones = await mem.listClones(threadId)
+  const forks = buildForksMap(clones)
+  const forkInfo = await buildForkInfo(mem, threadId, rawThread)
+  return { forks, forkInfo }
+}
+
 // Thread endpoints
 app.get('/api/threads', async (c) => {
   const log = getLogger()
@@ -273,13 +339,28 @@ app.get('/api/threads', async (c) => {
     }
 
     const result = await memory.listThreads({
-      filter: { resourceId: 'default' },
+      filter: { resourceId: 'default', metadata: { root: true } },
       orderBy: { field: 'updatedAt', direction: 'DESC' },
     })
 
+    // Enrich each root thread with its latest active branch
+    const enriched = await Promise.all(
+      result.threads.map(async (root) => {
+        const clones = await (memory as Memory).listClones(root.id)
+        const all = [root, ...clones]
+        const latest = all.reduce((a, b) => (new Date(b.updatedAt) > new Date(a.updatedAt) ? b : a))
+        const { resourceId: _, ...thread } = root
+        return {
+          ...thread,
+          activeThreadId: latest.id,
+          threadIds: all.map((t) => t.id),
+        }
+      }),
+    )
+
     return c.json({
       ...result,
-      threads: result.threads.map(({ resourceId: _, ...t }) => t),
+      threads: enriched,
       activeStreamIds: isServerless() ? [] : getActiveStreamIds(),
     })
   } catch (err) {
@@ -314,10 +395,56 @@ app.get('/api/threads/:id', async (c) => {
 
     const messages = rawMessages.map(({ threadId: _t, resourceId: _r, ...m }) => m)
 
-    return c.json({ thread, messages })
+    const { forks, forkInfo } = await computeBranchInfo(memory as Memory, threadId, rawThread)
+
+    return c.json({ thread, messages, forks, forkInfo })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error'
     log.error('Get thread failed', { error: message })
+    return c.json({ error: message }, 500)
+  }
+})
+
+app.post('/api/threads/:id/fork', async (c) => {
+  const log = getLogger()
+  try {
+    const threadId = c.req.param('id')
+    const { messageId } = await c.req.json()
+    if (!messageId || typeof messageId !== 'string') {
+      return c.json({ error: 'messageId is required' }, 400)
+    }
+
+    const envVars = extractStringEnv(env(c))
+    const mastra = await getMastra(envVars, c.env)
+    const memory = await mastra.getAgent('operator').getMemory()
+    if (!memory) {
+      return c.json({ error: 'Memory not configured' }, 500)
+    }
+
+    const { messages } = await memory.recall({ threadId, resourceId: 'default' })
+    const messageIndex = messages.findIndex((m) => m.id === messageId)
+    if (messageIndex === -1) {
+      return c.json({ error: 'Message not found in thread' }, 404)
+    }
+
+    // Collect message IDs before the fork point
+    const messageIds = messages.slice(0, messageIndex).map((m) => m.id)
+
+    const mem = memory as Memory
+    const { thread: clonedThread, clonedMessages } = await mem.cloneThread({
+      sourceThreadId: threadId,
+      metadata: { forkPointMessageId: messageId },
+      ...(messageIds.length > 0 && {
+        options: { messageFilter: { messageIds } },
+      }),
+    })
+
+    const { resourceId: _, ...thread } = clonedThread
+
+    return c.json({ thread, clonedMessageCount: clonedMessages.length })
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown error'
+    log.error('Fork thread failed', { error: message })
     return c.json({ error: message }, 500)
   }
 })

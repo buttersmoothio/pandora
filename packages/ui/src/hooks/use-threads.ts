@@ -8,6 +8,14 @@ export interface Thread {
   createdAt: string
   updatedAt: string
   metadata?: Record<string, unknown>
+  activeThreadId?: string
+  threadIds?: string[]
+}
+
+export interface ForkInfo {
+  sourceThreadId: string
+  forkPointIndex: number
+  siblings: { id: string; title?: string }[]
 }
 
 export interface ThreadListResponse {
@@ -29,6 +37,20 @@ export function useThreads() {
       const ids = query.state.data?.activeStreamIds
       return ids?.length ? 1000 : false
     },
+  })
+}
+
+export function useForkThread() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ threadId, messageId }: { threadId: string; messageId: string }) =>
+      apiFetch<{ thread: Thread; clonedMessageCount: number }>(`/api/threads/${threadId}/fork`, {
+        method: 'POST',
+        body: JSON.stringify({ messageId }),
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: THREADS_KEY }),
+    onError: (err: Error) => toast.error(`Failed to fork thread: ${err.message}`),
   })
 }
 
