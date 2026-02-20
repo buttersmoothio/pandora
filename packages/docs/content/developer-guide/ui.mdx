@@ -1,139 +1,276 @@
 # Bring Your Own UI
 
-Build a custom chat frontend against Pandora's [AI SDK-compatible](https://ai-sdk.dev/docs/ai-sdk-ui/chatbot) streaming API.
+This guide walks through building a custom chat frontend against Pandora's streaming API. Pandora uses the [AI SDK](https://ai-sdk.dev) wire format, so you can use the official AI SDK client libraries or consume the stream manually with plain `fetch`.
 
-## Chat API Format
+For the full endpoint reference (request/response shapes, status codes, all fields), see the [Chat & Thread API reference](/reference/chat-api).
 
-### Request
+## Prerequisites
 
+If you're building with React, install the AI SDK packages:
+
+```bash
+npm install ai @ai-sdk/react
 ```
-POST /api/chat
-Content-Type: application/json
+
+For other frameworks (Vue, Svelte, vanilla JS), you only need `ai` for the stream parsing utilities:
+
+```bash
+npm install ai
 ```
 
-The request body sends the latest user message parts and an optional thread ID:
+## Authentication
 
-```json
-{
-  "parts": [{ "type": "text", "text": "Hello" }],
-  "threadId": "abc123"
+Every API request (except login/setup) requires a bearer token. Before your UI can send messages, it needs to authenticate.
+
+The typical flow is:
+
+1. Call `GET /` to check if auth is set up (`auth.setup` in the response)
+2. If not set up, call `POST /api/auth/setup` with a password to create the initial account
+3. If already set up, call `POST /api/auth/login` with the password
+4. Store the returned `token` and `refreshToken` (e.g. in `localStorage`)
+5. Include `Authorization: Bearer <token>` on every request
+
+Here's a minimal helper that attaches the token and handles automatic refresh when it expires:
+
+```ts
+const API_URL = 'http://localhost:4111'
+
+function getToken(): string | null {
+  return localStorage.getItem('pandora_token')
+}
+
+function getRefreshToken(): string | null {
+  return localStorage.getItem('pandora_refresh_token')
+}
+
+function saveTokens(token: string, refreshToken: string) {
+  localStorage.setItem('pandora_token', token)
+  localStorage.setItem('pandora_refresh_token', refreshToken)
+}
+
+// Prevents multiple concurrent refresh requests
+let refreshPromise: Promise<boolean> | null = null
+
+async function apiFetch(path: string, options: RequestInit = {}): Promise<Response> {
+  const token = getToken()
+  const res = await fetch(`${API_URL}${path}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...options.headers,
+    },
+  })
+
+  if (res.status !== 401) return res
+
+  // Token expired — try refreshing once
+  if (!refreshPromise) {
+    refreshPromise = attemptRefresh().finally(() => { refreshPromise = null })
+  }
+  const refreshed = await refreshPromise
+  if (!refreshed) return res // refresh failed, return the 401
+
+  // Retry the original request with the new token
+  return fetch(`${API_URL}${path}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${getToken()}`,
+      ...options.headers,
+    },
+  })
+}
+
+async function attemptRefresh(): Promise<boolean> {
+  const refreshToken = getRefreshToken()
+  if (!refreshToken) return false
+
+  const res = await fetch(`${API_URL}/api/auth/refresh`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ refreshToken }),
+  })
+  if (!res.ok) return false
+
+  const data = await res.json()
+  saveTokens(data.token, data.refreshToken)
+  return true
 }
 ```
 
-| Field | Type | Description |
-|---|---|---|
-| `parts` | `array` | **Required.** User message parts — at minimum `[{ "type": "text", "text": "..." }]` |
-| `threadId` | `string` | Optional. Omit to start a new thread (server generates a UUID). |
+See the [Authentication API reference](/reference/auth) for the full endpoint details.
 
-### Response
+## Sending Messages
 
-The response is a `UIMessageStreamResponse` — a Server-Sent Events stream that the AI SDK client libraries can consume directly. The stream emits chunks for text, tool calls, reasoning, sources, and other part types.
+The core interaction is `POST /api/chat`. You send the user's message parts and an optional thread ID, and get back a streaming response.
 
-The response includes an `X-Thread-Id` header with the thread ID (useful when the server creates a new thread).
+### Starting a New Conversation
 
-## Thread Endpoints
+When you don't include a `threadId`, the server creates a new thread and returns its ID in the `X-Thread-Id` response header:
 
-### List threads
+```ts
+const res = await apiFetch('/api/chat', {
+  method: 'POST',
+  body: JSON.stringify({
+    parts: [{ type: 'text', text: 'What is the weather like today?' }],
+  }),
+})
 
+// Grab the thread ID so you can continue this conversation
+const threadId = res.headers.get('X-Thread-Id')
 ```
-GET /api/threads
+
+### Continuing a Conversation
+
+Pass the `threadId` to continue an existing thread:
+
+```ts
+const res = await apiFetch('/api/chat', {
+  method: 'POST',
+  body: JSON.stringify({
+    parts: [{ type: 'text', text: 'What about tomorrow?' }],
+    threadId: 'abc123',
+  }),
+})
 ```
 
-Returns threads ordered by most recently updated:
+### Reading the Stream
 
-```json
-{
-  "threads": [
-    {
-      "id": "abc123",
-      "title": "Getting started with Pandora",
-      "createdAt": "2025-01-01T00:00:00.000Z",
-      "updatedAt": "2025-01-01T00:01:00.000Z"
-    }
-  ],
-  "total": 1,
-  "page": 0,
-  "perPage": 100,
-  "hasMore": false,
-  "activeStreamIds": ["abc123"]
+The response body is a Server-Sent Events (SSE) stream. You can read it manually or use the AI SDK's `readUIMessageStream` utility to get structured message objects:
+
+```ts
+import { readUIMessageStream } from 'ai'
+
+const res = await apiFetch('/api/chat', {
+  method: 'POST',
+  body: JSON.stringify({
+    parts: [{ type: 'text', text: 'Hello' }],
+  }),
+})
+
+const threadId = res.headers.get('X-Thread-Id')
+
+for await (const delta of readUIMessageStream({ stream: res.body })) {
+  // delta contains the incremental updates to the message
+  console.log(delta)
 }
 ```
 
-| Field | Type | Description |
-|---|---|---|
-| `threads` | `array` | Thread objects ordered by `updatedAt` descending |
-| `total` | `number` | Total thread count |
-| `page` | `number` | Current page index |
-| `perPage` | `number \| false` | Page size |
-| `hasMore` | `boolean` | Whether more pages exist |
-| `activeStreamIds` | `string[]` | Thread IDs that are currently streaming a response. Always `[]` in serverless mode. |
+If you're not using the AI SDK utilities at all, you can read the raw SSE stream with a `ReadableStream` reader:
 
-### Get thread with messages
+```js
+const reader = res.body.getReader()
+const decoder = new TextDecoder()
 
-```
-GET /api/threads/:id
-```
-
-Returns the thread metadata and its message history:
-
-```json
-{
-  "thread": {
-    "id": "abc123",
-    "title": "Getting started with Pandora",
-    "createdAt": "2025-01-01T00:00:00.000Z",
-    "updatedAt": "2025-01-01T00:01:00.000Z"
-  },
-  "messages": [
-    {
-      "id": "msg-1",
-      "role": "user",
-      "content": { "format": 2, "parts": [{ "type": "text", "text": "Hello" }] },
-      "createdAt": "2025-01-01T00:00:00.000Z"
-    }
-  ]
+while (true) {
+  const { done, value } = await reader.read()
+  if (done) break
+  const chunk = decoder.decode(value, { stream: true })
+  // Each line is a type/value pair in SSE format
+  console.log(chunk)
 }
 ```
 
-### Delete thread
+## Working with Threads
 
+Pandora persists conversations as threads. Your UI will typically need to list, load, and delete them.
+
+### Listing Threads
+
+```ts
+const res = await apiFetch('/api/threads')
+const { threads, activeStreamIds } = await res.json()
+
+// threads is sorted by most recently updated
+for (const thread of threads) {
+  console.log(thread.id, thread.title)
+}
+
+// activeStreamIds tells you which threads are currently streaming
+// (always empty in serverless mode)
 ```
-DELETE /api/threads/:id
+
+### Loading a Thread's Messages
+
+```ts
+const res = await apiFetch(`/api/threads/${threadId}`)
+const { thread, messages, forks, forkInfo } = await res.json()
+
+// messages contains the full conversation history
+// each message has: id, role, content.parts, createdAt
+for (const msg of messages) {
+  const parts = msg.content.parts
+  console.log(msg.role, parts)
+}
 ```
 
-Permanently deletes a thread and its messages. Returns `404` if the thread does not exist.
+### Deleting a Thread
 
-```json
-{ "success": true }
+```ts
+await apiFetch(`/api/threads/${threadId}`, { method: 'DELETE' })
 ```
 
-### Resume stream
+## Branching Conversations
 
+Pandora supports forking threads — creating a new branch from a specific point in the conversation. This is useful for "edit and retry" flows where a user wants to rephrase a question.
+
+### Creating a Fork
+
+Pick the message ID where you want to branch. All messages **before** that message are cloned into the new thread:
+
+```ts
+const res = await apiFetch(`/api/threads/${threadId}/fork`, {
+  method: 'POST',
+  body: JSON.stringify({ messageId: 'msg-5' }),
+})
+const { thread: newThread, clonedMessageCount } = await res.json()
+
+// Now send a new message to continue from the fork point
+await apiFetch('/api/chat', {
+  method: 'POST',
+  body: JSON.stringify({
+    parts: [{ type: 'text', text: 'Let me rephrase: ...' }],
+    threadId: newThread.id,
+  }),
+})
 ```
-GET /api/chat/:chatId/stream
-```
 
-Reconnects to an in-progress stream for the given thread. This is the server-side half of the AI SDK's [resumable streams](https://ai-sdk.dev/docs/ai-sdk-ui/resumable-streams) protocol — `useChat` calls this automatically when `resume: true` is set.
+### Navigating Between Branches
 
-| Status | Meaning |
-|---|---|
-| `200` | Active stream found — returns the buffered SSE stream from the point the client connects |
-| `204` | No active stream (already finished, or serverless mode) |
+When you load a thread with `GET /api/threads/:id`, the response includes two fields for branch navigation:
 
-In persistent server mode, the server buffers each SSE stream in memory so that clients can reconnect mid-stream. The buffer is cleaned up 60 seconds after the stream completes. In serverless mode, this endpoint always returns `204` since there is no shared memory between request isolates.
+- **`forks`** — A map of message ID to branches. If `forks["msg-5"]` has entries, it means other conversations branched off at that message. You can show a "2 branches" indicator next to that message.
+- **`forkInfo`** — Present when the current thread is itself a branch. It tells you which thread it was forked from (`sourceThreadId`), the fork point (`forkPointIndex`), and sibling branches at the same point (`siblings`).
 
-## Using AI SDK React
+Use these to build branch navigation UI (e.g. "Branch 1 of 3" with left/right arrows).
 
-The recommended approach for React frontends is [`useChat`](https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-chat) with [`DefaultChatTransport`](https://ai-sdk.dev/docs/ai-sdk-ui/transport):
+## Building with React
+
+The recommended approach for React apps is the [`useChat`](https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-chat) hook with [`DefaultChatTransport`](https://ai-sdk.dev/docs/ai-sdk-ui/transport). This handles the streaming protocol, message state, and lifecycle for you.
+
+### Basic Setup
 
 ```tsx
 import { useChat } from '@ai-sdk/react'
 import { DefaultChatTransport } from 'ai'
 
+const API_URL = 'http://localhost:4111'
+
+function getToken(): string | null {
+  return localStorage.getItem('pandora_token')
+}
+
 export default function Chat({ threadId }: { threadId?: string }) {
   const { messages, sendMessage, status } = useChat({
     transport: new DefaultChatTransport({
-      api: 'http://localhost:4111/api/chat',
+      api: `${API_URL}/api/chat`,
+      // Auth: attach the bearer token to every request
+      headers: () => {
+        const token = getToken()
+        return token ? { Authorization: `Bearer ${token}` } : {}
+      },
+      // Transform: Pandora expects { parts, threadId }, not the full message array
       prepareSendMessagesRequest: ({ messages }) => {
         const lastMessage = messages.at(-1)
         const parts = lastMessage?.role === 'user' ? lastMessage.parts : []
@@ -168,74 +305,27 @@ export default function Chat({ threadId }: { threadId?: string }) {
 }
 ```
 
-### Key Properties
+A few things to notice about the transport setup:
 
-| Property | Description |
-|---|---|
-| `messages` | Array of `UIMessage` objects with `role`, `id`, and `parts` |
-| `sendMessage` | Send a new user message — accepts `{ text: string }` |
-| `status` | `'ready'` \| `'submitted'` \| `'streaming'` \| `'error'` |
+- **`headers`** is a function, not an object. This lets you read the latest token on every request (important after a token refresh).
+- **`prepareSendMessagesRequest`** extracts just the last user message's `parts` — Pandora manages the conversation history server-side, so you only need to send the new message.
+- **`threadId`** is passed in the body so the server knows which conversation to continue.
 
-### Resumable Streams
+### Key useChat Properties
 
-When a user navigates away from a streaming thread (e.g., switching threads in a sidebar), the `useChat` instance unmounts and the stream is lost. Pandora supports the AI SDK's [resumable streams](https://ai-sdk.dev/docs/ai-sdk-ui/resumable-streams) protocol so that navigating back to the thread picks up where it left off.
+| Property | Type | Description |
+|---|---|---|
+| `messages` | `UIMessage[]` | The conversation messages, each with `role`, `id`, and `parts` |
+| `sendMessage` | `(options) => void` | Send a new user message — `sendMessage({ text: 'Hello' })` |
+| `status` | `string` | `'ready'` \| `'submitted'` \| `'streaming'` \| `'error'` |
 
-To enable resume, pass `resume: true` to `useChat` and add `prepareReconnectToStreamRequest` to the transport (for auth headers on the reconnect GET request):
+### Rendering Message Parts
 
-```tsx
-const transport = new DefaultChatTransport({
-  api: 'http://localhost:4111/api/chat',
-  prepareSendMessagesRequest: ({ messages }) => {
-    const lastMessage = messages.at(-1)
-    const parts = lastMessage?.role === 'user' ? lastMessage.parts : []
-    return { body: { parts, threadId } }
-  },
-  prepareReconnectToStreamRequest: () => {
-    const token = getToken()
-    return token ? { headers: { Authorization: `Bearer ${token}` } } : {}
-  },
-})
-
-const { messages, sendMessage, status } = useChat({
-  id: threadId,
-  transport,
-  resume: true,
-})
-```
-
-On mount, `useChat` sends `GET /api/chat/{threadId}/stream`. If an active stream exists, it resumes seamlessly; otherwise the server returns `204` and the client shows persisted messages. In serverless mode, the GET always returns `204` — this is harmless.
-
-You can use the `activeStreamIds` field from `GET /api/threads` to show streaming indicators in your UI. Poll the threads endpoint while `activeStreamIds` is non-empty to detect when streams complete:
-
-```ts
-const { data } = useQuery({
-  queryKey: ['threads'],
-  queryFn: () => fetch('/api/threads').then(r => r.json()),
-  refetchInterval: (query) => {
-    const ids = query.state.data?.activeStreamIds
-    return ids?.length ? 3000 : false
-  },
-})
-```
-
-## Message Part Types Reference
-
-Each message has a `parts` array. Here are all the part types the Pandora API can emit (see [UIMessage reference](https://ai-sdk.dev/docs/reference/ai-sdk-core/ui-message) for full type definitions):
-
-| Part Type | TypeScript Type | Fields | When Emitted |
-|---|---|---|---|
-| `text` | `TextUIPart` | `text`, `state?` (`'streaming'` \| `'done'`) | Always — LLM text output |
-| `tool-{name}` | `ToolUIPart` | `toolCallId`, `state`, `input`, `output`, `errorText` | When the agent calls a tool |
-| `reasoning` | `ReasoningUIPart` | `text`, `state?`, `providerMetadata?` | When the model supports reasoning |
-| `source-url` | `SourceUrlUIPart` | `sourceId`, `url`, `title?`, `providerMetadata?` | When the model provides citations |
-| `file` | `FileUIPart` | `mediaType`, `url`, `filename?` | When the response includes files |
-| `step-start` | `StepStartUIPart` | — | At the start of each agent step |
-
-## Rendering Parts
-
-The standard pattern for rendering message parts:
+Each message has a `parts` array with different types of content. Here's how to render them all:
 
 ```tsx
+import type { UIMessage } from 'ai'
+
 function MessageParts({ message }: { message: UIMessage }) {
   return (
     <>
@@ -244,11 +334,16 @@ function MessageParts({ message }: { message: UIMessage }) {
           case 'text':
             return <p key={i}>{part.text}</p>
           case 'reasoning':
-            return <details key={i}><summary>Thinking...</summary>{part.text}</details>
+            return (
+              <details key={i}>
+                <summary>Thinking...</summary>
+                {part.text}
+              </details>
+            )
           case 'source-url':
             return <a key={i} href={part.url}>{part.title || part.url}</a>
           default:
-            // Tool parts have type like "tool-current-time"
+            // Tool parts have dynamic types like "tool-web-search"
             if (part.type.startsWith('tool-')) {
               return (
                 <pre key={i}>
@@ -265,52 +360,139 @@ function MessageParts({ message }: { message: UIMessage }) {
 }
 ```
 
-## Without AI SDK
+See the [Message Part Types reference](/reference/chat-api#message-part-types) for the full list of part types and their fields.
 
-For non-React frontends (Vue, Svelte, vanilla JS), you can consume the stream manually with `fetch`:
+### Loading Existing Threads
 
-```js
-const response = await fetch('http://localhost:4111/api/chat', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    parts: [{ type: 'text', text: 'Hello' }],
-    threadId: 'optional-thread-id'
+When a user navigates to an existing thread, load the messages from the server and pass them to `useChat` as initial data:
+
+```tsx
+import { useQuery } from '@tanstack/react-query'
+
+function ChatPage({ threadId }: { threadId: string }) {
+  // Load the thread's message history from the server
+  const { data, isLoading } = useQuery({
+    queryKey: ['thread', threadId],
+    queryFn: () => apiFetch(`/api/threads/${threadId}`).then(r => r.json()),
   })
-})
 
-const reader = response.body.getReader()
-const decoder = new TextDecoder()
+  if (isLoading) return <div>Loading...</div>
 
-// Read the thread ID from the response header
-const threadId = response.headers.get('X-Thread-Id')
-
-while (true) {
-  const { done, value } = await reader.read()
-  if (done) break
-  const chunk = decoder.decode(value, { stream: true })
-  // Parse SSE lines: each line is a JSON-encoded stream part
-  console.log(chunk)
+  return (
+    <Chat
+      threadId={threadId}
+      initialMessages={data.messages}
+    />
+  )
 }
 ```
 
-For a full implementation, see the AI SDK's [`readUIMessageStream`](https://ai-sdk.dev/docs/ai-sdk-ui/reading-ui-message-streams) utility which handles parsing the stream format:
+Then in your Chat component, pass the initial messages to `useChat`:
+
+```tsx
+function Chat({ threadId, initialMessages }: { threadId: string, initialMessages?: any[] }) {
+  const { messages, sendMessage, status } = useChat({
+    id: threadId, // important: ties the chat instance to this thread
+    transport: /* ... same as before ... */,
+    messages: initialMessages,
+  })
+
+  // ... render messages and input
+}
+```
+
+The `id` prop is important — it tells `useChat` to maintain separate state per thread, so switching between threads doesn't mix up messages.
+
+### Stream Resuming
+
+When a user navigates away from a thread that's still streaming (e.g. switching to another thread in a sidebar), the stream is lost. Pandora supports the AI SDK's [resumable streams](https://ai-sdk.dev/docs/ai-sdk-ui/resumable-streams) protocol so that navigating back picks up where it left off.
+
+To enable this, add `resume: true` to `useChat` and `prepareReconnectToStreamRequest` to the transport:
+
+```tsx
+const transport = new DefaultChatTransport({
+  api: `${API_URL}/api/chat`,
+  headers: () => {
+    const token = getToken()
+    return token ? { Authorization: `Bearer ${token}` } : {}
+  },
+  prepareSendMessagesRequest: ({ messages }) => {
+    const lastMessage = messages.at(-1)
+    const parts = lastMessage?.role === 'user' ? lastMessage.parts : []
+    return { body: { parts, threadId } }
+  },
+  // Auth headers for the resume GET request
+  prepareReconnectToStreamRequest: () => {
+    const token = getToken()
+    return token ? { headers: { Authorization: `Bearer ${token}` } } : {}
+  },
+})
+
+const { messages, sendMessage, status } = useChat({
+  id: threadId,
+  transport,
+  resume: true,
+})
+```
+
+On mount, `useChat` will call `GET /api/chat/{threadId}/stream`. If the server still has the stream buffered, it resumes seamlessly. If not (stream already finished, or serverless mode), the server returns `204` and the client falls back to showing the persisted messages — this is harmless.
+
+### Streaming Indicators in Thread Lists
+
+The `activeStreamIds` field from `GET /api/threads` tells you which threads are currently streaming. You can use this to show a loading indicator next to active threads in a sidebar. Poll the endpoint while streams are active:
 
 ```ts
-import { readUIMessageStream } from 'ai'
+const { data } = useQuery({
+  queryKey: ['threads'],
+  queryFn: () => apiFetch('/api/threads').then(r => r.json()),
+  refetchInterval: (query) => {
+    const ids = query.state.data?.activeStreamIds
+    return ids?.length ? 3000 : false // poll every 3s while streaming
+  },
+})
+```
 
-const response = await fetch('http://localhost:4111/api/chat', { /* ... */ })
+### Handling New Thread Creation
 
-for await (const message of readUIMessageStream({ stream: response.body })) {
-  // message is a UIMessage that updates as parts stream in
-  console.log(message)
-}
+When a user sends their first message (no `threadId` yet), the server creates a new thread. You need to capture the thread ID from the response header and redirect to it. Use the transport's `fetch` option to intercept the response:
+
+```tsx
+const threadIdRef = useRef<string | null>(null)
+
+const transport = new DefaultChatTransport({
+  api: `${API_URL}/api/chat`,
+  // ... headers, prepareSendMessagesRequest ...
+  fetch: async (url, init) => {
+    const res = await fetch(url, init)
+    const newThreadId = res.headers.get('X-Thread-Id')
+    if (newThreadId) {
+      threadIdRef.current = newThreadId
+    }
+    return res
+  },
+})
+
+const { messages, sendMessage, status } = useChat({
+  transport,
+  onFinish: () => {
+    // Redirect to the new thread after the stream completes
+    if (threadIdRef.current) {
+      router.push(`/chat/${threadIdRef.current}`)
+      threadIdRef.current = null
+    }
+  },
+})
 ```
 
 ## CORS
 
-The core server enables CORS for all origins by default via Hono's `cors()` middleware. If you need to restrict origins in production, update the CORS config in `packages/core/src/index.ts`:
+The core server's CORS policy is controlled by environment variables:
 
-```ts
-app.use('*', cors({ origin: 'https://your-ui.example.com' }))
-```
+| Variable | Effect |
+|---|---|
+| `CORS_ORIGINS=*` | Allow all origins |
+| `CORS_ORIGINS=https://a.com,https://b.com` | Allow specific origins (comma-separated) |
+| `FRONTEND_URL=https://my-ui.com` | Always allowed in addition to `CORS_ORIGINS` |
+| *(neither set)* | Defaults to `http://localhost:3000` (the bundled UI) |
+
+The server always exposes the `X-Thread-Id` header so your frontend can read it from cross-origin responses.

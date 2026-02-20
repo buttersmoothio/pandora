@@ -1,6 +1,6 @@
 # Upstash Redis
 
-The Upstash provider uses serverless Redis via `@upstash/redis`. No schema initialization is needed.
+The Upstash provider connects via the `@upstash/redis` package.
 
 ## Installation
 
@@ -25,17 +25,3 @@ UPSTASH_TOKEN=your-token
 
 You can find these values in the [Upstash Console](https://console.upstash.com) under your database's REST API section.
 
-## How It Works
-
-The provider creates a single `Redis` client and shares it:
-
-1. **AI storage** — conversation threads, message history, and workflow state
-2. **Config storage** — agent configuration stored under the key `pandora:config` as a JSON string (via `RedisConfigStore`)
-
-Since Redis is schemaless, there's no table creation or `init()` step needed for the config store.
-
-## When to Use
-
-- **Serverless deployments** — REST-based API works everywhere (Cloudflare Workers, Vercel Edge, etc.)
-- **Global low-latency** — Upstash offers global replication
-- **Simple key-value needs** — no SQL overhead

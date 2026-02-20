@@ -1,15 +1,16 @@
 # Storage
 
-Every storage provider produces two independent layers that share a database connection:
+Every storage provider produces three independent layers that share a database connection:
 
 ```
 StorageResult
 ├── mastra   ← AI memory, threads, workflows (Mastra adapter)
-└── config   ← Agent configuration (ConfigStore)
+├── config   ← Agent configuration (ConfigStore)
+└── auth     ← Credentials, sessions, refresh tokens (AuthStore)
 ```
 
 Providers are discovered at runtime via convention — `STORAGE_PROVIDER=postgres` imports `@pandora/storage-postgres`.
 
-SQL-backed providers use a single dialect-aware class (`SQLConfigStore`) that handles SQLite, PostgreSQL, and MSSQL differences through a caller-provided `execute(sql, params)` function, keeping the class free of driver-specific imports.
+SQL-backed providers use dialect-aware helper classes (`SQLConfigStore`, `SQLAuthStore`) that handle SQLite, PostgreSQL, and MSSQL differences through a caller-provided `execute(sql, params)` function, keeping the classes free of driver-specific imports. KV-backed providers use equivalent helpers (`RedisConfigStore`, `RedisAuthStore`).
 
-In server mode, both storage and config are cached for the process lifetime. In serverless mode, fresh instances are created per request.
+In server mode, all three layers are cached for the process lifetime. In serverless mode, fresh instances are created per request.

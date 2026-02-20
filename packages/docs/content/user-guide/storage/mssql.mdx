@@ -1,6 +1,6 @@
 # MSSQL
 
-The MSSQL provider connects via `mssql` (tedious) and stores config as NVARCHAR(MAX).
+The MSSQL provider connects via the `mssql` package.
 
 ## Installation
 
@@ -21,28 +21,3 @@ STORAGE_PROVIDER=mssql
 DATABASE_URL=Server=localhost;Database=pandora;User Id=sa;Password=yourPassword;Encrypt=true;TrustServerCertificate=true
 ```
 
-## How It Works
-
-The provider creates a `ConnectionPool`, connects, and passes it to both layers:
-
-1. **AI storage** — conversation threads, message history, and workflow state
-2. **Config storage** — agent configuration in a `pandora_config` table (via `SQLConfigStore` with `mssql` dialect)
-
-The config table schema uses MSSQL-specific syntax:
-
-```sql
-IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='pandora_config' AND xtype='U')
-CREATE TABLE pandora_config (
-  [key] NVARCHAR(255) PRIMARY KEY,
-  value NVARCHAR(MAX) NOT NULL,
-  updated_at DATETIME2 DEFAULT GETUTCDATE()
-);
-```
-
-Upserts use `MERGE` statements. Parameters are bound as `@p1`, `@p2`, etc.
-
-## When to Use
-
-- **Enterprise environments** — Azure SQL, SQL Server deployments
-- **Existing MSSQL infrastructure** — reuse your current database
-- **Corporate requirements** — when Postgres isn't an option

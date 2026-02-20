@@ -1,0 +1,286 @@
+# Chat & Thread API
+
+Complete endpoint reference for Pandora's chat streaming and thread management APIs.
+
+All endpoints below require authentication via `Authorization: Bearer <token>` header unless otherwise noted. See the [Authentication API](/reference/auth) for how to obtain tokens.
+
+## Error Format
+
+All error responses return JSON with an `error` field:
+
+```json
+{ "error": "description of what went wrong" }
+```
+
+Unhandled server errors include a `message` field:
+
+```json
+{ "error": "Internal Server Error", "message": "detailed error message" }
+```
+
+| Status | Meaning |
+|---|---|
+| `400` | Bad request — missing or invalid fields |
+| `401` | Unauthorized — missing or invalid token |
+| `403` | Forbidden — auth not set up yet |
+| `404` | Not found — resource does not exist |
+| `500` | Internal server error |
+
+## POST /api/chat
+
+Send a message and receive a streaming response.
+
+### Request
+
+```
+POST /api/chat
+Content-Type: application/json
+Authorization: Bearer <token>
+```
+
+```json
+{
+  "parts": [{ "type": "text", "text": "Hello" }],
+  "threadId": "abc123"
+}
+```
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `parts` | `ContentPart[]` | Yes | User message parts. At minimum one text part: `[{ "type": "text", "text": "..." }]` |
+| `threadId` | `string` | No | Thread to continue. Omit to start a new conversation (server generates a UUID). |
+
+### Response
+
+**Status `200`** — Server-Sent Events (SSE) stream.
+
+**Headers:**
+
+| Header | Description |
+|---|---|
+| `Content-Type` | `text/event-stream` |
+| `X-Thread-Id` | The thread ID. Always present — read this when creating new threads. |
+
+The stream body is a [`UIMessageStream`](https://ai-sdk.dev/docs/ai-sdk-ui/reading-ui-message-streams) that AI SDK client libraries can consume directly.
+
+### Errors
+
+| Status | Error | Cause |
+|---|---|---|
+| `400` | `parts must be a non-empty array` | `parts` is missing, empty, or not an array |
+| `500` | `{error message}` | Server-side failure |
+
+## GET /api/chat/:chatId/stream
+
+Reconnect to an in-progress stream. This is the server-side half of the AI SDK [resumable streams](https://ai-sdk.dev/docs/ai-sdk-ui/resumable-streams) protocol.
+
+```
+GET /api/chat/:chatId/stream
+Authorization: Bearer <token>
+```
+
+| Status | Meaning |
+|---|---|
+| `200` | Active stream found — returns buffered SSE stream from current position |
+| `204` | No active stream (already finished, or serverless mode) |
+
+The server buffers each SSE stream in memory so clients can reconnect mid-stream. Buffers are cleaned up 60 seconds after the stream completes. In serverless mode (e.g. Cloudflare Workers), this endpoint always returns `204`.
+
+## GET /api/threads
+
+List root threads, ordered by most recently updated.
+
+```
+GET /api/threads
+Authorization: Bearer <token>
+```
+
+### Response
+
+```json
+{
+  "threads": [
+    {
+      "id": "abc123",
+      "title": "Getting started with Pandora",
+      "createdAt": "2025-01-01T00:00:00.000Z",
+      "updatedAt": "2025-01-01T00:01:00.000Z",
+      "activeThreadId": "fork-456",
+      "threadIds": ["abc123", "fork-456"]
+    }
+  ],
+  "total": 1,
+  "page": 0,
+  "perPage": 100,
+  "hasMore": false,
+  "activeStreamIds": ["abc123"]
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `threads` | `array` | Thread objects, ordered by `updatedAt` descending |
+| `threads[].id` | `string` | Root thread ID |
+| `threads[].title` | `string \| null` | Auto-generated title (set after first assistant response) |
+| `threads[].activeThreadId` | `string` | ID of the most recently updated thread in the family (root or any branch) |
+| `threads[].threadIds` | `string[]` | All thread IDs in the family (root + branches) |
+| `total` | `number` | Total root thread count |
+| `page` | `number` | Current page index |
+| `perPage` | `number \| false` | Page size |
+| `hasMore` | `boolean` | Whether more pages exist |
+| `activeStreamIds` | `string[]` | Thread IDs currently streaming a response. Always `[]` in serverless mode. |
+
+Only root threads appear in the list. Branches are accessible through the `threadIds` array or by fetching them directly with `GET /api/threads/:id`.
+
+## GET /api/threads/:id
+
+Get a single thread with its full message history and branching context.
+
+```
+GET /api/threads/:id
+Authorization: Bearer <token>
+```
+
+### Response
+
+```json
+{
+  "thread": {
+    "id": "abc123",
+    "title": "Getting started with Pandora",
+    "createdAt": "2025-01-01T00:00:00.000Z",
+    "updatedAt": "2025-01-01T00:01:00.000Z"
+  },
+  "messages": [
+    {
+      "id": "msg-1",
+      "role": "user",
+      "content": { "format": 2, "parts": [{ "type": "text", "text": "Hello" }] },
+      "createdAt": "2025-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "msg-2",
+      "role": "assistant",
+      "content": { "format": 2, "parts": [{ "type": "text", "text": "Hi there!" }] },
+      "createdAt": "2025-01-01T00:00:01.000Z"
+    }
+  ],
+  "forks": {
+    "msg-1": [{ "id": "fork-456", "title": "Alternative question" }]
+  },
+  "forkInfo": null
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `thread` | `object` | Thread metadata |
+| `messages` | `array` | Full message history. Each message has `id`, `role`, `content`, and `createdAt`. |
+| `messages[].content` | `object` | `{ format: number, parts: Part[] }` — the `parts` array matches the [UIMessage](https://ai-sdk.dev/docs/reference/ai-sdk-core/ui-message) format. |
+| `forks` | `Record<string, BranchRef[]>` | Child branches keyed by fork-point message ID. Each entry lists threads that branched at that message. |
+| `forkInfo` | `ForkInfo \| null` | Present only when this thread is itself a branch. |
+
+### ForkInfo
+
+When a thread is a branch (created via fork), `forkInfo` describes its relationship to the parent:
+
+| Field | Type | Description |
+|---|---|---|
+| `sourceThreadId` | `string` | The parent thread this was forked from |
+| `forkPointIndex` | `number` | Index in the parent's message list where the fork occurred |
+| `siblings` | `BranchRef[]` | Other branches forked from the same point in the parent |
+
+A `BranchRef` is `{ id: string, title?: string }`.
+
+### Errors
+
+| Status | Error | Cause |
+|---|---|---|
+| `404` | `Thread not found` | No thread with this ID exists |
+
+## POST /api/threads/:id/fork
+
+Create a new branch from an existing thread at a specific message. All messages **before** the fork point are cloned into the new thread.
+
+```
+POST /api/threads/:id/fork
+Content-Type: application/json
+Authorization: Bearer <token>
+```
+
+```json
+{ "messageId": "msg-3" }
+```
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `messageId` | `string` | Yes | ID of the message to fork at. Messages before this point are included in the branch. |
+
+### Response
+
+```json
+{
+  "thread": {
+    "id": "fork-456",
+    "createdAt": "2025-01-01T00:02:00.000Z",
+    "updatedAt": "2025-01-01T00:02:00.000Z"
+  },
+  "clonedMessageCount": 4
+}
+```
+
+After forking, send a `POST /api/chat` with the new thread's ID to continue the conversation from the fork point.
+
+### Errors
+
+| Status | Error | Cause |
+|---|---|---|
+| `400` | `messageId is required` | `messageId` is missing or not a string |
+| `404` | `Message not found in thread` | The message ID does not exist in this thread |
+
+## DELETE /api/threads/:id
+
+Permanently delete a thread and all its messages.
+
+```
+DELETE /api/threads/:id
+Authorization: Bearer <token>
+```
+
+### Response
+
+```json
+{ "success": true }
+```
+
+### Errors
+
+| Status | Error | Cause |
+|---|---|---|
+| `404` | `Thread not found` | No thread with this ID exists |
+
+## Message Part Types
+
+Each message's `content.parts` array contains typed parts. These are the part types the Pandora API can emit (see [UIMessage reference](https://ai-sdk.dev/docs/reference/ai-sdk-core/ui-message) for full type definitions):
+
+| Part Type | Fields | When Emitted |
+|---|---|---|
+| `text` | `text`, `state?` (`'streaming'` \| `'done'`) | Always — LLM text output |
+| `tool-{name}` | `toolCallId`, `state`, `input`, `output`, `errorText` | When the agent calls a tool |
+| `reasoning` | `text`, `state?`, `providerMetadata?` | When the model supports reasoning/thinking |
+| `source-url` | `sourceId`, `url`, `title?`, `providerMetadata?` | When the model provides citations |
+| `file` | `mediaType`, `url`, `filename?` | When the response includes files |
+| `step-start` | — | At the start of each agent step |
+
+Tool parts have dynamic type names like `tool-current-time` or `tool-web-search`. Check for the `tool-` prefix when rendering.
+
+### Tool Part States
+
+Tool parts go through a lifecycle indicated by the `state` field:
+
+| State | Meaning |
+|---|---|
+| `partial-call` | Tool is being called — `input` is still streaming in |
+| `call` | Tool call is complete — `input` is final, waiting for result |
+| `output-available` | Tool finished — `output` contains the result |
+| `error` | Tool failed — `errorText` contains the error message |

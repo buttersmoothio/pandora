@@ -3,4 +3,5 @@ export default {
   security: 'Security',
   auth: 'Authentication',
   storage: 'Storage',
+  threads: 'Threads & Branching',
 }

@@ -1,0 +1,17 @@
+# Threads & Branching
+
+Conversations are stored as threads. When a user edits a previous message, the system forks the thread into a new branch rather than mutating history — every response is preserved and reachable.
+
+## Why Clone-Based Forking
+
+Branches are implemented as Mastra memory thread clones. Each branch is a full, independent thread that can be loaded, continued, and deleted without affecting its siblings or parent. This avoids a custom tree data structure in the storage layer and works with any Mastra-compatible storage provider out of the box.
+
+## Thread Families
+
+A thread created by a new conversation is marked `metadata.root = true`. Only root threads appear in the thread listing endpoint. When a thread is forked, the clone inherits a `forkPointMessageId` in its metadata — this is the explicit pointer to which message the branch diverges at. Siblings are discovered at read time by querying the parent's clones for matching fork points.
+
+The thread listing enriches each root with `activeThreadId` (the most recently updated branch) and `threadIds` (the full family). This lets sidebar UIs show one entry per conversation while linking to the active branch.
+
+## Fork-Point Resolution
+
+Fork points are tracked by message ID, not by array index. The `forkPointIndex` returned in the API is computed on read by filtering to user/assistant messages (matching what the UI displays) and finding the fork-point message's position. This keeps the stored metadata stable even if system messages are added or removed.

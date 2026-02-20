@@ -4,7 +4,9 @@ SQLite is the default storage provider. It works out of the box with zero config
 
 ## Installation
 
-The SQLite provider is included as a default dependency — no extra install needed. If you're starting from scratch:
+The SQLite provider is included as a default dependency — no extra install needed.
+
+If you removed it and want to add it back:
 
 ```bash
 bun add @pandora/storage-libsql
@@ -42,17 +44,3 @@ DATABASE_URL=libsql://your-db-name-org.turso.io
 DATABASE_AUTH_TOKEN=your-auth-token
 ```
 
-## How It Works
-
-The SQLite provider creates two storage layers:
-
-1. **AI storage** — conversation threads, message history, and workflow state
-2. **Config storage** — agent configuration in a `pandora_config` table (via `SQLConfigStore` with `sqlite` dialect)
-
-Both share the same database connection. Schema tables are created automatically on first use.
-
-## When to Use
-
-- **Local development** — zero setup, file-based storage
-- **Edge deployments** — embedded database with no external dependencies
-- **Turso** — hosted SQLite with global replication
