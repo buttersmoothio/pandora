@@ -50,7 +50,10 @@ export default function Home() {
         const res = await fetch(url, init)
         // Stash the thread ID — we redirect in onFinish after streaming completes
         const threadId = res.headers.get('X-Thread-Id')
-        if (threadId) threadIdRef.current = threadId
+        if (threadId) {
+          threadIdRef.current = threadId
+          queryClient.invalidateQueries({ queryKey: THREADS_KEY })
+        }
         return res
       },
     }),

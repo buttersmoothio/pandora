@@ -1,7 +1,7 @@
 'use client'
 
 import { useChat } from '@ai-sdk/react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { DefaultChatTransport } from 'ai'
 import { LoaderIcon, MessageSquareIcon } from 'lucide-react'
 import { useParams } from 'next/navigation'
@@ -22,6 +22,7 @@ import {
 } from '@/components/ai-elements/prompt-input'
 import { MessageParts } from '@/components/message-parts'
 import { useConfig } from '@/hooks/use-config'
+import { THREADS_KEY } from '@/hooks/use-threads'
 import { apiFetch, getToken } from '@/lib/api'
 import { convertMastraMessages, type MastraDBMessage } from '@/lib/messages'
 
@@ -63,6 +64,7 @@ function ThreadChat({
   threadId: string
   serverMessages: MastraDBMessage[]
 }) {
+  const queryClient = useQueryClient()
   const { data: config } = useConfig()
   const agentName = config?.identity.name ?? 'Pandora'
 
@@ -72,6 +74,11 @@ function ThreadChat({
     () =>
       new DefaultChatTransport({
         api: `${API_URL}/api/chat`,
+        fetch: async (url, init) => {
+          const res = await fetch(url, init)
+          queryClient.invalidateQueries({ queryKey: THREADS_KEY })
+          return res
+        },
         headers: (): Record<string, string> => {
           const token = getToken()
           return token ? { Authorization: `Bearer ${token}` } : {}
@@ -86,7 +93,7 @@ function ThreadChat({
           return token ? { headers: { Authorization: `Bearer ${token}` } } : {}
         },
       }),
-    [threadId],
+    [threadId, queryClient],
   )
 
   const { messages, sendMessage, status } = useChat({
@@ -94,6 +101,9 @@ function ThreadChat({
     transport,
     messages: initialMessages,
     resume: true,
+    onFinish: () => {
+      queryClient.invalidateQueries({ queryKey: THREADS_KEY })
+    },
   })
 
   const isStreaming = status === 'streaming'

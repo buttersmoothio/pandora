@@ -26,7 +26,7 @@ export function useThreads() {
     queryFn: () => apiFetch<ThreadListResponse>('/api/threads'),
     refetchInterval: (query) => {
       const ids = query.state.data?.activeStreamIds
-      return ids?.length ? 3000 : false
+      return ids?.length ? 1000 : false
     },
   })
 }
