@@ -355,6 +355,31 @@ app.get('/api/threads/:id', async (c) => {
   }
 })
 
+app.delete('/api/threads/:id', async (c) => {
+  const log = getLogger()
+  try {
+    const threadId = c.req.param('id')
+    const envVars = extractStringEnv(env(c))
+    const mastra = await getMastra(envVars, c.env)
+    const memory = await mastra.getAgent('operator').getMemory()
+    if (!memory) {
+      return c.json({ error: 'Memory not configured' }, 500)
+    }
+
+    const thread = await memory.getThreadById({ threadId })
+    if (!thread) {
+      return c.json({ error: 'Thread not found' }, 404)
+    }
+
+    await memory.deleteThread(threadId)
+    return c.json({ success: true })
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown error'
+    log.error('Delete thread failed', { error: message })
+    return c.json({ error: message }, 500)
+  }
+})
+
 // 404 handler
 app.notFound((c) => {
   return c.json({ error: 'Not Found', path: c.req.path }, 404)

@@ -20,6 +20,7 @@ bun install            # Install dependencies
 bun run dev            # Run all packages in dev mode
 bun run check:fix      # Lint & format (Biome)
 bun run build          # Build all packages
+bun run test           # Run tests (do not use bun test)
 ```
 
 Type checking: `bun run typecheck`

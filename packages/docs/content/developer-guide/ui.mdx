@@ -95,6 +95,18 @@ Returns the thread metadata and its message history:
 }
 ```
 
+### Delete thread
+
+```
+DELETE /api/threads/:id
+```
+
+Permanently deletes a thread and its messages. Returns `404` if the thread does not exist.
+
+```json
+{ "success": true }
+```
+
 ### Resume stream
 
 ```
