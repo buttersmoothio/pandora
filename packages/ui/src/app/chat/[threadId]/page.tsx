@@ -31,7 +31,6 @@ interface ThreadResponse {
   thread: {
     id: string
     title?: string
-    resourceId: string
     createdAt: string
     updatedAt: string
   }
@@ -54,9 +53,7 @@ export default function ThreadPage() {
     )
   }
 
-  return (
-    <ThreadChat threadId={threadId} serverMessages={data.messages} />
-  )
+  return <ThreadChat threadId={threadId} serverMessages={data.messages} />
 }
 
 function ThreadChat({
@@ -69,10 +66,7 @@ function ThreadChat({
   const { data: config } = useConfig()
   const agentName = config?.identity.name ?? 'Pandora'
 
-  const initialMessages = useMemo(
-    () => convertMastraMessages(serverMessages),
-    [serverMessages],
-  )
+  const initialMessages = useMemo(() => convertMastraMessages(serverMessages), [serverMessages])
 
   const transport = useMemo(
     () =>
@@ -87,6 +81,10 @@ function ThreadChat({
           const parts = lastMessage?.role === 'user' ? lastMessage.parts : []
           return { body: { parts, threadId } }
         },
+        prepareReconnectToStreamRequest: () => {
+          const token = getToken()
+          return token ? { headers: { Authorization: `Bearer ${token}` } } : {}
+        },
       }),
     [threadId],
   )
@@ -95,6 +93,7 @@ function ThreadChat({
     id: threadId,
     transport,
     messages: initialMessages,
+    resume: true,
   })
 
   const isStreaming = status === 'streaming'

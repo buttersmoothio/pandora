@@ -17,6 +17,7 @@ export function NavThreads() {
   const { data } = useThreads()
   const pathname = usePathname()
   const threads = data?.threads ?? []
+  const activeStreamIds = data?.activeStreamIds ?? []
 
   if (threads.length === 0) return null
 
@@ -33,7 +34,14 @@ export function NavThreads() {
                 tooltip={thread.title || 'Untitled'}
               >
                 <Link href={`/chat/${thread.id}`}>
-                  <MessageSquareIcon />
+                  {activeStreamIds.includes(thread.id) ? (
+                    <span className="relative flex size-4 items-center justify-center">
+                      <span className="absolute size-2.5 animate-ping rounded-full bg-blue-400 opacity-75" />
+                      <span className="size-2 rounded-full bg-blue-500" />
+                    </span>
+                  ) : (
+                    <MessageSquareIcon />
+                  )}
                   <span>{thread.title || 'Untitled'}</span>
                 </Link>
               </SidebarMenuButton>

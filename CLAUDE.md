@@ -42,3 +42,13 @@ The docs are organized into four sections with distinct audiences:
 - **Architecture** — high-level design decisions only. Code is law — don't restate implementation details that someone can read in the source. Focus on the *why* and the shape of the system, not the *how*.
 
 When adding docs, only include content relevant to each section's audience. Quick Start should stay as one page.
+
+## Definition of Done
+
+A task is complete when all of the following pass:
+
+1. `bun run typecheck` — no new type errors
+2. `bun run test` — all existing tests pass
+3. `bun run check:fix` — lint and format clean
+4. Relavant user documentation is updated if needed.
+5. Developer documentation and architecture are documented if needed.

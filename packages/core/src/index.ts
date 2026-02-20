@@ -13,7 +13,7 @@ if (!Object.isFrozen(Object.prototype)) {
 
 import { handleChatStream } from '@mastra/ai-sdk'
 import { PROVIDER_REGISTRY } from '@mastra/core/llm'
-import { createUIMessageStreamResponse } from 'ai'
+import { createUIMessageStreamResponse, UI_MESSAGE_STREAM_HEADERS } from 'ai'
 import { Hono } from 'hono'
 import { env } from 'hono/adapter'
 import { cors } from 'hono/cors'
@@ -28,6 +28,7 @@ import { getRuntimeKey, isServerless } from './env'
 import { getLogger } from './logger'
 import { clearMastraCache, getMastra } from './mastra'
 import { getStorage } from './storage'
+import { getActiveStreamIds, getResumeStream, storeStream } from './stream-store'
 
 // Bindings type for Cloudflare Workers
 type Bindings = {
@@ -265,7 +266,14 @@ app.post('/api/chat', async (c) => {
     })
 
     log.debug('Chat stream created', { threadId })
-    const res = createUIMessageStreamResponse({ stream })
+    const res = createUIMessageStreamResponse({
+      stream,
+      ...(!isServerless() && {
+        consumeSseStream: ({ stream: sseStream }) => {
+          storeStream(threadId, sseStream)
+        },
+      }),
+    })
     res.headers.set('X-Thread-Id', threadId)
     return res
   } catch (err) {
@@ -273,6 +281,17 @@ app.post('/api/chat', async (c) => {
     log.error('Chat request failed', { error: message })
     return c.json({ error: message }, 500)
   }
+})
+
+// Resume stream endpoint — AI SDK sends GET /api/chat/{chatId}/stream when resume: true
+app.get('/api/chat/:chatId/stream', (c) => {
+  if (isServerless()) return c.body(null, 204)
+  const stream = getResumeStream(c.req.param('chatId'))
+  if (!stream) return c.body(null, 204)
+  return new Response(stream.pipeThrough(new TextEncoderStream()), {
+    status: 200,
+    headers: UI_MESSAGE_STREAM_HEADERS,
+  })
 })
 
 // Thread endpoints
@@ -291,7 +310,11 @@ app.get('/api/threads', async (c) => {
       orderBy: { field: 'updatedAt', direction: 'DESC' },
     })
 
-    return c.json(result)
+    return c.json({
+      ...result,
+      threads: result.threads.map(({ resourceId: _, ...t }) => t),
+      activeStreamIds: isServerless() ? [] : getActiveStreamIds(),
+    })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error'
     log.error('List threads failed', { error: message })
@@ -310,15 +333,19 @@ app.get('/api/threads/:id', async (c) => {
       return c.json({ error: 'Memory not configured' }, 500)
     }
 
-    const thread = await memory.getThreadById({ threadId })
-    if (!thread) {
+    const rawThread = await memory.getThreadById({ threadId })
+    if (!rawThread) {
       return c.json({ error: 'Thread not found' }, 404)
     }
 
-    const { messages } = await memory.recall({
+    const { resourceId: _, ...thread } = rawThread
+
+    const { messages: rawMessages } = await memory.recall({
       threadId,
       resourceId: 'default',
     })
+
+    const messages = rawMessages.map(({ threadId: _t, resourceId: _r, ...m }) => m)
 
     return c.json({ thread, messages })
   } catch (err) {

@@ -47,7 +47,6 @@ Returns threads ordered by most recently updated:
     {
       "id": "abc123",
       "title": "Getting started with Pandora",
-      "resourceId": "default",
       "createdAt": "2025-01-01T00:00:00.000Z",
       "updatedAt": "2025-01-01T00:01:00.000Z"
     }
@@ -55,9 +54,19 @@ Returns threads ordered by most recently updated:
   "total": 1,
   "page": 0,
   "perPage": 100,
-  "hasMore": false
+  "hasMore": false,
+  "activeStreamIds": ["abc123"]
 }
 ```
+
+| Field | Type | Description |
+|---|---|---|
+| `threads` | `array` | Thread objects ordered by `updatedAt` descending |
+| `total` | `number` | Total thread count |
+| `page` | `number` | Current page index |
+| `perPage` | `number \| false` | Page size |
+| `hasMore` | `boolean` | Whether more pages exist |
+| `activeStreamIds` | `string[]` | Thread IDs that are currently streaming a response. Always `[]` in serverless mode. |
 
 ### Get thread with messages
 
@@ -72,7 +81,6 @@ Returns the thread metadata and its message history:
   "thread": {
     "id": "abc123",
     "title": "Getting started with Pandora",
-    "resourceId": "default",
     "createdAt": "2025-01-01T00:00:00.000Z",
     "updatedAt": "2025-01-01T00:01:00.000Z"
   },
@@ -86,6 +94,21 @@ Returns the thread metadata and its message history:
   ]
 }
 ```
+
+### Resume stream
+
+```
+GET /api/chat/:chatId/stream
+```
+
+Reconnects to an in-progress stream for the given thread. This is the server-side half of the AI SDK's [resumable streams](https://ai-sdk.dev/docs/ai-sdk-ui/resumable-streams) protocol — `useChat` calls this automatically when `resume: true` is set.
+
+| Status | Meaning |
+|---|---|
+| `200` | Active stream found — returns the buffered SSE stream from the point the client connects |
+| `204` | No active stream (already finished, or serverless mode) |
+
+In persistent server mode, the server buffers each SSE stream in memory so that clients can reconnect mid-stream. The buffer is cleaned up 60 seconds after the stream completes. In serverless mode, this endpoint always returns `204` since there is no shared memory between request isolates.
 
 ## Using AI SDK React
 
@@ -140,6 +163,48 @@ export default function Chat({ threadId }: { threadId?: string }) {
 | `messages` | Array of `UIMessage` objects with `role`, `id`, and `parts` |
 | `sendMessage` | Send a new user message — accepts `{ text: string }` |
 | `status` | `'ready'` \| `'submitted'` \| `'streaming'` \| `'error'` |
+
+### Resumable Streams
+
+When a user navigates away from a streaming thread (e.g., switching threads in a sidebar), the `useChat` instance unmounts and the stream is lost. Pandora supports the AI SDK's [resumable streams](https://ai-sdk.dev/docs/ai-sdk-ui/resumable-streams) protocol so that navigating back to the thread picks up where it left off.
+
+To enable resume, pass `resume: true` to `useChat` and add `prepareReconnectToStreamRequest` to the transport (for auth headers on the reconnect GET request):
+
+```tsx
+const transport = new DefaultChatTransport({
+  api: 'http://localhost:4111/api/chat',
+  prepareSendMessagesRequest: ({ messages }) => {
+    const lastMessage = messages.at(-1)
+    const parts = lastMessage?.role === 'user' ? lastMessage.parts : []
+    return { body: { parts, threadId } }
+  },
+  prepareReconnectToStreamRequest: () => {
+    const token = getToken()
+    return token ? { headers: { Authorization: `Bearer ${token}` } } : {}
+  },
+})
+
+const { messages, sendMessage, status } = useChat({
+  id: threadId,
+  transport,
+  resume: true,
+})
+```
+
+On mount, `useChat` sends `GET /api/chat/{threadId}/stream`. If an active stream exists, it resumes seamlessly; otherwise the server returns `204` and the client shows persisted messages. In serverless mode, the GET always returns `204` — this is harmless.
+
+You can use the `activeStreamIds` field from `GET /api/threads` to show streaming indicators in your UI. Poll the threads endpoint while `activeStreamIds` is non-empty to detect when streams complete:
+
+```ts
+const { data } = useQuery({
+  queryKey: ['threads'],
+  queryFn: () => fetch('/api/threads').then(r => r.json()),
+  refetchInterval: (query) => {
+    const ids = query.state.data?.activeStreamIds
+    return ids?.length ? 3000 : false
+  },
+})
+```
 
 ## Message Part Types Reference
 

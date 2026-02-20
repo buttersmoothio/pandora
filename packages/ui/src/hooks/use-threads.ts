@@ -4,7 +4,6 @@ import { apiFetch } from '@/lib/api'
 export interface Thread {
   id: string
   title?: string
-  resourceId: string
   createdAt: string
   updatedAt: string
   metadata?: Record<string, unknown>
@@ -16,6 +15,7 @@ export interface ThreadListResponse {
   page: number
   perPage: number | false
   hasMore: boolean
+  activeStreamIds?: string[]
 }
 
 export const THREADS_KEY = ['threads'] as const
@@ -24,5 +24,9 @@ export function useThreads() {
   return useQuery({
     queryKey: THREADS_KEY,
     queryFn: () => apiFetch<ThreadListResponse>('/api/threads'),
+    refetchInterval: (query) => {
+      const ids = query.state.data?.activeStreamIds
+      return ids?.length ? 3000 : false
+    },
   })
 }
