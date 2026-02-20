@@ -138,39 +138,6 @@ app.use('/api/*', authMiddleware(getAuthStore))
 // Auth routes
 app.route('/api/auth', createAuthRoutes(getAuthStore))
 
-// Storage info endpoint
-app.get('/api/storage', async (c) => {
-  const envVars = extractStringEnv(env(c))
-  const provider = envVars.STORAGE_PROVIDER ?? 'libsql'
-
-  return c.json({
-    provider,
-    serverless: isServerless(),
-  })
-})
-
-// Initialize storage endpoint (useful for testing)
-app.post('/api/storage/init', async (c) => {
-  const log = getLogger()
-  try {
-    const envVars = extractStringEnv(env(c))
-    const { mastra } = await getStorage(envVars, c.env)
-    log.info('Storage initialized', {
-      provider: envVars.STORAGE_PROVIDER ?? 'libsql',
-      id: mastra.id,
-    })
-    return c.json({
-      success: true,
-      provider: envVars.STORAGE_PROVIDER ?? 'libsql',
-      id: mastra.id,
-    })
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'Unknown error'
-    log.error('Storage init failed', { error: message })
-    return c.json({ success: false, error: message }, 500)
-  }
-})
-
 // Config endpoint - get current config
 app.get('/api/config', async (c) => {
   const envVars = extractStringEnv(env(c))
