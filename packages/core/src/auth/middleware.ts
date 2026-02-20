@@ -4,7 +4,7 @@ import type { AuthStore } from './auth-store'
 import { verifySessionToken } from './session'
 
 /** Routes that don't require authentication */
-const PUBLIC_PATHS = new Set(['/', '/api/auth/setup', '/api/auth/login'])
+const PUBLIC_PATHS = new Set(['/', '/api/auth/setup', '/api/auth/login', '/api/auth/refresh'])
 
 /** Extract bearer token from Authorization header or pandora_session cookie */
 function extractToken(c: Context): string | undefined {

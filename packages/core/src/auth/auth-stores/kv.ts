@@ -1,8 +1,10 @@
-import type { AuthStore, PasswordCredential, Session } from '../auth-store'
+import type { AuthStore, PasswordCredential, RefreshToken, Session } from '../auth-store'
 
 const CREDENTIAL_KEY = 'pandora:auth:credential'
 const SESSION_PREFIX = 'pandora:auth:session:'
 const SESSION_INDEX_KEY = 'pandora:auth:sessions'
+const REFRESH_PREFIX = 'pandora:auth:refresh:'
+const REFRESH_INDEX_KEY = 'pandora:auth:refreshes'
 
 /**
  * Redis/KV-based auth store for Upstash.
@@ -82,5 +84,50 @@ export class RedisAuthStore implements AuthStore {
     }
 
     return sessions
+  }
+
+  async createRefreshToken(token: RefreshToken): Promise<void> {
+    const ttl = Math.max(1, Math.floor((new Date(token.expiresAt).getTime() - Date.now()) / 1000))
+    await this.redis.set(REFRESH_PREFIX + token.tokenHash, JSON.stringify(token), { ex: ttl })
+    await this.redis.sadd(REFRESH_INDEX_KEY, token.tokenHash)
+  }
+
+  async getRefreshToken(tokenHash: string): Promise<RefreshToken | null> {
+    const value = await this.redis.get(REFRESH_PREFIX + tokenHash)
+    if (!value) {
+      await this.redis.srem(REFRESH_INDEX_KEY, tokenHash)
+      return null
+    }
+    const token = (typeof value === 'string' ? JSON.parse(value) : value) as RefreshToken
+
+    if (new Date(token.expiresAt) <= new Date()) {
+      await this.deleteRefreshToken(tokenHash)
+      return null
+    }
+
+    return token
+  }
+
+  async deleteRefreshToken(tokenHash: string): Promise<void> {
+    await this.redis.del(REFRESH_PREFIX + tokenHash)
+    await this.redis.srem(REFRESH_INDEX_KEY, tokenHash)
+  }
+
+  async deleteAllRefreshTokens(): Promise<void> {
+    const hashes = await this.redis.smembers(REFRESH_INDEX_KEY)
+    if (hashes.length > 0) {
+      const keys = hashes.map((h) => REFRESH_PREFIX + h)
+      await this.redis.del(...keys)
+    }
+    await this.redis.del(REFRESH_INDEX_KEY)
+  }
+
+  async markRefreshTokenUsed(tokenHash: string): Promise<void> {
+    const value = await this.redis.get(REFRESH_PREFIX + tokenHash)
+    if (!value) return
+    const token = (typeof value === 'string' ? JSON.parse(value) : value) as RefreshToken
+    token.used = true
+    const ttl = Math.max(1, Math.floor((new Date(token.expiresAt).getTime() - Date.now()) / 1000))
+    await this.redis.set(REFRESH_PREFIX + tokenHash, JSON.stringify(token), { ex: ttl })
   }
 }

@@ -39,7 +39,7 @@ const app = new Hono<{ Bindings: Bindings }>()
 
 // Middleware
 app.use('*', logger())
-app.use('*', cors())
+app.use('*', cors({ origin: (origin) => origin, credentials: true }))
 
 // Health check - returns runtime info + auth state
 app.get('/', async (c) => {

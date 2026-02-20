@@ -2,7 +2,8 @@ import type { Context } from 'hono'
 import { Hono } from 'hono'
 import type { AuthStore } from './auth-store'
 import { hashPassword, hashToken, verifyPassword } from './crypto'
-import { createSession } from './session'
+import type { TokenPair } from './session'
+import { createTokenPair, rotateTokens } from './session'
 
 const MIN_PASSWORD_LENGTH = 8
 
@@ -35,14 +36,22 @@ export function createAuthRoutes(getAuthStore: (c: Context) => Promise<AuthStore
       createdAt: new Date().toISOString(),
     })
 
-    // Auto-login: create session and return token
+    // Auto-login: create token pair and return
     const userAgent = c.req.header('User-Agent')
     const ip = c.req.header('X-Forwarded-For') ?? c.req.header('X-Real-IP')
-    const session = await createSession(store, { userAgent, ip: ip ?? undefined })
+    const pair = await createTokenPair(store, { userAgent, ip: ip ?? undefined })
 
-    setCookie(c, session.token, session.expiresAt)
+    setTokenCookies(c, pair)
 
-    return c.json({ token: session.token, expiresAt: session.expiresAt }, 201)
+    return c.json(
+      {
+        token: pair.accessToken,
+        refreshToken: pair.refreshToken,
+        expiresAt: pair.accessExpiresAt,
+        refreshExpiresAt: pair.refreshExpiresAt,
+      },
+      201,
+    )
   })
 
   // POST /api/auth/login — password login
@@ -66,14 +75,19 @@ export function createAuthRoutes(getAuthStore: (c: Context) => Promise<AuthStore
 
     const userAgent = c.req.header('User-Agent')
     const ip = c.req.header('X-Forwarded-For') ?? c.req.header('X-Real-IP')
-    const session = await createSession(store, { userAgent, ip: ip ?? undefined })
+    const pair = await createTokenPair(store, { userAgent, ip: ip ?? undefined })
 
-    setCookie(c, session.token, session.expiresAt)
+    setTokenCookies(c, pair)
 
-    return c.json({ token: session.token, expiresAt: session.expiresAt })
+    return c.json({
+      token: pair.accessToken,
+      refreshToken: pair.refreshToken,
+      expiresAt: pair.accessExpiresAt,
+      refreshExpiresAt: pair.refreshExpiresAt,
+    })
   })
 
-  // POST /api/auth/logout — delete current session
+  // POST /api/auth/logout — delete current session and refresh token
   auth.post('/logout', async (c) => {
     const store = await getAuthStore(c)
     const token = extractToken(c)
@@ -83,12 +97,18 @@ export function createAuthRoutes(getAuthStore: (c: Context) => Promise<AuthStore
       await store.deleteSession(tokenHash)
     }
 
-    clearCookie(c)
+    const refresh = extractRefreshToken(c)
+    if (refresh) {
+      const refreshHash = await hashToken(refresh)
+      await store.deleteRefreshToken(refreshHash)
+    }
+
+    clearTokenCookies(c)
 
     return c.json({ success: true })
   })
 
-  // POST /api/auth/change-password — change password, invalidate all sessions
+  // POST /api/auth/change-password — change password, invalidate all sessions + refresh tokens
   auth.post('/change-password', async (c) => {
     const store = await getAuthStore(c)
     const credential = await store.getCredential()
@@ -119,17 +139,23 @@ export function createAuthRoutes(getAuthStore: (c: Context) => Promise<AuthStore
       createdAt: new Date().toISOString(),
     })
 
-    // Invalidate all sessions
+    // Invalidate all sessions and refresh tokens
     await store.deleteAllSessions()
+    await store.deleteAllRefreshTokens()
 
-    // Create new session for current user
+    // Create new token pair for current user
     const userAgent = c.req.header('User-Agent')
     const ip = c.req.header('X-Forwarded-For') ?? c.req.header('X-Real-IP')
-    const session = await createSession(store, { userAgent, ip: ip ?? undefined })
+    const pair = await createTokenPair(store, { userAgent, ip: ip ?? undefined })
 
-    setCookie(c, session.token, session.expiresAt)
+    setTokenCookies(c, pair)
 
-    return c.json({ token: session.token, expiresAt: session.expiresAt })
+    return c.json({
+      token: pair.accessToken,
+      refreshToken: pair.refreshToken,
+      expiresAt: pair.accessExpiresAt,
+      refreshExpiresAt: pair.refreshExpiresAt,
+    })
   })
 
   // GET /api/auth/sessions — list active sessions
@@ -169,18 +195,52 @@ export function createAuthRoutes(getAuthStore: (c: Context) => Promise<AuthStore
     await store.deleteSession(targetHash)
 
     if (isCurrent) {
-      clearCookie(c)
+      clearTokenCookies(c)
     }
 
     return c.json({ success: true, loggedOut: isCurrent })
   })
 
-  // DELETE /api/auth/sessions — revoke all sessions
+  // DELETE /api/auth/sessions — revoke all sessions and refresh tokens
   auth.delete('/sessions', async (c) => {
     const store = await getAuthStore(c)
     await store.deleteAllSessions()
-    clearCookie(c)
+    await store.deleteAllRefreshTokens()
+    clearTokenCookies(c)
     return c.json({ success: true })
+  })
+
+  // POST /api/auth/refresh — rotate tokens using refresh token
+  auth.post('/refresh', async (c) => {
+    const store = await getAuthStore(c)
+    const refreshTokenRaw = await extractRefreshTokenFromRequest(c)
+
+    if (!refreshTokenRaw) {
+      return c.json({ error: 'refresh_token_required' }, 400)
+    }
+
+    try {
+      const userAgent = c.req.header('User-Agent')
+      const ip = c.req.header('X-Forwarded-For') ?? c.req.header('X-Real-IP')
+      const pair = await rotateTokens(store, refreshTokenRaw, {
+        userAgent,
+        ip: ip ?? undefined,
+      })
+
+      setTokenCookies(c, pair)
+
+      return c.json({
+        token: pair.accessToken,
+        refreshToken: pair.refreshToken,
+        expiresAt: pair.accessExpiresAt,
+        refreshExpiresAt: pair.refreshExpiresAt,
+      })
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'invalid_refresh_token'
+      const status = message === 'refresh_token_reused' ? 401 : 401
+      clearTokenCookies(c)
+      return c.json({ error: message }, status)
+    }
   })
 
   return auth
@@ -203,18 +263,56 @@ function extractToken(c: {
   return undefined
 }
 
-function setCookie(
-  c: { header: (name: string, value: string) => void },
-  token: string,
-  expiresAt: string,
+function extractRefreshToken(c: {
+  req: { header: (name: string) => string | undefined }
+}): string | undefined {
+  const cookie = c.req.header('Cookie')
+  if (cookie) {
+    const match = cookie.match(/(?:^|;\s*)pandora_refresh=([^\s;]+)/)
+    if (match) return match[1]
+  }
+  return undefined
+}
+
+async function extractRefreshTokenFromRequest(c: Context): Promise<string | undefined> {
+  // Try cookie first
+  const fromCookie = extractRefreshToken(c)
+  if (fromCookie) return fromCookie
+
+  // Try request body
+  try {
+    const body = await c.req.json<{ refreshToken?: string }>()
+    return body.refreshToken
+  } catch {
+    return undefined
+  }
+}
+
+function setTokenCookies(
+  c: { header: (name: string, value: string, options?: { append?: boolean }) => void },
+  pair: TokenPair,
 ): void {
-  const expires = new Date(expiresAt).toUTCString()
+  const accessExpires = new Date(pair.accessExpiresAt).toUTCString()
   c.header(
     'Set-Cookie',
-    `pandora_session=${token}; Path=/; HttpOnly; SameSite=Lax; Expires=${expires}`,
+    `pandora_session=${pair.accessToken}; Path=/; HttpOnly; SameSite=Lax; Expires=${accessExpires}`,
+  )
+
+  const refreshExpires = new Date(pair.refreshExpiresAt).toUTCString()
+  c.header(
+    'Set-Cookie',
+    `pandora_refresh=${pair.refreshToken}; Path=/api/auth/refresh; HttpOnly; SameSite=Lax; Expires=${refreshExpires}`,
+    { append: true },
   )
 }
 
-function clearCookie(c: { header: (name: string, value: string) => void }): void {
+function clearTokenCookies(c: {
+  header: (name: string, value: string, options?: { append?: boolean }) => void
+}): void {
   c.header('Set-Cookie', 'pandora_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0')
+  c.header(
+    'Set-Cookie',
+    'pandora_refresh=; Path=/api/auth/refresh; HttpOnly; SameSite=Lax; Max-Age=0',
+    { append: true },
+  )
 }

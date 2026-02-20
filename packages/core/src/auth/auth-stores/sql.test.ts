@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { PasswordCredential, Session } from '../auth-store'
+import type { PasswordCredential, RefreshToken, Session } from '../auth-store'
 import { SQLAuthStore } from './sql'
 
 const testCredential: PasswordCredential = {
@@ -20,6 +20,16 @@ const testSession: Session = {
   ip: '127.0.0.1',
 }
 
+const testRefreshToken: RefreshToken = {
+  tokenHash: 'refresh_hash_123',
+  sessionHash: 'session_hash_456',
+  expiresAt: futureDate,
+  createdAt: '2024-01-01T00:00:00.000Z',
+  userAgent: 'test-agent',
+  ip: '127.0.0.1',
+  used: false,
+}
+
 describe('SQLAuthStore', () => {
   describe.each(['sqlite', 'postgres', 'mssql'] as const)('%s dialect', (dialect) => {
     let store: SQLAuthStore
@@ -36,26 +46,34 @@ describe('SQLAuthStore', () => {
     })
 
     describe('init', () => {
-      it('creates both tables', async () => {
+      it('creates all three tables', async () => {
         await store.init()
-        expect(execute).toHaveBeenCalledTimes(2)
+        expect(execute).toHaveBeenCalledTimes(3)
 
         const credSql = calls[0].sql
         const sessSql = calls[1].sql
+        const refreshSql = calls[2].sql
 
         expect(credSql).toContain('pandora_auth_credentials')
         expect(sessSql).toContain('pandora_auth_sessions')
+        expect(refreshSql).toContain('pandora_auth_refresh_tokens')
 
         if (dialect === 'postgres') {
           expect(credSql).toContain('TIMESTAMPTZ')
           expect(sessSql).toContain('TIMESTAMPTZ')
+          expect(refreshSql).toContain('TIMESTAMPTZ')
+          expect(refreshSql).toContain('BOOLEAN')
         } else if (dialect === 'mssql') {
           expect(credSql).toContain('NVARCHAR')
           expect(credSql).toContain('sysobjects')
           expect(sessSql).toContain('DATETIME2')
+          expect(refreshSql).toContain('DATETIME2')
+          expect(refreshSql).toContain('BIT')
         } else {
           expect(credSql).toContain('CREATE TABLE IF NOT EXISTS')
           expect(sessSql).toContain("datetime('now')")
+          expect(refreshSql).toContain('pandora_auth_refresh_tokens')
+          expect(refreshSql).toContain('session_hash')
         }
       })
     })
@@ -188,6 +206,93 @@ describe('SQLAuthStore', () => {
         execute.mockRejectedValueOnce(new Error('no such table'))
         const result = await store.listSessions()
         expect(result).toEqual([])
+      })
+    })
+
+    describe('createRefreshToken', () => {
+      it('inserts refresh token', async () => {
+        await store.createRefreshToken(testRefreshToken)
+        expect(execute).toHaveBeenCalledOnce()
+
+        const { sql, params } = calls[0]
+        expect(sql).toContain('pandora_auth_refresh_tokens')
+        expect(params).toContain(testRefreshToken.tokenHash)
+        expect(params).toContain(testRefreshToken.sessionHash)
+        expect(params).toContain(testRefreshToken.expiresAt)
+      })
+    })
+
+    describe('getRefreshToken', () => {
+      it('returns null when no rows', async () => {
+        const result = await store.getRefreshToken('nonexistent')
+        expect(result).toBeNull()
+      })
+
+      it('returns null on error', async () => {
+        execute.mockRejectedValueOnce(new Error('no such table'))
+        const result = await store.getRefreshToken('nonexistent')
+        expect(result).toBeNull()
+      })
+
+      it('returns refresh token from valid row', async () => {
+        execute.mockResolvedValueOnce([
+          {
+            token_hash: testRefreshToken.tokenHash,
+            session_hash: testRefreshToken.sessionHash,
+            expires_at: testRefreshToken.expiresAt,
+            created_at: testRefreshToken.createdAt,
+            user_agent: testRefreshToken.userAgent,
+            ip: testRefreshToken.ip,
+            used: 0,
+          },
+        ])
+        const result = await store.getRefreshToken(testRefreshToken.tokenHash)
+        expect(result).toEqual(testRefreshToken)
+      })
+
+      it('maps used=1 to true', async () => {
+        execute.mockResolvedValueOnce([
+          {
+            token_hash: testRefreshToken.tokenHash,
+            session_hash: testRefreshToken.sessionHash,
+            expires_at: testRefreshToken.expiresAt,
+            created_at: testRefreshToken.createdAt,
+            user_agent: null,
+            ip: null,
+            used: 1,
+          },
+        ])
+        const result = await store.getRefreshToken(testRefreshToken.tokenHash)
+        expect(result?.used).toBe(true)
+      })
+    })
+
+    describe('deleteRefreshToken', () => {
+      it('deletes by token hash', async () => {
+        await store.deleteRefreshToken('refresh123')
+        expect(execute).toHaveBeenCalledOnce()
+        expect(calls[0].sql).toContain('DELETE')
+        expect(calls[0].sql).toContain('pandora_auth_refresh_tokens')
+        expect(calls[0].params).toContain('refresh123')
+      })
+    })
+
+    describe('deleteAllRefreshTokens', () => {
+      it('deletes all refresh tokens', async () => {
+        await store.deleteAllRefreshTokens()
+        expect(execute).toHaveBeenCalledOnce()
+        expect(calls[0].sql).toContain('DELETE')
+        expect(calls[0].sql).toContain('pandora_auth_refresh_tokens')
+      })
+    })
+
+    describe('markRefreshTokenUsed', () => {
+      it('updates used flag', async () => {
+        await store.markRefreshTokenUsed('refresh123')
+        expect(execute).toHaveBeenCalledOnce()
+        expect(calls[0].sql).toContain('UPDATE')
+        expect(calls[0].sql).toContain('pandora_auth_refresh_tokens')
+        expect(calls[0].params).toContain('refresh123')
       })
     })
   })

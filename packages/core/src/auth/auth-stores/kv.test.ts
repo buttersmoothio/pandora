@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { PasswordCredential, Session } from '../auth-store'
+import type { PasswordCredential, RefreshToken, Session } from '../auth-store'
 import { RedisAuthStore } from './kv'
 
 const testCredential: PasswordCredential = {
@@ -17,6 +17,16 @@ const testSession: Session = {
   createdAt: '2024-01-01T00:00:00.000Z',
   userAgent: 'test-agent',
   ip: '127.0.0.1',
+}
+
+const testRefreshToken: RefreshToken = {
+  tokenHash: 'refresh_hash_123',
+  sessionHash: 'session_hash_456',
+  expiresAt: futureDate,
+  createdAt: '2024-01-01T00:00:00.000Z',
+  userAgent: 'test-agent',
+  ip: '127.0.0.1',
+  used: false,
 }
 
 describe('RedisAuthStore', () => {
@@ -135,6 +145,78 @@ describe('RedisAuthStore', () => {
     it('returns empty array when no sessions', async () => {
       const result = await store.listSessions()
       expect(result).toEqual([])
+    })
+  })
+
+  describe('createRefreshToken', () => {
+    it('stores refresh token with TTL and adds to index', async () => {
+      await store.createRefreshToken(testRefreshToken)
+      expect(redis.set).toHaveBeenCalledWith(
+        `pandora:auth:refresh:${testRefreshToken.tokenHash}`,
+        JSON.stringify(testRefreshToken),
+        expect.objectContaining({ ex: expect.any(Number) }),
+      )
+      expect(redis.sadd).toHaveBeenCalledWith('pandora:auth:refreshes', testRefreshToken.tokenHash)
+    })
+  })
+
+  describe('getRefreshToken', () => {
+    it('returns null when token does not exist', async () => {
+      const result = await store.getRefreshToken('nonexistent')
+      expect(result).toBeNull()
+    })
+
+    it('returns refresh token when found', async () => {
+      redis.get.mockResolvedValueOnce(JSON.stringify(testRefreshToken))
+      const result = await store.getRefreshToken(testRefreshToken.tokenHash)
+      expect(result).toEqual(testRefreshToken)
+    })
+
+    it('cleans up index when key is missing (TTL expired)', async () => {
+      await store.getRefreshToken('expired_hash')
+      expect(redis.srem).toHaveBeenCalledWith('pandora:auth:refreshes', 'expired_hash')
+    })
+  })
+
+  describe('deleteRefreshToken', () => {
+    it('deletes refresh token key and removes from index', async () => {
+      await store.deleteRefreshToken('refresh123')
+      expect(redis.del).toHaveBeenCalledWith('pandora:auth:refresh:refresh123')
+      expect(redis.srem).toHaveBeenCalledWith('pandora:auth:refreshes', 'refresh123')
+    })
+  })
+
+  describe('deleteAllRefreshTokens', () => {
+    it('deletes all refresh token keys and index', async () => {
+      redis.smembers.mockResolvedValueOnce(['rh1', 'rh2'])
+      await store.deleteAllRefreshTokens()
+      expect(redis.del).toHaveBeenCalledWith('pandora:auth:refresh:rh1', 'pandora:auth:refresh:rh2')
+      expect(redis.del).toHaveBeenCalledWith('pandora:auth:refreshes')
+    })
+
+    it('handles empty refresh token list', async () => {
+      redis.smembers.mockResolvedValueOnce([])
+      await store.deleteAllRefreshTokens()
+      expect(redis.del).toHaveBeenCalledWith('pandora:auth:refreshes')
+    })
+  })
+
+  describe('markRefreshTokenUsed', () => {
+    it('updates used flag and preserves TTL', async () => {
+      redis.get.mockResolvedValueOnce(JSON.stringify(testRefreshToken))
+      await store.markRefreshTokenUsed(testRefreshToken.tokenHash)
+
+      const expected = { ...testRefreshToken, used: true }
+      expect(redis.set).toHaveBeenCalledWith(
+        `pandora:auth:refresh:${testRefreshToken.tokenHash}`,
+        JSON.stringify(expected),
+        expect.objectContaining({ ex: expect.any(Number) }),
+      )
+    })
+
+    it('does nothing when token does not exist', async () => {
+      await store.markRefreshTokenUsed('nonexistent')
+      expect(redis.set).not.toHaveBeenCalled()
     })
   })
 })

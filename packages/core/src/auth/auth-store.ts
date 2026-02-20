@@ -27,6 +27,23 @@ export interface Session {
   ip?: string
 }
 
+export interface RefreshToken {
+  /** SHA-256 hash of the refresh token (hex) */
+  tokenHash: string
+  /** SHA-256 hash of the associated access session token (hex) */
+  sessionHash: string
+  /** ISO timestamp of expiration */
+  expiresAt: string
+  /** ISO timestamp of creation */
+  createdAt: string
+  /** User-agent string */
+  userAgent?: string
+  /** IP address */
+  ip?: string
+  /** Whether this token has been used (for reuse detection) */
+  used: boolean
+}
+
 export interface AuthStore {
   /** Initialize tables/collections if needed */
   init(): Promise<void>
@@ -51,6 +68,21 @@ export interface AuthStore {
 
   /** List all active (non-expired) sessions */
   listSessions(): Promise<Session[]>
+
+  /** Create a new refresh token */
+  createRefreshToken(token: RefreshToken): Promise<void>
+
+  /** Get a refresh token by hash, or null if not found */
+  getRefreshToken(tokenHash: string): Promise<RefreshToken | null>
+
+  /** Delete a refresh token by hash */
+  deleteRefreshToken(tokenHash: string): Promise<void>
+
+  /** Delete all refresh tokens */
+  deleteAllRefreshTokens(): Promise<void>
+
+  /** Mark a refresh token as used (for reuse detection) */
+  markRefreshTokenUsed(tokenHash: string): Promise<void>
 
   /** Close any connections (optional cleanup) */
   close?(): Promise<void>

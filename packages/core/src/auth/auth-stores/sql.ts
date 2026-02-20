@@ -1,7 +1,8 @@
-import type { AuthStore, PasswordCredential, Session } from '../auth-store'
+import type { AuthStore, PasswordCredential, RefreshToken, Session } from '../auth-store'
 
 const CREDENTIALS_TABLE = 'pandora_auth_credentials'
 const SESSIONS_TABLE = 'pandora_auth_sessions'
+const REFRESH_TOKENS_TABLE = 'pandora_auth_refresh_tokens'
 const OWNER_KEY = 'owner'
 
 /**
@@ -99,9 +100,52 @@ export class SQLAuthStore implements AuthStore {
     }
   }
 
+  private get createRefreshTokensTableSQL(): string {
+    switch (this.dialect) {
+      case 'postgres':
+        return `
+          CREATE TABLE IF NOT EXISTS ${REFRESH_TOKENS_TABLE} (
+            token_hash TEXT PRIMARY KEY,
+            session_hash TEXT NOT NULL,
+            expires_at TIMESTAMPTZ NOT NULL,
+            created_at TIMESTAMPTZ DEFAULT NOW(),
+            user_agent TEXT,
+            ip TEXT,
+            used BOOLEAN DEFAULT FALSE
+          )
+        `
+      case 'mssql':
+        return `
+          IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='${REFRESH_TOKENS_TABLE}' AND xtype='U')
+          CREATE TABLE ${REFRESH_TOKENS_TABLE} (
+            token_hash NVARCHAR(255) PRIMARY KEY,
+            session_hash NVARCHAR(255) NOT NULL,
+            expires_at DATETIME2 NOT NULL,
+            created_at DATETIME2 DEFAULT GETUTCDATE(),
+            user_agent NVARCHAR(MAX),
+            ip NVARCHAR(255),
+            used BIT DEFAULT 0
+          )
+        `
+      default:
+        return `
+          CREATE TABLE IF NOT EXISTS ${REFRESH_TOKENS_TABLE} (
+            token_hash TEXT PRIMARY KEY,
+            session_hash TEXT NOT NULL,
+            expires_at TEXT NOT NULL,
+            created_at TEXT DEFAULT (datetime('now')),
+            user_agent TEXT,
+            ip TEXT,
+            used INTEGER DEFAULT 0
+          )
+        `
+    }
+  }
+
   async init(): Promise<void> {
     await this.execute(this.createCredentialsTableSQL)
     await this.execute(this.createSessionsTableSQL)
+    await this.execute(this.createRefreshTokensTableSQL)
   }
 
   async getCredential(): Promise<PasswordCredential | null> {
@@ -229,6 +273,72 @@ export class SQLAuthStore implements AuthStore {
 
   async deleteAllSessions(): Promise<void> {
     await this.execute(`DELETE FROM ${SESSIONS_TABLE}`)
+  }
+
+  async createRefreshToken(token: RefreshToken): Promise<void> {
+    const usedVal = this.dialect === 'mssql' ? (token.used ? 1 : 0) : token.used ? 1 : 0
+    await this.execute(
+      `INSERT INTO ${REFRESH_TOKENS_TABLE} (token_hash, session_hash, expires_at, created_at, user_agent, ip, used)
+       VALUES (${this.param(1)}, ${this.param(2)}, ${this.param(3)}, ${this.param(4)}, ${this.param(5)}, ${this.param(6)}, ${this.param(7)})`,
+      [
+        token.tokenHash,
+        token.sessionHash,
+        token.expiresAt,
+        token.createdAt,
+        token.userAgent ?? null,
+        token.ip ?? null,
+        usedVal,
+      ],
+    )
+  }
+
+  async getRefreshToken(tokenHash: string): Promise<RefreshToken | null> {
+    try {
+      const rows = await this.execute(
+        `SELECT token_hash, session_hash, expires_at, created_at, user_agent, ip, used FROM ${REFRESH_TOKENS_TABLE} WHERE token_hash = ${this.param(1)}`,
+        [tokenHash],
+      )
+      if (!rows || rows.length === 0) return null
+
+      const row = rows[0] as {
+        token_hash: string
+        session_hash: string
+        expires_at: string
+        created_at: string
+        user_agent: string | null
+        ip: string | null
+        used: boolean | number
+      }
+
+      return {
+        tokenHash: row.token_hash,
+        sessionHash: row.session_hash,
+        expiresAt: row.expires_at,
+        createdAt: row.created_at,
+        userAgent: row.user_agent ?? undefined,
+        ip: row.ip ?? undefined,
+        used: !!row.used,
+      }
+    } catch {
+      return null
+    }
+  }
+
+  async deleteRefreshToken(tokenHash: string): Promise<void> {
+    await this.execute(`DELETE FROM ${REFRESH_TOKENS_TABLE} WHERE token_hash = ${this.param(1)}`, [
+      tokenHash,
+    ])
+  }
+
+  async deleteAllRefreshTokens(): Promise<void> {
+    await this.execute(`DELETE FROM ${REFRESH_TOKENS_TABLE}`)
+  }
+
+  async markRefreshTokenUsed(tokenHash: string): Promise<void> {
+    await this.execute(
+      `UPDATE ${REFRESH_TOKENS_TABLE} SET used = ${this.param(1)} WHERE token_hash = ${this.param(2)}`,
+      [1, tokenHash],
+    )
   }
 
   async listSessions(): Promise<Session[]> {

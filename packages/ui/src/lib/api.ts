@@ -20,11 +20,56 @@ function authHeaders(): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
-export async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, {
+/** Shared promise to deduplicate concurrent refresh attempts */
+let refreshPromise: Promise<boolean> | null = null
+
+async function attemptRefresh(): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE}/api/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+    })
+    if (!res.ok) return false
+    const data = (await res.json()) as { token?: string }
+    if (data.token) {
+      setToken(data.token)
+    }
+    return true
+  } catch {
+    return false
+  }
+}
+
+async function fetchWithRefresh(url: string, options?: RequestInit): Promise<Response> {
+  const res = await fetch(url, {
     ...options,
+    credentials: 'include',
     headers: { 'Content-Type': 'application/json', ...authHeaders(), ...options?.headers },
   })
+
+  if (res.status !== 401) return res
+
+  // Deduplicate concurrent refresh attempts
+  if (!refreshPromise) {
+    refreshPromise = attemptRefresh().finally(() => {
+      refreshPromise = null
+    })
+  }
+
+  const refreshed = await refreshPromise
+  if (!refreshed) return res
+
+  // Retry with new token
+  return fetch(url, {
+    ...options,
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json', ...authHeaders(), ...options?.headers },
+  })
+}
+
+export async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
+  const res = await fetchWithRefresh(`${API_BASE}${path}`, options)
 
   if (!res.ok) {
     const text = await res.text().catch(() => res.statusText)
@@ -35,8 +80,5 @@ export async function apiFetch<T>(path: string, options?: RequestInit): Promise<
 }
 
 export async function apiFetchRaw(path: string, options?: RequestInit): Promise<Response> {
-  return fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers: { 'Content-Type': 'application/json', ...authHeaders(), ...options?.headers },
-  })
+  return fetchWithRefresh(`${API_BASE}${path}`, options)
 }

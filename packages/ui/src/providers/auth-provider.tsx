@@ -17,6 +17,7 @@ async function authFetch<T>(path: string, body: unknown): Promise<T> {
   const token = getToken()
   const res = await fetch(`${API_BASE}${path}`, {
     method: 'POST',
+    credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -54,6 +55,21 @@ interface HealthResponse {
   auth: { setup: boolean; authenticated: boolean }
 }
 
+async function tryRefresh(): Promise<string | null> {
+  try {
+    const res = await fetch(`${API_BASE}/api/auth/refresh`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+    })
+    if (!res.ok) return null
+    const data = (await res.json()) as { token?: string }
+    return data.token ?? null
+  } catch {
+    return null
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<AuthStatus>('loading')
   const [token, setTokenState] = useState<string | null>(null)
@@ -72,9 +88,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setTokenState(getToken())
         setStatus('authenticated')
       } else {
-        clearToken()
-        setTokenState(null)
-        setStatus('login_required')
+        // Not authenticated — try refresh before falling back to login
+        const refreshedToken = await tryRefresh()
+        if (refreshedToken) {
+          setToken(refreshedToken)
+          setTokenState(refreshedToken)
+          setStatus('authenticated')
+        } else {
+          clearToken()
+          setTokenState(null)
+          setStatus('login_required')
+        }
       }
     } catch {
       setStatus('login_required')
