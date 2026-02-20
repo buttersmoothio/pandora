@@ -11,22 +11,81 @@ POST /api/chat
 Content-Type: application/json
 ```
 
-The request body follows the AI SDK `UIMessage` format:
+The request body sends the latest user message parts and an optional thread ID:
 
 ```json
 {
-  "messages": [
-    {
-      "role": "user",
-      "parts": [{ "type": "text", "text": "Hello" }]
-    }
-  ]
+  "parts": [{ "type": "text", "text": "Hello" }],
+  "threadId": "abc123"
 }
 ```
+
+| Field | Type | Description |
+|---|---|---|
+| `parts` | `array` | **Required.** User message parts — at minimum `[{ "type": "text", "text": "..." }]` |
+| `threadId` | `string` | Optional. Omit to start a new thread (server generates a UUID). |
 
 ### Response
 
 The response is a `UIMessageStreamResponse` — a Server-Sent Events stream that the AI SDK client libraries can consume directly. The stream emits chunks for text, tool calls, reasoning, sources, and other part types.
+
+The response includes an `X-Thread-Id` header with the thread ID (useful when the server creates a new thread).
+
+## Thread Endpoints
+
+### List threads
+
+```
+GET /api/threads
+```
+
+Returns threads ordered by most recently updated:
+
+```json
+{
+  "threads": [
+    {
+      "id": "abc123",
+      "title": "Getting started with Pandora",
+      "resourceId": "default",
+      "createdAt": "2025-01-01T00:00:00.000Z",
+      "updatedAt": "2025-01-01T00:01:00.000Z"
+    }
+  ],
+  "total": 1,
+  "page": 0,
+  "perPage": 100,
+  "hasMore": false
+}
+```
+
+### Get thread with messages
+
+```
+GET /api/threads/:id
+```
+
+Returns the thread metadata and its message history:
+
+```json
+{
+  "thread": {
+    "id": "abc123",
+    "title": "Getting started with Pandora",
+    "resourceId": "default",
+    "createdAt": "2025-01-01T00:00:00.000Z",
+    "updatedAt": "2025-01-01T00:01:00.000Z"
+  },
+  "messages": [
+    {
+      "id": "msg-1",
+      "role": "user",
+      "content": { "format": 2, "parts": [{ "type": "text", "text": "Hello" }] },
+      "createdAt": "2025-01-01T00:00:00.000Z"
+    }
+  ]
+}
+```
 
 ## Using AI SDK React
 
@@ -36,10 +95,15 @@ The recommended approach for React frontends is [`useChat`](https://ai-sdk.dev/d
 import { useChat } from '@ai-sdk/react'
 import { DefaultChatTransport } from 'ai'
 
-export default function Chat() {
+export default function Chat({ threadId }: { threadId?: string }) {
   const { messages, sendMessage, status } = useChat({
     transport: new DefaultChatTransport({
       api: 'http://localhost:4111/api/chat',
+      prepareSendMessagesRequest: ({ messages }) => {
+        const lastMessage = messages.at(-1)
+        const parts = lastMessage?.role === 'user' ? lastMessage.parts : []
+        return { body: { parts, threadId } }
+      },
     }),
   })
 
@@ -133,14 +197,16 @@ const response = await fetch('http://localhost:4111/api/chat', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
-    messages: [
-      { role: 'user', parts: [{ type: 'text', text: 'Hello' }] }
-    ]
+    parts: [{ type: 'text', text: 'Hello' }],
+    threadId: 'optional-thread-id'
   })
 })
 
 const reader = response.body.getReader()
 const decoder = new TextDecoder()
+
+// Read the thread ID from the response header
+const threadId = response.headers.get('X-Thread-Id')
 
 while (true) {
   const { done, value } = await reader.read()

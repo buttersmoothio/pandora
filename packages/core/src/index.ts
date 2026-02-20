@@ -67,6 +67,7 @@ app.use(
 
       return allowed.has(origin) ? origin : ''
     },
+    exposeHeaders: ['X-Thread-Id'],
   }),
 )
 
@@ -229,31 +230,31 @@ app.get('/api/models', (c) => {
   return c.json({ providers })
 })
 
-// Chat endpoint - AI SDK compatible streaming
+// Chat endpoint - thread-based streaming
 app.post('/api/chat', async (c) => {
   const log = getLogger()
   try {
-    const params = await c.req.json()
+    const body = await c.req.json()
 
-    // Validate messages
-    const { messages } = params
-    if (!Array.isArray(messages) || messages.length === 0) {
-      return c.json({ error: 'messages must be a non-empty array' }, 400)
+    // Accept { parts, threadId? } — server wraps into messages + memory config
+    const { parts, threadId: clientThreadId } = body
+    if (!Array.isArray(parts) || parts.length === 0) {
+      return c.json({ error: 'parts must be a non-empty array' }, 400)
     }
 
-    const validRoles = new Set(['user', 'assistant'])
-    for (const msg of messages) {
-      if (!(msg.role && validRoles.has(msg.role))) {
-        return c.json({ error: `Invalid role "${msg.role}". Must be "user" or "assistant".` }, 400)
-      }
-      if (!(msg.parts || msg.content)) {
-        return c.json({ error: 'Each message must have content or parts' }, 400)
-      }
-    }
+    const threadId = clientThreadId ?? crypto.randomUUID()
 
-    log.info('Chat request received', { messageCount: messages.length })
+    log.info('Chat request received', { threadId, partsCount: parts.length })
     const envVars = extractStringEnv(env(c))
     const mastra = await getMastra(envVars, c.env)
+
+    const params = {
+      messages: [{ id: crypto.randomUUID(), role: 'user' as const, parts }],
+      memory: {
+        thread: threadId,
+        resource: 'default',
+      },
+    }
 
     const stream = await handleChatStream({
       mastra,
@@ -263,11 +264,66 @@ app.post('/api/chat', async (c) => {
       sendSources: true,
     })
 
-    log.debug('Chat stream created')
-    return createUIMessageStreamResponse({ stream })
+    log.debug('Chat stream created', { threadId })
+    const res = createUIMessageStreamResponse({ stream })
+    res.headers.set('X-Thread-Id', threadId)
+    return res
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error'
     log.error('Chat request failed', { error: message })
+    return c.json({ error: message }, 500)
+  }
+})
+
+// Thread endpoints
+app.get('/api/threads', async (c) => {
+  const log = getLogger()
+  try {
+    const envVars = extractStringEnv(env(c))
+    const mastra = await getMastra(envVars, c.env)
+    const memory = await mastra.getAgent('operator').getMemory()
+    if (!memory) {
+      return c.json({ error: 'Memory not configured' }, 500)
+    }
+
+    const result = await memory.listThreads({
+      filter: { resourceId: 'default' },
+      orderBy: { field: 'updatedAt', direction: 'DESC' },
+    })
+
+    return c.json(result)
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown error'
+    log.error('List threads failed', { error: message })
+    return c.json({ error: message }, 500)
+  }
+})
+
+app.get('/api/threads/:id', async (c) => {
+  const log = getLogger()
+  try {
+    const threadId = c.req.param('id')
+    const envVars = extractStringEnv(env(c))
+    const mastra = await getMastra(envVars, c.env)
+    const memory = await mastra.getAgent('operator').getMemory()
+    if (!memory) {
+      return c.json({ error: 'Memory not configured' }, 500)
+    }
+
+    const thread = await memory.getThreadById({ threadId })
+    if (!thread) {
+      return c.json({ error: 'Thread not found' }, 404)
+    }
+
+    const { messages } = await memory.recall({
+      threadId,
+      resourceId: 'default',
+    })
+
+    return c.json({ thread, messages })
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown error'
+    log.error('Get thread failed', { error: message })
     return c.json({ error: message }, 500)
   }
 })

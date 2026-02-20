@@ -1,11 +1,11 @@
 'use client'
 
 import { useChat } from '@ai-sdk/react'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { DefaultChatTransport } from 'ai'
-import { MessageSquareIcon } from 'lucide-react'
-import { useRouter } from 'next/navigation'
-import { useRef } from 'react'
+import { LoaderIcon, MessageSquareIcon } from 'lucide-react'
+import { useParams } from 'next/navigation'
+import { useMemo } from 'react'
 import {
   Conversation,
   ConversationContent,
@@ -22,46 +22,79 @@ import {
 } from '@/components/ai-elements/prompt-input'
 import { MessageParts } from '@/components/message-parts'
 import { useConfig } from '@/hooks/use-config'
-import { THREADS_KEY } from '@/hooks/use-threads'
-import { getToken } from '@/lib/api'
+import { apiFetch, getToken } from '@/lib/api'
+import { convertMastraMessages, type MastraDBMessage } from '@/lib/messages'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4111'
 
-export default function Home() {
+interface ThreadResponse {
+  thread: {
+    id: string
+    title?: string
+    resourceId: string
+    createdAt: string
+    updatedAt: string
+  }
+  messages: MastraDBMessage[]
+}
+
+export default function ThreadPage() {
+  const { threadId } = useParams<{ threadId: string }>()
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['thread', threadId],
+    queryFn: () => apiFetch<ThreadResponse>(`/api/threads/${threadId}`),
+  })
+
+  if (isLoading || !data) {
+    return (
+      <div className="flex h-full flex-1 items-center justify-center">
+        <LoaderIcon className="size-6 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
+  return (
+    <ThreadChat threadId={threadId} serverMessages={data.messages} />
+  )
+}
+
+function ThreadChat({
+  threadId,
+  serverMessages,
+}: {
+  threadId: string
+  serverMessages: MastraDBMessage[]
+}) {
   const { data: config } = useConfig()
   const agentName = config?.identity.name ?? 'Pandora'
-  const router = useRouter()
-  const queryClient = useQueryClient()
-  const threadIdRef = useRef<string | null>(null)
+
+  const initialMessages = useMemo(
+    () => convertMastraMessages(serverMessages),
+    [serverMessages],
+  )
+
+  const transport = useMemo(
+    () =>
+      new DefaultChatTransport({
+        api: `${API_URL}/api/chat`,
+        headers: (): Record<string, string> => {
+          const token = getToken()
+          return token ? { Authorization: `Bearer ${token}` } : {}
+        },
+        prepareSendMessagesRequest: ({ messages }) => {
+          const lastMessage = messages.at(-1)
+          const parts = lastMessage?.role === 'user' ? lastMessage.parts : []
+          return { body: { parts, threadId } }
+        },
+      }),
+    [threadId],
+  )
 
   const { messages, sendMessage, status } = useChat({
-    transport: new DefaultChatTransport({
-      api: `${API_URL}/api/chat`,
-      headers: (): Record<string, string> => {
-        const token = getToken()
-        return token ? { Authorization: `Bearer ${token}` } : {}
-      },
-      prepareSendMessagesRequest: ({ messages }) => {
-        const lastMessage = messages.at(-1)
-        const parts = lastMessage?.role === 'user' ? lastMessage.parts : []
-        return { body: { parts } }
-      },
-      fetch: async (url, init) => {
-        const res = await fetch(url, init)
-        // Stash the thread ID — we redirect in onFinish after streaming completes
-        const threadId = res.headers.get('X-Thread-Id')
-        if (threadId) threadIdRef.current = threadId
-        return res
-      },
-    }),
-    onFinish: () => {
-      if (threadIdRef.current) {
-        const id = threadIdRef.current
-        threadIdRef.current = null
-        queryClient.invalidateQueries({ queryKey: THREADS_KEY })
-        router.push(`/chat/${id}`)
-      }
-    },
+    id: threadId,
+    transport,
+    messages: initialMessages,
   })
 
   const isStreaming = status === 'streaming'

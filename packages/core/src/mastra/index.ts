@@ -3,6 +3,7 @@ import { createOperator } from '../agents/operator'
 import { getConfig } from '../config'
 import { isServerless } from '../env'
 import { getLogger } from '../logger'
+import { createMemory } from '../memory'
 import { getStorage } from '../storage'
 import { loadTools } from '../tools'
 
@@ -15,7 +16,7 @@ let _cached: Mastra | null = null
  * In server mode, caches the instance for the process lifetime.
  * In serverless mode, creates a fresh instance per invocation.
  *
- * Flow: getStorage() → getConfig() → loadTools() → createOperator() → new Mastra(...)
+ * Flow: getStorage() → getConfig() → loadTools() → createMemory() → createOperator() → new Mastra(...)
  */
 export async function getMastra(
   env: Record<string, string | undefined>,
@@ -34,13 +35,17 @@ export async function getMastra(
   // 3. Tools
   const tools = await loadTools(config, env)
 
-  // 4. Operator agent
-  const operator = createOperator(config, tools)
+  // 4. Memory
+  const memory = createMemory(config)
 
-  // 5. Mastra instance
+  // 5. Operator agent (with memory)
+  const operator = createOperator(config, tools, memory)
+
+  // 6. Mastra instance
   const mastra = new Mastra({
     agents: { operator },
     storage: mastraStorage,
+    memory: { default: memory },
     tools,
     logger: getLogger(env),
   })

@@ -1,6 +1,8 @@
 'use client'
 
 import { MessageSquareIcon } from 'lucide-react'
+import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import {
   SidebarGroup,
   SidebarGroupContent,
@@ -9,24 +11,31 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from '@/components/ui/sidebar'
-
-const STUB_THREADS = [
-  { id: '1', title: 'Getting started' },
-  { id: '2', title: 'Tool configuration help' },
-  { id: '3', title: 'API integration questions' },
-]
+import { useThreads } from '@/hooks/use-threads'
 
 export function NavThreads() {
+  const { data } = useThreads()
+  const pathname = usePathname()
+  const threads = data?.threads ?? []
+
+  if (threads.length === 0) return null
+
   return (
     <SidebarGroup>
       <SidebarGroupLabel>Recent Chats</SidebarGroupLabel>
       <SidebarGroupContent>
         <SidebarMenu>
-          {STUB_THREADS.map((thread) => (
+          {threads.map((thread) => (
             <SidebarMenuItem key={thread.id}>
-              <SidebarMenuButton tooltip={thread.title}>
-                <MessageSquareIcon />
-                <span>{thread.title}</span>
+              <SidebarMenuButton
+                asChild
+                isActive={pathname === `/chat/${thread.id}`}
+                tooltip={thread.title || 'Untitled'}
+              >
+                <Link href={`/chat/${thread.id}`}>
+                  <MessageSquareIcon />
+                  <span>{thread.title || 'Untitled'}</span>
+                </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
           ))}

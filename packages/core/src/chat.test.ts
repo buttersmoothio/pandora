@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { authRequest } from './test-helpers'
 
 describe('POST /api/chat validation', () => {
-  it('returns 400 when messages is missing', async () => {
+  it('returns 400 when parts is missing', async () => {
     const res = await authRequest('/api/chat', {
       method: 'POST',
       body: JSON.stringify({}),
@@ -12,44 +12,20 @@ describe('POST /api/chat validation', () => {
     expect(body.error).toContain('non-empty array')
   })
 
-  it('returns 400 when messages is empty array', async () => {
+  it('returns 400 when parts is empty array', async () => {
     const res = await authRequest('/api/chat', {
       method: 'POST',
-      body: JSON.stringify({ messages: [] }),
+      body: JSON.stringify({ parts: [] }),
     })
     expect(res.status).toBe(400)
     const body = (await res.json()) as { error: string }
     expect(body.error).toContain('non-empty array')
   })
 
-  it('returns 400 when message has invalid role', async () => {
+  it('returns 400 when parts is not an array', async () => {
     const res = await authRequest('/api/chat', {
       method: 'POST',
-      body: JSON.stringify({
-        messages: [{ role: 'system', content: 'hi' }],
-      }),
-    })
-    expect(res.status).toBe(400)
-    const body = (await res.json()) as { error: string }
-    expect(body.error).toContain('role')
-  })
-
-  it('returns 400 when message is missing content', async () => {
-    const res = await authRequest('/api/chat', {
-      method: 'POST',
-      body: JSON.stringify({
-        messages: [{ role: 'user' }],
-      }),
-    })
-    expect(res.status).toBe(400)
-    const body = (await res.json()) as { error: string }
-    expect(body.error).toContain('content')
-  })
-
-  it('returns 400 when messages is not an array', async () => {
-    const res = await authRequest('/api/chat', {
-      method: 'POST',
-      body: JSON.stringify({ messages: 'hello' }),
+      body: JSON.stringify({ parts: 'hello' }),
     })
     expect(res.status).toBe(400)
     const body = (await res.json()) as { error: string }
