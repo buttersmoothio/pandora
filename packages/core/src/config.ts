@@ -108,20 +108,6 @@ export const DEFAULTS: Config = ConfigSchema.parse({})
 let _configCache: Config | null = null
 
 /**
- * Load config from environment variables
- */
-function loadFromEnv(envVars: Record<string, string | undefined>): Partial<Config> {
-  const partial: Record<string, unknown> = {}
-
-  // Identity
-  if (envVars.PANDORA_NAME) {
-    partial.identity = { ...(partial.identity as object), name: envVars.PANDORA_NAME }
-  }
-
-  return partial as Partial<Config>
-}
-
-/**
  * Deep merge two config objects
  */
 function deepMerge<T extends Record<string, unknown>>(base: T, override: Partial<T>): T {
@@ -156,10 +142,7 @@ function deepMerge<T extends Record<string, unknown>>(base: T, override: Partial
  * Get the current configuration.
  * Loads from storage + env vars, with caching in server mode.
  */
-export async function getConfig(
-  configStore: ConfigStore<Config>,
-  envVars: Record<string, string | undefined> = {},
-): Promise<Config> {
+export async function getConfig(configStore: ConfigStore<Config>): Promise<Config> {
   // Return cached config in server mode
   if (!isServerless() && _configCache) {
     return _configCache
@@ -173,10 +156,6 @@ export async function getConfig(
   if (storedConfig) {
     config = deepMerge(config, storedConfig as Partial<Config>)
   }
-
-  // Apply env var overrides
-  const envConfig = loadFromEnv(envVars)
-  config = deepMerge(config, envConfig)
 
   // Validate
   config = ConfigSchema.parse(config)

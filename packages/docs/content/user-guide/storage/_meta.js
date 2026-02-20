@@ -5,5 +5,4 @@ export default {
   upstash: 'Upstash Redis',
   mongodb: 'MongoDB',
   dynamodb: 'DynamoDB',
-  configuration: 'Configuration',
 }

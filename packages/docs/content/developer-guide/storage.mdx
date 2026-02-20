@@ -1,6 +1,8 @@
+import { Steps, FileTree, Tabs } from 'nextra/components'
+
 # Building Custom Storage Providers
 
-This guide walks through creating a custom storage provider for Pandora. Every provider is a standalone package that exports a `createStorage` function.
+Every storage provider is a standalone package that exports a `createStorage` function.
 
 ## Core Types
 
@@ -69,61 +71,66 @@ interface ConfigStore<T = unknown> {
 
 Pandora provides two reusable `ConfigStore` implementations that cover most databases.
 
-### `SQLConfigStore`
+<Tabs items={['SQL', 'Redis']}>
+  <Tabs.Tab>
+    For SQL databases (SQLite/LibSQL, PostgreSQL, MSSQL). You provide an `execute` function wrapping your driver:
 
-For SQL databases (SQLite/LibSQL, PostgreSQL, MSSQL). You provide an `execute` function wrapping your driver:
+    ```ts
+    import { SQLConfigStore } from '@pandora/core/storage'
 
-```ts
-import { SQLConfigStore } from '@pandora/core/storage'
+    const configStore = new SQLConfigStore<Config>(
+      async (sql, params) => {
+        const result = await myDriver.query(sql, params)
+        return result.rows
+      },
+      'postgres' // dialect: 'sqlite' | 'postgres' | 'mssql'
+    )
+    ```
 
-const configStore = new SQLConfigStore<Config>(
-  async (sql, params) => {
-    const result = await myDriver.query(sql, params)
-    return result.rows
-  },
-  'postgres' // dialect: 'sqlite' | 'postgres' | 'mssql'
-)
-```
+    The `execute` function receives raw SQL and an optional params array. It must return an array of row objects.
 
-The `execute` function receives raw SQL and an optional params array. It must return an array of row objects.
+    Supported dialects handle differences in:
+    - Table creation syntax
+    - Parameterized query placeholders (`?`, `$1`, `@p1`)
+    - Upsert strategy (`ON CONFLICT` vs `MERGE`)
+    - JSON storage (`TEXT`, `JSONB`, `NVARCHAR(MAX)`)
+  </Tabs.Tab>
+  <Tabs.Tab>
+    For Redis-like key-value stores. You provide an object with `get`, `set`, and `del` methods:
 
-Supported dialects handle differences in:
-- Table creation syntax
-- Parameterized query placeholders (`?`, `$1`, `@p1`)
-- Upsert strategy (`ON CONFLICT` vs `MERGE`)
-- JSON storage (`TEXT`, `JSONB`, `NVARCHAR(MAX)`)
+    ```ts
+    import { RedisConfigStore } from '@pandora/core/storage'
 
-### `RedisConfigStore`
+    const configStore = new RedisConfigStore<Config>({
+      get: (key) => myRedis.get(key),
+      set: (key, value) => myRedis.set(key, value),
+      del: (key) => myRedis.del(key),
+    })
+    ```
 
-For Redis-like key-value stores. You provide an object with `get`, `set`, and `del` methods:
+    Config is stored under the key `pandora:config` as a JSON string.
+  </Tabs.Tab>
+</Tabs>
 
-```ts
-import { RedisConfigStore } from '@pandora/core/storage'
-
-const configStore = new RedisConfigStore<Config>({
-  get: (key) => myRedis.get(key),
-  set: (key, value) => myRedis.set(key, value),
-  del: (key) => myRedis.del(key),
-})
-```
-
-Config is stored under the key `pandora:config` as a JSON string.
-
-## Step-by-Step: Creating a Provider
+## Creating a Provider
 
 Let's build a hypothetical `@pandora/storage-sqlite` provider as an example.
 
-### 1. Create the Package
+<Steps>
 
-```
-packages/storage-sqlite/
-  package.json
-  src/
-    index.ts
-  tsconfig.json
-```
+### Create the package
 
-### 2. Set Up `package.json`
+<FileTree>
+  <FileTree.Folder name="packages/storage-sqlite" defaultOpen>
+    <FileTree.File name="package.json" />
+    <FileTree.Folder name="src" defaultOpen>
+      <FileTree.File name="index.ts" />
+    </FileTree.Folder>
+    <FileTree.File name="tsconfig.json" />
+  </FileTree.Folder>
+</FileTree>
+
+### Set up `package.json`
 
 ```json
 {
@@ -147,7 +154,7 @@ Key conventions:
 - `@pandora/core` is a peer dependency
 - Export `createStorage` from the package entry point
 
-### 3. Implement `createStorage`
+### Implement `createStorage`
 
 ```ts
 // src/index.ts
@@ -176,7 +183,7 @@ export const createStorage: StorageFactory = async (env) => {
 }
 ```
 
-### 4. Test It
+### Test it
 
 Set the environment variable and start Pandora:
 
@@ -184,11 +191,7 @@ Set the environment variable and start Pandora:
 STORAGE_PROVIDER=sqlite bun run dev
 ```
 
-Verify with:
-
-```bash
-curl -X POST http://localhost:3000/api/storage/init
-```
+</Steps>
 
 ## Implementing `ConfigStore` Directly
 

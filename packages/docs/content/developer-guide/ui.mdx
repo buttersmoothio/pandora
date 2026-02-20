@@ -1,6 +1,6 @@
 # Bring Your Own UI
 
-Build a custom chat frontend against Pandora's AI SDK-compatible streaming API.
+Build a custom chat frontend against Pandora's [AI SDK-compatible](https://ai-sdk.dev/docs/ai-sdk-ui/chatbot) streaming API.
 
 ## Chat API Format
 
@@ -30,7 +30,7 @@ The response is a `UIMessageStreamResponse` — a Server-Sent Events stream that
 
 ## Using AI SDK React
 
-The recommended approach for React frontends is `useChat` with `DefaultChatTransport`:
+The recommended approach for React frontends is [`useChat`](https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-chat) with [`DefaultChatTransport`](https://ai-sdk.dev/docs/ai-sdk-ui/transport):
 
 ```tsx
 import { useChat } from '@ai-sdk/react'
@@ -79,14 +79,15 @@ export default function Chat() {
 
 ## Message Part Types Reference
 
-Each message has a `parts` array. Here are all the part types the Pandora API can emit:
+Each message has a `parts` array. Here are all the part types the Pandora API can emit (see [UIMessage reference](https://ai-sdk.dev/docs/reference/ai-sdk-core/ui-message) for full type definitions):
 
 | Part Type | TypeScript Type | Fields | When Emitted |
 |---|---|---|---|
-| `text` | `TextUIPart` | `text: string` | Always — LLM text output |
+| `text` | `TextUIPart` | `text`, `state?` (`'streaming'` \| `'done'`) | Always — LLM text output |
 | `tool-{name}` | `ToolUIPart` | `toolCallId`, `state`, `input`, `output`, `errorText` | When the agent calls a tool |
-| `reasoning` | `ReasoningUIPart` | `text: string` | When `sendReasoning: true` and model supports it |
-| `source-url` | `SourceUrlUIPart` | `url: string`, `title?: string` | When `sendSources: true` and model provides citations |
+| `reasoning` | `ReasoningUIPart` | `text`, `state?`, `providerMetadata?` | When the model supports reasoning |
+| `source-url` | `SourceUrlUIPart` | `sourceId`, `url`, `title?`, `providerMetadata?` | When the model provides citations |
+| `file` | `FileUIPart` | `mediaType`, `url`, `filename?` | When the response includes files |
 | `step-start` | `StepStartUIPart` | — | At the start of each agent step |
 
 ## Rendering Parts
@@ -150,16 +151,16 @@ while (true) {
 }
 ```
 
-For a full implementation, see the AI SDK's `readUIMessageStream` utility which handles parsing the SSE format:
+For a full implementation, see the AI SDK's [`readUIMessageStream`](https://ai-sdk.dev/docs/ai-sdk-ui/reading-ui-message-streams) utility which handles parsing the stream format:
 
 ```ts
 import { readUIMessageStream } from 'ai'
 
 const response = await fetch('http://localhost:4111/api/chat', { /* ... */ })
 
-for await (const chunk of readUIMessageStream(response.body)) {
-  // chunk is a typed UIMessageChunk
-  console.log(chunk)
+for await (const message of readUIMessageStream({ stream: response.body })) {
+  // message is a UIMessage that updates as parts stream in
+  console.log(message)
 }
 ```
 

@@ -29,7 +29,7 @@ export async function getMastra(
   const { mastra: mastraStorage, config: configStore } = await getStorage(env, bindings)
 
   // 2. Config
-  const config = await getConfig(configStore, env)
+  const config = await getConfig(configStore)
 
   // 3. Tools
   const tools = await loadTools(config, env)

@@ -47,18 +47,22 @@ app.use(
       const envVars = extractStringEnv(env(c))
       const corsOrigins = envVars.CORS_ORIGINS
 
-      // Explicit wildcard opt-in for BYO-UI
       if (corsOrigins === '*') return origin
 
       const allowed = new Set<string>()
-      const frontendUrl = envVars.FRONTEND_URL ?? 'http://localhost:3000'
-      allowed.add(frontendUrl)
+
+      // FRONTEND_URL is always allowed if set
+      if (envVars.FRONTEND_URL) allowed.add(envVars.FRONTEND_URL)
 
       if (corsOrigins) {
+        // Explicit origins override the default
         for (const o of corsOrigins.split(',')) {
           const trimmed = o.trim()
           if (trimmed) allowed.add(trimmed)
         }
+      } else if (!envVars.FRONTEND_URL) {
+        // Default: allow the bundled UI
+        allowed.add('http://localhost:3000')
       }
 
       return allowed.has(origin) ? origin : ''
@@ -169,7 +173,7 @@ app.post('/api/storage/init', async (c) => {
 app.get('/api/config', async (c) => {
   const envVars = extractStringEnv(env(c))
   const { config: configStore } = await getStorage(envVars, c.env)
-  const config = await getConfig(configStore, envVars)
+  const config = await getConfig(configStore)
   return c.json(config)
 })
 

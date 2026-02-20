@@ -1,0 +1,49 @@
+import { Callout } from 'nextra/components'
+
+# Authentication
+
+Pandora uses a single password to protect your instance. After setup, all access requires logging in.
+
+## The Security Page
+
+Navigate to **Security** in the UI to manage your password and sessions.
+
+### Changing Your Password
+
+Enter your current password and a new one (minimum 8 characters).
+
+<Callout type="warning">
+  Changing your password immediately logs out all other devices.
+</Callout>
+
+### Managing Sessions
+
+The sessions list shows every active login with:
+
+- **Device** — browser and OS from the user agent
+- **IP address** — where the session originated
+- **Created / Expires** — when the session was started and when it will expire
+- **Current** — a badge indicating which session belongs to the browser you're using
+
+You can:
+
+- **Revoke a single session** — click the revoke button next to any session to log out that device
+- **Revoke all sessions** — logs out everywhere, including your current session (you'll need to log in again)
+
+## How Sessions Work
+
+When you log in, Pandora issues two tokens:
+
+- **Access token** (15 minutes) — used automatically by the UI for every request
+- **Refresh token** (7 days) — used automatically by the UI to stay logged in without re-entering your password
+
+The UI refreshes tokens transparently. You only need to log in again if you've been inactive for more than 7 days.
+
+## Rate Limits
+
+Login and setup endpoints are rate-limited per IP address to prevent brute-force attacks:
+
+| Action | Limit |
+|---|---|
+| Login attempts | 5 per minute |
+| Password changes | 3 per minute |

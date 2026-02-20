@@ -61,25 +61,9 @@ describe('Config', () => {
   })
 
   describe('getConfig', () => {
-    it('returns defaults when no env vars', async () => {
-      const config = await getConfig(configStore, {})
+    it('returns defaults when storage is empty', async () => {
+      const config = await getConfig(configStore)
       expect(config).toEqual(DEFAULTS)
-    })
-
-    it('applies env var overrides', async () => {
-      const config = await getConfig(configStore, {
-        PANDORA_NAME: 'EnvBot',
-      })
-      expect(config.identity.name).toBe('EnvBot')
-    })
-
-    it('does not override models from env vars', async () => {
-      const config = await getConfig(configStore, {
-        MODEL_PROVIDER: 'openai',
-        MODEL_NAME: 'gpt-4',
-      })
-      expect(config.models.operator.provider).toBe('anthropic')
-      expect(config.models.operator.model).toBe('claude-sonnet-4-20250514')
     })
   })
 
@@ -98,7 +82,7 @@ describe('Config', () => {
         identity: { name: 'PersistentBot' },
       })
       clearConfigCache() // Clear cache to force reload from storage
-      const config = await getConfig(configStore, {})
+      const config = await getConfig(configStore)
       expect(config.identity.name).toBe('PersistentBot')
     })
   })
@@ -117,7 +101,7 @@ describe('Config', () => {
         identity: { name: 'TempBot' },
       })
       await resetConfig(configStore)
-      const config = await getConfig(configStore, {})
+      const config = await getConfig(configStore)
       expect(config.identity.name).toBe('Pandora')
     })
   })

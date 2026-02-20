@@ -1,32 +1,16 @@
 # Chat UI
 
-The official Pandora UI is a Next.js app that connects to the core server's `/api/chat` endpoint using the Vercel AI SDK.
+The official Pandora UI is a Next.js app that connects to the core server's streaming API.
 
-## Overview
+## Running
 
-The UI includes:
-
-- **Next.js 16** — App Router with React 19
-- **AI Elements** — pre-built composable components for chat interfaces
-- **Streamdown** — streaming markdown renderer with code highlighting, math, and mermaid support
-- **AI SDK React** — `useChat` hook for managing chat state and streaming
-
-## Configuration
-
-### Connecting to the Core Server
-
-By default, the UI connects to `http://localhost:4111/api/chat`. To change this, set the `NEXT_PUBLIC_API_URL` environment variable:
+Start both the core server and UI together from the workspace root:
 
 ```bash
-# .env.local
-NEXT_PUBLIC_API_URL=https://your-pandora-server.example.com
+bun run dev
 ```
 
-The chat page constructs the endpoint as `${NEXT_PUBLIC_API_URL}/api/chat`.
-
-### Running Both Services
-
-Start the core server and UI in separate terminals:
+Or separately:
 
 ```bash
 # Terminal 1 — Core (port 4111)
@@ -36,61 +20,11 @@ cd packages/core && bun run dev
 cd packages/ui && bun run dev
 ```
 
-Or from the workspace root:
+## Connecting to a Remote Server
+
+By default, the UI connects to `http://localhost:4111`. To point it at a different server:
 
 ```bash
-bun run dev
+# .env.local
+NEXT_PUBLIC_API_URL=https://your-pandora-server.example.com
 ```
-
-## Message Types
-
-The chat page renders all supported AI SDK message part types:
-
-| Part Type | Component | When It Appears |
-|---|---|---|
-| `text` | `MessageResponse` (Streamdown) | Always — LLM text output |
-| `tool-*` | `Tool`, `ToolHeader`, `ToolContent`, `ToolInput`, `ToolOutput` | When the agent calls a tool |
-| `reasoning` | `Reasoning`, `ReasoningTrigger`, `ReasoningContent` | When `sendReasoning` is enabled and the model supports extended thinking |
-| `source-url` | `Sources`, `SourcesTrigger`, `SourcesContent`, `Source` | When `sendSources` is enabled and the model returns citations |
-
-## Customization
-
-### Modifying Components
-
-All AI Elements components live in your codebase at `packages/ui/src/components/ai-elements/`. They are not installed as a dependency — you own the code and can modify them freely.
-
-Key component files:
-
-- `message.tsx` — message bubble, markdown rendering, branching
-- `conversation.tsx` — auto-scroll container, empty state
-- `prompt-input.tsx` — textarea with file attachments, submit button
-- `tool.tsx` — collapsible tool call display with input/output
-- `reasoning.tsx` — collapsible thinking/reasoning block
-- `sources.tsx` — collapsible source citations
-
-### Adding New Part Renderers
-
-To handle a new part type, add a case to the `MessageParts` component in `packages/ui/src/app/chat/page.tsx`:
-
-```tsx
-if (part.type === 'my-custom-type') {
-  return <MyCustomComponent key={`${message.id}-${i}`} data={part} />
-}
-```
-
-## AI Elements Components
-
-| Component | Description |
-|---|---|
-| `Conversation` | Auto-scrolling chat container using `use-stick-to-bottom` |
-| `ConversationEmptyState` | Placeholder shown when there are no messages |
-| `ConversationScrollButton` | Floating button to scroll to the latest message |
-| `Message` / `MessageContent` | Message bubble with role-based styling |
-| `MessageResponse` | Streamdown markdown renderer |
-| `PromptInput` | Form wrapper with file upload, paste, and drag-and-drop |
-| `PromptInputTextarea` | Auto-resizing textarea with Enter-to-submit |
-| `PromptInputSubmit` | Submit button with streaming/stop states |
-| `Tool` / `ToolHeader` / `ToolContent` | Collapsible tool call display |
-| `ToolInput` / `ToolOutput` | Tool parameters and result renderers |
-| `Reasoning` / `ReasoningTrigger` / `ReasoningContent` | Collapsible thinking block with auto-open/close |
-| `Sources` / `SourcesTrigger` / `Source` | Collapsible citation links |

@@ -1,0 +1,9 @@
+# Security
+
+## SES Lockdown
+
+Pandora enables [SES (Secure EcmaScript)](https://github.com/endojs/endo/tree/master/packages/ses) lockdown at startup, before any other code runs. This freezes all JavaScript intrinsics (`Object.prototype`, `Array.prototype`, etc.), preventing prototype pollution attacks.
+
+## Compartment Isolation
+
+Tools run in isolated Compartments — separate global scopes with no access to host globals like `process`, `fetch`, or `require`. This prevents untrusted tool code from affecting the host environment or other tools.

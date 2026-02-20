@@ -1,76 +1,44 @@
-# Pandora Development Guide
+# Pandora
 
-## Overview
-
-Pandora is a multi-runtime AI agent framework built on Hono. See [DESIGN-DRAFT.md](./DESIGN-DRAFT.md) for architecture details.
+A personal AI agent framework. See [DESIGN-DRAFT.md](./DESIGN-DRAFT.md) for architecture.
 
 ## Project Structure
 
 ```
 packages/
-  core/        # Core Hono server with SES hardening
-  docs/        # Nextra documentation site
+  core/           # Hono server (auth, storage, AI agent)
+  ui/             # Next.js chat interface
+  docs/           # Nextra documentation site
+  elements/       # Composable AI chat UI components
+  storage-*/      # Storage provider packages
 ```
 
-## Quick Start
+## Development
 
 ```bash
-# Install dependencies (from root)
-bun install
-
-# Run all packages in dev mode
-bun run dev
-
-# Run just the core server
-cd packages/core && bun run dev
+bun install            # Install dependencies
+bun run dev            # Run all packages in dev mode
+bun run check:fix      # Lint & format (Biome)
+bun run build          # Build all packages
 ```
 
-## Development Commands
-
-```bash
-# Linting & formatting (Biome)
-bun run check          # Check for issues
-bun run check:fix      # Fix issues
-
-# Type checking
-cd packages/core && bun run typecheck
-
-# Build
-bun run build
-```
+Type checking: `bun run typecheck`
 
 ## Code Style
 
-This project uses Biome with:
-- Single quotes, no semicolons
-- 2-space indent, trailing commas
-- Line width 100
+Biome — single quotes, no semicolons, 2-space indent, trailing commas, 100 char line width.
 
 Run `bun run check:fix` before committing.
 
-## Adding New Code
-
-### New endpoint in core
-
-Edit `packages/core/src/index.ts`:
-```typescript
-app.get('/api/my-endpoint', (c) => {
-  return c.json({ message: 'Hello' })
-})
-```
-
-### New environment variable
-
-1. Add to schema in `packages/core/src/env.ts`
-2. Use via `getEnv(c)` in request handlers
-
 ## Documentation
 
-- **Local docs**: `cd packages/docs && bun run dev` (runs on http://localhost:3000)
-- **Architecture**: See [DESIGN-DRAFT.md](./DESIGN-DRAFT.md)
+Docs live in `packages/docs/content/`. Run locally with `cd packages/docs && bun run dev`.
 
-## Key Patterns
+The docs are organized into four sections with distinct audiences:
 
-- **SES Lockdown**: Enabled at startup for security hardening
-- **Environment detection**: `detectEnvironment()` returns runtime info
-- **Multi-runtime**: Same code runs on Bun, Cloudflare Workers, Vercel Edge
+- **Quick Start** — single page, zero to working setup as fast as possible
+- **User Guide** — day-to-day settings and configuration (user manual)
+- **Developer Guide** — API integration, custom UIs, custom storage/auth backends (tinkerer's manual)
+- **Architecture** — high-level design decisions only. Code is law — don't restate implementation details that someone can read in the source. Focus on the *why* and the shape of the system, not the *how*.
+
+When adding docs, only include content relevant to each section's audience. Quick Start should stay as one page.
