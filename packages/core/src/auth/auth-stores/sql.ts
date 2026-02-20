@@ -216,6 +216,56 @@ export class SQLAuthStore implements AuthStore {
     }
   }
 
+  async setCredentialIfNotExists(credential: PasswordCredential): Promise<boolean> {
+    switch (this.dialect) {
+      case 'postgres':
+        await this.execute(
+          `INSERT INTO ${CREDENTIALS_TABLE} (id, hash, salt, iterations, created_at)
+           VALUES ($1, $2, $3, $4, $5)
+           ON CONFLICT (id) DO NOTHING`,
+          [
+            OWNER_KEY,
+            credential.hash,
+            credential.salt,
+            credential.iterations,
+            credential.createdAt,
+          ],
+        )
+        break
+      case 'mssql':
+        await this.execute(
+          `MERGE ${CREDENTIALS_TABLE} AS target
+           USING (SELECT @p1 AS id) AS source
+           ON target.id = source.id
+           WHEN NOT MATCHED THEN INSERT (id, hash, salt, iterations, created_at) VALUES (@p1, @p2, @p3, @p4, @p5);`,
+          [
+            OWNER_KEY,
+            credential.hash,
+            credential.salt,
+            credential.iterations,
+            credential.createdAt,
+          ],
+        )
+        break
+      default:
+        await this.execute(
+          `INSERT INTO ${CREDENTIALS_TABLE} (id, hash, salt, iterations, created_at)
+           VALUES (?, ?, ?, ?, ?)
+           ON CONFLICT (id) DO NOTHING`,
+          [
+            OWNER_KEY,
+            credential.hash,
+            credential.salt,
+            credential.iterations,
+            credential.createdAt,
+          ],
+        )
+    }
+    // Verify the credential we wrote is the one that's stored
+    const stored = await this.getCredential()
+    return stored?.hash === credential.hash && stored?.salt === credential.salt
+  }
+
   async createSession(session: Session): Promise<void> {
     await this.execute(
       `INSERT INTO ${SESSIONS_TABLE} (token_hash, expires_at, created_at, user_agent, ip)

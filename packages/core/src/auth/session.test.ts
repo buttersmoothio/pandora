@@ -11,6 +11,7 @@ function createMockStore(): AuthStore {
     init: vi.fn(async () => {}),
     getCredential: vi.fn(async () => null),
     setCredential: vi.fn(async () => {}),
+    setCredentialIfNotExists: vi.fn(async () => true),
     createSession: vi.fn(async (session: Session) => {
       sessions.set(session.tokenHash, session)
     }),

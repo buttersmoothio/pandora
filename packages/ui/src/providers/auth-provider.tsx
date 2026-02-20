@@ -3,7 +3,15 @@
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useState } from 'react'
 import { LoginScreen } from '@/components/auth/login-screen'
 import { SetupScreen } from '@/components/auth/setup-screen'
-import { apiFetchRaw, clearToken, getToken, setToken } from '@/lib/api'
+import {
+  apiFetchRaw,
+  clearRefreshToken,
+  clearToken,
+  getRefreshToken,
+  getToken,
+  setRefreshToken,
+  setToken,
+} from '@/lib/api'
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4111'
 
@@ -17,7 +25,6 @@ async function authFetch<T>(path: string, body: unknown): Promise<T> {
   const token = getToken()
   const res = await fetch(`${API_BASE}${path}`, {
     method: 'POST',
-    credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -39,7 +46,6 @@ type AuthStatus = 'loading' | 'setup_required' | 'login_required' | 'authenticat
 
 interface AuthContextValue {
   status: AuthStatus
-  token: string | null
   logout: () => Promise<void>
 }
 
@@ -55,24 +61,35 @@ interface HealthResponse {
   auth: { setup: boolean; authenticated: boolean }
 }
 
-async function tryRefresh(): Promise<string | null> {
+interface TokenResponse {
+  token: string
+  refreshToken: string
+  expiresAt: string
+  refreshExpiresAt: string
+}
+
+async function tryRefresh(): Promise<boolean> {
+  const refreshTokenValue = getRefreshToken()
+  if (!refreshTokenValue) return false
+
   try {
     const res = await fetch(`${API_BASE}/api/auth/refresh`, {
       method: 'POST',
-      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken: refreshTokenValue }),
     })
-    if (!res.ok) return null
-    const data = (await res.json()) as { token?: string }
-    return data.token ?? null
+    if (!res.ok) return false
+    const data = (await res.json()) as TokenResponse
+    if (data.token) setToken(data.token)
+    if (data.refreshToken) setRefreshToken(data.refreshToken)
+    return !!data.token
   } catch {
-    return null
+    return false
   }
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<AuthStatus>('loading')
-  const [token, setTokenState] = useState<string | null>(null)
 
   const checkAuth = useCallback(async () => {
     try {
@@ -85,18 +102,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!data.auth.setup) {
         setStatus('setup_required')
       } else if (data.auth.authenticated) {
-        setTokenState(getToken())
         setStatus('authenticated')
       } else {
         // Not authenticated — try refresh before falling back to login
-        const refreshedToken = await tryRefresh()
-        if (refreshedToken) {
-          setToken(refreshedToken)
-          setTokenState(refreshedToken)
+        const refreshed = await tryRefresh()
+        if (refreshed) {
           setStatus('authenticated')
         } else {
           clearToken()
-          setTokenState(null)
+          clearRefreshToken()
           setStatus('login_required')
         }
       }
@@ -110,16 +124,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [checkAuth])
 
   const handleSetup = useCallback(async (password: string) => {
-    const data = await authFetch<{ token: string }>('/api/auth/setup', { password })
+    const data = await authFetch<TokenResponse>('/api/auth/setup', { password })
     setToken(data.token)
-    setTokenState(data.token)
+    setRefreshToken(data.refreshToken)
     setStatus('authenticated')
   }, [])
 
   const handleLogin = useCallback(async (password: string) => {
-    const data = await authFetch<{ token: string }>('/api/auth/login', { password })
+    const data = await authFetch<TokenResponse>('/api/auth/login', { password })
     setToken(data.token)
-    setTokenState(data.token)
+    setRefreshToken(data.refreshToken)
     setStatus('authenticated')
   }, [])
 
@@ -130,7 +144,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Ignore errors — clear local state regardless
     }
     clearToken()
-    setTokenState(null)
+    clearRefreshToken()
     setStatus('login_required')
   }, [])
 
@@ -144,7 +158,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   if (status === 'setup_required') {
     return (
-      <AuthContext.Provider value={{ status, token, logout }}>
+      <AuthContext.Provider value={{ status, logout }}>
         <SetupScreen onSetup={handleSetup} />
       </AuthContext.Provider>
     )
@@ -152,11 +166,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   if (status === 'login_required') {
     return (
-      <AuthContext.Provider value={{ status, token, logout }}>
+      <AuthContext.Provider value={{ status, logout }}>
         <LoginScreen onLogin={handleLogin} />
       </AuthContext.Provider>
     )
   }
 
-  return <AuthContext.Provider value={{ status, token, logout }}>{children}</AuthContext.Provider>
+  return <AuthContext.Provider value={{ status, logout }}>{children}</AuthContext.Provider>
 }

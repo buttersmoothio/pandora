@@ -14,7 +14,7 @@ export class RedisAuthStore implements AuthStore {
   constructor(
     private redis: {
       get: (key: string) => Promise<unknown>
-      set: (key: string, value: unknown, opts?: { ex?: number }) => Promise<unknown>
+      set: (key: string, value: unknown, opts?: { ex?: number; nx?: boolean }) => Promise<unknown>
       del: (...keys: string[]) => Promise<unknown>
       smembers: (key: string) => Promise<string[]>
       sadd: (key: string, ...members: string[]) => Promise<unknown>
@@ -34,6 +34,12 @@ export class RedisAuthStore implements AuthStore {
 
   async setCredential(credential: PasswordCredential): Promise<void> {
     await this.redis.set(CREDENTIAL_KEY, JSON.stringify(credential))
+  }
+
+  async setCredentialIfNotExists(credential: PasswordCredential): Promise<boolean> {
+    const result = await this.redis.set(CREDENTIAL_KEY, JSON.stringify(credential), { nx: true })
+    // Redis returns null/nil when NX fails (key already exists), 'OK' on success
+    return result !== null && result !== undefined
   }
 
   async createSession(session: Session): Promise<void> {

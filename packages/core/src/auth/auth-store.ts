@@ -54,6 +54,9 @@ export interface AuthStore {
   /** Save the owner's password credential (single-owner, replaces any existing) */
   setCredential(credential: PasswordCredential): Promise<void>
 
+  /** Atomically set credential only if none exists. Returns true if set, false if already exists. */
+  setCredentialIfNotExists(credential: PasswordCredential): Promise<boolean>
+
   /** Create a new session */
   createSession(session: Session): Promise<void>
 

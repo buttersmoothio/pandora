@@ -21,7 +21,8 @@ import { logger } from 'hono/logger'
 import { z } from 'zod'
 import pkg from '../package.json'
 import { authMiddleware } from './auth/middleware'
-import { createAuthRoutes } from './auth/routes'
+import { createRateLimiter } from './auth/rate-limit'
+import { createAuthRoutes, extractBearerToken } from './auth/routes'
 import { clearConfigCache, getConfig, resetConfig, updateConfig } from './config'
 import { getRuntimeKey, isServerless } from './env'
 import { getLogger } from './logger'
@@ -39,7 +40,31 @@ const app = new Hono<{ Bindings: Bindings }>()
 
 // Middleware
 app.use('*', logger())
-app.use('*', cors({ origin: (origin) => origin, credentials: true }))
+app.use(
+  '*',
+  cors({
+    origin: (origin, c) => {
+      const envVars = extractStringEnv(env(c))
+      const corsOrigins = envVars.CORS_ORIGINS
+
+      // Explicit wildcard opt-in for BYO-UI
+      if (corsOrigins === '*') return origin
+
+      const allowed = new Set<string>()
+      const frontendUrl = envVars.FRONTEND_URL ?? 'http://localhost:3000'
+      allowed.add(frontendUrl)
+
+      if (corsOrigins) {
+        for (const o of corsOrigins.split(',')) {
+          const trimmed = o.trim()
+          if (trimmed) allowed.add(trimmed)
+        }
+      }
+
+      return allowed.has(origin) ? origin : ''
+    },
+  }),
+)
 
 // Health check - returns runtime info + auth state
 app.get('/', async (c) => {
@@ -52,18 +77,7 @@ app.get('/', async (c) => {
 
     let authenticated = false
     if (isSetup) {
-      // Check if current request has a valid session
-      const authHeader = c.req.header('Authorization')
-      let token: string | undefined
-      if (authHeader?.startsWith('Bearer ')) {
-        token = authHeader.slice(7)
-      } else {
-        const cookie = c.req.header('Cookie')
-        if (cookie) {
-          const match = cookie.match(/(?:^|;\s*)pandora_session=([^\s;]+)/)
-          if (match) token = match[1]
-        }
-      }
+      const token = extractBearerToken(c)
       if (token) {
         const { verifySessionToken } = await import('./auth/session')
         const session = await verifySessionToken(authStore, token)
@@ -105,6 +119,12 @@ async function getAuthStore(c: unknown) {
   const { auth } = await getStorage(envVars, bindings)
   return auth
 }
+
+// Rate limiting on auth endpoints
+app.use('/api/auth/login', createRateLimiter({ max: 5, windowMs: 60_000 }))
+app.use('/api/auth/setup', createRateLimiter({ max: 3, windowMs: 60_000 }))
+app.use('/api/auth/refresh', createRateLimiter({ max: 10, windowMs: 60_000 }))
+app.use('/api/auth/change-password', createRateLimiter({ max: 3, windowMs: 60_000 }))
 
 // Auth middleware — protects all /api/* routes
 app.use('/api/*', authMiddleware(getAuthStore))
