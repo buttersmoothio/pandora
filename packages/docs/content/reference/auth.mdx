@@ -1,6 +1,6 @@
 # Authentication API
 
-Endpoint reference for authenticating requests and managing sessions.
+Endpoint reference for authenticating requests and managing sessions. See [API Conventions](/reference/conventions) for the shared error format and status codes.
 
 All auth routes are mounted at `/api/auth`. The setup, login, and refresh endpoints do not require authentication — all other endpoints require `Authorization: Bearer <token>`.
 
@@ -14,7 +14,10 @@ curl http://localhost:4111/
 
 ```json
 {
-  "name": "pandora",
+  "name": "Pandora",
+  "version": "0.1.0",
+  "runtime": "node",
+  "serverless": false,
   "auth": { "setup": true, "authenticated": false }
 }
 ```
@@ -86,6 +89,8 @@ DELETE /api/auth/sessions          — revoke all sessions
 ```
 
 All session endpoints require `Authorization: Bearer <token>`.
+
+Revoking a specific session returns `{ "success": true, "loggedOut": false }` — `loggedOut` is `true` when you revoke your own session. Returns `404` with `session_not_found` if the session ID doesn't exist.
 
 ## Response Formats
 

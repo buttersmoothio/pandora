@@ -1,0 +1,49 @@
+# Message Part Types
+
+Messages use a `parts` array to represent content. The part types differ between request (what you send) and response (what the API returns). Both follow the AI SDK [UIMessage](https://ai-sdk.dev/docs/reference/ai-sdk-core/ui-message) format.
+
+## Request Parts
+
+These are the part types you can include in the `parts` array when sending a message via [`POST /api/chat`](/reference/chat#post-apichat):
+
+| Part Type | Fields | Description |
+|---|---|---|
+| `text` | `text` | User's text message |
+| `file` | `mediaType`, `url`, `filename?` | File attachment — `url` must be a data URL |
+
+At minimum, include one `text` part. Example:
+
+```json
+{
+  "parts": [
+    { "type": "text", "text": "What's in this image?" },
+    { "type": "file", "mediaType": "image/png", "url": "data:image/png;base64,..." }
+  ]
+}
+```
+
+## Response Parts
+
+These are the part types the Pandora API can emit in assistant messages, both during streaming and in stored thread history:
+
+| Part Type | Fields | When Emitted |
+|---|---|---|
+| `text` | `text`, `state?` (`'streaming'` \| `'done'`) | Always — LLM text output |
+| `tool-{name}` | `toolCallId`, `state`, `input`, `output`, `errorText` | When the agent calls a tool |
+| `reasoning` | `text`, `state?`, `providerMetadata?` | When the model supports reasoning/thinking |
+| `source-url` | `sourceId`, `url`, `title?`, `providerMetadata?` | When the model provides citations |
+| `file` | `mediaType`, `url`, `filename?` | When the response includes files |
+| `step-start` | — | At the start of each agent step |
+
+Tool parts have dynamic type names like `tool-current-time` or `tool-web-search`. Check for the `tool-` prefix when rendering.
+
+## Tool Part States
+
+Tool parts go through a lifecycle indicated by the `state` field:
+
+| State | Meaning |
+|---|---|
+| `partial-call` | Tool is being called — `input` is still streaming in |
+| `call` | Tool call is complete — `input` is final, waiting for result |
+| `output-available` | Tool finished — `output` contains the result |
+| `error` | Tool failed — `errorText` contains the error message |

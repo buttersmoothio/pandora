@@ -2,7 +2,7 @@
 
 This guide walks through building a custom chat frontend against Pandora's streaming API. Pandora uses the [AI SDK](https://ai-sdk.dev) wire format, so you can use the official AI SDK client libraries or consume the stream manually with plain `fetch`.
 
-For the full endpoint reference (request/response shapes, status codes, all fields), see the [Chat & Thread API reference](/reference/chat-api).
+For the full endpoint reference (request/response shapes, status codes, all fields), see the [Chat API](/reference/chat) and [Thread API](/reference/threads) references.
 
 ## Prerequisites
 
@@ -198,10 +198,9 @@ const res = await apiFetch(`/api/threads/${threadId}`)
 const { thread, messages, forks, forkInfo } = await res.json()
 
 // messages contains the full conversation history
-// each message has: id, role, content.parts, createdAt
+// each message has: id, role, parts
 for (const msg of messages) {
-  const parts = msg.content.parts
-  console.log(msg.role, parts)
+  console.log(msg.role, msg.parts)
 }
 ```
 
@@ -360,7 +359,7 @@ function MessageParts({ message }: { message: UIMessage }) {
 }
 ```
 
-See the [Message Part Types reference](/reference/chat-api#message-part-types) for the full list of part types and their fields.
+See the [Message Part Types reference](/reference/message-parts) for the full list of part types and their fields.
 
 ### Loading Existing Threads
 

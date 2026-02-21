@@ -34,7 +34,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { useConfig } from '@/hooks/use-config'
 import { type ForkInfo, THREADS_KEY, useForkThread } from '@/hooks/use-threads'
 import { apiFetch, getToken } from '@/lib/api'
-import { convertMastraMessages, type MastraDBMessage } from '@/lib/messages'
+import { convertServerMessages, type ServerMessage } from '@/lib/messages'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4111'
 
@@ -47,7 +47,7 @@ interface ThreadResponse {
     createdAt: string
     updatedAt: string
   }
-  messages: MastraDBMessage[]
+  messages: ServerMessage[]
   forks: Record<string, BranchRef[]>
   forkInfo: ForkInfo | null
 }
@@ -85,7 +85,7 @@ function ThreadChat({
   forkInfo,
 }: {
   threadId: string
-  serverMessages: MastraDBMessage[]
+  serverMessages: ServerMessage[]
   forks: Record<string, BranchRef[]>
   forkInfo: ForkInfo | null
 }) {
@@ -98,7 +98,7 @@ function ThreadChat({
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null)
   const [editText, setEditText] = useState('')
 
-  const initialMessages = useMemo(() => convertMastraMessages(serverMessages), [serverMessages])
+  const initialMessages = useMemo(() => convertServerMessages(serverMessages), [serverMessages])
 
   const transport = useMemo(
     () =>
@@ -181,7 +181,7 @@ function ThreadChat({
       if (msgIndex !== -1) {
         try {
           const fresh = await apiFetch<ThreadResponse>(`/api/threads/${threadId}`)
-          const freshMessages = convertMastraMessages(fresh.messages)
+          const freshMessages = convertServerMessages(fresh.messages)
           if (freshMessages[msgIndex]) {
             messageId = freshMessages[msgIndex].id
           }
@@ -207,7 +207,7 @@ function ThreadChat({
   )
 
   return (
-    <div className="flex h-full flex-1 flex-col">
+    <div className="flex h-[calc(100svh-3rem)] flex-col">
       <Conversation className="relative flex-1">
         <ConversationContent>
           {messages.length === 0 ? (

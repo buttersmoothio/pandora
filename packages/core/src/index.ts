@@ -12,6 +12,7 @@ if (!Object.isFrozen(Object.prototype)) {
 }
 
 import { handleChatStream } from '@mastra/ai-sdk'
+import { AIV5Adapter } from '@mastra/core/agent/message-list'
 import { PROVIDER_REGISTRY } from '@mastra/core/llm'
 import type { Memory } from '@mastra/memory'
 import { createUIMessageStreamResponse, UI_MESSAGE_STREAM_HEADERS } from 'ai'
@@ -259,10 +260,10 @@ app.post('/api/chat', async (c) => {
   }
 })
 
-// Resume stream endpoint — AI SDK sends GET /api/chat/{chatId}/stream when resume: true
-app.get('/api/chat/:chatId/stream', (c) => {
+// Resume stream endpoint — AI SDK sends GET /api/chat/{threadId}/stream when resume: true
+app.get('/api/chat/:threadId/stream', (c) => {
   if (isServerless()) return c.body(null, 204)
-  const stream = getResumeStream(c.req.param('chatId'))
+  const stream = getResumeStream(c.req.param('threadId'))
   if (!stream) return c.body(null, 204)
   return new Response(stream.pipeThrough(new TextEncoderStream()), {
     status: 200,
@@ -393,7 +394,7 @@ app.get('/api/threads/:id', async (c) => {
       resourceId: 'default',
     })
 
-    const messages = rawMessages.map(({ threadId: _t, resourceId: _r, ...m }) => m)
+    const messages = rawMessages.map((m) => AIV5Adapter.toUIMessage(m))
 
     const { forks, forkInfo } = await computeBranchInfo(memory as Memory, threadId, rawThread)
 
