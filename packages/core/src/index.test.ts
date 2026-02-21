@@ -39,7 +39,7 @@ describe('Tools routes', () => {
     const currentTime = body.tools.find((t) => t.id === 'current-time')
     expect(currentTime).toBeDefined()
     expect(currentTime?.description).toBe('Get the current date and time in ISO 8601 format')
-    expect(currentTime?.permissions).toEqual({ time: true })
+    expect(currentTime?.permissions).toBeUndefined()
     expect(currentTime?.sandbox).toBe('host')
     expect(currentTime?.enabled).toBe(true)
   })

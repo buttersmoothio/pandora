@@ -11,8 +11,7 @@ export type ToolRecord = Record<string, Tool<any, any, any, any, any, any>>
  *
  * - `'compartment'` — code evaluated inside an SES Compartment.
  *   Only endowed capabilities are available. Default for generated/external tools.
- * - `'host'` — TypeScript function runs in host process.
- *   Permissions are declared for auditing/UI but not runtime-enforced.
+ * - `'host'` — TypeScript function runs in host process with full access.
  *   Required for built-in tools that use closures or imports.
  */
 export type SandboxMode = 'compartment' | 'host'
@@ -23,8 +22,7 @@ export type SandboxMode = 'compartment' | 'host'
  * Declares what capabilities a tool requires.
  * Allow-list only — tools start with zero authority.
  *
- * For `'compartment'` mode: permissions determine what gets endowed into the SES Compartment.
- * For `'host'` mode: permissions are documented/audited but not runtime-enforced.
+ * Used in `'compartment'` mode to determine what gets endowed into the SES Compartment.
  */
 export interface ToolPermissions {
   /** Access to `Date`, `Date.now()`, and `Intl.DateTimeFormat`. */
@@ -48,8 +46,12 @@ export interface ToolManifest {
   id: string
   /** Human-readable description. */
   description: string
-  /** What capabilities this tool requires. */
-  permissions: ToolPermissions
+  /**
+   * What capabilities this tool requires.
+   * Required for `'compartment'` mode (drives SES endowments).
+   * Optional for `'host'` mode (not runtime-enforced).
+   */
+  permissions?: ToolPermissions
   /** Where this tool's code executes. */
   sandbox: SandboxMode
   /** MCP-compatible annotations for UI hints. */

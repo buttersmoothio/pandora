@@ -9,7 +9,6 @@ function makeTestTool(overrides?: Record<string, unknown>) {
     id: 'test-tool',
     description: 'A test tool',
     inputSchema: testSchema,
-    permissions: {},
     execute: async (input) => ({ echo: input.value }),
     ...overrides,
   })
@@ -40,7 +39,13 @@ describe('defineTool', () => {
     expect(manifest?.sandbox).toBe('host')
   })
 
-  it('passes permissions through to manifest', () => {
+  it('omits permissions from manifest when not provided', () => {
+    const tool = makeTestTool()
+    const manifest = getManifest(tool)
+    expect(manifest?.permissions).toBeUndefined()
+  })
+
+  it('passes permissions through to manifest when provided', () => {
     const permissions = { time: true, network: ['api.example.com'], env: ['API_KEY'] }
     const tool = makeTestTool({ permissions })
     const manifest = getManifest(tool)
@@ -106,7 +111,7 @@ describe('getManifests', () => {
 
     const manifests = getManifests({ 'tool-a': tool1, 'tool-b': tool2 })
     expect(Object.keys(manifests)).toEqual(['tool-a', 'tool-b'])
-    expect(manifests['tool-a'].permissions.time).toBe(true)
+    expect(manifests['tool-a'].permissions?.time).toBe(true)
     expect(manifests['tool-b'].sandbox).toBe('host')
   })
 

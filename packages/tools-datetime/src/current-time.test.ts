@@ -33,11 +33,11 @@ describe('current-time tool', () => {
     expect(result.timezone).toBe('UTC')
   })
 
-  it('has a manifest with sandbox: host and permissions.time: true', () => {
+  it('has a manifest with sandbox: host and no permissions', () => {
     const manifest = getManifest(currentTime)
     expect(manifest).toBeDefined()
     expect(manifest?.sandbox).toBe('host')
-    expect(manifest?.permissions.time).toBe(true)
+    expect(manifest?.permissions).toBeUndefined()
   })
 
   it('has MCP annotations', () => {

@@ -102,8 +102,9 @@ function ToolCard({ tool, allTools }: { tool: ToolInfo; allTools: ToolInfo[] }) 
     updateConfig.mutate({ tools: toolsRecord })
   }
 
-  const permissionKeys = Object.keys(tool.permissions).filter(
-    (k) => tool.permissions[k as keyof typeof tool.permissions],
+  const permissions = tool.permissions ?? {}
+  const permissionKeys = Object.keys(permissions).filter(
+    (k) => permissions[k as keyof typeof permissions],
   )
 
   return (

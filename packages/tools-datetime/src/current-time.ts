@@ -10,7 +10,6 @@ export const currentTime = defineTool({
       .optional()
       .describe('IANA timezone (e.g. "America/New_York"). Defaults to UTC.'),
   }),
-  permissions: { time: true },
   sandbox: 'host',
   annotations: {
     readOnlyHint: true,

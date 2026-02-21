@@ -52,7 +52,7 @@ export interface DefineToolOptions<TIn, TOut> {
   /** The tool's execute function. */
   execute: (input: TIn, context: ExecuteContext) => Promise<TOut>
   /** Declared permissions — what capabilities this tool requires. */
-  permissions: ToolPermissions
+  permissions?: ToolPermissions
   /** Sandbox mode. Defaults to `'compartment'`. */
   sandbox?: SandboxMode
   /** Whether the tool requires explicit user approval before execution. */
@@ -71,7 +71,7 @@ export function defineTool<TIn, TOut>(opts: DefineToolOptions<TIn, TOut>): AnyTo
   const manifest: ToolManifest = {
     id: opts.id,
     description: opts.description,
-    permissions: opts.permissions,
+    ...(opts.permissions && { permissions: opts.permissions }),
     sandbox: opts.sandbox ?? 'compartment',
     annotations: opts.annotations,
   }
