@@ -6,15 +6,13 @@ Tools follow an Android-style permission model: every tool starts with zero auth
 
 This design means a tool can never silently escalate its capabilities. The permission declaration is part of the tool's manifest, visible to both the runtime and the UI before execution begins.
 
-## Sandbox Modes
+## Execution Tiers
 
-Tools execute in one of two modes:
+Sandbox mode is not a per-tool option — it's determined by the tool's origin:
 
-**Compartment** (default) — code runs inside an SES Compartment with a blank global scope. Only endowed capabilities are accessible. Input and output cross the boundary via JSON serialization, stripping prototypes. This is the right choice for generated or external tool code where the host must not be trusted.
+**Standard library tools** (`@pandora/tools-*` packages) always run in **host mode**. They execute directly in the Node.js process with full runtime access. Permissions are declared for auditing and UI display but are not enforced at runtime. These tools ship with the framework and are audited at development time.
 
-**Host** — the tool function runs directly in the Node.js process. Permissions are declared for auditing but not enforced at runtime. This is required for built-in tools that need closures, imports, or other host-process features that can't be serialized into a compartment.
-
-The trade-off is safety vs. power. Compartment mode provides strong isolation guarantees; host mode provides full runtime access. Built-in tools use host mode because they ship with the framework and are audited at development time.
+**LLM-generated tools** (not yet implemented) will run in **compartment mode** — an SES Compartment with a blank global scope where only declared permissions are injected as endowments. Input and output cross the boundary via JSON serialization, stripping prototypes. This tier is designed for user-created tools where the host must not be trusted.
 
 ## Standard Library Packages
 

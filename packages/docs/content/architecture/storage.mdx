@@ -1,6 +1,6 @@
 # Storage
 
-Every storage provider produces three independent layers that share a database connection:
+Every storage provider produces three independent layers that share a database connection. The `mastra` layer delegates to a [Mastra storage adapter](https://mastra.ai/docs/memory/storage) for thread and memory persistence — this means Pandora can only support databases that Mastra already has an adapter for. The `config` and `auth` layers are Pandora's own and use reusable helpers.
 
 ```
 StorageResult
@@ -11,6 +11,6 @@ StorageResult
 
 Providers are discovered at runtime via convention — `STORAGE_PROVIDER=postgres` imports `@pandora/storage-postgres`.
 
-SQL-backed providers use dialect-aware helper classes (`SQLConfigStore`, `SQLAuthStore`) that handle SQLite, PostgreSQL, and MSSQL differences through a caller-provided `execute(sql, params)` function, keeping the classes free of driver-specific imports. KV-backed providers use equivalent helpers (`RedisConfigStore`, `RedisAuthStore`).
+SQL-backed providers use dialect-aware helpers that handle SQLite, PostgreSQL, and MSSQL differences through a caller-provided `execute(sql, params)` function, keeping the helpers free of driver-specific imports. KV-backed providers use equivalent helpers for Redis-like stores.
 
 In server mode, all three layers are cached for the process lifetime. In serverless mode, fresh instances are created per request.

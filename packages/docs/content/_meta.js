@@ -5,4 +5,5 @@ export default {
   'developer-guide': 'Developer Guide',
   reference: 'Reference',
   architecture: 'Architecture',
+  contributing: 'Contributing',
 }
