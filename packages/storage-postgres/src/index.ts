@@ -25,7 +25,7 @@ export const createStorage: StorageFactory = async (env) => {
     return result.rows
   }, 'postgres')
 
-  return { mastra, config, auth }
+  return { mastra, config, auth, close: () => pool.end() }
 }
 
 export default {

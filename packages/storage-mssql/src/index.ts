@@ -30,7 +30,7 @@ export const createStorage: StorageFactory = async (env) => {
   const config = new SQLConfigStore<Config>(executeMssql, 'mssql')
   const auth = new SQLAuthStore(executeMssql, 'mssql')
 
-  return { mastra, config, auth }
+  return { mastra, config, auth, close: () => pool.close() }
 }
 
 export default {

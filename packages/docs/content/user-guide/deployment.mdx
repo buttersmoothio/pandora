@@ -14,6 +14,20 @@ Or in development:
 bun run dev
 ```
 
+## Environment Variables
+
+Core variables that apply to all deployments:
+
+| Variable | Default | Description |
+|---|---|---|
+| `STORAGE_PROVIDER` | `storage-libsql` | Which storage backend to use (e.g. `storage-postgres`, `storage-mongodb`) |
+| `FRONTEND_URL` | — | URL of your UI (always included in CORS origins) |
+| `CORS_ORIGINS` | `http://localhost:3000` | Comma-separated allowed origins, or `*` for all |
+| `LOG_LEVEL` | `debug` | Log verbosity: `debug`, `info`, `warn`, or `error` |
+| `PORT` | `4111` | HTTP server port |
+
+Each storage provider has its own variables (e.g. `DATABASE_URL`, `MONGODB_URI`). See the individual [storage provider pages](/contributing/storage) for details.
+
 ## CORS
 
 By default, Pandora allows requests from `http://localhost:3000` (the bundled UI). If your UI is hosted elsewhere, set `FRONTEND_URL`:

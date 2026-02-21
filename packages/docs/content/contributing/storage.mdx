@@ -128,7 +128,7 @@ export const createStorage: StorageFactory = async (env) => {
   const config = new SQLConfigStore<Config>(execute, 'postgres')
   const auth = new SQLAuthStore(execute, 'postgres')
 
-  return { mastra, config, auth }
+  return { mastra, config, auth, close: () => pool.end() }
 }
 ```
 
@@ -137,6 +137,7 @@ A few things to notice:
 - **Mastra adapter** — the `@mastra/pg` package handles thread storage, memory, and workflows. This is why you need Mastra to support your database first.
 - **SQL helpers** handle all table creation, parameterization, and dialect differences for Pandora's own config and auth. You just provide the `execute` function.
 - **`init()`** on each store is called automatically by Pandora after `createStorage` returns — you don't need to call it yourself.
+- **`close()`** — if your database driver holds a persistent connection (connection pool, TCP socket, etc.), return a `close` function that tears it down. Pandora calls it on shutdown. HTTP-based providers (like Upstash) can omit it.
 
 ### Test it
 
@@ -197,6 +198,8 @@ interface StorageResult {
   config: ConfigStore<Config>
   /** Pandora auth storage */
   auth: AuthStore
+  /** Close all connections (optional cleanup on shutdown) */
+  close?(): Promise<void>
 }
 ```
 

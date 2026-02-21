@@ -29,13 +29,9 @@ class MongoDBConfigStore implements ConfigStore<Config> {
   constructor(private getCollection: () => Promise<Collection<ConfigDocument>>) {}
 
   async get(): Promise<Config | null> {
-    try {
-      const collection = await this.getCollection()
-      const doc = await collection.findOne({ _id: CONFIG_ID })
-      return (doc?.value as Config) ?? null
-    } catch {
-      return null
-    }
+    const collection = await this.getCollection()
+    const doc = await collection.findOne({ _id: CONFIG_ID })
+    return (doc?.value as Config) ?? null
   }
 
   async set(config: Config): Promise<void> {
@@ -96,18 +92,14 @@ class MongoDBAuthStore implements AuthStore {
   }
 
   async getCredential(): Promise<PasswordCredential | null> {
-    try {
-      const col = await this.getCredentials()
-      const doc = await col.findOne({ _id: OWNER_KEY })
-      if (!doc) return null
-      return {
-        hash: doc.hash,
-        salt: doc.salt,
-        iterations: doc.iterations,
-        createdAt: doc.createdAt,
-      }
-    } catch {
-      return null
+    const col = await this.getCredentials()
+    const doc = await col.findOne({ _id: OWNER_KEY })
+    if (!doc) return null
+    return {
+      hash: doc.hash,
+      salt: doc.salt,
+      iterations: doc.iterations,
+      createdAt: doc.createdAt,
     }
   }
 
@@ -153,19 +145,15 @@ class MongoDBAuthStore implements AuthStore {
   }
 
   async getSession(tokenHash: string): Promise<Session | null> {
-    try {
-      const col = await this.getSessions()
-      const doc = await col.findOne({ _id: tokenHash, expiresAt: { $gt: new Date() } })
-      if (!doc) return null
-      return {
-        tokenHash: doc._id,
-        expiresAt: doc.expiresAt.toISOString(),
-        createdAt: doc.createdAt,
-        userAgent: doc.userAgent,
-        ip: doc.ip,
-      }
-    } catch {
-      return null
+    const col = await this.getSessions()
+    const doc = await col.findOne({ _id: tokenHash, expiresAt: { $gt: new Date() } })
+    if (!doc) return null
+    return {
+      tokenHash: doc._id,
+      expiresAt: doc.expiresAt.toISOString(),
+      createdAt: doc.createdAt,
+      userAgent: doc.userAgent,
+      ip: doc.ip,
     }
   }
 
@@ -205,21 +193,17 @@ class MongoDBAuthStore implements AuthStore {
   }
 
   async getRefreshToken(tokenHash: string): Promise<RefreshToken | null> {
-    try {
-      const col = await this.getRefreshTokens()
-      const doc = await col.findOne({ _id: tokenHash, expiresAt: { $gt: new Date() } })
-      if (!doc) return null
-      return {
-        tokenHash: doc._id,
-        sessionHash: doc.sessionHash,
-        expiresAt: doc.expiresAt.toISOString(),
-        createdAt: doc.createdAt,
-        userAgent: doc.userAgent,
-        ip: doc.ip,
-        used: doc.used,
-      }
-    } catch {
-      return null
+    const col = await this.getRefreshTokens()
+    const doc = await col.findOne({ _id: tokenHash, expiresAt: { $gt: new Date() } })
+    if (!doc) return null
+    return {
+      tokenHash: doc._id,
+      sessionHash: doc.sessionHash,
+      expiresAt: doc.expiresAt.toISOString(),
+      createdAt: doc.createdAt,
+      userAgent: doc.userAgent,
+      ip: doc.ip,
+      used: doc.used,
     }
   }
 
@@ -270,7 +254,7 @@ export const createStorage: StorageFactory = async (env) => {
     async () => db.collection<RefreshTokenDocument>(AUTH_REFRESH_TOKENS_COLLECTION),
   )
 
-  return { mastra, config, auth }
+  return { mastra, config, auth, close: () => client.close() }
 }
 
 export default {

@@ -49,7 +49,14 @@ export const createStorage: StorageFactory = async (env) => {
     return result.rows as unknown[]
   }, 'sqlite')
 
-  return { mastra, config, auth }
+  return {
+    mastra,
+    config,
+    auth,
+    close: async () => {
+      client.close()
+    },
+  }
 }
 
 export default {

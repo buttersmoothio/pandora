@@ -12,8 +12,8 @@ describe('getStorage', () => {
     registerStorageProvider(libsql)
   })
 
-  afterEach(() => {
-    clearStorageCache()
+  afterEach(async () => {
+    await clearStorageCache()
     clearStorageProviders()
   })
 
@@ -42,7 +42,7 @@ describe('getStorage', () => {
 
   it('clears cache correctly', async () => {
     const storage1 = await getStorage(testEnv)
-    clearStorageCache()
+    await clearStorageCache()
     const storage2 = await getStorage(testEnv)
     expect(storage1.mastra).not.toBe(storage2.mastra)
   })

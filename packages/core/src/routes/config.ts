@@ -10,9 +10,16 @@ const configRoutes = new Hono<Env>()
 
 // Config endpoint - get current config
 configRoutes.get('/', async (c) => {
-  const { config: configStore } = await getStorage(c.var.envVars, c.env)
-  const config = await getConfig(configStore)
-  return c.json(config)
+  const log = getLogger()
+  try {
+    const { config: configStore } = await getStorage(c.var.envVars, c.env)
+    const config = await getConfig(configStore)
+    return c.json(config)
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown error'
+    log.error('Config fetch failed', { error: message })
+    return c.json({ error: message }, 500)
+  }
 })
 
 // Config endpoint - update config
@@ -41,9 +48,16 @@ configRoutes.patch('/', async (c) => {
 
 // Config endpoint - reset to defaults
 configRoutes.delete('/', async (c) => {
-  const { config: configStore } = await getStorage(c.var.envVars, c.env)
-  const config = await resetConfig(configStore)
-  return c.json(config)
+  const log = getLogger()
+  try {
+    const { config: configStore } = await getStorage(c.var.envVars, c.env)
+    const config = await resetConfig(configStore)
+    return c.json(config)
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown error'
+    log.error('Config reset failed', { error: message })
+    return c.json({ error: message }, 500)
+  }
 })
 
 export { configRoutes }

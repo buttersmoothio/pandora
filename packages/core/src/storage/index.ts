@@ -18,6 +18,8 @@ export interface StorageResult {
   config: ConfigStore<Config>
   /** Pandora auth storage */
   auth: AuthStore
+  /** Close all connections (optional cleanup on shutdown) */
+  close?(): Promise<void>
 }
 
 export type StorageFactory = (
@@ -127,7 +129,8 @@ async function createStorage(
 /**
  * Clear the cached storage instance. Useful for testing or reconnecting.
  */
-export function clearStorageCache(): void {
+export async function clearStorageCache(): Promise<void> {
+  await _cached?.close?.()
   _cached = null
 }
 
