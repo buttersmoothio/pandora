@@ -1,11 +1,11 @@
-import { createTool } from '@mastra/core/tools'
 import { z } from 'zod'
 import type { Config } from '../config'
+import { defineTool } from './define'
 import type { ToolRecord } from './types'
 
 /** All available built-in tools */
 const ALL_BUILTIN_TOOLS = {
-  'current-time': createTool({
+  'current-time': defineTool({
     id: 'current-time',
     description: 'Get the current date and time in ISO 8601 format',
     inputSchema: z.object({
@@ -14,6 +14,13 @@ const ALL_BUILTIN_TOOLS = {
         .optional()
         .describe('IANA timezone (e.g. "America/New_York"). Defaults to UTC.'),
     }),
+    permissions: { time: true },
+    sandbox: 'host',
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+    },
     execute: async (input) => {
       const requested = input.timezone ?? 'UTC'
       const now = new Date()

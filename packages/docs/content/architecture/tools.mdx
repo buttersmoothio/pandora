@@ -1,0 +1,47 @@
+# Tools
+
+## Capability-Based Permissions
+
+Tools follow an Android-style permission model: every tool starts with zero authority and must declare exactly what it needs. There is no "admin" role or blanket access — a tool that needs network access declares which hostnames, a tool that needs time declares `time: true`.
+
+This design means a tool can never silently escalate its capabilities. The permission declaration is part of the tool's manifest, visible to both the runtime and the UI before execution begins.
+
+The five permission groups:
+
+| Group | Grants | Compartment | Host |
+|---|---|---|---|
+| `time` | `Date`, `Date.now()`, `Intl.DateTimeFormat` | Endowed | Documented |
+| `network` | `fetch` scoped to declared hostnames | Endowed + SSRF-blocked | Documented |
+| `env` | Read-only access to declared environment variables | Endowed (snapshot) | Documented |
+| `fs` | Read-only filesystem under declared path prefixes | Endowed | Documented |
+| `random` | `Math.random()` (never cryptographic) | Endowed | Documented |
+
+"Endowed" means the capability is injected as a compartment global. "Documented" means the permission is recorded in the manifest for auditing and UI display, but not runtime-enforced.
+
+## Sandbox Modes
+
+Tools execute in one of two modes:
+
+**Compartment** (default) — code runs inside an SES Compartment with a blank global scope. Only endowed capabilities are accessible. Input and output cross the boundary via JSON serialization, stripping prototypes. This is the right choice for generated or external tool code where the host must not be trusted.
+
+**Host** — the tool function runs directly in the Node.js process. Permissions are declared for auditing but not enforced at runtime. This is required for built-in tools that need closures, imports, or other host-process features that can't be serialized into a compartment.
+
+The trade-off is safety vs. power. Compartment mode provides strong isolation guarantees; host mode provides full runtime access. Built-in tools use host mode because they ship with the framework and are audited at development time.
+
+## Endowments
+
+In compartment mode, permissions map directly to globals injected into the SES Compartment. A tool declaring `{ network: ['api.example.com'] }` receives a `fetch` function scoped to that hostname. A tool declaring `{}` gets only `console`.
+
+All endowments are `harden()`-ed (SES-frozen) before injection, making them tamper-proof. Environment variable access takes a snapshot at compartment creation time — mutations to the host environment after that point are invisible.
+
+Network endowments include SSRF protection: requests to private IP ranges (`127.0.0.0/8`, `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `169.254.0.0/16`, `::1`, link-local) are blocked regardless of the hostname allow-list.
+
+## Manifest Registry
+
+Every tool created via `defineTool()` has a `ToolManifest` registered in a WeakMap keyed by the Mastra Tool instance. This keeps Pandora-specific metadata (permissions, sandbox mode, annotations) separate from the Mastra Tool object.
+
+The manifest is accessible via `getManifest(tool)` and `getManifests(toolRecord)`. Tools created directly via Mastra's `createTool()` have no manifest — only Pandora-defined tools participate in the manifest system. This allows the UI to display permission badges and approval prompts, and allows the runtime to select the correct execution mode.
+
+## Disclaimer
+
+The sandbox and permission system builds on battle-tested primitives (SES lockdown, Compartment isolation, `harden()`), but Pandora's own integration code has not undergone a formal security audit. Treat it as best-effort defense-in-depth, not a guaranteed security boundary.

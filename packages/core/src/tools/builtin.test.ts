@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { Config } from '../config'
 import { DEFAULTS } from '../config'
 import { loadBuiltinTools } from './builtin'
+import { getManifest, getManifests } from './define'
 
 describe('loadBuiltinTools', () => {
   it('loads all tools with default config', () => {
@@ -71,5 +72,30 @@ describe('current-time tool', () => {
       timezone: string
     }
     expect(result.timezone).toBe('UTC')
+  })
+
+  it('has a manifest with sandbox: host and permissions.time: true', () => {
+    const tools = loadBuiltinTools(DEFAULTS, {})
+    const manifest = getManifest(tools['current-time'])
+    expect(manifest).toBeDefined()
+    expect(manifest?.sandbox).toBe('host')
+    expect(manifest?.permissions.time).toBe(true)
+  })
+
+  it('has MCP annotations', () => {
+    const tools = loadBuiltinTools(DEFAULTS, {})
+    const manifest = getManifest(tools['current-time'])
+    expect(manifest?.annotations?.readOnlyHint).toBe(true)
+    expect(manifest?.annotations?.destructiveHint).toBe(false)
+    expect(manifest?.annotations?.idempotentHint).toBe(true)
+  })
+})
+
+describe('getManifests for built-in tools', () => {
+  it('returns manifests for all loaded tools', () => {
+    const tools = loadBuiltinTools(DEFAULTS, {})
+    const manifests = getManifests(tools)
+    expect(manifests['current-time']).toBeDefined()
+    expect(manifests['current-time'].id).toBe('current-time')
   })
 })
