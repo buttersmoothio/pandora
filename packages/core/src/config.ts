@@ -80,6 +80,16 @@ export const ConfigSchema = z.object({
       },
     })),
 
+  /** Channel configurations — keyed by channel ID */
+  channels: z
+    .record(
+      z.string(),
+      z.object({
+        enabled: z.boolean(),
+      }),
+    )
+    .default(() => ({})),
+
   /** Tool configurations — keyed by tool ID */
   tools: z
     .record(

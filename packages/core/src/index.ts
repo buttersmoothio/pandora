@@ -15,6 +15,8 @@ import pkg from '../package.json'
 import { authMiddleware } from './auth/middleware'
 import { createRateLimiter } from './auth/rate-limit'
 import { createAuthRoutes, extractBearerToken } from './auth/routes'
+import { getAllChannels, getChannel, handleWebhook, loadChannels, verifyWebhook } from './channels'
+import { createChannelRuntime } from './channels/runtime'
 import { clearConfigCache, getConfig, resetConfig, updateConfig } from './config'
 import { getRuntimeKey, isServerless } from './env'
 import { getLogger } from './logger'
@@ -119,6 +121,58 @@ async function getAuthStore(c: unknown) {
   return auth
 }
 
+// ---------------------------------------------------------------------------
+// Channel webhook route — BEFORE auth middleware so platforms can POST freely
+// ---------------------------------------------------------------------------
+
+let _channelsLoaded = false
+
+/** Ensure channels are loaded once */
+async function ensureChannelsLoaded(envVars: Record<string, string | undefined>) {
+  if (_channelsLoaded) return
+  const { config: configStore } = await getStorage(envVars)
+  const config = await getConfig(configStore)
+  await loadChannels(envVars, config.channels)
+  _channelsLoaded = true
+}
+
+app.use('/wh/*', createRateLimiter({ max: 60, windowMs: 60_000 }))
+
+app.all('/wh/:channel', async (c) => {
+  const log = getLogger()
+  const channelId = c.req.param('channel')
+
+  try {
+    const envVars = extractStringEnv(env(c))
+    await ensureChannelsLoaded(envVars)
+
+    const adapter = getChannel(channelId)
+    if (!adapter?.webhook) {
+      return c.json({ error: 'Channel not found or has no webhook support' }, 404)
+    }
+
+    // Verify signature BEFORE constructing runtime
+    const verified = await verifyWebhook(channelId, c.req.raw, envVars)
+    if (!verified) {
+      return c.json({ error: 'Unauthorized' }, 401)
+    }
+
+    const mastra = await getMastra(envVars, c.env)
+    const runtime = createChannelRuntime({ mastra, env: envVars })
+    const response = handleWebhook(channelId, c.req.raw, runtime)
+
+    if (!response) {
+      return c.json({ error: 'Channel webhook handler unavailable' }, 404)
+    }
+
+    return response
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown error'
+    log.error(`Webhook error for channel ${channelId}`, { error: message })
+    return c.json({ error: message }, 500)
+  }
+})
+
 // Rate limiting on auth endpoints
 app.use('/api/auth/login', createRateLimiter({ max: 5, windowMs: 60_000 }))
 app.use('/api/auth/setup', createRateLimiter({ max: 3, windowMs: 60_000 }))
@@ -211,6 +265,21 @@ app.get('/api/models', (c) => {
     }
   })
   return c.json({ providers })
+})
+
+// Channels endpoint - returns loaded channels with status
+app.get('/api/channels', async (c) => {
+  const envVars = extractStringEnv(env(c))
+  await ensureChannelsLoaded(envVars)
+
+  const channels = getAllChannels().map((adapter) => ({
+    id: adapter.id,
+    name: adapter.name,
+    webhook: !!adapter.webhook,
+    realtime: !!adapter.realtime,
+  }))
+
+  return c.json({ channels })
 })
 
 // Chat endpoint - thread-based streaming

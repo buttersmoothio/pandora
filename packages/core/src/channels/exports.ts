@@ -1,0 +1,23 @@
+/**
+ * Public API for channel authors.
+ *
+ * Import from `@pandora/core/channels` to build channel adapter packages.
+ */
+
+export type {
+  ChannelAdapter,
+  ChannelFactory,
+  ChannelRealtime,
+  ChannelRuntime,
+  ChannelWebhook,
+  FileChunk,
+  GenerateResult,
+  LanguageModelUsage,
+  MastraMessagePart,
+  MessagePart,
+  ReasoningChunk,
+  SourceChunk,
+  StreamResult,
+  ToolCallChunk,
+  ToolResultChunk,
+} from './types'
