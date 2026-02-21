@@ -4,7 +4,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./storage": "./src/storage/exports.ts"
+    "./storage": "./src/storage/exports.ts",
+    "./tools": "./src/tools/exports.ts"
   },
   "scripts": {
     "dev": "bun run serve.ts",
@@ -20,6 +21,7 @@
     "@mastra/core": "^1.4.0",
     "@mastra/memory": "^1.4.0",
     "@pandora/storage-libsql": "workspace:*",
+    "@pandora/tools-datetime": "workspace:*",
     "ai": "^6.0.90",
     "hono": "^4.11.9",
     "ses": "^1.14.0",

@@ -36,6 +36,14 @@ All endowments are `harden()`-ed (SES-frozen) before injection, making them tamp
 
 Network endowments include SSRF protection: requests to private IP ranges (`127.0.0.0/8`, `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `169.254.0.0/16`, `::1`, link-local) are blocked regardless of the hostname allow-list.
 
+## Standard Library Packages
+
+Built-in tools live in separate `@pandora/tools-*` packages rather than inside core. This keeps core's dependency surface small and lets each tool package be tested, versioned, and tree-shaken independently — the same pattern used by `@pandora/storage-*`.
+
+Core discovers standard library packages at startup via a static list and dynamically imports each one. Every package exports a `createTools` factory (`ToolPackageFactory`) that receives environment variables and returns a `ToolRecord`. Core merges these records and filters out any tool the user has not enabled in config.
+
+The loading semantics are explicit opt-in: a tool is only available when `config.tools[id].enabled` is `true`. The default configuration enables the standard set, so the experience is seamless out of the box, but operators have full control over which tools are active.
+
 ## Manifest Registry
 
 Every tool created via `defineTool()` has a `ToolManifest` registered in a WeakMap keyed by the Mastra Tool instance. This keeps Pandora-specific metadata (permissions, sandbox mode, annotations) separate from the Mastra Tool object.

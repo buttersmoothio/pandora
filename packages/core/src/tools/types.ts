@@ -67,3 +67,9 @@ export interface ToolAnnotations {
   /** Calling with same args produces no additional effect. */
   idempotentHint?: boolean
 }
+
+/**
+ * Factory function exported by `@pandora/tools-*` packages.
+ * Receives environment variables and returns a record of tools.
+ */
+export type ToolPackageFactory = (env: Record<string, string | undefined>) => ToolRecord

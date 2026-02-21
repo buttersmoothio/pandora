@@ -18,6 +18,7 @@ import type {
   ToolPermissions,
   ToolManifest,
   ToolAnnotations,
+  ToolPackageFactory,
   SandboxMode,
   ToolRecord,
   Endowments,
@@ -72,6 +73,62 @@ const weatherTool = defineTool({
 | `sandbox` | `SandboxMode` | No | `'compartment'` (default) or `'host'` |
 | `requireApproval` | `boolean` | No | Require user approval before execution |
 | `annotations` | `ToolAnnotations` | No | MCP-compatible UI hints |
+
+## Tool Packages
+
+Pandora's built-in tools ship as separate `@pandora/tools-*` packages (mirroring the `@pandora/storage-*` convention). Each package exports a `createTools` factory that returns a tool record:
+
+```ts
+// @pandora/tools-datetime/src/index.ts
+import type { ToolPackageFactory } from '@pandora/core/tools'
+import { currentTime } from './current-time'
+
+export const createTools: ToolPackageFactory = (_env) => ({
+  'current-time': currentTime,
+})
+```
+
+The factory receives environment variables so tools can read API keys or other configuration at load time.
+
+### `ToolPackageFactory`
+
+```ts
+type ToolPackageFactory = (
+  env: Record<string, string | undefined>,
+) => ToolRecord
+```
+
+### Creating a tool package
+
+A tool package follows this structure:
+
+```
+packages/tools-example/
+├── package.json
+├── tsconfig.json
+└── src/
+    ├── index.ts          # createTools factory
+    ├── my-tool.ts        # tool definition using defineTool()
+    └── my-tool.test.ts   # tests
+```
+
+The `package.json` declares `@pandora/core` as a peer dependency:
+
+```json
+{
+  "name": "@pandora/tools-example",
+  "type": "module",
+  "exports": { ".": "./src/index.ts" },
+  "peerDependencies": {
+    "@pandora/core": "workspace:*"
+  },
+  "dependencies": {
+    "zod": "^4.3.6"
+  }
+}
+```
+
+Each tool in the package is defined with `defineTool()` and assembled into a record by the `createTools` factory. Core loads standard library packages dynamically and filters tools based on the user's configuration — only tools with `config.tools[id].enabled === true` are loaded.
 
 ## Permissions
 
