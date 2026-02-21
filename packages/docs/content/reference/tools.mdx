@@ -1,0 +1,116 @@
+# Tools Reference
+
+Type definitions and API surface for the Pandora tool system. All types are exported from `@pandora/core/tools`.
+
+## Imports
+
+```ts
+import {
+  defineTool,
+  getAllManifests,
+  getManifest,
+  getManifests,
+  executeInCompartment,
+} from '@pandora/core/tools'
+
+import type {
+  ToolPermissions,
+  ToolManifest,
+  ToolAnnotations,
+  ToolPackageFactory,
+  SandboxMode,
+  ToolRecord,
+  Endowments,
+  CompartmentExecuteOptions,
+} from '@pandora/core/tools'
+```
+
+## `DefineToolOptions`
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `id` | `string` | Yes | Unique tool identifier |
+| `description` | `string` | Yes | What the tool does (shown to the LLM) |
+| `inputSchema` | `z.ZodType` | Yes | Zod schema for input validation |
+| `outputSchema` | `z.ZodType` | No | Optional Zod schema for output validation |
+| `execute` | `(input, context) => Promise` | Yes | The tool's handler function |
+| `permissions` | `ToolPermissions` | Yes | Declared capabilities (see below) |
+| `sandbox` | `SandboxMode` | No | `'compartment'` (default) or `'host'` |
+| `requireApproval` | `boolean` | No | Require user approval before execution |
+| `annotations` | `ToolAnnotations` | No | MCP-compatible UI hints |
+
+## `ToolPermissions`
+
+```ts
+interface ToolPermissions {
+  time?: boolean        // Date, Date.now(), Intl.DateTimeFormat
+  network?: string[]    // fetch scoped to these hostnames
+  env?: string[]        // Read-only access to these env vars
+  fs?: string[]         // Read-only filesystem under these path prefixes
+  random?: boolean      // Math.random() (not cryptographic)
+}
+```
+
+| Permission | Grants | Example |
+|---|---|---|
+| `time: true` | `Date`, `Date.now()`, `Intl.DateTimeFormat` | Formatting timestamps |
+| `network: ['api.example.com']` | `fetch` scoped to listed hostnames | API calls |
+| `env: ['API_KEY']` | `env.get('API_KEY')` | Reading secrets |
+| `fs: ['/data']` | `readFile()` under `/data` | Reading local files |
+| `random: true` | `Math.random()` | Generating IDs |
+
+## `SandboxMode`
+
+```ts
+type SandboxMode = 'compartment' | 'host'
+```
+
+## `ToolAnnotations`
+
+```ts
+interface ToolAnnotations {
+  title?: string              // Display title in UI
+  readOnlyHint?: boolean      // Safe to run without confirmation
+  destructiveHint?: boolean   // May perform irreversible operations
+  idempotentHint?: boolean    // Same args = no additional effect
+}
+```
+
+## `ToolPackageFactory`
+
+```ts
+type ToolPackageFactory = (
+  env: Record<string, string | undefined>,
+) => ToolRecord
+```
+
+## `ToolManifest`
+
+The manifest registered for each tool created via `defineTool()`. Retrieved via `getManifest(tool)`, `getManifests(toolRecord)`, or `getAllManifests()`.
+
+## `CompartmentExecuteOptions`
+
+| Field | Type | Description |
+|---|---|---|
+| `code` | `string` | Function body — must evaluate to `async function(input) { ... }` |
+| `input` | `unknown` | Input data passed to the function |
+| `permissions` | `ToolPermissions` | Determines which endowments are injected |
+| `envVars` | `Record<string, string \| undefined>` | Environment variables for scoped env access |
+
+## `Endowments`
+
+Globals injected into SES Compartments based on declared permissions:
+
+```ts
+interface Endowments {
+  fetch?: (url: string, init?: RequestInit) => Promise<Response>
+  env?: { get: (key: string) => string | undefined }
+  readFile?: (path: string) => Promise<string>
+  Date?: typeof Date
+  Intl?: typeof Intl
+  Math?: { random: () => number }
+  console: Pick<Console, 'log' | 'warn' | 'error'>  // always present
+}
+```
+
+All endowments are `harden()`-ed (frozen via SES) to prevent tampering.

@@ -54,6 +54,7 @@ export function useUpdateConfig() {
       }),
     onSuccess: (data) => {
       queryClient.setQueryData(CONFIG_KEY, data)
+      queryClient.invalidateQueries({ queryKey: ['tools'] })
       toast.success('Configuration saved')
     },
     onError: (err: Error) => {
@@ -69,6 +70,7 @@ export function useResetConfig() {
     mutationFn: () => apiFetch<Config>('/api/config', { method: 'DELETE' }),
     onSuccess: (data) => {
       queryClient.setQueryData(CONFIG_KEY, data)
+      queryClient.invalidateQueries({ queryKey: ['tools'] })
       toast.success('Configuration reset to defaults')
     },
     onError: (err: Error) => {

@@ -28,6 +28,23 @@ describe('Config routes', () => {
   })
 })
 
+describe('Tools routes', () => {
+  it('GET /api/tools returns tool manifests with config state', async () => {
+    const res = await authRequest('/api/tools')
+    expect(res.status).toBe(200)
+
+    const body = (await res.json()) as { tools: Record<string, unknown>[] }
+    expect(Array.isArray(body.tools)).toBe(true)
+
+    const currentTime = body.tools.find((t) => t.id === 'current-time')
+    expect(currentTime).toBeDefined()
+    expect(currentTime?.description).toBe('Get the current date and time in ISO 8601 format')
+    expect(currentTime?.permissions).toEqual({ time: true })
+    expect(currentTime?.sandbox).toBe('host')
+    expect(currentTime?.enabled).toBe(true)
+  })
+})
+
 describe('Error handling', () => {
   it('returns 404 for unknown routes', async () => {
     const res = await request('/unknown/path')

@@ -1,3 +1,6 @@
+// Ensure SES lockdown has run (idempotent — index.ts also imports this)
+import '../../ses-lockdown'
+
 import path from 'node:path'
 import type { ToolPermissions } from '../types'
 

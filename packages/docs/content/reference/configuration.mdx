@@ -51,6 +51,47 @@ Deletes the stored config and returns the default values.
 | `models` | LLM configuration | `operator: { provider, model, temperature?, maxTokens? }` |
 | `tools` | Tool management | Keyed by tool ID: `{ enabled, settings?, requireApproval? }` |
 
+## Available Tools
+
+```
+GET /api/tools
+Authorization: Bearer <token>
+```
+
+Returns all registered stdlib tools with their manifests merged with the current config state. Unlike `GET /api/config` (which only returns tools already in config), this endpoint discovers all available tools regardless of whether they are enabled.
+
+```json
+{
+  "tools": [
+    {
+      "id": "current-time",
+      "description": "Get the current date and time in ISO 8601 format",
+      "permissions": { "time": true },
+      "sandbox": "host",
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true
+      },
+      "enabled": true
+    }
+  ]
+}
+```
+
+Each tool object contains:
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | `string` | Unique tool identifier |
+| `description` | `string` | What the tool does |
+| `permissions` | `object` | Declared capabilities (`time`, `network`, `env`, `fs`, `random`) |
+| `sandbox` | `string` | `'compartment'` or `'host'` |
+| `annotations` | `object?` | MCP-compatible UI hints (`title`, `readOnlyHint`, `destructiveHint`, `idempotentHint`) |
+| `enabled` | `boolean` | Whether the tool is active in the current config |
+| `requireApproval` | `boolean?` | Whether user approval is required before execution |
+| `settings` | `object?` | Tool-specific settings from config |
+
 ## Available Models
 
 ```

@@ -1,7 +1,7 @@
 import type { Config } from '../config'
 import type { ToolPackageFactory, ToolRecord } from './types'
 
-export { defineTool, getManifest, getManifests } from './define'
+export { defineTool, getAllManifests, getManifest, getManifests } from './define'
 export type { CompartmentExecuteOptions, Endowments } from './sandbox'
 export { executeInCompartment } from './sandbox'
 export type {
@@ -15,6 +15,21 @@ export type {
 
 /** Standard library tool packages, imported as `@pandora/tools-${name}` */
 const STDLIB_PACKAGES = ['datetime'] as const
+
+/**
+ * Import all stdlib tool packages so their `defineTool` calls run
+ * and manifests are registered. Safe to call multiple times — dynamic
+ * imports are cached by the module system.
+ */
+export async function ensureStdlibImported(): Promise<void> {
+  for (const name of STDLIB_PACKAGES) {
+    try {
+      await import(`@pandora/tools-${name}`)
+    } catch {
+      // Package not installed — skip silently
+    }
+  }
+}
 
 /**
  * Load all tools from standard library packages, filtered by config.

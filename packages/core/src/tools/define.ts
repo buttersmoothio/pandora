@@ -13,21 +13,26 @@ import type {
 // biome-ignore lint/suspicious/noExplicitAny: Tool generics require `any` for covariant assignment
 type AnyTool = Tool<any, any, any, any, any, any>
 
-const manifestRegistry = new WeakMap<AnyTool, ToolManifest>()
+const manifestRegistry = new Map<string, ToolManifest>()
 
 /** Retrieve the Pandora manifest for a Mastra Tool. */
 export function getManifest(tool: AnyTool): ToolManifest | undefined {
-  return manifestRegistry.get(tool)
+  return manifestRegistry.get(tool.id)
 }
 
 /** Retrieve all manifests for a ToolRecord. */
 export function getManifests(tools: ToolRecord): Record<string, ToolManifest> {
   const result: Record<string, ToolManifest> = {}
   for (const [id, tool] of Object.entries(tools)) {
-    const manifest = manifestRegistry.get(tool)
+    const manifest = manifestRegistry.get(tool.id)
     if (manifest) result[id] = manifest
   }
   return result
+}
+
+/** Return all registered manifests keyed by tool ID. */
+export function getAllManifests(): Record<string, ToolManifest> {
+  return Object.fromEntries(manifestRegistry)
 }
 
 // --- defineTool ---
@@ -60,7 +65,7 @@ export interface DefineToolOptions<TIn, TOut> {
  * Define a Pandora tool with a permission manifest.
  *
  * Creates a standard Mastra Tool and registers a ToolManifest
- * in the internal WeakMap registry (accessible via `getManifest()`).
+ * in the internal Map registry (accessible via `getManifest()`).
  */
 export function defineTool<TIn, TOut>(opts: DefineToolOptions<TIn, TOut>): AnyTool {
   const manifest: ToolManifest = {
@@ -83,6 +88,6 @@ export function defineTool<TIn, TOut>(opts: DefineToolOptions<TIn, TOut>): AnyTo
     }),
   })
 
-  manifestRegistry.set(tool, manifest)
+  manifestRegistry.set(opts.id, manifest)
   return tool
 }

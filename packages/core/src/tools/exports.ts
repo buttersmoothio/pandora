@@ -5,7 +5,7 @@
  */
 
 export type { DefineToolOptions } from './define'
-export { defineTool, getManifest, getManifests } from './define'
+export { defineTool, getAllManifests, getManifest, getManifests } from './define'
 export type {
   SandboxMode,
   ToolAnnotations,

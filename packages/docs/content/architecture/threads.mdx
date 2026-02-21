@@ -8,9 +8,9 @@ Branches are implemented as Mastra memory thread clones. Each branch is a full, 
 
 ## Thread Families
 
-A thread created by a new conversation is marked `metadata.root = true`. Only root threads appear in the thread listing endpoint. When a thread is forked, the clone inherits a `forkPointMessageId` in its metadata — this is the explicit pointer to which message the branch diverges at. Siblings are discovered at read time by querying the parent's clones for matching fork points.
+Threads are either roots (new conversations) or branches (forks). Only root threads appear in listings. When a thread is forked, the clone carries a pointer to which message it diverges at. Siblings are discovered at read time by querying the parent's clones for matching fork points.
 
-The thread listing enriches each root with `activeThreadId` (the most recently updated branch) and `threadIds` (the full family). This lets sidebar UIs show one entry per conversation while linking to the active branch.
+Each root thread is enriched with its full family of branches and which branch was most recently active. This lets sidebar UIs show one entry per conversation while linking to the active branch.
 
 ## Fork-Point Resolution
 

@@ -6,18 +6,6 @@ Tools follow an Android-style permission model: every tool starts with zero auth
 
 This design means a tool can never silently escalate its capabilities. The permission declaration is part of the tool's manifest, visible to both the runtime and the UI before execution begins.
 
-The five permission groups:
-
-| Group | Grants | Compartment | Host |
-|---|---|---|---|
-| `time` | `Date`, `Date.now()`, `Intl.DateTimeFormat` | Endowed | Documented |
-| `network` | `fetch` scoped to declared hostnames | Endowed + SSRF-blocked | Documented |
-| `env` | Read-only access to declared environment variables | Endowed (snapshot) | Documented |
-| `fs` | Read-only filesystem under declared path prefixes | Endowed | Documented |
-| `random` | `Math.random()` (never cryptographic) | Endowed | Documented |
-
-"Endowed" means the capability is injected as a compartment global. "Documented" means the permission is recorded in the manifest for auditing and UI display, but not runtime-enforced.
-
 ## Sandbox Modes
 
 Tools execute in one of two modes:
@@ -28,28 +16,16 @@ Tools execute in one of two modes:
 
 The trade-off is safety vs. power. Compartment mode provides strong isolation guarantees; host mode provides full runtime access. Built-in tools use host mode because they ship with the framework and are audited at development time.
 
-## Endowments
-
-In compartment mode, permissions map directly to globals injected into the SES Compartment. A tool declaring `{ network: ['api.example.com'] }` receives a `fetch` function scoped to that hostname. A tool declaring `{}` gets only `console`.
-
-All endowments are `harden()`-ed (SES-frozen) before injection, making them tamper-proof. Environment variable access takes a snapshot at compartment creation time — mutations to the host environment after that point are invisible.
-
-Network endowments include SSRF protection: requests to private IP ranges (`127.0.0.0/8`, `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `169.254.0.0/16`, `::1`, link-local) are blocked regardless of the hostname allow-list.
-
 ## Standard Library Packages
 
 Built-in tools live in separate `@pandora/tools-*` packages rather than inside core. This keeps core's dependency surface small and lets each tool package be tested, versioned, and tree-shaken independently — the same pattern used by `@pandora/storage-*`.
 
-Core discovers standard library packages at startup via a static list and dynamically imports each one. Every package exports a `createTools` factory (`ToolPackageFactory`) that receives environment variables and returns a `ToolRecord`. Core merges these records and filters out any tool the user has not enabled in config.
+Core discovers standard library packages at startup and dynamically imports each one. Every package exports a factory that receives environment variables and returns a tool record. Core merges these records and filters out any tool the user has not enabled in config.
 
-The loading semantics are explicit opt-in: a tool is only available when `config.tools[id].enabled` is `true`. The default configuration enables the standard set, so the experience is seamless out of the box, but operators have full control over which tools are active.
+The loading semantics are explicit opt-in: a tool is only available when enabled in config. The default configuration enables the standard set, so the experience is seamless out of the box, but operators have full control over which tools are active.
 
 ## Manifest Registry
 
-Every tool created via `defineTool()` has a `ToolManifest` registered in a WeakMap keyed by the Mastra Tool instance. This keeps Pandora-specific metadata (permissions, sandbox mode, annotations) separate from the Mastra Tool object.
+Every tool created via `defineTool()` has a manifest registered in a global registry keyed by tool ID. This keeps Pandora-specific metadata (permissions, sandbox mode, annotations) separate from the Mastra Tool object while allowing lookup by ID without a tool instance.
 
-The manifest is accessible via `getManifest(tool)` and `getManifests(toolRecord)`. Tools created directly via Mastra's `createTool()` have no manifest — only Pandora-defined tools participate in the manifest system. This allows the UI to display permission badges and approval prompts, and allows the runtime to select the correct execution mode.
-
-## Disclaimer
-
-The sandbox and permission system builds on battle-tested primitives (SES lockdown, Compartment isolation, `harden()`), but Pandora's own integration code has not undergone a formal security audit. Treat it as best-effort defense-in-depth, not a guaranteed security boundary.
+The registry allows the UI to display descriptions, permission badges, sandbox mode, and approval prompts, and allows the runtime to select the correct execution mode. Tools created directly via Mastra's `createTool()` have no manifest — only Pandora-defined tools participate in the manifest system.

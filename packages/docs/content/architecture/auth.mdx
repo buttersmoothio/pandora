@@ -8,7 +8,7 @@ Authentication uses short-lived access tokens (15 min) paired with long-lived re
 
 ## Cryptography
 
-All crypto uses the Web Crypto API for cross-runtime compatibility. Passwords are hashed with PBKDF2-SHA256 (600k iterations). Session tokens are 32 random bytes, stored as SHA-256 hashes. Comparisons are timing-safe.
+All crypto uses the Web Crypto API for cross-runtime compatibility. Passwords are hashed with PBKDF2, session tokens are random bytes stored as hashes. All comparisons are timing-safe to prevent side-channel attacks.
 
 ## Auth Store
 

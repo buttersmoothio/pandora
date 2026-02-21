@@ -1,15 +1,5 @@
-import 'ses'
-
-// SES lockdown - must run before any other code
-// Check if already locked down (e.g., in test environment)
-if (!Object.isFrozen(Object.prototype)) {
-  lockdown({
-    errorTaming: 'unsafe', // Preserve stack traces
-    overrideTaming: 'severe', // Maximum compatibility with npm packages
-    consoleTaming: 'unsafe', // Keep console for debugging
-    stackFiltering: 'verbose',
-  })
-}
+// SES lockdown — must run before any other code
+import './ses-lockdown'
 
 import { handleChatStream } from '@mastra/ai-sdk'
 import { AIV5Adapter } from '@mastra/core/agent/message-list'
@@ -31,6 +21,7 @@ import { getLogger } from './logger'
 import { clearMastraCache, getMastra } from './mastra'
 import { getStorage } from './storage'
 import { getActiveStreamIds, getResumeStream, storeStream } from './stream-store'
+import { ensureStdlibImported, getAllManifests } from './tools'
 
 // Bindings type for Cloudflare Workers
 type Bindings = {
@@ -179,6 +170,28 @@ app.delete('/api/config', async (c) => {
   const { config: configStore } = await getStorage(envVars, c.env)
   const config = await resetConfig(configStore)
   return c.json(config)
+})
+
+// Tools endpoint - returns all stdlib tools with manifests merged with config state
+app.get('/api/tools', async (c) => {
+  const envVars = extractStringEnv(env(c))
+  const { config: configStore } = await getStorage(envVars, c.env)
+  const config = await getConfig(configStore)
+
+  await ensureStdlibImported()
+  const manifests = getAllManifests()
+
+  const tools = Object.values(manifests).map((manifest) => {
+    const toolConfig = config.tools[manifest.id]
+    return {
+      ...manifest,
+      enabled: toolConfig?.enabled ?? false,
+      requireApproval: toolConfig?.requireApproval,
+      settings: toolConfig?.settings,
+    }
+  })
+
+  return c.json({ tools })
 })
 
 // Models endpoint - returns available providers and models

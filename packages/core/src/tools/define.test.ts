@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { z } from 'zod'
-import { defineTool, getManifest, getManifests } from './define'
+import { defineTool, getAllManifests, getManifest, getManifests } from './define'
 
 const testSchema = z.object({ value: z.string() })
 
@@ -122,5 +122,31 @@ describe('getManifests', () => {
 
     const manifests = getManifests({ raw: rawTool, pandora: pandoraTool })
     expect(Object.keys(manifests)).toEqual(['pandora'])
+  })
+})
+
+describe('getAllManifests', () => {
+  it('returns all registered manifests keyed by id', () => {
+    defineTool({
+      id: 'all-test-a',
+      description: 'Tool A',
+      inputSchema: testSchema,
+      permissions: { time: true },
+      execute: async () => ({}),
+    })
+    defineTool({
+      id: 'all-test-b',
+      description: 'Tool B',
+      inputSchema: testSchema,
+      permissions: { random: true },
+      sandbox: 'host',
+      execute: async () => ({}),
+    })
+
+    const all = getAllManifests()
+    expect(all['all-test-a']).toBeDefined()
+    expect(all['all-test-a'].description).toBe('Tool A')
+    expect(all['all-test-b']).toBeDefined()
+    expect(all['all-test-b'].sandbox).toBe('host')
   })
 })

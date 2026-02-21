@@ -6,17 +6,15 @@ Pandora enables [SES (Secure EcmaScript)](https://github.com/endojs/endo/tree/ma
 
 ## Compartment Isolation
 
-Tools run in isolated Compartments — separate global scopes with no access to host globals like `process`, `fetch`, or `require`. This prevents untrusted tool code from affecting the host environment or other tools.
+Tools run in isolated Compartments — separate global scopes with no access to host globals like `process`, `fetch`, or `require`. Each compartment receives only the capabilities declared in the tool's permissions. All endowments are `harden()`-ed before injection to prevent tampering.
 
-Each compartment receives only the capabilities declared in the tool's permissions. A tool declaring `{ network: ['api.example.com'] }` gets a scoped `fetch`; a tool declaring `{}` gets only `console`. All endowments are `harden()`-ed before injection to prevent tampering.
+Input and output cross the compartment boundary via JSON serialization, stripping any prototypes or compartment-internal references.
 
-Input and output cross the compartment boundary via JSON serialization, stripping any prototypes or compartment-internal references. Output is capped at 1 MB to prevent memory exhaustion.
+See the [Tools](/architecture/tools) architecture page for more on the permission model and sandbox design.
 
 ## SSRF Protection
 
-Network endowments include server-side request forgery protection. Requests to private IP ranges (`127.0.0.0/8`, `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `169.254.0.0/16`, `::1`, link-local) are blocked regardless of the hostname allow-list. This prevents tools from probing internal infrastructure even if a public hostname resolves to a private address.
-
-See the [Tools](/architecture/tools) architecture page for more on the permission model and sandbox design.
+Network endowments include server-side request forgery protection. Requests to private and loopback IP ranges are blocked regardless of the hostname allow-list. This prevents tools from probing internal infrastructure even if a public hostname resolves to a private address.
 
 ## Disclaimer
 

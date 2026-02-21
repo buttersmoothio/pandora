@@ -1,34 +1,18 @@
+import { Steps, FileTree } from 'nextra/components'
+
 # Custom Tools
 
 Tools extend what your Pandora agent can do — fetch data, read files, call APIs, or anything else you can express as a function. Every tool declares its permissions upfront and runs in a sandboxed or host environment.
 
-## Core Types
+For the full type reference (all fields, interfaces, and options), see the [Tools Reference](/reference/tools).
 
-All tool types are exported from `@pandora/core/tools`:
+## Building a Tool
 
-```ts
-import {
-  defineTool,
-  getManifest,
-  getManifests,
-  executeInCompartment,
-} from '@pandora/core/tools'
+<Steps>
 
-import type {
-  ToolPermissions,
-  ToolManifest,
-  ToolAnnotations,
-  ToolPackageFactory,
-  SandboxMode,
-  ToolRecord,
-  Endowments,
-  CompartmentExecuteOptions,
-} from '@pandora/core/tools'
-```
+### Define the tool
 
-## Defining a Tool
-
-Use `defineTool()` to create a tool with a permission manifest:
+Use `defineTool()` to create a tool with a permission manifest. Here's a weather tool that fetches data from an external API:
 
 ```ts
 import { z } from 'zod'
@@ -60,23 +44,15 @@ const weatherTool = defineTool({
 })
 ```
 
-### `DefineToolOptions`
+A few things to notice:
 
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `id` | `string` | Yes | Unique tool identifier |
-| `description` | `string` | Yes | What the tool does (shown to the LLM) |
-| `inputSchema` | `z.ZodType` | Yes | Zod schema for input validation |
-| `outputSchema` | `z.ZodType` | No | Optional Zod schema for output validation |
-| `execute` | `(input, context) => Promise` | Yes | The tool's handler function |
-| `permissions` | `ToolPermissions` | Yes | Declared capabilities (see below) |
-| `sandbox` | `SandboxMode` | No | `'compartment'` (default) or `'host'` |
-| `requireApproval` | `boolean` | No | Require user approval before execution |
-| `annotations` | `ToolAnnotations` | No | MCP-compatible UI hints |
+- **`permissions`** declares exactly what the tool needs. `network` lists allowed hostnames, `env` lists environment variables. A tool with `{}` gets only `console` access.
+- **`sandbox: 'host'`** runs the function directly in Node.js. The default (`'compartment'`) runs it in an isolated SES Compartment — use that for untrusted or generated code.
+- **`annotations`** are MCP-compatible hints that help the UI decide whether to auto-approve or prompt for confirmation.
 
-## Tool Packages
+### Package it
 
-Pandora's built-in tools ship as separate `@pandora/tools-*` packages (mirroring the `@pandora/storage-*` convention). Each package exports a `createTools` factory that returns a tool record:
+Pandora's built-in tools ship as separate `@pandora/tools-*` packages. Each package exports a `createTools` factory that returns a tool record:
 
 ```ts
 // @pandora/tools-datetime/src/index.ts
@@ -90,27 +66,19 @@ export const createTools: ToolPackageFactory = (_env) => ({
 
 The factory receives environment variables so tools can read API keys or other configuration at load time.
 
-### `ToolPackageFactory`
-
-```ts
-type ToolPackageFactory = (
-  env: Record<string, string | undefined>,
-) => ToolRecord
-```
-
-### Creating a tool package
-
 A tool package follows this structure:
 
-```
-packages/tools-example/
-├── package.json
-├── tsconfig.json
-└── src/
-    ├── index.ts          # createTools factory
-    ├── my-tool.ts        # tool definition using defineTool()
-    └── my-tool.test.ts   # tests
-```
+<FileTree>
+  <FileTree.Folder name="packages/tools-example" defaultOpen>
+    <FileTree.File name="package.json" />
+    <FileTree.Folder name="src" defaultOpen>
+      <FileTree.File name="index.ts" />
+      <FileTree.File name="my-tool.ts" />
+      <FileTree.File name="my-tool.test.ts" />
+    </FileTree.Folder>
+    <FileTree.File name="tsconfig.json" />
+  </FileTree.Folder>
+</FileTree>
 
 The `package.json` declares `@pandora/core` as a peer dependency:
 
@@ -128,93 +96,63 @@ The `package.json` declares `@pandora/core` as a peer dependency:
 }
 ```
 
-Each tool in the package is defined with `defineTool()` and assembled into a record by the `createTools` factory. Core loads standard library packages dynamically and filters tools based on the user's configuration — only tools with `config.tools[id].enabled === true` are loaded.
+### Enable it
+
+Core loads standard library packages dynamically and filters tools based on the user's configuration — only tools with `config.tools[id].enabled === true` are loaded. The default configuration enables the standard set.
+
+</Steps>
 
 ## Permissions
 
-Every tool declares a `ToolPermissions` object describing what capabilities it needs. Tools start with zero authority — only declared permissions are granted.
+Every tool starts with zero authority. You declare what it needs in a `permissions` object:
 
 ```ts
-interface ToolPermissions {
-  time?: boolean        // Date, Date.now(), Intl.DateTimeFormat
-  network?: string[]    // fetch scoped to these hostnames
-  env?: string[]        // Read-only access to these env vars
-  fs?: string[]         // Read-only filesystem under these path prefixes
-  random?: boolean      // Math.random() (not cryptographic)
-}
+defineTool({
+  permissions: {
+    time: true,                          // Date, Date.now(), Intl.DateTimeFormat
+    network: ['api.example.com'],        // fetch scoped to these hostnames
+    env: ['API_KEY'],                    // read-only access to these env vars
+    fs: ['/data'],                       // read-only filesystem under these paths
+    random: true,                        // Math.random() (not cryptographic)
+  },
+  // ...
+})
 ```
-
-| Permission | Grants | Example |
-|---|---|---|
-| `time: true` | `Date`, `Date.now()`, `Intl.DateTimeFormat` | Formatting timestamps |
-| `network: ['api.example.com']` | `fetch` scoped to listed hostnames | API calls |
-| `env: ['API_KEY']` | `env.get('API_KEY')` | Reading secrets |
-| `fs: ['/data']` | `readFile()` under `/data` | Reading local files |
-| `random: true` | `Math.random()` | Generating IDs |
 
 An empty `{}` grants only `console` access (always available in compartment mode).
 
+In **compartment** mode, permissions map directly to globals injected into the sandbox. In **host** mode, permissions are recorded in the manifest for auditing and UI display but are not runtime-enforced.
+
 ## Sandbox Modes
 
-```ts
-type SandboxMode = 'compartment' | 'host'
-```
+**Compartment** (default) — code runs inside an SES Compartment with an isolated global scope. Only endowed capabilities (derived from permissions) are available. Input and output are JSON-serialized to strip prototypes. Use this for generated or untrusted tool code.
 
-**Compartment** (default) — code runs inside an SES Compartment with an isolated global scope. Only endowed capabilities (derived from permissions) are available. Input and output are JSON-serialized to strip prototypes.
-
-Use compartment mode for generated or untrusted tool code.
-
-**Host** — the function runs directly in Node.js. Permissions are recorded in the manifest for auditing and UI display but are not runtime-enforced.
-
-Use host mode when you need closures, imports, or other Node.js features.
+**Host** — the function runs directly in Node.js. Use this when you need closures, imports, or other Node.js features.
 
 ```ts
 // Compartment mode (default) — isolated execution
 defineTool({
-  id: 'my-tool',
   sandbox: 'compartment', // or omit — this is the default
-  permissions: { network: ['api.example.com'] },
   // ...
 })
 
 // Host mode — full Node.js access
 defineTool({
-  id: 'my-host-tool',
   sandbox: 'host',
-  permissions: { network: ['api.example.com'] },
   // ...
 })
 ```
 
-## Annotations
-
-MCP-compatible hints that help the UI decide how to present the tool:
-
-```ts
-interface ToolAnnotations {
-  title?: string              // Display title in UI
-  readOnlyHint?: boolean      // Safe to run without confirmation
-  destructiveHint?: boolean   // May perform irreversible operations
-  idempotentHint?: boolean    // Same args = no additional effect
-}
-```
-
-A tool marked `readOnlyHint: true` and `destructiveHint: false` can be auto-approved by the UI. A tool with `destructiveHint: true` should always prompt for confirmation.
-
 ## Manifests
 
-Every `defineTool()` call registers a `ToolManifest` in an internal registry. Use `getManifest()` to inspect a tool's metadata:
+Every `defineTool()` call registers a manifest in a global registry keyed by tool ID. This lets the UI display descriptions, permission badges, and approval prompts, and lets the runtime select the correct execution mode.
 
 ```ts
-import { getManifest, getManifests } from '@pandora/core/tools'
+import { getAllManifests, getManifest, getManifests } from '@pandora/core/tools'
 
-// Single tool
 const manifest = getManifest(weatherTool)
-// { id: 'weather', description: '...', permissions: {...}, sandbox: 'host', annotations: {...} }
-
-// All tools in a record
 const manifests = getManifests(toolRecord)
-// { weather: {...}, 'current-time': {...} }
+const all = getAllManifests() // every registered tool
 ```
 
 Only tools created via `defineTool()` have manifests. Raw Mastra tools created with `createTool()` return `undefined`.
@@ -237,39 +175,4 @@ const result = await executeInCompartment({
 })
 ```
 
-### `CompartmentExecuteOptions`
-
-| Field | Type | Description |
-|---|---|---|
-| `code` | `string` | Function body — must evaluate to `async function(input) { ... }` |
-| `input` | `unknown` | Input data passed to the function |
-| `permissions` | `ToolPermissions` | Determines which endowments are injected |
-| `envVars` | `Record<string, string \| undefined>` | Environment variables for scoped env access |
-
-### Endowments
-
-In compartment mode, permissions map to globals injected into the compartment:
-
-```ts
-interface Endowments {
-  fetch?: (url: string, init?: RequestInit) => Promise<Response>
-  env?: { get: (key: string) => string | undefined }
-  readFile?: (path: string) => Promise<string>
-  Date?: typeof Date
-  Intl?: typeof Intl
-  Math?: { random: () => number }
-  console: Pick<Console, 'log' | 'warn' | 'error'>  // always present
-}
-```
-
-All endowments are `harden()`-ed (frozen via SES) to prevent tampering.
-
-### Output Serialization
-
-Output crosses the compartment boundary via `JSON.stringify` → `JSON.parse`. This means:
-
-- **Plain data** (objects, arrays, strings, numbers, booleans, null) passes through unchanged
-- **`undefined`** becomes `null`
-- **Functions and symbols** are silently stripped from objects
-- **Circular references** throw a serialization error
-- **Output exceeding 1 MB** throws a size limit error
+Output crosses the compartment boundary via JSON serialization. Plain data passes through unchanged, `undefined` becomes `null`, functions and symbols are stripped, and circular references throw.
