@@ -1,5 +1,6 @@
 import type { Context } from 'hono'
 import { Hono } from 'hono'
+import type { Env } from '../routes/helpers'
 import type { AuthStore } from './auth-store'
 import { hashPassword, hashToken, verifyPassword } from './crypto'
 import { createTokenPair, rotateTokens } from './session'
@@ -21,8 +22,8 @@ export function extractBearerToken(c: {
  * Create auth routes sub-app.
  * Mounted at /api/auth in the main app.
  */
-export function createAuthRoutes(getAuthStore: (c: Context) => Promise<AuthStore>) {
-  const auth = new Hono()
+export function createAuthRoutes(getAuthStore: (c: Context<Env>) => Promise<AuthStore>) {
+  const auth = new Hono<Env>()
 
   // POST /api/auth/setup — set initial password, auto-login
   auth.post('/setup', async (c) => {

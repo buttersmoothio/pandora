@@ -37,7 +37,7 @@ export function authHeaders(): Record<string, string> {
 /** Shared promise to deduplicate concurrent refresh attempts */
 let refreshPromise: Promise<boolean> | null = null
 
-async function attemptRefresh(): Promise<boolean> {
+export async function refreshTokens(): Promise<boolean> {
   const refreshToken = getRefreshToken()
   if (!refreshToken) return false
 
@@ -67,7 +67,7 @@ async function fetchWithRefresh(url: string, options?: RequestInit): Promise<Res
 
   // Deduplicate concurrent refresh attempts
   if (!refreshPromise) {
-    refreshPromise = attemptRefresh().finally(() => {
+    refreshPromise = refreshTokens().finally(() => {
       refreshPromise = null
     })
   }

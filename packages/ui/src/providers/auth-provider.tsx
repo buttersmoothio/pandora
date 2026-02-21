@@ -7,8 +7,8 @@ import {
   apiFetchRaw,
   clearRefreshToken,
   clearToken,
-  getRefreshToken,
   getToken,
+  refreshTokens,
   setRefreshToken,
   setToken,
 } from '@/lib/api'
@@ -68,26 +68,6 @@ interface TokenResponse {
   refreshExpiresAt: string
 }
 
-async function tryRefresh(): Promise<boolean> {
-  const refreshTokenValue = getRefreshToken()
-  if (!refreshTokenValue) return false
-
-  try {
-    const res = await fetch(`${API_BASE}/api/auth/refresh`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refreshToken: refreshTokenValue }),
-    })
-    if (!res.ok) return false
-    const data = (await res.json()) as TokenResponse
-    if (data.token) setToken(data.token)
-    if (data.refreshToken) setRefreshToken(data.refreshToken)
-    return !!data.token
-  } catch {
-    return false
-  }
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<AuthStatus>('loading')
 
@@ -105,7 +85,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setStatus('authenticated')
       } else {
         // Not authenticated — try refresh before falling back to login
-        const refreshed = await tryRefresh()
+        const refreshed = await refreshTokens()
         if (refreshed) {
           setStatus('authenticated')
         } else {

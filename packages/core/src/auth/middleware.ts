@@ -1,5 +1,6 @@
 import type { Context } from 'hono'
 import { createMiddleware } from 'hono/factory'
+import type { Env } from '../routes/helpers'
 import type { AuthStore } from './auth-store'
 import { extractBearerToken } from './routes'
 import { verifySessionToken } from './session'
@@ -14,7 +15,7 @@ const PUBLIC_PATHS = new Set(['/', '/api/auth/setup', '/api/auth/login', '/api/a
  * - Extracts token from Authorization: Bearer header
  * - Validates session, rejects with 401 if invalid/expired
  */
-export function authMiddleware(getAuthStore: (c: Context) => Promise<AuthStore>) {
+export function authMiddleware(getAuthStore: (c: Context<Env>) => Promise<AuthStore>) {
   return createMiddleware(async (c, next) => {
     const path = c.req.path
 
