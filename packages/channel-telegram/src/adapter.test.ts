@@ -211,9 +211,11 @@ describe('plugin descriptor', () => {
     expect(plugin.schemaVersion).toBe(1)
   })
 
-  it('exports a configSchema', async () => {
+  it('exports configFields', async () => {
     const plugin = (await import('./index')).default
-    expect(plugin.configSchema).toBeDefined()
+    expect(plugin.configFields).toBeDefined()
+    expect(plugin.configFields?.length).toBeGreaterThan(0)
+    expect(plugin.configFields?.[0].key).toBe('ownerId')
   })
 
   it('factory returns null when token is missing', async () => {

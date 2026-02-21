@@ -3,6 +3,7 @@ import { z } from 'zod'
 
 export const currentTime = defineTool({
   id: 'current-time',
+  name: 'Current Time',
   description: 'Get the current date and time in ISO 8601 format',
   inputSchema: z.object({
     timezone: z

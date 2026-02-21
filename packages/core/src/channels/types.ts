@@ -8,7 +8,25 @@ import type {
   ToolCallChunk,
   ToolResultChunk,
 } from '@mastra/core/stream'
-import type { z } from 'zod'
+// ---------------------------------------------------------------------------
+// Config field descriptors (UI rendering hints for channel-specific settings)
+// ---------------------------------------------------------------------------
+
+/** Describes a config field for UI rendering */
+export interface ConfigFieldDescriptor {
+  /** Field key in config object, e.g. 'ownerId' */
+  key: string
+  /** Human-readable label, e.g. 'Owner ID' */
+  label: string
+  /** HTML input type hint */
+  type: 'text' | 'number' | 'password'
+  /** Whether this field is required */
+  required?: boolean
+  /** Placeholder text */
+  placeholder?: string
+  /** Help text shown below the input */
+  description?: string
+}
 
 // Re-export Mastra types so channel packages only import from @pandora/core/channels
 export type {
@@ -70,10 +88,14 @@ export type ChannelFactory = (
 export interface ChannelPlugin {
   /** Unique plugin identifier, e.g. 'channel-telegram' */
   id: string
+  /** Human-readable display name, e.g. 'Telegram' */
+  name: string
   /** Schema version — must match core's expected version */
   schemaVersion: number
-  /** Zod schema for channel-specific config fields (beyond `enabled`) */
-  configSchema?: z.ZodObject
+  /** Required environment variable names, e.g. ['TELEGRAM_BOT_TOKEN'] */
+  envVars: string[]
+  /** Config field descriptors for the UI (beyond `enabled`). Also used to generate Zod validation. */
+  configFields?: ConfigFieldDescriptor[]
   /** Factory that creates a channel adapter from env vars and config */
   factory: ChannelFactory
 }

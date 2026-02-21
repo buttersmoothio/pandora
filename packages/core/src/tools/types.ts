@@ -44,6 +44,8 @@ export interface ToolPermissions {
 export interface ToolManifest {
   /** Unique tool identifier (matches the Mastra tool id). */
   id: string
+  /** Human-readable display name. */
+  name: string
   /** Human-readable description. */
   description: string
   /**

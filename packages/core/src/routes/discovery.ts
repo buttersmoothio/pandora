@@ -1,6 +1,6 @@
 import { PROVIDER_REGISTRY } from '@mastra/core/llm'
 import { Hono } from 'hono'
-import { getAllChannels } from '../channels'
+import { getAllChannels, getAllRegisteredPlugins } from '../channels'
 import { getConfig } from '../config'
 import { getStorage } from '../storage'
 import { getAllManifests } from '../tools'
@@ -47,16 +47,35 @@ discoveryRoutes.get('/models', (c) => {
   return c.json({ providers })
 })
 
-// Channels endpoint - returns loaded channels with status
+// Channels endpoint - returns all registered plugins with metadata, config, and status
 discoveryRoutes.get('/channels', async (c) => {
   await ensureChannelsLoaded(c.var.envVars)
 
-  const channels = getAllChannels().map((adapter) => ({
-    id: adapter.id,
-    name: adapter.name,
-    webhook: !!adapter.webhook,
-    realtime: !!adapter.realtime,
-  }))
+  const { config: configStore } = await getStorage(c.var.envVars, c.env)
+  const config = await getConfig(configStore)
+  const loadedChannels = getAllChannels()
+  const loadedIds = new Set(loadedChannels.map((ch) => ch.id))
+
+  const channels = getAllRegisteredPlugins().map((plugin) => {
+    const channelConfig = config.channels[plugin.id]
+    const envConfigured = plugin.envVars.every((v) => !!c.var.envVars[v])
+    const adapterId = plugin.id.replace(/^channel-/, '')
+    const loaded = loadedIds.has(adapterId)
+    const adapter = loadedChannels.find((ch) => ch.id === adapterId)
+
+    return {
+      id: plugin.id,
+      name: plugin.name,
+      envVars: plugin.envVars,
+      envConfigured,
+      configFields: plugin.configFields ?? [],
+      enabled: channelConfig?.enabled ?? false,
+      config: channelConfig ?? {},
+      loaded,
+      webhook: loaded ? !!adapter?.webhook : null,
+      realtime: loaded ? !!adapter?.realtime : null,
+    }
+  })
 
   return c.json({ channels })
 })

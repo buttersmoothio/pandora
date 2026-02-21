@@ -27,6 +27,7 @@ export interface Config {
   models: {
     operator: ModelConfig
   }
+  channels: Record<string, { enabled: boolean; [key: string]: unknown }>
   tools: Record<string, ToolConfig>
 }
 
@@ -59,6 +60,9 @@ export function useUpdateConfig() {
     },
     onError: (err: Error) => {
       toast.error(`Failed to save: ${err.message}`)
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['channels'] })
     },
   })
 }

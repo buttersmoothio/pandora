@@ -7,6 +7,7 @@ const testSchema = z.object({ value: z.string() })
 function makeTestTool(overrides?: Record<string, unknown>) {
   return defineTool({
     id: 'test-tool',
+    name: 'Test Tool',
     description: 'A test tool',
     inputSchema: testSchema,
     execute: async (input) => ({ echo: input.value }),
@@ -95,6 +96,7 @@ describe('getManifests', () => {
   it('returns all manifests for a ToolRecord', () => {
     const tool1 = defineTool({
       id: 'tool-a',
+      name: 'Tool A',
       description: 'Tool A',
       inputSchema: testSchema,
       permissions: { time: true },
@@ -102,6 +104,7 @@ describe('getManifests', () => {
     })
     const tool2 = defineTool({
       id: 'tool-b',
+      name: 'Tool B',
       description: 'Tool B',
       inputSchema: testSchema,
       permissions: { network: ['example.com'] },
@@ -134,6 +137,7 @@ describe('getAllManifests', () => {
   it('returns all registered manifests keyed by id', () => {
     defineTool({
       id: 'all-test-a',
+      name: 'Tool A',
       description: 'Tool A',
       inputSchema: testSchema,
       permissions: { time: true },
@@ -141,6 +145,7 @@ describe('getAllManifests', () => {
     })
     defineTool({
       id: 'all-test-b',
+      name: 'Tool B',
       description: 'Tool B',
       inputSchema: testSchema,
       permissions: { random: true },

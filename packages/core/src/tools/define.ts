@@ -43,6 +43,8 @@ type ExecuteContext = any
 export interface DefineToolOptions<TIn, TOut> {
   /** Unique tool identifier. */
   id: string
+  /** Human-readable display name. */
+  name: string
   /** What the tool does (shown to the LLM). */
   description: string
   /** Zod schema for input validation. */
@@ -70,6 +72,7 @@ export interface DefineToolOptions<TIn, TOut> {
 export function defineTool<TIn, TOut>(opts: DefineToolOptions<TIn, TOut>): AnyTool {
   const manifest: ToolManifest = {
     id: opts.id,
+    name: opts.name,
     description: opts.description,
     ...(opts.permissions && { permissions: opts.permissions }),
     sandbox: opts.sandbox ?? 'compartment',

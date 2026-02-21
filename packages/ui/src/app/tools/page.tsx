@@ -111,7 +111,7 @@ function ToolCard({ tool, allTools }: { tool: ToolInfo; allTools: ToolInfo[] }) 
     <Card>
       <CardHeader>
         <div className="flex flex-col gap-1">
-          <CardTitle className="font-mono text-sm">{tool.annotations?.title ?? tool.id}</CardTitle>
+          <CardTitle className="text-sm">{tool.name}</CardTitle>
           <CardDescription>{tool.description}</CardDescription>
           <div className="mt-1 flex flex-wrap gap-1.5">
             <Badge variant="outline" className="text-[10px]">

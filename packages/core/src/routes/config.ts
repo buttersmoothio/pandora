@@ -1,8 +1,9 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
+import { reloadChannels } from '../channels'
 import { clearConfigCache, getConfig, resetConfig, updateConfig } from '../config'
 import { getLogger } from '../logger'
-import { clearMastraCache } from '../mastra'
+import { clearMastraCache, getMastra } from '../mastra'
 import { getStorage } from '../storage'
 import type { Env } from './helpers'
 
@@ -32,6 +33,11 @@ configRoutes.patch('/', async (c) => {
     // Invalidate Mastra cache so next request rebuilds with new config
     clearConfigCache()
     clearMastraCache()
+    // Reload channels when channel config changes
+    if (patch.channels) {
+      const mastra = await getMastra(c.var.envVars, c.env)
+      await reloadChannels(mastra, c.var.envVars, updated.channels)
+    }
     log.info('Config updated', { keys: Object.keys(patch) })
     return c.json(updated)
   } catch (err) {

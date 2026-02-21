@@ -4,6 +4,7 @@ import {
   LogOutIcon,
   MoonIcon,
   PlusIcon,
+  RadioIcon,
   SettingsIcon,
   ShieldIcon,
   SunIcon,
@@ -30,6 +31,7 @@ import { useAuth } from '@/providers/auth-provider'
 
 const NAV_ITEMS = [
   { title: 'Configuration', href: '/config', icon: SettingsIcon },
+  { title: 'Channels', href: '/channels', icon: RadioIcon },
   { title: 'Tools', href: '/tools', icon: WrenchIcon },
   { title: 'Security', href: '/security', icon: ShieldIcon },
 ]

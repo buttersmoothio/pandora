@@ -1,5 +1,4 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { z } from 'zod'
 import type { ChannelAdapter } from './types'
 
 // --- Mocks ---
@@ -58,7 +57,9 @@ describe('loadChannels', () => {
     const adapter = makeAdapter('telegram', { webhook: true })
     registerChannelFactory({
       id: 'channel-telegram',
+      name: 'Telegram',
       schemaVersion: 1,
+      envVars: [],
       factory: () => adapter,
     })
 
@@ -70,7 +71,9 @@ describe('loadChannels', () => {
     const adapter = makeAdapter('telegram', { webhook: true })
     registerChannelFactory({
       id: 'channel-telegram',
+      name: 'Telegram',
       schemaVersion: 1,
+      envVars: [],
       factory: () => adapter,
     })
 
@@ -79,12 +82,14 @@ describe('loadChannels', () => {
     expect(getAllChannels()).toHaveLength(1)
   })
 
-  it('skips channel with configSchema when no config entry exists', async () => {
+  it('skips channel with configFields when no config entry exists', async () => {
     const factory = vi.fn().mockReturnValue(makeAdapter('telegram'))
     registerChannelFactory({
       id: 'channel-telegram',
+      name: 'Telegram',
       schemaVersion: 1,
-      configSchema: z.object({ ownerId: z.string() }),
+      envVars: [],
+      configFields: [{ key: 'ownerId', label: 'Owner ID', type: 'text', required: true }],
       factory,
     })
 
@@ -97,8 +102,10 @@ describe('loadChannels', () => {
     const factory = vi.fn().mockReturnValue(makeAdapter('telegram'))
     registerChannelFactory({
       id: 'channel-telegram',
+      name: 'Telegram',
       schemaVersion: 1,
-      configSchema: z.object({ ownerId: z.string() }),
+      envVars: [],
+      configFields: [{ key: 'ownerId', label: 'Owner ID', type: 'text', required: true }],
       factory,
     })
 
@@ -111,7 +118,9 @@ describe('loadChannels', () => {
   it('skips channel when factory returns null (missing env vars)', async () => {
     registerChannelFactory({
       id: 'channel-telegram',
+      name: 'Telegram',
       schemaVersion: 1,
+      envVars: [],
       factory: () => null,
     })
 
@@ -123,8 +132,10 @@ describe('loadChannels', () => {
     const factory = vi.fn().mockReturnValue(makeAdapter('telegram'))
     registerChannelFactory({
       id: 'channel-telegram',
+      name: 'Telegram',
       schemaVersion: 1,
-      configSchema: z.object({ ownerId: z.string().optional() }),
+      envVars: [],
+      configFields: [{ key: 'ownerId', label: 'Owner ID', type: 'text' }],
       factory,
     })
 
@@ -138,7 +149,9 @@ describe('loadChannels', () => {
     const factory = vi.fn().mockReturnValue(makeAdapter('telegram'))
     registerChannelFactory({
       id: 'channel-telegram',
+      name: 'Telegram',
       schemaVersion: 1,
+      envVars: [],
       factory,
     })
 
@@ -188,7 +201,9 @@ describe('verifyWebhook', () => {
     vi.mocked(adapter.webhook?.verify as ReturnType<typeof vi.fn>).mockResolvedValue(false)
     registerChannelFactory({
       id: 'channel-telegram',
+      name: 'Telegram',
       schemaVersion: 1,
+      envVars: [],
       factory: () => adapter,
     })
 
@@ -201,7 +216,9 @@ describe('verifyWebhook', () => {
     const adapter = makeAdapter('telegram', { webhook: true })
     registerChannelFactory({
       id: 'channel-telegram',
+      name: 'Telegram',
       schemaVersion: 1,
+      envVars: [],
       factory: () => adapter,
     })
 
@@ -223,7 +240,13 @@ describe('registerChannelFactory', () => {
 
   it('rejects plugins with incompatible schema version', () => {
     expect(() =>
-      registerChannelFactory({ id: 'bad', schemaVersion: 99, factory: () => null }),
+      registerChannelFactory({
+        id: 'bad',
+        name: 'Bad',
+        schemaVersion: 99,
+        envVars: [],
+        factory: () => null,
+      }),
     ).toThrow(/schema v99/)
   })
 })
@@ -237,7 +260,9 @@ describe('clearChannelRegistry', () => {
     const adapter = makeAdapter('telegram', { webhook: true })
     registerChannelFactory({
       id: 'channel-telegram',
+      name: 'Telegram',
       schemaVersion: 1,
+      envVars: [],
       factory: () => adapter,
     })
 

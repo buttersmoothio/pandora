@@ -18,6 +18,7 @@ export interface ToolAnnotations {
 
 export interface ToolInfo {
   id: string
+  name: string
   description: string
   permissions?: ToolPermissions
   sandbox: 'compartment' | 'host'

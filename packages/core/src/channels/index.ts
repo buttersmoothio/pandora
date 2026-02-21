@@ -3,10 +3,41 @@ import { z } from 'zod'
 import type { Config } from '../config'
 import { getLogger } from '../logger'
 import { createChannelRuntime } from './runtime'
-import { clearChannelSchemaRegistry, registerChannelSchema } from './schema-registry'
-import type { ChannelAdapter, ChannelConfig, ChannelPlugin, ChannelRuntime } from './types'
+import {
+  clearChannelSchemaRegistry,
+  getChannelSchema,
+  registerChannelSchema,
+} from './schema-registry'
+import type {
+  ChannelAdapter,
+  ChannelConfig,
+  ChannelPlugin,
+  ChannelRuntime,
+  ConfigFieldDescriptor,
+} from './types'
 
 const baseChannelSchema = z.object({ enabled: z.boolean() })
+
+/** Build a Zod schema from config field descriptors */
+function buildSchemaFromFields(fields: ConfigFieldDescriptor[]): z.ZodObject {
+  const shape: Record<string, z.ZodTypeAny> = {}
+  for (const field of fields) {
+    let fieldSchema: z.ZodTypeAny
+    switch (field.type) {
+      case 'number':
+        fieldSchema = z.number()
+        break
+      default:
+        fieldSchema = z.string()
+        break
+    }
+    if (!field.required) {
+      fieldSchema = fieldSchema.optional()
+    }
+    shape[field.key] = fieldSchema
+  }
+  return z.object(shape)
+}
 
 // ---------------------------------------------------------------------------
 // Plugin registry
@@ -29,8 +60,8 @@ export function registerChannelFactory(plugin: ChannelPlugin): void {
     )
   }
   factoryRegistry.set(plugin.id, plugin)
-  if (plugin.configSchema) {
-    registerChannelSchema(plugin.id, plugin.configSchema)
+  if (plugin.configFields?.length) {
+    registerChannelSchema(plugin.id, buildSchemaFromFields(plugin.configFields))
   }
 }
 
@@ -50,19 +81,20 @@ function validateChannelConfig(
   rawConfig: ChannelConfig | undefined,
 ): ChannelConfig | null {
   const log = getLogger()
+  const schema = getChannelSchema(plugin.id)
 
   if (rawConfig?.enabled === false) {
     log.debug(`Channel ${plugin.id} disabled by config`)
     return null
   }
 
-  if (!rawConfig && plugin.configSchema) {
+  if (!rawConfig && schema) {
     log.debug(`Channel ${plugin.id} skipped (not configured)`)
     return null
   }
 
-  if (rawConfig && plugin.configSchema) {
-    const result = baseChannelSchema.merge(plugin.configSchema).safeParse(rawConfig)
+  if (rawConfig && schema) {
+    const result = baseChannelSchema.merge(schema).safeParse(rawConfig)
     if (!result.success) {
       const issues = result.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`)
       log.error(`Channel ${plugin.id} disabled (invalid config)`, { issues })
@@ -116,6 +148,11 @@ export function getAllChannels(): ChannelAdapter[] {
   return [...registry.values()]
 }
 
+/** Get all registered channel plugins (regardless of load status) */
+export function getAllRegisteredPlugins(): ChannelPlugin[] {
+  return [...factoryRegistry.values()]
+}
+
 /** Start all realtime channels */
 export async function startRealtimeChannels(
   mastra: Mastra,
@@ -156,6 +193,21 @@ export async function stopRealtimeChannels(): Promise<void> {
   }
 
   realtimeRunning.clear()
+}
+
+/**
+ * Reload all channels: stop realtime, clear adapters, reload from config, restart realtime.
+ * Called when channel config changes at runtime.
+ */
+export async function reloadChannels(
+  mastra: Mastra,
+  env: Record<string, string | undefined>,
+  channelConfig: Config['channels'],
+): Promise<void> {
+  await stopRealtimeChannels()
+  registry.clear()
+  await loadChannels(env, channelConfig)
+  await startRealtimeChannels(mastra, env)
 }
 
 /** Verify a webhook request signature before constructing the runtime */
