@@ -4,8 +4,10 @@
  * Import from `@pandora/core/channels` to build channel adapter packages.
  */
 
+export { z } from 'zod'
 export type {
   ChannelAdapter,
+  ChannelConfig,
   ChannelFactory,
   ChannelPlugin,
   ChannelRealtime,

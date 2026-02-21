@@ -66,11 +66,10 @@ describe('getMastra', () => {
     expect(operator.name).toBe('Pandora')
   })
 
-  it('passes storage, tools, and logger to Mastra constructor', async () => {
+  it('passes storage and logger to Mastra constructor', async () => {
     await getMastra({})
     const config = mockMastraConstructor.mock.calls[0][0]
     expect(config.storage.id).toBe('test-storage')
-    expect(config.tools['current-time']).toHaveProperty('execute')
     expect(config.logger.info).toBeTypeOf('function')
   })
 

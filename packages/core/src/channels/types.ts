@@ -8,6 +8,7 @@ import type {
   ToolCallChunk,
   ToolResultChunk,
 } from '@mastra/core/stream'
+import type { z } from 'zod'
 
 // Re-export Mastra types so channel packages only import from @pandora/core/channels
 export type {
@@ -57,9 +58,13 @@ export interface ChannelAdapter {
 
 /**
  * Factory function exported by `@pandora/channel-*` packages.
+ * Receives env vars and validated channel config.
  * Returns `null` when required env vars (e.g. bot token) are missing.
  */
-export type ChannelFactory = (env: Record<string, string | undefined>) => ChannelAdapter | null
+export type ChannelFactory = (
+  env: Record<string, string | undefined>,
+  config: ChannelConfig,
+) => ChannelAdapter | null
 
 /** Plugin descriptor for channel packages */
 export interface ChannelPlugin {
@@ -67,7 +72,9 @@ export interface ChannelPlugin {
   id: string
   /** Schema version — must match core's expected version */
   schemaVersion: number
-  /** Factory that creates a channel adapter from env vars */
+  /** Zod schema for channel-specific config fields (beyond `enabled`) */
+  configSchema?: z.ZodObject
+  /** Factory that creates a channel adapter from env vars and config */
   factory: ChannelFactory
 }
 
@@ -125,6 +132,7 @@ export interface ChannelRuntime {
 /** Per-channel configuration in the Pandora config file */
 export interface ChannelConfig {
   enabled: boolean
+  [key: string]: unknown
 }
 
 /** Internal: loaded channel with its adapter */

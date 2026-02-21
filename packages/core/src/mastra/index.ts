@@ -46,7 +46,6 @@ export async function getMastra(
     agents: { operator },
     storage: mastraStorage,
     memory: { default: memory },
-    tools,
     logger: getLogger(env),
   })
 

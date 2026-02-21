@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { getChannelSchema } from './channels/schema-registry'
 import { isServerless } from './env'
 import type { ConfigStore } from './storage/config-store'
 
@@ -80,15 +81,22 @@ export const ConfigSchema = z.object({
       },
     })),
 
-  /** Channel configurations — keyed by channel ID */
+  /** Channel configurations — keyed by channel plugin ID */
   channels: z
-    .record(
-      z.string(),
-      z.object({
-        enabled: z.boolean(),
-      }),
-    )
-    .default(() => ({})),
+    .record(z.string(), z.object({ enabled: z.boolean() }).passthrough())
+    .default(() => ({}))
+    .superRefine((channels, ctx) => {
+      for (const [id, raw] of Object.entries(channels)) {
+        const schema = getChannelSchema(id)
+        if (!schema) continue
+        const result = z.object({ enabled: z.boolean() }).merge(schema).safeParse(raw)
+        if (!result.success) {
+          for (const issue of result.error.issues) {
+            ctx.addIssue({ ...issue, path: [id, ...issue.path] })
+          }
+        }
+      }
+    }),
 
   /** Tool configurations — keyed by tool ID */
   tools: z

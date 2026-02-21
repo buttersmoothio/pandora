@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { z } from 'zod'
 import type { ChannelAdapter } from './types'
 
 // --- Mocks ---
@@ -78,6 +79,35 @@ describe('loadChannels', () => {
     expect(getAllChannels()).toHaveLength(1)
   })
 
+  it('skips channel with configSchema when no config entry exists', async () => {
+    const factory = vi.fn().mockReturnValue(makeAdapter('telegram'))
+    registerChannelFactory({
+      id: 'channel-telegram',
+      schemaVersion: 1,
+      configSchema: z.object({ ownerId: z.string() }),
+      factory,
+    })
+
+    await loadChannels({}, {})
+    expect(factory).not.toHaveBeenCalled()
+    expect(getAllChannels()).toHaveLength(0)
+  })
+
+  it('disables channel when config is invalid', async () => {
+    const factory = vi.fn().mockReturnValue(makeAdapter('telegram'))
+    registerChannelFactory({
+      id: 'channel-telegram',
+      schemaVersion: 1,
+      configSchema: z.object({ ownerId: z.string() }),
+      factory,
+    })
+
+    // enabled: true but missing required ownerId
+    await loadChannels({}, { 'channel-telegram': { enabled: true } })
+    expect(factory).not.toHaveBeenCalled()
+    expect(getAllChannels()).toHaveLength(0)
+  })
+
   it('skips channel when factory returns null (missing env vars)', async () => {
     registerChannelFactory({
       id: 'channel-telegram',
@@ -87,6 +117,34 @@ describe('loadChannels', () => {
 
     await loadChannels({}, {})
     expect(getAllChannels()).toHaveLength(0)
+  })
+
+  it('passes channel config to factory', async () => {
+    const factory = vi.fn().mockReturnValue(makeAdapter('telegram'))
+    registerChannelFactory({
+      id: 'channel-telegram',
+      schemaVersion: 1,
+      configSchema: z.object({ ownerId: z.string().optional() }),
+      factory,
+    })
+
+    const channelConfig = { 'channel-telegram': { enabled: true, ownerId: '123' } }
+    await loadChannels({}, channelConfig)
+
+    expect(factory).toHaveBeenCalledWith({}, { enabled: true, ownerId: '123' })
+  })
+
+  it('provides default config when channel has no config entry', async () => {
+    const factory = vi.fn().mockReturnValue(makeAdapter('telegram'))
+    registerChannelFactory({
+      id: 'channel-telegram',
+      schemaVersion: 1,
+      factory,
+    })
+
+    await loadChannels({}, {})
+
+    expect(factory).toHaveBeenCalledWith({}, { enabled: true })
   })
 })
 

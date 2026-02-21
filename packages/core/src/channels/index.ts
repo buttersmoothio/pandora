@@ -1,8 +1,12 @@
 import type { Mastra } from '@mastra/core'
+import { z } from 'zod'
 import type { Config } from '../config'
 import { getLogger } from '../logger'
 import { createChannelRuntime } from './runtime'
-import type { ChannelAdapter, ChannelPlugin, ChannelRuntime } from './types'
+import { clearChannelSchemaRegistry, registerChannelSchema } from './schema-registry'
+import type { ChannelAdapter, ChannelConfig, ChannelPlugin, ChannelRuntime } from './types'
+
+const baseChannelSchema = z.object({ enabled: z.boolean() })
 
 // ---------------------------------------------------------------------------
 // Plugin registry
@@ -25,6 +29,9 @@ export function registerChannelFactory(plugin: ChannelPlugin): void {
     )
   }
   factoryRegistry.set(plugin.id, plugin)
+  if (plugin.configSchema) {
+    registerChannelSchema(plugin.id, plugin.configSchema)
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -36,6 +43,35 @@ const registry = new Map<string, ChannelAdapter>()
 
 /** Track which realtime channels are running */
 const realtimeRunning = new Set<string>()
+
+/** Validate channel config against the plugin's schema. Returns null if invalid. */
+function validateChannelConfig(
+  plugin: ChannelPlugin,
+  rawConfig: ChannelConfig | undefined,
+): ChannelConfig | null {
+  const log = getLogger()
+
+  if (rawConfig?.enabled === false) {
+    log.debug(`Channel ${plugin.id} disabled by config`)
+    return null
+  }
+
+  if (!rawConfig && plugin.configSchema) {
+    log.debug(`Channel ${plugin.id} skipped (not configured)`)
+    return null
+  }
+
+  if (rawConfig && plugin.configSchema) {
+    const result = baseChannelSchema.merge(plugin.configSchema).safeParse(rawConfig)
+    if (!result.success) {
+      const issues = result.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`)
+      log.error(`Channel ${plugin.id} disabled (invalid config)`, { issues })
+      return null
+    }
+  }
+
+  return rawConfig ?? { enabled: true }
+}
 
 /**
  * Load all registered channel plugins.
@@ -51,14 +87,11 @@ export async function loadChannels(
   const log = getLogger()
 
   for (const [, plugin] of factoryRegistry) {
-    // Skip if explicitly disabled in config
-    if (channelConfig[plugin.id]?.enabled === false) {
-      log.debug(`Channel ${plugin.id} disabled by config`)
-      continue
-    }
+    const config = validateChannelConfig(plugin, channelConfig[plugin.id])
+    if (!config) continue
 
     try {
-      const adapter = plugin.factory(env)
+      const adapter = plugin.factory(env, config)
       if (!adapter) {
         log.debug(`Channel ${plugin.id} skipped (missing env vars)`)
         continue
@@ -152,4 +185,5 @@ export function clearChannelRegistry(): void {
   factoryRegistry.clear()
   registry.clear()
   realtimeRunning.clear()
+  clearChannelSchemaRegistry()
 }
