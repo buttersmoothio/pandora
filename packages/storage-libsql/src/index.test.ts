@@ -29,23 +29,11 @@ describe('LibSQL storage', () => {
 
       // Store config
       const testConfig = {
-        identity: { name: 'Test', description: 'Test', version: '1.0.0' },
-        personality: { traits: ['test'] },
-        models: { default: { provider: 'test', model: 'test' } },
-        memory: { enabled: true, maxThreads: 10, maxMessagesPerThread: 100 },
-        channels: {
-          telegram: { enabled: false },
-          discord: { enabled: false },
-          slack: { enabled: false },
-          web: { enabled: true },
-        },
-        tools: { enabled: [], disabled: [], mcp: { servers: [] } },
-        schedule: { tasks: [] },
-        security: {
-          allowedOrigins: ['*'],
-          rateLimiting: { enabled: false, requestsPerMinute: 60 },
-          apiKeys: { required: false },
-        },
+        identity: { name: 'Test' },
+        personality: { systemPrompt: 'You are a test agent.' },
+        models: { operator: { provider: 'test', model: 'test' } },
+        channels: { web: { enabled: true } },
+        tools: { 'current-time': { enabled: true } },
       }
       await config.set(testConfig)
 
@@ -60,23 +48,11 @@ describe('LibSQL storage', () => {
       }
 
       const testConfig = {
-        identity: { name: 'ToDelete', description: 'Delete me', version: '1.0.0' },
-        personality: { traits: [] },
-        models: { default: { provider: 'test', model: 'test' } },
-        memory: { enabled: true, maxThreads: 10, maxMessagesPerThread: 100 },
-        channels: {
-          telegram: { enabled: false },
-          discord: { enabled: false },
-          slack: { enabled: false },
-          web: { enabled: true },
-        },
-        tools: { enabled: [], disabled: [], mcp: { servers: [] } },
-        schedule: { tasks: [] },
-        security: {
-          allowedOrigins: ['*'],
-          rateLimiting: { enabled: false, requestsPerMinute: 60 },
-          apiKeys: { required: false },
-        },
+        identity: { name: 'ToDelete' },
+        personality: { systemPrompt: 'Delete me.' },
+        models: { operator: { provider: 'test', model: 'test' } },
+        channels: {},
+        tools: {},
       }
       await config.set(testConfig)
       await config.delete()

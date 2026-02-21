@@ -5,6 +5,7 @@ import {
   GetCommand,
   PutCommand,
   QueryCommand,
+  UpdateCommand,
 } from '@aws-sdk/lib-dynamodb'
 import { DynamoDBStore } from '@mastra/dynamodb'
 import type {
@@ -12,6 +13,7 @@ import type {
   Config,
   ConfigStore,
   PasswordCredential,
+  RefreshToken,
   Session,
   StorageFactory,
   StoragePlugin,
@@ -112,6 +114,31 @@ class DynamoDBAuthStore implements AuthStore {
     )
   }
 
+  async setCredentialIfNotExists(credential: PasswordCredential): Promise<boolean> {
+    try {
+      await this.client.send(
+        new PutCommand({
+          TableName: this.tableName,
+          Item: {
+            PK: 'PANDORA_AUTH',
+            SK: 'credential',
+            hash: credential.hash,
+            salt: credential.salt,
+            iterations: credential.iterations,
+            createdAt: credential.createdAt,
+          },
+          ConditionExpression: 'attribute_not_exists(PK)',
+        }),
+      )
+      return true
+    } catch (err: unknown) {
+      if (err instanceof Error && err.name === 'ConditionalCheckFailedException') {
+        return false
+      }
+      throw err
+    }
+  }
+
   async createSession(session: Session): Promise<void> {
     const ttl = Math.floor(new Date(session.expiresAt).getTime() / 1000)
     await this.client.send(
@@ -208,6 +235,95 @@ class DynamoDBAuthStore implements AuthStore {
     } catch {
       return []
     }
+  }
+
+  async createRefreshToken(token: RefreshToken): Promise<void> {
+    const ttl = Math.floor(new Date(token.expiresAt).getTime() / 1000)
+    await this.client.send(
+      new PutCommand({
+        TableName: this.tableName,
+        Item: {
+          PK: 'PANDORA_AUTH',
+          SK: `refresh#${token.tokenHash}`,
+          sessionHash: token.sessionHash,
+          expiresAt: token.expiresAt,
+          createdAt: token.createdAt,
+          userAgent: token.userAgent,
+          ip: token.ip,
+          used: token.used,
+          ttl,
+        },
+      }),
+    )
+  }
+
+  async getRefreshToken(tokenHash: string): Promise<RefreshToken | null> {
+    try {
+      const result = await this.client.send(
+        new GetCommand({
+          TableName: this.tableName,
+          Key: { PK: 'PANDORA_AUTH', SK: `refresh#${tokenHash}` },
+        }),
+      )
+      if (!result.Item) return null
+
+      if (new Date(result.Item.expiresAt as string) <= new Date()) {
+        await this.deleteRefreshToken(tokenHash)
+        return null
+      }
+
+      return {
+        tokenHash,
+        sessionHash: result.Item.sessionHash as string,
+        expiresAt: result.Item.expiresAt as string,
+        createdAt: result.Item.createdAt as string,
+        userAgent: (result.Item.userAgent as string) ?? undefined,
+        ip: (result.Item.ip as string) ?? undefined,
+        used: (result.Item.used as boolean) ?? false,
+      }
+    } catch {
+      return null
+    }
+  }
+
+  async deleteRefreshToken(tokenHash: string): Promise<void> {
+    await this.client.send(
+      new DeleteCommand({
+        TableName: this.tableName,
+        Key: { PK: 'PANDORA_AUTH', SK: `refresh#${tokenHash}` },
+      }),
+    )
+  }
+
+  async deleteAllRefreshTokens(): Promise<void> {
+    const result = await this.client.send(
+      new QueryCommand({
+        TableName: this.tableName,
+        KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
+        ExpressionAttributeValues: { ':pk': 'PANDORA_AUTH', ':prefix': 'refresh#' },
+      }),
+    )
+    if (result.Items) {
+      for (const item of result.Items) {
+        await this.client.send(
+          new DeleteCommand({
+            TableName: this.tableName,
+            Key: { PK: item.PK, SK: item.SK },
+          }),
+        )
+      }
+    }
+  }
+
+  async markRefreshTokenUsed(tokenHash: string): Promise<void> {
+    await this.client.send(
+      new UpdateCommand({
+        TableName: this.tableName,
+        Key: { PK: 'PANDORA_AUTH', SK: `refresh#${tokenHash}` },
+        UpdateExpression: 'SET used = :used',
+        ExpressionAttributeValues: { ':used': true },
+      }),
+    )
   }
 }
 

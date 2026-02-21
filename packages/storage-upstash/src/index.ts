@@ -22,7 +22,9 @@ export const createStorage: StorageFactory = async (env) => {
   })
 
   const config = new RedisConfigStore<Config>(redis)
-  const auth = new RedisAuthStore(redis)
+  // @upstash/redis has stricter discriminated-union opts for set(); the
+  // runtime signatures are compatible, so a widening cast is safe here.
+  const auth = new RedisAuthStore(redis as ConstructorParameters<typeof RedisAuthStore>[0])
 
   return { mastra, config, auth }
 }

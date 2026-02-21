@@ -12,6 +12,9 @@
   "peerDependencies": {
     "@pandora/core": "workspace:*"
   },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
   "devDependencies": {
     "@types/mssql": "^9.1.9",
     "typescript": "^5.9.3"

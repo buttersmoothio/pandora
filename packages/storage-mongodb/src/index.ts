@@ -4,6 +4,7 @@ import type {
   Config,
   ConfigStore,
   PasswordCredential,
+  RefreshToken,
   Session,
   StorageFactory,
   StoragePlugin,
@@ -15,6 +16,7 @@ const CONFIG_COLLECTION = 'pandora_config'
 const CONFIG_ID = 'main'
 const AUTH_CREDENTIALS_COLLECTION = 'pandora_auth_credentials'
 const AUTH_SESSIONS_COLLECTION = 'pandora_auth_sessions'
+const AUTH_REFRESH_TOKENS_COLLECTION = 'pandora_auth_refresh_tokens'
 const OWNER_KEY = 'owner'
 
 interface ConfigDocument {
@@ -71,10 +73,21 @@ interface SessionDocument {
   ip?: string
 }
 
+interface RefreshTokenDocument {
+  _id: string
+  sessionHash: string
+  expiresAt: Date
+  createdAt: string
+  userAgent?: string
+  ip?: string
+  used: boolean
+}
+
 class MongoDBAuthStore implements AuthStore {
   constructor(
     private getCredentials: () => Promise<Collection<CredentialDocument>>,
     private getSessions: () => Promise<Collection<SessionDocument>>,
+    private getRefreshTokens: () => Promise<Collection<RefreshTokenDocument>>,
   ) {}
 
   async init(): Promise<void> {
@@ -112,6 +125,20 @@ class MongoDBAuthStore implements AuthStore {
       },
       { upsert: true },
     )
+  }
+
+  async setCredentialIfNotExists(credential: PasswordCredential): Promise<boolean> {
+    const col = await this.getCredentials()
+    const existing = await col.findOne({ _id: OWNER_KEY })
+    if (existing) return false
+    await col.insertOne({
+      _id: OWNER_KEY,
+      hash: credential.hash,
+      salt: credential.salt,
+      iterations: credential.iterations,
+      createdAt: credential.createdAt,
+    })
+    return true
   }
 
   async createSession(session: Session): Promise<void> {
@@ -163,6 +190,53 @@ class MongoDBAuthStore implements AuthStore {
       ip: doc.ip,
     }))
   }
+
+  async createRefreshToken(token: RefreshToken): Promise<void> {
+    const col = await this.getRefreshTokens()
+    await col.insertOne({
+      _id: token.tokenHash,
+      sessionHash: token.sessionHash,
+      expiresAt: new Date(token.expiresAt),
+      createdAt: token.createdAt,
+      userAgent: token.userAgent,
+      ip: token.ip,
+      used: token.used,
+    })
+  }
+
+  async getRefreshToken(tokenHash: string): Promise<RefreshToken | null> {
+    try {
+      const col = await this.getRefreshTokens()
+      const doc = await col.findOne({ _id: tokenHash, expiresAt: { $gt: new Date() } })
+      if (!doc) return null
+      return {
+        tokenHash: doc._id,
+        sessionHash: doc.sessionHash,
+        expiresAt: doc.expiresAt.toISOString(),
+        createdAt: doc.createdAt,
+        userAgent: doc.userAgent,
+        ip: doc.ip,
+        used: doc.used,
+      }
+    } catch {
+      return null
+    }
+  }
+
+  async deleteRefreshToken(tokenHash: string): Promise<void> {
+    const col = await this.getRefreshTokens()
+    await col.deleteOne({ _id: tokenHash })
+  }
+
+  async deleteAllRefreshTokens(): Promise<void> {
+    const col = await this.getRefreshTokens()
+    await col.deleteMany({})
+  }
+
+  async markRefreshTokenUsed(tokenHash: string): Promise<void> {
+    const col = await this.getRefreshTokens()
+    await col.updateOne({ _id: tokenHash }, { $set: { used: true } })
+  }
 }
 
 export const createStorage: StorageFactory = async (env) => {
@@ -193,6 +267,7 @@ export const createStorage: StorageFactory = async (env) => {
   const auth = new MongoDBAuthStore(
     async () => db.collection<CredentialDocument>(AUTH_CREDENTIALS_COLLECTION),
     async () => db.collection<SessionDocument>(AUTH_SESSIONS_COLLECTION),
+    async () => db.collection<RefreshTokenDocument>(AUTH_REFRESH_TOKENS_COLLECTION),
   )
 
   return { mastra, config, auth }

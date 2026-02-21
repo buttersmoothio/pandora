@@ -1,4 +1,4 @@
-export type { AuthStore, PasswordCredential, Session } from '../auth/auth-store'
+export type { AuthStore, PasswordCredential, RefreshToken, Session } from '../auth/auth-store'
 export { RedisAuthStore } from '../auth/auth-stores/kv'
 export { SQLAuthStore } from '../auth/auth-stores/sql'
 export type { Config } from '../config'
