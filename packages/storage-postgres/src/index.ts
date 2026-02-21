@@ -1,5 +1,5 @@
 import { PostgresStore } from '@mastra/pg'
-import type { Config, StorageFactory } from '@pandora/core/storage'
+import type { Config, StorageFactory, StoragePlugin } from '@pandora/core/storage'
 import { SQLAuthStore, SQLConfigStore } from '@pandora/core/storage'
 import { Pool } from 'pg'
 
@@ -27,3 +27,9 @@ export const createStorage: StorageFactory = async (env) => {
 
   return { mastra, config, auth }
 }
+
+export default {
+  id: 'storage-postgres',
+  schemaVersion: 1,
+  factory: createStorage,
+} satisfies StoragePlugin

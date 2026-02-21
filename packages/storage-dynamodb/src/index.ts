@@ -14,6 +14,7 @@ import type {
   PasswordCredential,
   Session,
   StorageFactory,
+  StoragePlugin,
 } from '@pandora/core/storage'
 
 class DynamoDBConfigStore implements ConfigStore<Config> {
@@ -242,3 +243,9 @@ export const createStorage: StorageFactory = async (env) => {
 
   return { mastra, config, auth }
 }
+
+export default {
+  id: 'storage-dynamodb',
+  schemaVersion: 1,
+  factory: createStorage,
+} satisfies StoragePlugin

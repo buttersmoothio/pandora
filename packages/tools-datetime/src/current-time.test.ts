@@ -1,7 +1,7 @@
 import { getManifest, getManifests } from '@pandora/core/tools'
 import { describe, expect, it } from 'vitest'
 import { currentTime } from './current-time'
-import { createTools } from './index'
+import plugin from './index'
 
 describe('current-time tool', () => {
   it('returns ISO timestamp', async () => {
@@ -48,14 +48,19 @@ describe('current-time tool', () => {
   })
 })
 
-describe('createTools', () => {
-  it('returns a tool record containing current-time', () => {
-    const tools = createTools({})
+describe('plugin descriptor', () => {
+  it('has the expected id and schema version', () => {
+    expect(plugin.id).toBe('tools-datetime')
+    expect(plugin.schemaVersion).toBe(1)
+  })
+
+  it('factory returns a tool record containing current-time', () => {
+    const tools = plugin.factory({})
     expect(Object.keys(tools)).toEqual(['current-time'])
   })
 
-  it('returns manifests for all tools', () => {
-    const tools = createTools({})
+  it('factory returns manifests for all tools', () => {
+    const tools = plugin.factory({})
     const manifests = getManifests(tools)
     expect(manifests['current-time']).toBeDefined()
     expect(manifests['current-time'].id).toBe('current-time')

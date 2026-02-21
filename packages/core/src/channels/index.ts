@@ -2,10 +2,34 @@ import type { Mastra } from '@mastra/core'
 import type { Config } from '../config'
 import { getLogger } from '../logger'
 import { createChannelRuntime } from './runtime'
-import type { ChannelAdapter, ChannelFactory, ChannelRuntime } from './types'
+import type { ChannelAdapter, ChannelPlugin, ChannelRuntime } from './types'
 
-/** Known channel packages, imported as `@pandora/channel-${name}` */
-const KNOWN_CHANNELS = ['telegram', 'discord', 'slack'] as const
+// ---------------------------------------------------------------------------
+// Plugin registry
+// ---------------------------------------------------------------------------
+
+const CHANNEL_SCHEMA_VERSION = 1
+const factoryRegistry = new Map<string, ChannelPlugin>()
+
+/**
+ * Register a channel plugin.
+ *
+ * Must be called before channels are loaded (before the first request
+ * hits the webhook route). Validates schema version compatibility.
+ */
+export function registerChannelFactory(plugin: ChannelPlugin): void {
+  if (plugin.schemaVersion !== CHANNEL_SCHEMA_VERSION) {
+    throw new Error(
+      `Channel plugin '${plugin.id}' uses schema v${plugin.schemaVersion}, ` +
+        `but core expects v${CHANNEL_SCHEMA_VERSION}. Update the package.`,
+    )
+  }
+  factoryRegistry.set(plugin.id, plugin)
+}
+
+// ---------------------------------------------------------------------------
+// Adapter registry (instantiated channels)
+// ---------------------------------------------------------------------------
 
 /** Registry of loaded channel adapters */
 const registry = new Map<string, ChannelAdapter>()
@@ -14,9 +38,9 @@ const registry = new Map<string, ChannelAdapter>()
 const realtimeRunning = new Set<string>()
 
 /**
- * Load all known channel packages.
+ * Load all registered channel plugins.
  *
- * Channels auto-load when their package is installed and the factory
+ * Channels auto-load when their plugin is registered and the factory
  * returns a non-null adapter (i.e. required env vars are present).
  * Config can explicitly disable a channel.
  */
@@ -26,35 +50,25 @@ export async function loadChannels(
 ): Promise<void> {
   const log = getLogger()
 
-  for (const name of KNOWN_CHANNELS) {
+  for (const [, plugin] of factoryRegistry) {
     // Skip if explicitly disabled in config
-    if (channelConfig[name]?.enabled === false) {
-      log.debug(`Channel ${name} disabled by config`)
+    if (channelConfig[plugin.id]?.enabled === false) {
+      log.debug(`Channel ${plugin.id} disabled by config`)
       continue
     }
 
     try {
-      const mod = (await import(`@pandora/channel-${name}`)) as {
-        default?: ChannelFactory
-        createChannel?: ChannelFactory
-      }
-
-      const factory = mod.default ?? mod.createChannel
-      if (typeof factory !== 'function') {
-        log.warn(`Channel package @pandora/channel-${name} has no factory export`)
-        continue
-      }
-
-      const adapter = factory(env)
+      const adapter = plugin.factory(env)
       if (!adapter) {
-        log.debug(`Channel ${name} skipped (missing env vars)`)
+        log.debug(`Channel ${plugin.id} skipped (missing env vars)`)
         continue
       }
 
       registry.set(adapter.id, adapter)
       log.info(`Channel loaded: ${adapter.name} (${adapter.id})`)
-    } catch {
-      // Package not installed — skip silently
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error'
+      log.error(`Failed to load channel ${plugin.id}`, { error: message })
     }
   }
 }
@@ -133,8 +147,9 @@ export function handleWebhook(
   return adapter.webhook.handle(request, runtime)
 }
 
-/** Clear the registry. Useful for testing. */
+/** Clear the registries. Useful for testing. */
 export function clearChannelRegistry(): void {
+  factoryRegistry.clear()
   registry.clear()
   realtimeRunning.clear()
 }

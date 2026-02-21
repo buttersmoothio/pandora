@@ -1,5 +1,5 @@
 import { UpstashStore } from '@mastra/upstash'
-import type { Config, StorageFactory } from '@pandora/core/storage'
+import type { Config, StorageFactory, StoragePlugin } from '@pandora/core/storage'
 import { RedisAuthStore, RedisConfigStore } from '@pandora/core/storage'
 import { Redis } from '@upstash/redis'
 
@@ -26,3 +26,9 @@ export const createStorage: StorageFactory = async (env) => {
 
   return { mastra, config, auth }
 }
+
+export default {
+  id: 'storage-upstash',
+  schemaVersion: 1,
+  factory: createStorage,
+} satisfies StoragePlugin

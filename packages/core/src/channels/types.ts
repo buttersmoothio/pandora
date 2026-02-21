@@ -61,6 +61,16 @@ export interface ChannelAdapter {
  */
 export type ChannelFactory = (env: Record<string, string | undefined>) => ChannelAdapter | null
 
+/** Plugin descriptor for channel packages */
+export interface ChannelPlugin {
+  /** Unique plugin identifier, e.g. 'channel-telegram' */
+  id: string
+  /** Schema version — must match core's expected version */
+  schemaVersion: number
+  /** Factory that creates a channel adapter from env vars */
+  factory: ChannelFactory
+}
+
 // ---------------------------------------------------------------------------
 // Channel runtime (the gateway — what core provides to channels)
 // ---------------------------------------------------------------------------

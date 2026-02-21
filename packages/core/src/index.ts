@@ -1,5 +1,6 @@
 // SES lockdown — must run before any other code
 import './ses-lockdown'
+import './plugins'
 
 import { handleChatStream } from '@mastra/ai-sdk'
 import { AIV5Adapter } from '@mastra/core/agent/message-list'
@@ -23,7 +24,12 @@ import { getLogger } from './logger'
 import { clearMastraCache, getMastra } from './mastra'
 import { getStorage } from './storage'
 import { getActiveStreamIds, getResumeStream, storeStream } from './stream-store'
-import { ensureStdlibImported, getAllManifests } from './tools'
+import { getAllManifests } from './tools'
+
+// Re-export registration functions for plugin authors
+export { registerChannelFactory } from './channels'
+export { registerStorageProvider } from './storage'
+export { registerToolPackage } from './tools'
 
 // Bindings type for Cloudflare Workers
 type Bindings = {
@@ -226,13 +232,12 @@ app.delete('/api/config', async (c) => {
   return c.json(config)
 })
 
-// Tools endpoint - returns all stdlib tools with manifests merged with config state
+// Tools endpoint - returns all registered tools with manifests merged with config state
 app.get('/api/tools', async (c) => {
   const envVars = extractStringEnv(env(c))
   const { config: configStore } = await getStorage(envVars, c.env)
   const config = await getConfig(configStore)
 
-  await ensureStdlibImported()
   const manifests = getAllManifests()
 
   const tools = Object.values(manifests).map((manifest) => {

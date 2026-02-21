@@ -6,6 +6,7 @@ import type {
   PasswordCredential,
   Session,
   StorageFactory,
+  StoragePlugin,
 } from '@pandora/core/storage'
 import type { Collection } from 'mongodb'
 import { MongoClient } from 'mongodb'
@@ -196,3 +197,9 @@ export const createStorage: StorageFactory = async (env) => {
 
   return { mastra, config, auth }
 }
+
+export default {
+  id: 'storage-mongodb',
+  schemaVersion: 1,
+  factory: createStorage,
+} satisfies StoragePlugin

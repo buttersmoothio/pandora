@@ -3,7 +3,7 @@ import { dirname, resolve } from 'node:path'
 import type { InArgs } from '@libsql/client'
 import { createClient } from '@libsql/client'
 import { LibSQLStore } from '@mastra/libsql'
-import type { Config, StorageFactory } from '@pandora/core/storage'
+import type { Config, StorageFactory, StoragePlugin } from '@pandora/core/storage'
 import { SQLAuthStore, SQLConfigStore } from '@pandora/core/storage'
 
 // Resolve to monorepo root: packages/storage-libsql/src -> ../../../data
@@ -51,3 +51,9 @@ export const createStorage: StorageFactory = async (env) => {
 
   return { mastra, config, auth }
 }
+
+export default {
+  id: 'storage-libsql',
+  schemaVersion: 1,
+  factory: createStorage,
+} satisfies StoragePlugin

@@ -1,5 +1,5 @@
 import { MSSQLStore } from '@mastra/mssql'
-import type { Config, StorageFactory } from '@pandora/core/storage'
+import type { Config, StorageFactory, StoragePlugin } from '@pandora/core/storage'
 import { SQLAuthStore, SQLConfigStore } from '@pandora/core/storage'
 import sql from 'mssql'
 
@@ -32,3 +32,9 @@ export const createStorage: StorageFactory = async (env) => {
 
   return { mastra, config, auth }
 }
+
+export default {
+  id: 'storage-mssql',
+  schemaVersion: 1,
+  factory: createStorage,
+} satisfies StoragePlugin

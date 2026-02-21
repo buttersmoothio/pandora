@@ -1,8 +1,9 @@
 import type { MastraMemory } from '@mastra/core/memory'
-import { describe, expect, it, vi } from 'vitest'
+import datetime from '@pandora/tools-datetime'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Config } from '../config'
 import { DEFAULTS } from '../config'
-import { loadTools } from '../tools'
+import { clearToolPackages, loadTools, registerToolPackage } from '../tools'
 
 // Mock the Agent constructor to capture config
 const mockAgentConstructor = vi.fn()
@@ -24,6 +25,14 @@ const { createOperator } = await import('./operator')
 const mockMemory = {} as MastraMemory
 
 describe('createOperator', () => {
+  beforeEach(() => {
+    registerToolPackage(datetime)
+  })
+
+  afterEach(() => {
+    clearToolPackages()
+  })
+
   it('creates agent with correct id', async () => {
     const tools = await loadTools(DEFAULTS, {})
     const agent = createOperator(DEFAULTS, tools, mockMemory)

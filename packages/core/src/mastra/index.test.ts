@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import datetime from '@pandora/tools-datetime'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 // Mock Agent
 vi.mock('@mastra/core/agent', () => ({
@@ -43,12 +44,18 @@ vi.mock('../storage', () => {
   }
 })
 
-// Import after mocks
+// Register tools plugin and import after mocks
+const { registerToolPackage, clearToolPackages } = await import('../tools')
 const { getMastra, clearMastraCache } = await import('./index')
 
 describe('getMastra', () => {
+  beforeEach(() => {
+    registerToolPackage(datetime)
+  })
+
   afterEach(() => {
     clearMastraCache()
+    clearToolPackages()
     mockMastraConstructor.mockClear()
   })
 
@@ -83,8 +90,13 @@ describe('getMastra', () => {
 })
 
 describe('clearMastraCache', () => {
+  beforeEach(() => {
+    registerToolPackage(datetime)
+  })
+
   afterEach(() => {
     clearMastraCache()
+    clearToolPackages()
     mockMastraConstructor.mockClear()
   })
 

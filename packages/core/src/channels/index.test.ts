@@ -19,6 +19,7 @@ const {
   getAllChannels,
   handleWebhook,
   verifyWebhook,
+  registerChannelFactory,
   clearChannelRegistry,
 } = await import('./index')
 
@@ -47,32 +48,45 @@ describe('loadChannels', () => {
     clearChannelRegistry()
   })
 
-  it('skips channels when package is not installed', async () => {
-    // No @pandora/channel-* packages exist, loadChannels should not throw
+  it('loads nothing when no plugins are registered', async () => {
     await loadChannels({}, {})
     expect(getAllChannels()).toHaveLength(0)
   })
 
   it('skips channels explicitly disabled in config', async () => {
     const adapter = makeAdapter('telegram', { webhook: true })
-    vi.doMock('@pandora/channel-telegram', () => ({ default: () => adapter }))
+    registerChannelFactory({
+      id: 'channel-telegram',
+      schemaVersion: 1,
+      factory: () => adapter,
+    })
 
-    await loadChannels({}, { telegram: { enabled: false } })
-    // Channel is disabled — should not be loaded even though package exists
+    await loadChannels({}, { 'channel-telegram': { enabled: false } })
     expect(getChannel('telegram')).toBeUndefined()
-
-    vi.doUnmock('@pandora/channel-telegram')
   })
 
-  it('loads channel when package exists and factory returns adapter', async () => {
+  it('loads channel when plugin is registered and factory returns adapter', async () => {
     const adapter = makeAdapter('telegram', { webhook: true })
-    vi.doMock('@pandora/channel-telegram', () => ({ default: () => adapter }))
+    registerChannelFactory({
+      id: 'channel-telegram',
+      schemaVersion: 1,
+      factory: () => adapter,
+    })
 
     await loadChannels({}, {})
     expect(getChannel('telegram')).toBe(adapter)
     expect(getAllChannels()).toHaveLength(1)
+  })
 
-    vi.doUnmock('@pandora/channel-telegram')
+  it('skips channel when factory returns null (missing env vars)', async () => {
+    registerChannelFactory({
+      id: 'channel-telegram',
+      schemaVersion: 1,
+      factory: () => null,
+    })
+
+    await loadChannels({}, {})
+    expect(getAllChannels()).toHaveLength(0)
   })
 })
 
@@ -114,18 +128,24 @@ describe('verifyWebhook', () => {
   it('returns false when verify rejects the request', async () => {
     const adapter = makeAdapter('telegram', { webhook: true })
     vi.mocked(adapter.webhook?.verify as ReturnType<typeof vi.fn>).mockResolvedValue(false)
-    vi.doMock('@pandora/channel-telegram', () => ({ default: () => adapter }))
+    registerChannelFactory({
+      id: 'channel-telegram',
+      schemaVersion: 1,
+      factory: () => adapter,
+    })
 
     await loadChannels({}, {})
     const result = await verifyWebhook('telegram', new Request('http://localhost'), {})
     expect(result).toBe(false)
-
-    vi.doUnmock('@pandora/channel-telegram')
   })
 
   it('returns true when verify accepts and passes env through', async () => {
     const adapter = makeAdapter('telegram', { webhook: true })
-    vi.doMock('@pandora/channel-telegram', () => ({ default: () => adapter }))
+    registerChannelFactory({
+      id: 'channel-telegram',
+      schemaVersion: 1,
+      factory: () => adapter,
+    })
 
     const testEnv = { TELEGRAM_BOT_TOKEN: 'test-token' }
     await loadChannels(testEnv, {})
@@ -135,8 +155,18 @@ describe('verifyWebhook', () => {
 
     expect(result).toBe(true)
     expect(adapter.webhook?.verify).toHaveBeenCalledWith(request, testEnv)
+  })
+})
 
-    vi.doUnmock('@pandora/channel-telegram')
+describe('registerChannelFactory', () => {
+  afterEach(() => {
+    clearChannelRegistry()
+  })
+
+  it('rejects plugins with incompatible schema version', () => {
+    expect(() =>
+      registerChannelFactory({ id: 'bad', schemaVersion: 99, factory: () => null }),
+    ).toThrow(/schema v99/)
   })
 })
 
@@ -147,14 +177,16 @@ describe('clearChannelRegistry', () => {
 
   it('removes all loaded channels', async () => {
     const adapter = makeAdapter('telegram', { webhook: true })
-    vi.doMock('@pandora/channel-telegram', () => ({ default: () => adapter }))
+    registerChannelFactory({
+      id: 'channel-telegram',
+      schemaVersion: 1,
+      factory: () => adapter,
+    })
 
     await loadChannels({}, {})
     expect(getAllChannels()).toHaveLength(1)
 
     clearChannelRegistry()
     expect(getAllChannels()).toHaveLength(0)
-
-    vi.doUnmock('@pandora/channel-telegram')
   })
 })

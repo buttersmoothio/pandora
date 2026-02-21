@@ -6,7 +6,8 @@
     ".": "./src/index.ts",
     "./storage": "./src/storage/exports.ts",
     "./tools": "./src/tools/exports.ts",
-    "./channels": "./src/channels/exports.ts"
+    "./channels": "./src/channels/exports.ts",
+    "./plugins": "./src/plugins.ts"
   },
   "scripts": {
     "dev": "bun run serve.ts",

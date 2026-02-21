@@ -7,6 +7,7 @@
 export type {
   ChannelAdapter,
   ChannelFactory,
+  ChannelPlugin,
   ChannelRealtime,
   ChannelRuntime,
   ChannelWebhook,

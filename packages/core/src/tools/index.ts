@@ -1,5 +1,5 @@
 import type { Config } from '../config'
-import type { ToolPackageFactory, ToolRecord } from './types'
+import type { ToolPackagePlugin, ToolRecord } from './types'
 
 export { defineTool, getAllManifests, getManifest, getManifests } from './define'
 export type { CompartmentExecuteOptions, Endowments } from './sandbox'
@@ -9,33 +9,42 @@ export type {
   ToolAnnotations,
   ToolManifest,
   ToolPackageFactory,
+  ToolPackagePlugin,
   ToolPermissions,
   ToolRecord,
 } from './types'
 
-/** Standard library tool packages, imported as `@pandora/tools-${name}` */
-const STDLIB_PACKAGES = ['datetime'] as const
+// ---------------------------------------------------------------------------
+// Plugin registry
+// ---------------------------------------------------------------------------
+
+const TOOL_SCHEMA_VERSION = 1
+const packageRegistry = new Map<string, ToolPackagePlugin>()
 
 /**
- * Import all stdlib tool packages so their `defineTool` calls run
- * and manifests are registered. Safe to call multiple times — dynamic
- * imports are cached by the module system.
+ * Register a tool package plugin.
+ *
+ * Must be called before tools are loaded. Importing the package
+ * triggers its `defineTool` calls, so manifests are registered as
+ * a side effect of importing the factory module.
+ *
+ * Validates schema version compatibility on registration.
  */
-export async function ensureStdlibImported(): Promise<void> {
-  for (const name of STDLIB_PACKAGES) {
-    try {
-      await import(`@pandora/tools-${name}`)
-    } catch {
-      // Package not installed — skip silently
-    }
+export function registerToolPackage(plugin: ToolPackagePlugin): void {
+  if (plugin.schemaVersion !== TOOL_SCHEMA_VERSION) {
+    throw new Error(
+      `Tool plugin '${plugin.id}' uses schema v${plugin.schemaVersion}, ` +
+        `but core expects v${TOOL_SCHEMA_VERSION}. Update the package.`,
+    )
   }
+  packageRegistry.set(plugin.id, plugin)
 }
 
 /**
- * Load all tools from standard library packages, filtered by config.
+ * Load all tools from registered packages, filtered by config.
  *
  * Only tools explicitly enabled in config (`config.tools[id].enabled === true`)
- * are included. The default config determines which stdlib tools are on.
+ * are included. The default config determines which tools are on.
  */
 export async function loadTools(
   config: Config,
@@ -43,21 +52,21 @@ export async function loadTools(
 ): Promise<ToolRecord> {
   const result: ToolRecord = {}
 
-  for (const name of STDLIB_PACKAGES) {
-    try {
-      const mod = (await import(`@pandora/tools-${name}`)) as {
-        createTools: ToolPackageFactory
+  for (const [, plugin] of packageRegistry) {
+    const tools = plugin.factory(envVars)
+    for (const [id, tool] of Object.entries(tools)) {
+      if (config.tools[id]?.enabled) {
+        result[id] = tool
       }
-      const tools = mod.createTools(envVars)
-      for (const [id, tool] of Object.entries(tools)) {
-        if (config.tools[id]?.enabled) {
-          result[id] = tool
-        }
-      }
-    } catch {
-      // Package not installed — skip silently
     }
   }
 
   return result
+}
+
+/**
+ * Clear the tool package registry. Useful for testing.
+ */
+export function clearToolPackages(): void {
+  packageRegistry.clear()
 }

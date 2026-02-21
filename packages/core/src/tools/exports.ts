@@ -11,6 +11,7 @@ export type {
   ToolAnnotations,
   ToolManifest,
   ToolPackageFactory,
+  ToolPackagePlugin,
   ToolPermissions,
   ToolRecord,
 } from './types'

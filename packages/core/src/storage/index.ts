@@ -25,6 +25,43 @@ export type StorageFactory = (
   bindings?: unknown,
 ) => Promise<StorageResult>
 
+/** Plugin descriptor for storage providers */
+export interface StoragePlugin {
+  /** Unique plugin identifier, e.g. 'storage-libsql' */
+  id: string
+  /** Schema version — must match core's expected version */
+  schemaVersion: number
+  /** Factory that creates storage instances */
+  factory: StorageFactory
+}
+
+// ---------------------------------------------------------------------------
+// Plugin registry
+// ---------------------------------------------------------------------------
+
+const STORAGE_SCHEMA_VERSION = 1
+const providers = new Map<string, StoragePlugin>()
+
+/**
+ * Register a storage provider plugin.
+ *
+ * Must be called before any request that uses storage.
+ * Validates schema version compatibility on registration.
+ */
+export function registerStorageProvider(plugin: StoragePlugin): void {
+  if (plugin.schemaVersion !== STORAGE_SCHEMA_VERSION) {
+    throw new Error(
+      `Storage plugin '${plugin.id}' uses schema v${plugin.schemaVersion}, ` +
+        `but core expects v${STORAGE_SCHEMA_VERSION}. Update the package.`,
+    )
+  }
+  providers.set(plugin.id, plugin)
+}
+
+// ---------------------------------------------------------------------------
+// Instance cache & creation
+// ---------------------------------------------------------------------------
+
 /** Cached storage instance for server mode */
 let _cached: StorageResult | null = null
 
@@ -55,35 +92,36 @@ export async function getStorage(
 }
 
 /**
- * Create new storage instances based on STORAGE_PROVIDER env var.
- * Defaults to 'libsql' if not specified.
+ * Create new storage instances from the registered provider.
  *
- * Uses convention-based discovery: imports `@pandora/storage-${provider}`.
+ * Selects the provider by `STORAGE_PROVIDER` env var (default: `'storage-libsql'`).
+ * The provider must have been registered via `registerStorageProvider()`.
  */
 async function createStorage(
   env: Record<string, string | undefined>,
   bindings?: unknown,
 ): Promise<StorageResult> {
-  const provider = env.STORAGE_PROVIDER ?? 'libsql'
+  const id = env.STORAGE_PROVIDER ?? 'storage-libsql'
+  const plugin = providers.get(id)
 
-  try {
-    const mod = (await import(`@pandora/storage-${provider}`)) as { createStorage: StorageFactory }
-    const result = await mod.createStorage(env, bindings)
-    await result.mastra.init()
-    if (result.config.init) {
-      await result.config.init()
-    }
-    await result.auth.init()
-    return result
-  } catch (err) {
-    if (err instanceof Error && 'code' in err && err.code === 'ERR_MODULE_NOT_FOUND') {
-      throw new Error(
-        `Storage provider '${provider}' requires @pandora/storage-${provider}\n` +
-          `Install it with: bun add @pandora/storage-${provider}`,
-      )
-    }
-    throw err
+  if (!plugin) {
+    const registered = [...providers.keys()]
+    throw new Error(
+      `Storage provider '${id}' is not registered.\n` +
+        `Register it with registerStorageProvider() before starting the server.\n` +
+        (registered.length > 0
+          ? `Registered providers: ${registered.join(', ')}`
+          : 'No providers registered.'),
+    )
   }
+
+  const result = await plugin.factory(env, bindings)
+  await result.mastra.init()
+  if (result.config.init) {
+    await result.config.init()
+  }
+  await result.auth.init()
+  return result
 }
 
 /**
@@ -91,4 +129,11 @@ async function createStorage(
  */
 export function clearStorageCache(): void {
   _cached = null
+}
+
+/**
+ * Clear the provider registry. Useful for testing.
+ */
+export function clearStorageProviders(): void {
+  providers.clear()
 }

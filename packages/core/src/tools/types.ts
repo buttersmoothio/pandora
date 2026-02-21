@@ -75,3 +75,13 @@ export interface ToolAnnotations {
  * Receives environment variables and returns a record of tools.
  */
 export type ToolPackageFactory = (env: Record<string, string | undefined>) => ToolRecord
+
+/** Plugin descriptor for tool packages */
+export interface ToolPackagePlugin {
+  /** Unique plugin identifier, e.g. 'tools-datetime' */
+  id: string
+  /** Schema version — must match core's expected version */
+  schemaVersion: number
+  /** Factory that creates tool instances from env vars */
+  factory: ToolPackageFactory
+}
