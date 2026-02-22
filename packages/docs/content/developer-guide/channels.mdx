@@ -6,7 +6,9 @@ A channel connects Pandora to an external messaging platform. Each channel is a 
 
 This tutorial walks through building a hypothetical Discord channel to illustrate the full process.
 
-## Package Structure
+<Steps>
+
+### Set up the package
 
 <FileTree>
   <FileTree.Folder name="pandora-channel-discord" defaultOpen>
@@ -32,60 +34,6 @@ This tutorial walks through building a hypothetical Discord channel to illustrat
   }
 }
 ```
-
-<Steps>
-
-### Define the plugin descriptor
-
-The entry point exports a `ChannelPlugin` — metadata about your channel plus a factory function:
-
-```ts
-// src/index.ts
-import type { ChannelPlugin } from '@pandora/core/channels'
-import { createDiscordAdapter } from './adapter'
-
-export default {
-  id: 'channel-discord',
-  name: 'Discord',
-  schemaVersion: 1,
-  envVars: ['DISCORD_BOT_TOKEN'],
-  configFields: [
-    {
-      key: 'guildId',
-      label: 'Server ID',
-      type: 'text',
-      required: true,
-      placeholder: '123456789012345678',
-      description: 'The Discord server (guild) ID to listen in.',
-    },
-    {
-      key: 'channelId',
-      label: 'Channel ID',
-      type: 'text',
-      required: true,
-      placeholder: '123456789012345678',
-      description: 'The text channel ID to respond in.',
-    },
-  ],
-  factory: (env, config) => {
-    const token = env.DISCORD_BOT_TOKEN
-    if (!token) return null
-    return createDiscordAdapter(
-      token,
-      config.guildId as string,
-      config.channelId as string,
-    )
-  },
-} satisfies ChannelPlugin
-```
-
-Key fields:
-
-- **`id`** — must be `channel-{name}`, matching your package name
-- **`schemaVersion`** — must match core's expected version (currently `1`)
-- **`envVars`** — env vars the factory needs. The UI shows whether they're configured.
-- **`configFields`** — describes UI inputs beyond the `enabled` toggle. Core auto-generates Zod validation from these.
-- **`factory`** — receives env vars and validated config. Return `null` if required env vars are missing.
 
 ### Create the adapter
 
@@ -151,6 +99,58 @@ export function createDiscordAdapter(
   }
 }
 ```
+
+### Export the plugin descriptor
+
+The entry point exports a `ChannelPlugin` — metadata about your channel plus a factory function:
+
+```ts
+// src/index.ts
+import type { ChannelPlugin } from '@pandora/core/channels'
+import { createDiscordAdapter } from './adapter'
+
+export default {
+  id: 'channel-discord',
+  name: 'Discord',
+  schemaVersion: 1,
+  envVars: ['DISCORD_BOT_TOKEN'],
+  configFields: [
+    {
+      key: 'guildId',
+      label: 'Server ID',
+      type: 'text',
+      required: true,
+      placeholder: '123456789012345678',
+      description: 'The Discord server (guild) ID to listen in.',
+    },
+    {
+      key: 'channelId',
+      label: 'Channel ID',
+      type: 'text',
+      required: true,
+      placeholder: '123456789012345678',
+      description: 'The text channel ID to respond in.',
+    },
+  ],
+  factory: (env, config) => {
+    const token = env.DISCORD_BOT_TOKEN
+    if (!token) return null
+    return createDiscordAdapter(
+      token,
+      config.guildId as string,
+      config.channelId as string,
+    )
+  },
+} satisfies ChannelPlugin
+```
+
+Key fields:
+
+- **`id`** — must be `channel-{name}`, matching your package name
+- **`schemaVersion`** — must match core's expected version (currently `1`)
+- **`envVars`** — env vars the factory needs. The UI shows whether they're configured.
+- **`configFields`** — describes UI inputs beyond the `enabled` toggle. Core auto-generates Zod validation from these.
+- **`factory`** — receives env vars and validated config. Return `null` if required env vars are missing.
 
 ### Using the runtime
 

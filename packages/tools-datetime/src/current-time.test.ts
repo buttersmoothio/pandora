@@ -4,8 +4,10 @@ import { currentTime } from './current-time'
 import plugin from './index'
 
 describe('current-time tool', () => {
+  const tool = currentTime({}, { enabled: true })
+
   it('returns ISO timestamp', async () => {
-    const result = (await currentTime.execute?.({ timezone: undefined }, {} as never)) as {
+    const result = (await tool.execute?.({ timezone: undefined }, {} as never)) as {
       iso: string
       formatted: string
       timezone: string
@@ -15,7 +17,7 @@ describe('current-time tool', () => {
   })
 
   it('accepts a timezone', async () => {
-    const result = (await currentTime.execute?.({ timezone: 'America/New_York' }, {} as never)) as {
+    const result = (await tool.execute?.({ timezone: 'America/New_York' }, {} as never)) as {
       iso: string
       formatted: string
       timezone: string
@@ -25,7 +27,7 @@ describe('current-time tool', () => {
   })
 
   it('falls back to UTC for invalid timezone', async () => {
-    const result = (await currentTime.execute?.({ timezone: 'Invalid/Zone' }, {} as never)) as {
+    const result = (await tool.execute?.({ timezone: 'Invalid/Zone' }, {} as never)) as {
       iso: string
       formatted: string
       timezone: string
@@ -55,12 +57,12 @@ describe('plugin descriptor', () => {
   })
 
   it('factory returns a tool record containing current-time', () => {
-    const tools = plugin.factory({})
+    const tools = plugin.factory({}, { enabled: true })
     expect(Object.keys(tools)).toEqual(['current-time'])
   })
 
   it('factory returns manifests for all tools', () => {
-    const tools = plugin.factory({})
+    const tools = plugin.factory({}, { enabled: true })
     const manifests = getManifests(tools)
     expect(manifests['current-time']).toBeDefined()
     expect(manifests['current-time'].id).toBe('current-time')

@@ -2,6 +2,7 @@
 
 import { CheckCircle2Icon, Loader2Icon, RadioIcon, WebhookIcon, XCircleIcon } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { ConfigField } from '@/components/config-field'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -12,8 +13,6 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { type ChannelInfo, useChannels } from '@/hooks/use-channels'
 import { useUpdateConfig } from '@/hooks/use-config'
@@ -125,23 +124,13 @@ function ChannelCard({ channel }: { channel: ChannelInfo }) {
       {channel.envConfigured && channel.configFields.length > 0 && (
         <CardContent className="flex flex-col gap-4">
           {channel.configFields.map((field) => (
-            <div key={field.key} className="flex flex-col gap-2">
-              <Label htmlFor={`${channel.id}-${field.key}`}>
-                {field.label}
-                {field.required && <span className="text-destructive"> *</span>}
-              </Label>
-              <Input
-                id={`${channel.id}-${field.key}`}
-                type={field.type}
-                placeholder={field.placeholder}
-                value={(fields[field.key] as string) ?? ''}
-                onChange={(e) => setFields({ ...fields, [field.key]: e.target.value })}
-                className="h-8 text-sm"
-              />
-              {field.description && (
-                <p className="text-muted-foreground text-xs">{field.description}</p>
-              )}
-            </div>
+            <ConfigField
+              key={field.key}
+              field={field}
+              scopeId={channel.id}
+              value={fields[field.key]}
+              onChange={(v) => setFields({ ...fields, [field.key]: v })}
+            />
           ))}
 
           {isDirty && (

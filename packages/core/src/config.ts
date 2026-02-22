@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { getChannelSchema } from './channels/schema-registry'
 import { isServerless } from './env'
 import type { ConfigStore } from './storage/config-store'
+import { getToolSchema } from './tools/schema-registry'
 
 /**
  * Model configuration for different use cases
@@ -83,13 +84,30 @@ export const ConfigSchema = z.object({
 
   /** Channel configurations — keyed by channel plugin ID */
   channels: z
-    .record(z.string(), z.object({ enabled: z.boolean() }).passthrough())
+    .record(z.string(), z.looseObject({ enabled: z.boolean() }))
     .default(() => ({}))
     .superRefine((channels, ctx) => {
       for (const [id, raw] of Object.entries(channels)) {
         const schema = getChannelSchema(id)
         if (!schema) continue
-        const result = z.object({ enabled: z.boolean() }).merge(schema).safeParse(raw)
+        const result = z.object({ enabled: z.boolean() }).extend(schema.shape).safeParse(raw)
+        if (!result.success) {
+          for (const issue of result.error.issues) {
+            ctx.addIssue({ ...issue, path: [id, ...issue.path] })
+          }
+        }
+      }
+    }),
+
+  /** Tool plugin configurations — keyed by tool plugin ID */
+  toolPlugins: z
+    .record(z.string(), z.looseObject({ enabled: z.boolean() }))
+    .default(() => ({}))
+    .superRefine((plugins, ctx) => {
+      for (const [id, raw] of Object.entries(plugins)) {
+        const schema = getToolSchema(id)
+        if (!schema) continue
+        const result = z.object({ enabled: z.boolean() }).extend(schema.shape).safeParse(raw)
         if (!result.success) {
           for (const issue of result.error.issues) {
             ctx.addIssue({ ...issue, path: [id, ...issue.path] })

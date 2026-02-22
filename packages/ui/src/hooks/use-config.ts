@@ -28,6 +28,7 @@ export interface Config {
     operator: ModelConfig
   }
   channels: Record<string, { enabled: boolean; [key: string]: unknown }>
+  toolPlugins: Record<string, { enabled: boolean; [key: string]: unknown }>
   tools: Record<string, ToolConfig>
 }
 

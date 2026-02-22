@@ -4,63 +4,9 @@ import { Steps, FileTree } from 'nextra/components'
 
 Tools are standalone npm packages. They run directly in Node.js (host mode) and have full runtime access.
 
-## Building a Tool
-
 <Steps>
 
-### Define the tool
-
-Use `defineTool()` to create a tool. Here's a weather tool that fetches data from an external API:
-
-```ts
-import { z } from 'zod'
-import { defineTool } from '@pandora/core/tools'
-
-const weatherTool = defineTool({
-  id: 'weather',
-  name: 'Weather',
-  description: 'Get current weather for a city',
-  inputSchema: z.object({
-    city: z.string().describe('City name'),
-  }),
-  annotations: {
-    readOnlyHint: true,
-    destructiveHint: false,
-    idempotentHint: true,
-  },
-  execute: async (input) => {
-    const key = process.env.OPENWEATHER_API_KEY
-    const res = await fetch(
-      `https://api.openweathermap.org/data/2.5/weather?q=${input.city}&appid=${key}`
-    )
-    return res.json()
-  },
-})
-```
-
-- **`annotations`** are MCP-compatible hints that help the UI decide whether to auto-approve or prompt for confirmation. A tool marked `readOnlyHint: true` and `destructiveHint: false` can be auto-approved.
-
-### Package it
-
-Each package default-exports a `ToolPlugin` descriptor with metadata and a factory that returns a tool record:
-
-```ts
-// @pandora/tools-datetime/src/index.ts
-import type { ToolPlugin } from '@pandora/core/tools'
-import { currentTime } from './current-time'
-
-export default {
-  id: 'tools-datetime',
-  name: 'Date & Time',
-  schemaVersion: 1,
-  envVars: [],
-  factory: (_env) => ({ 'current-time': currentTime }),
-} satisfies ToolPlugin
-```
-
-- **`name`** — human-readable display name for the UI.
-- **`envVars`** — environment variables the plugin needs (e.g. `['OPENWEATHER_API_KEY']`). Listed in the discovery API so the UI can show configuration status.
-- The factory receives environment variables so tools can read API keys or other configuration at load time.
+### Set up the package
 
 A tool package follows this structure:
 
@@ -92,6 +38,79 @@ The `package.json` declares `@pandora/core` as a peer dependency:
 }
 ```
 
+### Define the tool
+
+Use `defineTool()` to create a tool. Here's a weather tool that fetches data from an external API:
+
+```ts
+// src/weather.ts
+import { z } from 'zod'
+import { defineTool } from '@pandora/core/tools'
+
+export const weatherTool = defineTool({
+  id: 'weather',
+  name: 'Weather',
+  description: 'Get current weather for a city',
+  inputSchema: z.object({
+    city: z.string().describe('City name'),
+  }),
+  annotations: {
+    readOnlyHint: true,
+    destructiveHint: false,
+    idempotentHint: true,
+  },
+  execute: async (input, { env, config }) => {
+    const key = env.OPENWEATHER_API_KEY
+    const units = config.units ?? 'metric'
+    const res = await fetch(
+      `https://api.openweathermap.org/data/2.5/weather?q=${input.city}&units=${units}&appid=${key}`
+    )
+    return res.json()
+  },
+})
+```
+
+- `defineTool()` returns a **tool definition** — a function `(env, config) => Tool`. The execute function receives `{ env, config }` as its second argument, giving tools clean access to environment variables and plugin configuration.
+- **`annotations`** are MCP-compatible hints that help the UI decide whether to auto-approve or prompt for confirmation. A tool marked `readOnlyHint: true` and `destructiveHint: false` can be auto-approved.
+
+### Export the plugin descriptor
+
+Each package default-exports a `ToolPlugin` descriptor with metadata and a factory that returns a tool record:
+
+```ts
+// src/index.ts
+import type { ToolPlugin } from '@pandora/core/tools'
+import { weatherTool } from './weather'
+
+export default {
+  id: 'tools-weather',
+  name: 'Weather',
+  schemaVersion: 1,
+  envVars: ['OPENWEATHER_API_KEY'],
+  configFields: [
+    {
+      key: 'units',
+      label: 'Units',
+      type: 'enum',
+      description: 'Temperature units',
+      options: [
+        { value: 'metric', label: 'Metric (°C)' },
+        { value: 'imperial', label: 'Imperial (°F)' },
+        { value: 'standard', label: 'Standard (K)' },
+      ],
+    },
+  ],
+  factory: (env, config) => ({
+    weather: weatherTool(env, config),
+  }),
+} satisfies ToolPlugin
+```
+
+- **`name`** — human-readable display name for the UI.
+- **`envVars`** — environment variables the plugin needs. Listed in the discovery API so the UI can show configuration status.
+- **`configFields`** — describes user-configurable settings beyond `enabled`. Core auto-generates Zod validation and the UI renders input fields from these descriptors. Works the same way as channel `configFields`.
+- The factory receives environment variables and validated plugin config. If `configFields` are declared and the user hasn't configured them, the plugin is skipped.
+
 ### Register it
 
 Install your package in the Pandora instance and register it in `plugins.ts`:
@@ -105,7 +124,10 @@ registerToolPlugin(weather)
 
 ### Enable it
 
-Tools are filtered by the user's configuration — only tools with `config.tools[id].enabled === true` are loaded.
+There are two levels of configuration:
+
+- **Plugin level** — `config.toolPlugins['tools-weather']` controls whether the plugin is active and stores user settings from `configFields`. A plugin with required `configFields` is skipped if not configured.
+- **Tool level** — `config.tools['weather']` controls individual tool toggles. Only tools with `enabled: true` are loaded.
 
 </Steps>
 
@@ -116,7 +138,8 @@ Every `defineTool()` call registers a manifest in a global registry keyed by too
 ```ts
 import { getAllManifests, getManifest, getManifests } from '@pandora/core/tools'
 
-const manifest = getManifest(weatherTool)
+const manifest = getManifest(weatherTool)   // by definition or tool instance
+const byId = getManifest('weather')          // by tool ID string
 const manifests = getManifests(toolRecord)
-const all = getAllManifests() // every registered tool
+const all = getAllManifests()                 // every registered tool
 ```

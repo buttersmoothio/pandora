@@ -4,10 +4,11 @@ import { apiFetch } from '@/lib/api'
 export interface ConfigFieldDescriptor {
   key: string
   label: string
-  type: 'text' | 'number' | 'password'
+  type: 'text' | 'number' | 'password' | 'enum'
   required?: boolean
   placeholder?: string
   description?: string
+  options?: { value: string; label: string }[]
 }
 
 export interface ChannelInfo {

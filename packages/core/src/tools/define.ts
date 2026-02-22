@@ -3,8 +3,10 @@ import type { z } from 'zod'
 import type {
   SandboxMode,
   ToolAnnotations,
+  ToolExecuteContext,
   ToolManifest,
   ToolPermissions,
+  ToolPluginConfig,
   ToolRecord,
 } from './types'
 
@@ -15,9 +17,10 @@ type AnyTool = Tool<any, any, any, any, any, any>
 
 const manifestRegistry = new Map<string, ToolManifest>()
 
-/** Retrieve the Pandora manifest for a Mastra Tool. */
-export function getManifest(tool: AnyTool): ToolManifest | undefined {
-  return manifestRegistry.get(tool.id)
+/** Retrieve the Pandora manifest for a tool by ID, tool instance, or tool definition. */
+export function getManifest(toolOrId: string | { id: string }): ToolManifest | undefined {
+  const id = typeof toolOrId === 'string' ? toolOrId : toolOrId.id
+  return manifestRegistry.get(id)
 }
 
 /** Retrieve all manifests for a ToolRecord. */
@@ -35,10 +38,25 @@ export function getAllManifests(): Record<string, ToolManifest> {
   return Object.fromEntries(manifestRegistry)
 }
 
-// --- defineTool ---
+/** Clear the manifest registry. Useful for testing. */
+export function clearManifestRegistry(): void {
+  manifestRegistry.clear()
+}
 
-// biome-ignore lint/suspicious/noExplicitAny: execute context uses Mastra's internal types
-type ExecuteContext = any
+// --- ToolDefinition ---
+
+/**
+ * A tool definition returned by `defineTool`.
+ *
+ * Call with `(env, config)` to produce a bound Mastra tool instance.
+ * The `id` property is available immediately for manifest lookups.
+ */
+export interface ToolDefinition {
+  (env: Record<string, string | undefined>, config: ToolPluginConfig): AnyTool
+  readonly id: string
+}
+
+// --- defineTool ---
 
 export interface DefineToolOptions<TIn, TOut> {
   /** Unique tool identifier. */
@@ -51,8 +69,8 @@ export interface DefineToolOptions<TIn, TOut> {
   inputSchema: z.ZodType<TIn>
   /** Optional Zod schema for output validation. */
   outputSchema?: z.ZodType<TOut>
-  /** The tool's execute function. */
-  execute: (input: TIn, context: ExecuteContext) => Promise<TOut>
+  /** The tool's execute function. Receives `{ env, config }` as the second argument. */
+  execute: (input: TIn, context: ToolExecuteContext) => Promise<TOut>
   /** Declared permissions — what capabilities this tool requires. */
   permissions?: ToolPermissions
   /** Sandbox mode. Defaults to `'compartment'`. */
@@ -66,10 +84,10 @@ export interface DefineToolOptions<TIn, TOut> {
 /**
  * Define a Pandora tool with a permission manifest.
  *
- * Creates a standard Mastra Tool and registers a ToolManifest
- * in the internal Map registry (accessible via `getManifest()`).
+ * Registers the manifest immediately and returns a `ToolDefinition` —
+ * a callable `(env, config) => Tool` that produces a bound Mastra tool.
  */
-export function defineTool<TIn, TOut>(opts: DefineToolOptions<TIn, TOut>): AnyTool {
+export function defineTool<TIn, TOut>(opts: DefineToolOptions<TIn, TOut>): ToolDefinition {
   const manifest: ToolManifest = {
     id: opts.id,
     name: opts.name,
@@ -79,18 +97,24 @@ export function defineTool<TIn, TOut>(opts: DefineToolOptions<TIn, TOut>): AnyTo
     annotations: opts.annotations,
   }
 
-  const tool = createTool({
-    id: opts.id,
-    description: opts.description,
-    inputSchema: opts.inputSchema,
-    outputSchema: opts.outputSchema,
-    execute: opts.execute,
-    requireApproval: opts.requireApproval,
-    ...(opts.annotations && {
-      mcp: { annotations: opts.annotations },
-    }),
-  })
-
   manifestRegistry.set(opts.id, manifest)
-  return tool
+
+  return Object.assign(
+    (env: Record<string, string | undefined>, config: ToolPluginConfig): AnyTool => {
+      // Re-register manifest in case registry was cleared between define and call
+      manifestRegistry.set(opts.id, manifest)
+      return createTool({
+        id: opts.id,
+        description: opts.description,
+        inputSchema: opts.inputSchema,
+        outputSchema: opts.outputSchema,
+        execute: (input, _mastraCtx) => opts.execute(input, { env, config }),
+        requireApproval: opts.requireApproval,
+        ...(opts.annotations && {
+          mcp: { annotations: opts.annotations },
+        }),
+      })
+    },
+    { id: opts.id } as const,
+  )
 }

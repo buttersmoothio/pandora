@@ -77,7 +77,7 @@ export interface ChannelPlugin {
   /** Schema version — must match core's expected version */
   schemaVersion: number
   /** Required environment variable names, e.g. ['TELEGRAM_BOT_TOKEN'] */
-  envVars: string[]
+  envVars?: string[]
   /** Config field descriptors for the UI (beyond `enabled`). Also used to generate Zod validation. */
   configFields?: ConfigFieldDescriptor[]
   /** Factory that creates a channel adapter from env vars and config */

@@ -25,7 +25,7 @@ The plugin descriptor exported by `@pandora/channel-*` packages:
 | `id` | `string` | Yes | Plugin identifier, e.g. `'channel-telegram'` |
 | `name` | `string` | Yes | Human-readable display name, e.g. `'Telegram'` |
 | `schemaVersion` | `number` | Yes | Must match core's expected version |
-| `envVars` | `string[]` | Yes | Required environment variable names |
+| `envVars` | `string[]` | No | Required environment variable names |
 | `configFields` | `ConfigFieldDescriptor[]` | No | UI field descriptors beyond the `enabled` toggle |
 | `factory` | `ChannelFactory` | Yes | Creates a channel adapter from env vars and config |
 
@@ -98,10 +98,11 @@ Describes a config field for UI rendering:
 |---|---|---|---|
 | `key` | `string` | Yes | Field key in config object |
 | `label` | `string` | Yes | Human-readable label |
-| `type` | `'text' \| 'number' \| 'password'` | Yes | HTML input type hint |
+| `type` | `'text' \| 'number' \| 'password' \| 'enum'` | Yes | Input type hint. `'enum'` renders a dropdown select. |
 | `required` | `boolean` | No | Whether this field is required |
 | `placeholder` | `string` | No | Placeholder text |
 | `description` | `string` | No | Help text shown below the input |
+| `options` | `{ value: string; label: string }[]` | No | Allowed values for `type: 'enum'` |
 
 ## `GenerateResult`
 

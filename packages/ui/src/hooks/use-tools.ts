@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import type { ConfigFieldDescriptor } from '@/hooks/use-channels'
 import { apiFetch } from '@/lib/api'
 
 export interface ToolPermissions {
@@ -28,15 +29,36 @@ export interface ToolInfo {
   settings?: Record<string, string>
 }
 
+export interface ToolPluginInfo {
+  id: string
+  name: string
+  envVars: string[]
+  envConfigured: boolean
+  configFields: ConfigFieldDescriptor[]
+  enabled: boolean
+  config: Record<string, unknown>
+}
+
+interface ToolsResponse {
+  tools: ToolInfo[]
+  plugins: ToolPluginInfo[]
+}
+
 export const TOOLS_KEY = ['tools'] as const
 
 function fetchTools() {
-  return apiFetch<{ tools: ToolInfo[] }>('/api/tools').then((res) => res.tools)
+  return apiFetch<ToolsResponse>('/api/tools')
 }
 
 export function useTools() {
-  return useQuery({
+  const query = useQuery({
     queryKey: TOOLS_KEY,
     queryFn: fetchTools,
   })
+
+  return {
+    ...query,
+    tools: query.data?.tools,
+    plugins: query.data?.plugins,
+  }
 }

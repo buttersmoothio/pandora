@@ -27,12 +27,19 @@ discoveryRoutes.get('/tools', async (c) => {
     }
   })
 
-  const toolPlugins = plugins.map((plugin) => ({
-    id: plugin.id,
-    name: plugin.name,
-    envVars: plugin.envVars,
-    configFields: plugin.configFields ?? [],
-  }))
+  const toolPlugins = plugins.map((plugin) => {
+    const pluginConfig = config.toolPlugins[plugin.id]
+    const envConfigured = (plugin.envVars ?? []).every((v) => !!c.var.envVars[v])
+    return {
+      id: plugin.id,
+      name: plugin.name,
+      envVars: plugin.envVars ?? [],
+      envConfigured,
+      configFields: plugin.configFields ?? [],
+      enabled: pluginConfig?.enabled ?? true,
+      config: pluginConfig ?? {},
+    }
+  })
 
   return c.json({ tools, plugins: toolPlugins })
 })
@@ -66,7 +73,7 @@ discoveryRoutes.get('/channels', async (c) => {
 
   const channels = getAllRegisteredChannelPlugins().map((plugin) => {
     const channelConfig = config.channels[plugin.id]
-    const envConfigured = plugin.envVars.every((v) => !!c.var.envVars[v])
+    const envConfigured = (plugin.envVars ?? []).every((v) => !!c.var.envVars[v])
     const adapterId = plugin.id.replace(/^channel-/, '')
     const loaded = loadedIds.has(adapterId)
     const adapter = loadedChannels.find((ch) => ch.id === adapterId)
@@ -74,7 +81,7 @@ discoveryRoutes.get('/channels', async (c) => {
     return {
       id: plugin.id,
       name: plugin.name,
-      envVars: plugin.envVars,
+      envVars: plugin.envVars ?? [],
       envConfigured,
       configFields: plugin.configFields ?? [],
       enabled: channelConfig?.enabled ?? false,

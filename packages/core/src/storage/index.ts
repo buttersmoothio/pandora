@@ -39,7 +39,7 @@ export interface StoragePlugin {
   /** Schema version — must match core's expected version */
   schemaVersion: number
   /** Required environment variable names */
-  envVars: string[]
+  envVars?: string[]
   /** Config field descriptors for the UI */
   configFields?: ConfigFieldDescriptor[]
   /** Factory that creates storage instances */

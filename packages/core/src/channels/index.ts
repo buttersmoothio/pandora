@@ -2,43 +2,16 @@ import type { Mastra } from '@mastra/core'
 import { z } from 'zod'
 import type { Config } from '../config'
 import { getLogger } from '../logger'
-import { PLUGIN_SCHEMA_VERSION } from '../plugin-types'
+import { buildSchemaFromFields, PLUGIN_SCHEMA_VERSION } from '../plugin-types'
 import { createChannelRuntime } from './runtime'
 import {
   clearChannelSchemaRegistry,
   getChannelSchema,
   registerChannelSchema,
 } from './schema-registry'
-import type {
-  ChannelAdapter,
-  ChannelConfig,
-  ChannelPlugin,
-  ChannelRuntime,
-  ConfigFieldDescriptor,
-} from './types'
+import type { ChannelAdapter, ChannelConfig, ChannelPlugin, ChannelRuntime } from './types'
 
 const baseChannelSchema = z.object({ enabled: z.boolean() })
-
-/** Build a Zod schema from config field descriptors */
-function buildSchemaFromFields(fields: ConfigFieldDescriptor[]): z.ZodObject {
-  const shape: Record<string, z.ZodTypeAny> = {}
-  for (const field of fields) {
-    let fieldSchema: z.ZodTypeAny
-    switch (field.type) {
-      case 'number':
-        fieldSchema = z.number()
-        break
-      default:
-        fieldSchema = z.string()
-        break
-    }
-    if (!field.required) {
-      fieldSchema = fieldSchema.optional()
-    }
-    shape[field.key] = fieldSchema
-  }
-  return z.object(shape)
-}
 
 // ---------------------------------------------------------------------------
 // Plugin registry
@@ -97,7 +70,7 @@ function validateChannelConfig(
   }
 
   if (rawConfig && schema) {
-    const result = baseChannelSchema.merge(schema).safeParse(rawConfig)
+    const result = baseChannelSchema.extend(schema.shape).safeParse(rawConfig)
     if (!result.success) {
       const issues = result.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`)
       log.error(`Channel ${plugin.id} disabled (invalid config)`, { issues })

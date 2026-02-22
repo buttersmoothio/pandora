@@ -1,3 +1,5 @@
+import { z } from 'zod'
+
 /**
  * Schema version for all plugin descriptors (tools, storage, channels).
  * Bump this when the plugin interface changes in a breaking way.
@@ -10,12 +12,46 @@ export interface ConfigFieldDescriptor {
   key: string
   /** Human-readable label, e.g. 'Owner ID' */
   label: string
-  /** HTML input type hint */
-  type: 'text' | 'number' | 'password'
+  /** Input type hint: `'enum'` renders a dropdown select from `options` */
+  type: 'text' | 'number' | 'password' | 'enum'
   /** Whether this field is required */
   required?: boolean
   /** Placeholder text */
   placeholder?: string
   /** Help text shown below the input */
   description?: string
+  /** Allowed values for `type: 'enum'`. Each entry has a `value` and display `label`. */
+  options?: { value: string; label: string }[]
+}
+
+/** Per-plugin user configuration (shared shape for all plugin types) */
+export interface PluginConfig {
+  enabled: boolean
+  [key: string]: unknown
+}
+
+/** Build a Zod schema from config field descriptors */
+export function buildSchemaFromFields(fields: ConfigFieldDescriptor[]): z.ZodObject {
+  const shape: Record<string, z.ZodTypeAny> = {}
+  for (const field of fields) {
+    let fieldSchema: z.ZodTypeAny
+    switch (field.type) {
+      case 'number':
+        fieldSchema = z.number()
+        break
+      case 'enum': {
+        const values = (field.options ?? []).map((o) => o.value)
+        fieldSchema = values.length > 0 ? z.enum(values as [string, ...string[]]) : z.string()
+        break
+      }
+      default:
+        fieldSchema = z.string()
+        break
+    }
+    if (!field.required) {
+      fieldSchema = fieldSchema.optional()
+    }
+    shape[field.key] = fieldSchema
+  }
+  return z.object(shape)
 }
