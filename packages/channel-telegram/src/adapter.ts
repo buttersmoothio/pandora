@@ -14,7 +14,7 @@ const NEW_THREAD_GREETINGS = [
 ]
 
 function randomGreeting(): string {
-  return NEW_THREAD_GREETINGS[Math.floor(Math.random() * NEW_THREAD_GREETINGS.length)]!
+  return NEW_THREAD_GREETINGS[Math.floor(Math.random() * NEW_THREAD_GREETINGS.length)] as string
 }
 
 /**
@@ -55,20 +55,13 @@ export function createTelegramAdapter(token: string, ownerId: string): ChannelAd
         { command: 'new', description: 'Start a fresh conversation' },
       ])
 
-      bot.command('start', async (ctx) => {
-        const chatId = ctx.chat.id
-        await runtime.newThread(CHANNEL_ID, String(chatId))
-        await reply(
-          ctx,
-          'Welcome! Send me a message to start chatting.\n\nUse /new to start a new conversation.',
-        )
-      })
-
-      bot.command('new', async (ctx) => {
-        const chatId = ctx.chat.id
-        await runtime.newThread(CHANNEL_ID, String(chatId))
-        await reply(ctx, randomGreeting())
-      })
+      for (const cmd of ['start', 'new'] as const) {
+        bot.command(cmd, async (ctx) => {
+          const chatId = ctx.chat.id
+          await runtime.newThread(CHANNEL_ID, String(chatId))
+          await reply(ctx, randomGreeting())
+        })
+      }
 
       bot.on('message:text', async (ctx) => {
         const text = ctx.message.text.trim()
@@ -76,14 +69,25 @@ export function createTelegramAdapter(token: string, ownerId: string): ChannelAd
 
         const chatId = ctx.chat.id
         const threadId = await runtime.resolveThread(CHANNEL_ID, String(chatId))
-        const result = await runtime.generate({
-          threadId,
-          parts: [{ type: 'text', text }],
-        })
 
-        if (result.text) {
-          const html = markdownToHtml(result.text)
-          await reply(ctx, html)
+        await ctx.replyWithChatAction('typing')
+        const typingInterval = setInterval(
+          () => ctx.replyWithChatAction('typing').catch(() => {}),
+          5_000,
+        )
+
+        try {
+          const result = await runtime.generate({
+            threadId,
+            parts: [{ type: 'text', text }],
+          })
+
+          if (result.text) {
+            const html = markdownToHtml(result.text)
+            await reply(ctx, html)
+          }
+        } finally {
+          clearInterval(typingInterval)
         }
       })
 

@@ -67,6 +67,7 @@ function createMockCtx(chatId: number, opts?: { text?: string; fromId?: number }
     message: opts?.text !== undefined ? { text: opts.text } : { text: '' },
     api: mockApi,
     reply: vi.fn(),
+    replyWithChatAction: vi.fn(),
   }
 }
 
@@ -160,9 +161,7 @@ describe('realtime', () => {
     await botInstance._commands.start(ctx)
 
     expect(runtime.newThread).toHaveBeenCalledWith('telegram', '42')
-    expect(ctx.reply).toHaveBeenCalledWith(expect.stringContaining('Welcome'), {
-      parse_mode: 'HTML',
-    })
+    expect(ctx.reply).toHaveBeenCalledWith(expect.any(String), { parse_mode: 'HTML' })
   })
 
   it('handles /new command', async () => {
@@ -184,6 +183,13 @@ describe('realtime', () => {
     })
     expect(markdownToHtml).toHaveBeenCalledWith('AI response')
     expect(ctx.reply).toHaveBeenCalledWith('<b>AI response</b>', { parse_mode: 'HTML' })
+  })
+
+  it('sends typing indicator while generating', async () => {
+    const ctx = createMockCtx(42, { text: 'Hello' })
+    await botInstance._handlers['message:text'](ctx)
+
+    expect(ctx.replyWithChatAction).toHaveBeenCalledWith('typing')
   })
 
   it('falls back to plain text when HTML fails', async () => {
