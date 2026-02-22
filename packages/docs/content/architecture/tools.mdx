@@ -18,12 +18,8 @@ Sandbox mode is not a per-tool option — it's determined by the tool's origin:
 
 Built-in tools live in separate `@pandora/tools-*` packages rather than inside core. This keeps core's dependency surface small and lets each tool package be tested, versioned, and tree-shaken independently — the same pattern used by `@pandora/storage-*` and `@pandora/channel-*`.
 
-Packages register themselves at startup via `registerToolPlugin()` in `plugins.ts`. Every package exports a `ToolPlugin` descriptor with metadata (`name`, `envVars`) and a factory that receives environment variables and returns a tool record. Core merges these records and filters out any tool the user has not enabled in config. All three plugin types (tools, storage, channels) share a common `PLUGIN_SCHEMA_VERSION` constant and the same `ConfigFieldDescriptor` type for UI rendering hints.
-
-The loading semantics are explicit opt-in: a tool is only available when enabled in config. The default configuration enables the standard set, so the experience is seamless out of the box, but operators have full control over which tools are active.
+Tools are explicit opt-in: only enabled tools are loaded. The default configuration enables the standard set so the experience is seamless out of the box, but operators have full control over which tools are active.
 
 ## Manifest Registry
 
-Every tool created via `defineTool()` has a manifest registered in a global registry keyed by tool ID. This keeps Pandora-specific metadata (permissions, sandbox mode, annotations) separate from the Mastra Tool object while allowing lookup by ID without a tool instance.
-
-The registry allows the UI to display descriptions, permission badges, sandbox mode, and approval prompts, and allows the runtime to select the correct execution mode. Tools created directly via Mastra's `createTool()` have no manifest — only Pandora-defined tools participate in the manifest system.
+Every tool has a manifest that keeps Pandora-specific metadata (permissions, sandbox mode, annotations) separate from the underlying Mastra tool object. This lets the UI display permission badges, sandbox mode, and approval prompts without coupling to the tool execution layer.

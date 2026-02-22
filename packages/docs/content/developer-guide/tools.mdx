@@ -2,7 +2,7 @@ import { Steps, FileTree } from 'nextra/components'
 
 # Build a Tool
 
-Tools are standalone npm packages. They run directly in Node.js (host mode) and have full runtime access.
+Tools are standalone npm packages that run in Node.js with full runtime access.
 
 <Steps>
 
@@ -70,7 +70,7 @@ export const weatherTool = defineTool({
 })
 ```
 
-- `defineTool()` returns a **tool definition** — a function `(env, config) => Tool`. The execute function receives `{ env, config }` as its second argument, giving tools clean access to environment variables and plugin configuration.
+- `defineTool()` returns a **tool definition** that you list in your plugin's `tools` array. The `execute` function receives `{ env, config }` as its second argument, giving tools clean access to environment variables and plugin configuration.
 - **`annotations`** are MCP-compatible hints that help the UI decide whether to auto-approve or prompt for confirmation. A tool marked `readOnlyHint: true` and `destructiveHint: false` can be auto-approved.
 
 ### Export the plugin descriptor
@@ -105,9 +105,9 @@ export default {
 ```
 
 - **`name`** — human-readable display name for the UI.
-- **`tools`** — array of `ToolDefinition`s. Core binds `(env, config)` automatically — no factory needed.
-- **`envVars`** — environment variables the plugin needs, as `{ name, required? }` descriptors. Variables default to required; set `required: false` for optional ones. Listed in the discovery API so the UI can show configuration status.
-- **`configFields`** — describes user-configurable settings beyond `enabled`. Core auto-generates Zod validation and the UI renders input fields from these descriptors. Works the same way as channel `configFields`.
+- **`tools`** — array of tool definitions returned by `defineTool()`. Pandora binds `(env, config)` automatically when loading plugins — you just list them.
+- **`envVars`** — environment variables the plugin needs, as `{ name, required? }` descriptors. Variables default to required; set `required: false` for optional ones. The settings UI shows whether they're configured.
+- **`configFields`** — describes user-configurable settings beyond `enabled`. Pandora validates input and renders fields in the settings UI from these descriptors.
 - If `configFields` are declared and the user hasn't configured them, the plugin is skipped.
 
 ### Register it
@@ -123,22 +123,97 @@ registerToolPlugin(weather)
 
 ### Enable it
 
-There are two levels of configuration:
+Once registered, users control your plugin at two levels in **Settings → Tools**:
 
-- **Plugin level** — `config.toolPlugins['tools-weather']` controls whether the plugin is active and stores user settings from `configFields`. A plugin with required `configFields` is skipped if not configured.
-- **Tool level** — `config.tools['weather']` controls individual tool toggles. Only tools with `enabled: true` are loaded.
+- **Plugin level** — toggles the plugin on/off and stores settings from your `configFields`. A plugin with required `configFields` is skipped until the user configures them.
+- **Tool level** — toggles individual tools within the plugin. Only enabled tools are loaded.
 
 </Steps>
 
-## Manifests
+## Reference
 
-Every `defineTool()` call registers a manifest in a global registry keyed by tool ID. This lets the UI display descriptions and approval prompts.
+All types are exported from `@pandora/core/tools`:
 
 ```ts
-import { getAllManifests, getManifest, getManifests } from '@pandora/core/tools'
+import { defineTool } from '@pandora/core/tools'
 
-const manifest = getManifest(weatherTool)   // by definition or tool instance
-const byId = getManifest('weather')          // by tool ID string
-const manifests = getManifests(toolRecord)
-const all = getAllManifests()                 // every registered tool
+import type {
+  ConfigFieldDescriptor,
+  EnvVarDescriptor,
+  ToolExecuteContext,
+  ToolAnnotations,
+  ToolPlugin,
+  ToolPluginConfig,
+} from '@pandora/core/tools'
 ```
+
+### `ToolExecuteContext`
+
+The second argument passed to the tool's `execute` function:
+
+```ts
+interface ToolExecuteContext {
+  env: Record<string, string | undefined>
+  config: ToolPluginConfig
+}
+```
+
+### `DefineToolOptions`
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `id` | `string` | Yes | Unique tool identifier |
+| `name` | `string` | Yes | Human-readable display name |
+| `description` | `string` | Yes | What the tool does (shown to the LLM) |
+| `inputSchema` | `z.ZodType` | Yes | Zod schema for input validation |
+| `outputSchema` | `z.ZodType` | No | Optional Zod schema for output validation |
+| `execute` | `(input, context: ToolExecuteContext) => Promise` | Yes | The tool's handler function |
+| `permissions` | `ToolPermissions` | No | Declared capabilities (time, network, env, fs, random) |
+| `sandbox` | `'compartment' \| 'host'` | No | `'host'` runs with full Node.js access (default for tool plugins). `'compartment'` runs in a restricted sandbox. |
+| `timeout` | `number` | No | Execution timeout in milliseconds. Defaults to `60000` (60 s) |
+| `requireApproval` | `boolean` | No | Require user approval before execution |
+| `annotations` | `ToolAnnotations` | No | MCP-compatible UI hints |
+
+### `ToolAnnotations`
+
+```ts
+interface ToolAnnotations {
+  title?: string              // Display title in UI
+  readOnlyHint?: boolean      // Safe to run without confirmation
+  destructiveHint?: boolean   // May perform irreversible operations
+  idempotentHint?: boolean    // Same args = no additional effect
+}
+```
+
+### `ToolPluginConfig`
+
+The validated user configuration passed to tool definitions:
+
+```ts
+interface ToolPluginConfig {
+  enabled: boolean
+  [key: string]: unknown // custom fields from configFields
+}
+```
+
+### `ToolPlugin`
+
+The descriptor your package default-exports:
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `id` | `string` | Yes | Plugin identifier, e.g. `'tools-datetime'` |
+| `name` | `string` | Yes | Human-readable display name, e.g. `'Date & Time'` |
+| `schemaVersion` | `number` | Yes | Must be `1` |
+| `envVars` | `EnvVarDescriptor[]` | No | Environment variable descriptors |
+| `configFields` | `ConfigFieldDescriptor[]` | No | UI config field descriptors |
+| `tools` | `ToolDefinition[]` | Yes | Tool definitions returned by `defineTool()` |
+
+### `EnvVarDescriptor`
+
+Describes an environment variable a plugin depends on:
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `name` | `string` | Yes | Environment variable name |
+| `required` | `boolean` | No | Whether this variable is required. Defaults to `true` |

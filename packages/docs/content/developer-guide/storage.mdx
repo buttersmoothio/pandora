@@ -51,7 +51,7 @@ Most providers don't need to implement `ConfigStore` or `AuthStore` from scratch
   </Tabs.Tab>
 </Tabs>
 
-If neither fits your database, implement `ConfigStore` and `AuthStore` directly — see the [Storage Reference](/reference/storage) for interface contracts.
+If neither fits your database, implement `ConfigStore` and `AuthStore` directly — see the [Reference](#reference) section below for interface contracts.
 
 ## Creating a Plugin
 
@@ -164,3 +164,165 @@ STORAGE_PROVIDER=storage-postgres DATABASE_URL=postgres://localhost/pandora bun 
 ```
 
 </Steps>
+
+## Reference
+
+All types are exported from `@pandora/core/storage`:
+
+```ts
+import type {
+  AuthStore,
+  Config,
+  ConfigFieldDescriptor,
+  ConfigStore,
+  StorageFactory,
+  StoragePlugin,
+  StorageResult,
+} from '@pandora/core/storage'
+
+import {
+  SQLConfigStore,
+  SQLAuthStore,
+  RedisConfigStore,
+  RedisAuthStore,
+} from '@pandora/core/storage'
+```
+
+### `StoragePlugin`
+
+The descriptor your package default-exports:
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `id` | `string` | Yes | Plugin identifier, e.g. `'storage-postgres'` |
+| `name` | `string` | Yes | Human-readable display name, e.g. `'PostgreSQL'` |
+| `schemaVersion` | `number` | Yes | Must be `1` |
+| `envVars` | `EnvVarDescriptor[]` | No | Environment variable descriptors |
+| `configFields` | `ConfigFieldDescriptor[]` | No | UI config field descriptors |
+| `factory` | `StorageFactory` | Yes | Creates storage instances from env vars |
+
+### `StorageFactory`
+
+The factory function inside a `StoragePlugin`:
+
+```ts
+type StorageFactory = (
+  env: Record<string, string | undefined>,
+  bindings?: unknown,
+) => Promise<StorageResult>
+```
+
+| Parameter | Description |
+|---|---|
+| `env` | Environment variables |
+| `bindings` | Cloudflare Workers bindings, if applicable |
+
+### `StorageResult`
+
+The object your factory must return:
+
+```ts
+interface StorageResult {
+  /** Mastra storage for memory, workflows, etc. */
+  mastra: MastraCompositeStore
+  /** Pandora config storage */
+  config: ConfigStore<Config>
+  /** Pandora auth storage */
+  auth: AuthStore
+  /** Close all connections (optional cleanup on shutdown) */
+  close?(): Promise<void>
+}
+```
+
+### `ConfigStore<T>`
+
+```ts
+interface ConfigStore<T = unknown> {
+  /** Get the current config, or null if not set */
+  get(): Promise<T | null>
+
+  /** Save the config (full replacement) */
+  set(config: T): Promise<void>
+
+  /** Delete the config */
+  delete(): Promise<void>
+
+  /** Initialize tables/collections if needed (optional) */
+  init?(): Promise<void>
+
+  /** Close connections (optional cleanup) */
+  close?(): Promise<void>
+}
+```
+
+Implementation requirements:
+- `get()` must return `null` (not throw) if no config exists yet
+- `set()` performs a full replacement (upsert)
+- `delete()` should not throw if the config doesn't exist
+- `init()` is called automatically by Pandora after `createStorage` returns — use it for schema setup
+
+### `AuthStore`
+
+```ts
+interface AuthStore {
+  init(): Promise<void>
+  getCredential(): Promise<PasswordCredential | null>
+  setCredential(credential: PasswordCredential): Promise<void>
+  setCredentialIfNotExists(credential: PasswordCredential): Promise<boolean>
+  createSession(session: Session): Promise<void>
+  getSession(tokenHash: string): Promise<Session | null>
+  deleteSession(tokenHash: string): Promise<void>
+  deleteAllSessions(): Promise<void>
+  listSessions(): Promise<Session[]>
+  createRefreshToken(token: RefreshToken): Promise<void>
+  getRefreshToken(tokenHash: string): Promise<RefreshToken | null>
+  deleteRefreshToken(tokenHash: string): Promise<void>
+  deleteAllRefreshTokens(): Promise<void>
+  markRefreshTokenUsed(tokenHash: string): Promise<void>
+  close?(): Promise<void>
+}
+```
+
+Implementation requirements:
+- `init()` is called automatically — use it to create tables/collections
+- `getCredential()` and `getSession()` must return `null` if not found
+- `setCredentialIfNotExists()` must be atomic — return `true` if set, `false` if one already exists
+
+### SQL Helpers
+
+`SQLConfigStore` and `SQLAuthStore` accept an `execute` function and a dialect:
+
+```ts
+type SQLDialect = 'sqlite' | 'postgres' | 'mssql'
+
+new SQLConfigStore<Config>(execute, dialect)
+new SQLAuthStore(execute, dialect)
+```
+
+The `execute` function signature:
+
+```ts
+(sql: string, params?: unknown[]) => Promise<Record<string, unknown>[]>
+```
+
+Supported dialects handle differences in:
+- Table creation syntax
+- Parameterized query placeholders (`?`, `$1`, `@p1`)
+- Upsert strategy (`ON CONFLICT` vs `MERGE`)
+- JSON storage (`TEXT`, `JSONB`, `NVARCHAR(MAX)`)
+
+`SQLAuthStore` creates three tables: `pandora_auth_credentials`, `pandora_auth_sessions`, `pandora_auth_refresh_tokens`.
+
+### Redis Helpers
+
+`RedisConfigStore` and `RedisAuthStore` accept an operations object:
+
+```ts
+// Config store needs get/set/del
+new RedisConfigStore<Config>({ get, set, del })
+
+// Auth store additionally needs set members
+new RedisAuthStore({ get, set, del, smembers, sadd, srem })
+```
+
+Config is stored under the key `pandora:config`. Auth uses key prefixes: `pandora:auth:credential`, `pandora:auth:session:*`, `pandora:auth:refresh:*`.

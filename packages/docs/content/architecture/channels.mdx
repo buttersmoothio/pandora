@@ -6,8 +6,6 @@ Channels connect Pandora to external messaging platforms (Telegram, Discord, Sla
 
 Each channel is a standalone npm package with its own dependencies. A Telegram channel depends on grammY, a Discord channel would depend on discord.js — none of these are bundled with core. This keeps the core package small and avoids pulling in SDKs for platforms the user doesn't need.
 
-Plugins register themselves at startup via `registerChannelPlugin()` in `plugins.ts`. Core doesn't import channel packages dynamically or scan `node_modules` — the registration is explicit and statically analyzable.
-
 ## Dual Modes: Webhook vs Realtime
 
 A channel adapter can implement one or both modes:

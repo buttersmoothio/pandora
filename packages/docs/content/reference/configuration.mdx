@@ -119,3 +119,55 @@ Returns all supported providers, their models, and whether the required API key 
 ```
 
 Use this endpoint to build model selection UIs. Providers with `configured: false` are missing their API key.
+
+## Available Channels
+
+```
+GET /api/channels
+Authorization: Bearer <token>
+```
+
+Returns all registered channel plugins with their config and status:
+
+```json
+{
+  "channels": [
+    {
+      "id": "channel-telegram",
+      "name": "Telegram",
+      "envVars": [{ "name": "TELEGRAM_BOT_TOKEN" }],
+      "envConfigured": true,
+      "configFields": [
+        {
+          "key": "ownerId",
+          "label": "Owner ID",
+          "type": "text",
+          "required": true,
+          "placeholder": "123456789",
+          "description": "Your Telegram user ID..."
+        }
+      ],
+      "enabled": true,
+      "config": { "enabled": true, "ownerId": "123456789" },
+      "loaded": true,
+      "webhook": false,
+      "realtime": true
+    }
+  ]
+}
+```
+
+Each channel object contains:
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | `string` | Plugin identifier |
+| `name` | `string` | Display name |
+| `envVars` | `EnvVarDescriptor[]` | Environment variable descriptors |
+| `envConfigured` | `boolean` | Whether all required env vars are set |
+| `configFields` | `ConfigFieldDescriptor[]` | UI field descriptors |
+| `enabled` | `boolean` | Whether enabled in config |
+| `config` | `object` | Current config values |
+| `loaded` | `boolean` | Whether the adapter loaded successfully |
+| `webhook` | `boolean \| null` | Whether webhook mode is available (`null` if not loaded) |
+| `realtime` | `boolean \| null` | Whether realtime mode is available (`null` if not loaded) |

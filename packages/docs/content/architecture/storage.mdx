@@ -9,8 +9,4 @@ StorageResult
 └── auth     ← Credentials, sessions, refresh tokens (AuthStore)
 ```
 
-Plugins are registered explicitly at startup via `registerStoragePlugin()` in `plugins.ts`. The `STORAGE_PROVIDER` env var selects which registered provider to use.
-
-SQL-backed providers use dialect-aware helpers that handle SQLite, PostgreSQL, and MSSQL differences through a caller-provided `execute(sql, params)` function, keeping the helpers free of driver-specific imports. KV-backed providers use equivalent helpers for Redis-like stores.
-
 In server mode, all three layers are cached for the process lifetime. In serverless mode, fresh instances are created per request.

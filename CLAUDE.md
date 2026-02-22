@@ -9,7 +9,6 @@ packages/
   core/           # Hono server (auth, storage, AI agent)
   ui/             # Next.js chat interface
   docs/           # Nextra documentation site
-  elements/       # Composable AI chat UI components
   storage-*/      # Storage provider packages
 ```
 

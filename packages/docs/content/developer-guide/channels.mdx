@@ -147,9 +147,9 @@ export default {
 Key fields:
 
 - **`id`** — must be `channel-{name}`, matching your package name
-- **`schemaVersion`** — must match core's expected version (currently `1`)
-- **`envVars`** — env vars the factory needs, as `{ name, required? }` descriptors. Variables default to required; set `required: false` for optional ones. The UI shows whether they're configured.
-- **`configFields`** — describes UI inputs beyond the `enabled` toggle. Core auto-generates Zod validation from these.
+- **`schemaVersion`** — must be `1`
+- **`envVars`** — env vars the factory needs, as `{ name, required? }` descriptors. Variables default to required; set `required: false` for optional ones. The settings UI shows whether they're configured.
+- **`configFields`** — describes settings inputs beyond the `enabled` toggle. Pandora validates input from these descriptors.
 - **`factory`** — receives env vars and validated config. Return `null` if required env vars are missing.
 
 ### Using the runtime
@@ -220,3 +220,141 @@ const webhook: ChannelWebhook = {
 ```
 
 The webhook route is `POST /wh/:channel` where `:channel` is your adapter's `id`. The `verify()` method runs before `handle()` — return `false` to reject the request with a 401.
+
+## Reference
+
+All types are exported from `@pandora/core/channels`:
+
+```ts
+import type {
+  ChannelPlugin,
+  ChannelAdapter,
+  ChannelFactory,
+  ChannelWebhook,
+  ChannelRealtime,
+  ChannelRuntime,
+  ConfigFieldDescriptor,
+  GenerateResult,
+  StreamResult,
+} from '@pandora/core/channels'
+```
+
+### `ChannelPlugin`
+
+The descriptor your package default-exports:
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `id` | `string` | Yes | Plugin identifier, e.g. `'channel-telegram'` |
+| `name` | `string` | Yes | Human-readable display name, e.g. `'Telegram'` |
+| `schemaVersion` | `number` | Yes | Must be `1` |
+| `envVars` | `EnvVarDescriptor[]` | No | Environment variable descriptors |
+| `configFields` | `ConfigFieldDescriptor[]` | No | UI field descriptors beyond the `enabled` toggle |
+| `factory` | `ChannelFactory` | Yes | Creates a channel adapter from env vars and config |
+
+### `ChannelFactory`
+
+```ts
+type ChannelFactory = (
+  env: Record<string, string | undefined>,
+  config: ChannelConfig,
+) => ChannelAdapter | null
+```
+
+Returns `null` when required env vars are missing.
+
+### `ChannelAdapter`
+
+The object your factory returns:
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `id` | `string` | Yes | Channel identifier, e.g. `'telegram'` |
+| `name` | `string` | Yes | Display name, e.g. `'Telegram'` |
+| `webhook` | `ChannelWebhook` | No | Webhook mode handler |
+| `realtime` | `ChannelRealtime` | No | Realtime mode handler |
+
+### `ChannelWebhook`
+
+```ts
+interface ChannelWebhook {
+  /** Verify request signature. Return false to reject with 401. */
+  verify(
+    request: Request,
+    env: Record<string, string | undefined>,
+  ): Promise<boolean>
+
+  /** Handle the webhook request and return a Response. */
+  handle(request: Request, runtime: ChannelRuntime): Promise<Response>
+}
+```
+
+### `ChannelRealtime`
+
+```ts
+interface ChannelRealtime {
+  /** Open a persistent connection to the platform. */
+  start(runtime: ChannelRuntime): Promise<void>
+
+  /** Tear down the connection. */
+  stop(): Promise<void>
+}
+```
+
+### `ChannelRuntime`
+
+The object passed to your `start()`, `handle()`, and `stop()` methods:
+
+| Method | Signature | Description |
+|---|---|---|
+| `generate` | `(opts: { threadId: string; parts: MessagePart[] }) => Promise<GenerateResult>` | Non-streaming: send message, get full response |
+| `stream` | `(opts: { threadId: string; parts: MessagePart[] }) => Promise<StreamResult>` | Streaming: send message, get live text stream |
+| `resolveThread` | `(channelId: string, externalId: string) => Promise<string>` | Get or create a thread for a platform conversation |
+| `newThread` | `(channelId: string, externalId: string) => Promise<string>` | Start a fresh thread, returns new threadId |
+| `env` | `Record<string, string \| undefined>` | Environment variables |
+
+### `ConfigFieldDescriptor`
+
+Describes a config field for UI rendering:
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `key` | `string` | Yes | Field key in config object |
+| `label` | `string` | Yes | Human-readable label |
+| `type` | `'text' \| 'number' \| 'password' \| 'enum'` | Yes | Input type hint. `'enum'` renders a dropdown select. |
+| `required` | `boolean` | No | Whether this field is required |
+| `placeholder` | `string` | No | Placeholder text |
+| `description` | `string` | No | Help text shown below the input |
+| `options` | `{ value: string; label: string }[]` | No | Allowed values for `type: 'enum'` |
+
+### `GenerateResult`
+
+Non-streaming response — all fields resolved:
+
+| Field | Type | Description |
+|---|---|---|
+| `text` | `string` | Generated text response |
+| `sources` | `SourceChunk[]` | Referenced sources |
+| `toolCalls` | `ToolCallChunk[]` | Tool calls made during generation |
+| `toolResults` | `ToolResultChunk[]` | Results from tool executions |
+| `files` | `FileChunk[]` | Generated files |
+| `reasoning` | `ReasoningChunk[]` | Reasoning steps |
+| `reasoningText` | `string?` | Combined reasoning text |
+| `usage` | `LanguageModelUsage` | Token usage statistics |
+
+### `StreamResult`
+
+Streaming response — live text stream plus promise-based fields:
+
+| Field | Type | Description |
+|---|---|---|
+| `textStream` | `ReadableStream<string>` | Live text stream |
+| `text` | `Promise<string>` | Full text when complete |
+| `sources` | `Promise<SourceChunk[]>` | Sources when complete |
+| `toolCalls` | `Promise<ToolCallChunk[]>` | Tool calls when complete |
+| `toolResults` | `Promise<ToolResultChunk[]>` | Tool results when complete |
+| `files` | `Promise<FileChunk[]>` | Files when complete |
+| `reasoning` | `Promise<ReasoningChunk[]>` | Reasoning when complete |
+| `reasoningText` | `Promise<string \| undefined>` | Reasoning text when complete |
+| `usage` | `Promise<LanguageModelUsage>` | Usage when complete |
+
