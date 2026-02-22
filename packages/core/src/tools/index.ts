@@ -1,16 +1,20 @@
 import type { Config } from '../config'
-import type { ToolPackagePlugin, ToolRecord } from './types'
+import { PLUGIN_SCHEMA_VERSION } from '../plugin-types'
+import type { ToolPlugin, ToolRecord } from './types'
 
 export { defineTool, getAllManifests, getManifest, getManifests } from './define'
 export type { CompartmentExecuteOptions, Endowments } from './sandbox'
 export { executeInCompartment } from './sandbox'
 export type {
+  ConfigFieldDescriptor,
   SandboxMode,
   ToolAnnotations,
+  ToolFactory,
   ToolManifest,
   ToolPackageFactory,
   ToolPackagePlugin,
   ToolPermissions,
+  ToolPlugin,
   ToolRecord,
 } from './types'
 
@@ -18,11 +22,10 @@ export type {
 // Plugin registry
 // ---------------------------------------------------------------------------
 
-const TOOL_SCHEMA_VERSION = 1
-const packageRegistry = new Map<string, ToolPackagePlugin>()
+const pluginRegistry = new Map<string, ToolPlugin>()
 
 /**
- * Register a tool package plugin.
+ * Register a tool plugin.
  *
  * Must be called before tools are loaded. Importing the package
  * triggers its `defineTool` calls, so manifests are registered as
@@ -30,15 +33,18 @@ const packageRegistry = new Map<string, ToolPackagePlugin>()
  *
  * Validates schema version compatibility on registration.
  */
-export function registerToolPackage(plugin: ToolPackagePlugin): void {
-  if (plugin.schemaVersion !== TOOL_SCHEMA_VERSION) {
+export function registerToolPlugin(plugin: ToolPlugin): void {
+  if (plugin.schemaVersion !== PLUGIN_SCHEMA_VERSION) {
     throw new Error(
       `Tool plugin '${plugin.id}' uses schema v${plugin.schemaVersion}, ` +
-        `but core expects v${TOOL_SCHEMA_VERSION}. Update the package.`,
+        `but core expects v${PLUGIN_SCHEMA_VERSION}. Update the package.`,
     )
   }
-  packageRegistry.set(plugin.id, plugin)
+  pluginRegistry.set(plugin.id, plugin)
 }
+
+/** @deprecated Use `registerToolPlugin` */
+export const registerToolPackage = registerToolPlugin
 
 /**
  * Load all tools from registered packages, filtered by config.
@@ -52,7 +58,7 @@ export async function loadTools(
 ): Promise<ToolRecord> {
   const result: ToolRecord = {}
 
-  for (const [, plugin] of packageRegistry) {
+  for (const [, plugin] of pluginRegistry) {
     const tools = plugin.factory(envVars)
     for (const [id, tool] of Object.entries(tools)) {
       if (config.tools[id]?.enabled) {
@@ -64,9 +70,17 @@ export async function loadTools(
   return result
 }
 
-/**
- * Clear the tool package registry. Useful for testing.
- */
-export function clearToolPackages(): void {
-  packageRegistry.clear()
+/** Get all registered tool plugins (regardless of load status) */
+export function getAllRegisteredToolPlugins(): ToolPlugin[] {
+  return [...pluginRegistry.values()]
 }
+
+/**
+ * Clear the tool plugin registry. Useful for testing.
+ */
+export function clearToolPlugins(): void {
+  pluginRegistry.clear()
+}
+
+/** @deprecated Use `clearToolPlugins` */
+export const clearToolPackages = clearToolPlugins

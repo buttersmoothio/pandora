@@ -3,15 +3,15 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { Config } from '../config'
 import { DEFAULTS } from '../config'
 import { getManifest } from './define'
-import { clearToolPackages, loadTools, registerToolPackage } from './index'
+import { clearToolPlugins, loadTools, registerToolPlugin } from './index'
 
 describe('loadTools', () => {
   beforeEach(() => {
-    registerToolPackage(datetime)
+    registerToolPlugin(datetime)
   })
 
   afterEach(() => {
-    clearToolPackages()
+    clearToolPlugins()
   })
 
   it('loads tools from registered packages', async () => {
@@ -51,20 +51,26 @@ describe('loadTools', () => {
   })
 
   it('returns empty when no packages registered', async () => {
-    clearToolPackages()
+    clearToolPlugins()
     const tools = await loadTools(DEFAULTS, {})
     expect(Object.keys(tools)).toHaveLength(0)
   })
 })
 
-describe('registerToolPackage', () => {
+describe('registerToolPlugin', () => {
   afterEach(() => {
-    clearToolPackages()
+    clearToolPlugins()
   })
 
   it('rejects plugins with incompatible schema version', () => {
     expect(() =>
-      registerToolPackage({ id: 'bad', schemaVersion: 99, factory: () => ({}) }),
+      registerToolPlugin({
+        id: 'bad',
+        name: 'Bad',
+        schemaVersion: 99,
+        envVars: [],
+        factory: () => ({}),
+      }),
     ).toThrow(/schema v99/)
   })
 })

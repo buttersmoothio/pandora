@@ -1,10 +1,10 @@
 import telegram from '@pandora/channel-telegram'
 import libsql from '@pandora/storage-libsql'
 import datetime from '@pandora/tools-datetime'
-import { registerChannelFactory } from './channels'
-import { registerStorageProvider } from './storage'
-import { registerToolPackage } from './tools'
+import { registerChannelPlugin } from './channels'
+import { registerStoragePlugin } from './storage'
+import { registerToolPlugin } from './tools'
 
-registerStorageProvider(libsql)
-registerToolPackage(datetime)
-registerChannelFactory(telegram)
+registerStoragePlugin(libsql)
+registerToolPlugin(datetime)
+registerChannelPlugin(telegram)

@@ -1,7 +1,8 @@
 export default {
+  auth: 'Authentication',
   configuration: 'Configuration',
   ui: 'Chat UI',
-  auth: 'Authentication',
-  deployment: 'Deployment',
+  channels: 'Channels',
   storage: 'Storage',
+  deployment: 'Deployment',
 }

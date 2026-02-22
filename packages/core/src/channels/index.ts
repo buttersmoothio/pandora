@@ -2,6 +2,7 @@ import type { Mastra } from '@mastra/core'
 import { z } from 'zod'
 import type { Config } from '../config'
 import { getLogger } from '../logger'
+import { PLUGIN_SCHEMA_VERSION } from '../plugin-types'
 import { createChannelRuntime } from './runtime'
 import {
   clearChannelSchemaRegistry,
@@ -43,7 +44,6 @@ function buildSchemaFromFields(fields: ConfigFieldDescriptor[]): z.ZodObject {
 // Plugin registry
 // ---------------------------------------------------------------------------
 
-const CHANNEL_SCHEMA_VERSION = 1
 const factoryRegistry = new Map<string, ChannelPlugin>()
 
 /**
@@ -52,11 +52,11 @@ const factoryRegistry = new Map<string, ChannelPlugin>()
  * Must be called before channels are loaded (before the first request
  * hits the webhook route). Validates schema version compatibility.
  */
-export function registerChannelFactory(plugin: ChannelPlugin): void {
-  if (plugin.schemaVersion !== CHANNEL_SCHEMA_VERSION) {
+export function registerChannelPlugin(plugin: ChannelPlugin): void {
+  if (plugin.schemaVersion !== PLUGIN_SCHEMA_VERSION) {
     throw new Error(
       `Channel plugin '${plugin.id}' uses schema v${plugin.schemaVersion}, ` +
-        `but core expects v${CHANNEL_SCHEMA_VERSION}. Update the package.`,
+        `but core expects v${PLUGIN_SCHEMA_VERSION}. Update the package.`,
     )
   }
   factoryRegistry.set(plugin.id, plugin)
@@ -64,6 +64,9 @@ export function registerChannelFactory(plugin: ChannelPlugin): void {
     registerChannelSchema(plugin.id, buildSchemaFromFields(plugin.configFields))
   }
 }
+
+/** @deprecated Use `registerChannelPlugin` */
+export const registerChannel = registerChannelPlugin
 
 // ---------------------------------------------------------------------------
 // Adapter registry (instantiated channels)
@@ -149,9 +152,12 @@ export function getAllChannels(): ChannelAdapter[] {
 }
 
 /** Get all registered channel plugins (regardless of load status) */
-export function getAllRegisteredPlugins(): ChannelPlugin[] {
+export function getAllRegisteredChannelPlugins(): ChannelPlugin[] {
   return [...factoryRegistry.values()]
 }
+
+/** @deprecated Use `getAllRegisteredChannelPlugins` */
+export const getAllRegisteredPlugins = getAllRegisteredChannelPlugins
 
 /** Start all realtime channels */
 export async function startRealtimeChannels(
@@ -233,9 +239,12 @@ export function handleWebhook(
 }
 
 /** Clear the registries. Useful for testing. */
-export function clearChannelRegistry(): void {
+export function clearChannelPlugins(): void {
   factoryRegistry.clear()
   registry.clear()
   realtimeRunning.clear()
   clearChannelSchemaRegistry()
 }
+
+/** @deprecated Use `clearChannelPlugins` */
+export const clearChannelRegistry = clearChannelPlugins

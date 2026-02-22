@@ -45,17 +45,17 @@ vi.mock('../storage', () => {
 })
 
 // Register tools plugin and import after mocks
-const { registerToolPackage, clearToolPackages } = await import('../tools')
+const { registerToolPlugin, clearToolPlugins } = await import('../tools')
 const { getMastra, clearMastraCache } = await import('./index')
 
 describe('getMastra', () => {
   beforeEach(() => {
-    registerToolPackage(datetime)
+    registerToolPlugin(datetime)
   })
 
   afterEach(() => {
     clearMastraCache()
-    clearToolPackages()
+    clearToolPlugins()
     mockMastraConstructor.mockClear()
   })
 
@@ -90,12 +90,12 @@ describe('getMastra', () => {
 
 describe('clearMastraCache', () => {
   beforeEach(() => {
-    registerToolPackage(datetime)
+    registerToolPlugin(datetime)
   })
 
   afterEach(() => {
     clearMastraCache()
-    clearToolPackages()
+    clearToolPlugins()
     mockMastraConstructor.mockClear()
   })
 

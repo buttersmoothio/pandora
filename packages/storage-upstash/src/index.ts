@@ -31,6 +31,8 @@ export const createStorage: StorageFactory = async (env) => {
 
 export default {
   id: 'storage-upstash',
+  name: 'Upstash Redis',
   schemaVersion: 1,
+  envVars: ['UPSTASH_URL', 'UPSTASH_TOKEN'],
   factory: createStorage,
 } satisfies StoragePlugin

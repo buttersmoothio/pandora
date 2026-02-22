@@ -259,6 +259,8 @@ export const createStorage: StorageFactory = async (env) => {
 
 export default {
   id: 'storage-mongodb',
+  name: 'MongoDB',
   schemaVersion: 1,
+  envVars: ['MONGODB_URI'],
   factory: createStorage,
 } satisfies StoragePlugin

@@ -349,6 +349,8 @@ export const createStorage: StorageFactory = async (env) => {
 
 export default {
   id: 'storage-dynamodb',
+  name: 'DynamoDB',
   schemaVersion: 1,
+  envVars: ['AWS_REGION'],
   factory: createStorage,
 } satisfies StoragePlugin

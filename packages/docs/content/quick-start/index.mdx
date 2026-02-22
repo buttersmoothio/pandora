@@ -22,7 +22,7 @@ Storage uses SQLite by default — no database setup needed.
 
 ### Set a Password
 
-When you open the UI for the first time, Pandora shows a setup screen. Enter a password (minimum 8 characters) to secure your instance. All API endpoints are locked until this is done.
+When you open the UI for the first time, Pandora shows a setup screen. Enter a password to secure your instance. All functionalities are unavailable until this is done.
 
 On subsequent visits, you'll see a login screen instead.
 
@@ -32,14 +32,15 @@ Open the **Config** page in the UI, pick a provider and model. If the provider n
 
 ### Start Chatting
 
-Head to the chat page. Try sending a message like "Hello" to verify streaming works, or "What time is it?" to see tool calls in action.
+Head to the chat page. You should be setup to start chatting!
 
 </Steps>
 
 ## Next Steps
 
-<Cards>
-  <Cards.Card title="User Guide" href="/user-guide" arrow />
-  <Cards.Card title="Developer Guide" href="/developer-guide" arrow />
-  <Cards.Card title="Architecture" href="/architecture" arrow />
+<Cards num={2}>
+  <Cards.Card title="Configure Your Agent" href="/user-guide/configuration" arrow />
+  <Cards.Card title="Connect a Channel" href="/user-guide/channels" arrow />
+  <Cards.Card title="Build a Custom Tool" href="/developer-guide/tools" arrow />
+  <Cards.Card title="Bring Your Own UI" href="/developer-guide/ui" arrow />
 </Cards>

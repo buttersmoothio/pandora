@@ -3,7 +3,7 @@ import datetime from '@pandora/tools-datetime'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Config } from '../config'
 import { DEFAULTS } from '../config'
-import { clearToolPackages, loadTools, registerToolPackage } from '../tools'
+import { clearToolPlugins, loadTools, registerToolPlugin } from '../tools'
 
 // Mock the Agent constructor to capture config
 const mockAgentConstructor = vi.fn()
@@ -26,11 +26,11 @@ const mockMemory = {} as MastraMemory
 
 describe('createOperator', () => {
   beforeEach(() => {
-    registerToolPackage(datetime)
+    registerToolPlugin(datetime)
   })
 
   afterEach(() => {
-    clearToolPackages()
+    clearToolPlugins()
   })
 
   it('creates agent with correct id', async () => {

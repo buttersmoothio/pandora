@@ -5,4 +5,7 @@ export default {
   'message-parts': 'Message Part Types',
   auth: 'Authentication API',
   configuration: 'Configuration API',
+  tools: 'Tools',
+  storage: 'Storage',
+  channels: 'Channels',
 }

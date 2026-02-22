@@ -1,20 +1,15 @@
 import libsql from '@pandora/storage-libsql'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import {
-  clearStorageCache,
-  clearStorageProviders,
-  getStorage,
-  registerStorageProvider,
-} from './index'
+import { clearStorageCache, clearStoragePlugins, getStorage, registerStoragePlugin } from './index'
 
 describe('getStorage', () => {
   beforeEach(() => {
-    registerStorageProvider(libsql)
+    registerStoragePlugin(libsql)
   })
 
   afterEach(async () => {
     await clearStorageCache()
-    clearStorageProviders()
+    clearStoragePlugins()
   })
 
   // Use in-memory DB for tests to avoid filesystem dependencies
@@ -48,14 +43,20 @@ describe('getStorage', () => {
   })
 })
 
-describe('registerStorageProvider', () => {
+describe('registerStoragePlugin', () => {
   afterEach(() => {
-    clearStorageProviders()
+    clearStoragePlugins()
   })
 
   it('rejects plugins with incompatible schema version', () => {
     expect(() =>
-      registerStorageProvider({ id: 'bad', schemaVersion: 99, factory: async () => ({}) as never }),
+      registerStoragePlugin({
+        id: 'bad',
+        name: 'Bad',
+        schemaVersion: 99,
+        envVars: [],
+        factory: async () => ({}) as never,
+      }),
     ).toThrow(/schema v99/)
   })
 })

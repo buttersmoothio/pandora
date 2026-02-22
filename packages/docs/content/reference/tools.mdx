@@ -1,0 +1,72 @@
+# Tools Reference
+
+All types are exported from `@pandora/core/tools`:
+
+```ts
+import {
+  defineTool,
+  getAllManifests,
+  getManifest,
+  getManifests,
+} from '@pandora/core/tools'
+
+import type {
+  ConfigFieldDescriptor,
+  ToolManifest,
+  ToolAnnotations,
+  ToolFactory,
+  ToolPlugin,
+  ToolRecord,
+} from '@pandora/core/tools'
+```
+
+## `DefineToolOptions`
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `id` | `string` | Yes | Unique tool identifier |
+| `name` | `string` | Yes | Human-readable display name |
+| `description` | `string` | Yes | What the tool does (shown to the LLM) |
+| `inputSchema` | `z.ZodType` | Yes | Zod schema for input validation |
+| `outputSchema` | `z.ZodType` | No | Optional Zod schema for output validation |
+| `execute` | `(input, context) => Promise` | Yes | The tool's handler function |
+| `permissions` | `ToolPermissions` | No | Declared capabilities (time, network, env, fs, random) |
+| `sandbox` | `'compartment' \| 'host'` | No | Execution mode. Defaults to `'compartment'` |
+| `requireApproval` | `boolean` | No | Require user approval before execution |
+| `annotations` | `ToolAnnotations` | No | MCP-compatible UI hints |
+
+## `ToolAnnotations`
+
+```ts
+interface ToolAnnotations {
+  title?: string              // Display title in UI
+  readOnlyHint?: boolean      // Safe to run without confirmation
+  destructiveHint?: boolean   // May perform irreversible operations
+  idempotentHint?: boolean    // Same args = no additional effect
+}
+```
+
+## `ToolFactory`
+
+```ts
+type ToolFactory = (
+  env: Record<string, string | undefined>,
+) => ToolRecord
+```
+
+## `ToolPlugin`
+
+The plugin descriptor that `@pandora/tools-*` packages default-export:
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `id` | `string` | Yes | Plugin identifier, e.g. `'tools-datetime'` |
+| `name` | `string` | Yes | Human-readable display name, e.g. `'Date & Time'` |
+| `schemaVersion` | `number` | Yes | Must match core's expected version |
+| `envVars` | `string[]` | Yes | Required environment variable names |
+| `configFields` | `ConfigFieldDescriptor[]` | No | UI config field descriptors |
+| `factory` | `ToolFactory` | Yes | Creates tool instances from env vars |
+
+## `ToolManifest`
+
+The manifest registered for each tool created via `defineTool()`. Retrieved via `getManifest(tool)`, `getManifests(toolRecord)`, or `getAllManifests()`.

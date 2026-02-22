@@ -19,8 +19,8 @@ const {
   getAllChannels,
   handleWebhook,
   verifyWebhook,
-  registerChannelFactory,
-  clearChannelRegistry,
+  registerChannelPlugin,
+  clearChannelPlugins,
 } = await import('./index')
 
 // --- Helpers ---
@@ -45,7 +45,7 @@ function makeAdapter(id: string, opts?: { webhook?: boolean; realtime?: boolean 
 
 describe('loadChannels', () => {
   afterEach(() => {
-    clearChannelRegistry()
+    clearChannelPlugins()
   })
 
   it('loads nothing when no plugins are registered', async () => {
@@ -55,7 +55,7 @@ describe('loadChannels', () => {
 
   it('skips channels explicitly disabled in config', async () => {
     const adapter = makeAdapter('telegram', { webhook: true })
-    registerChannelFactory({
+    registerChannelPlugin({
       id: 'channel-telegram',
       name: 'Telegram',
       schemaVersion: 1,
@@ -69,7 +69,7 @@ describe('loadChannels', () => {
 
   it('loads channel when plugin is registered and factory returns adapter', async () => {
     const adapter = makeAdapter('telegram', { webhook: true })
-    registerChannelFactory({
+    registerChannelPlugin({
       id: 'channel-telegram',
       name: 'Telegram',
       schemaVersion: 1,
@@ -84,7 +84,7 @@ describe('loadChannels', () => {
 
   it('skips channel with configFields when no config entry exists', async () => {
     const factory = vi.fn().mockReturnValue(makeAdapter('telegram'))
-    registerChannelFactory({
+    registerChannelPlugin({
       id: 'channel-telegram',
       name: 'Telegram',
       schemaVersion: 1,
@@ -100,7 +100,7 @@ describe('loadChannels', () => {
 
   it('disables channel when config is invalid', async () => {
     const factory = vi.fn().mockReturnValue(makeAdapter('telegram'))
-    registerChannelFactory({
+    registerChannelPlugin({
       id: 'channel-telegram',
       name: 'Telegram',
       schemaVersion: 1,
@@ -116,7 +116,7 @@ describe('loadChannels', () => {
   })
 
   it('skips channel when factory returns null (missing env vars)', async () => {
-    registerChannelFactory({
+    registerChannelPlugin({
       id: 'channel-telegram',
       name: 'Telegram',
       schemaVersion: 1,
@@ -130,7 +130,7 @@ describe('loadChannels', () => {
 
   it('passes channel config to factory', async () => {
     const factory = vi.fn().mockReturnValue(makeAdapter('telegram'))
-    registerChannelFactory({
+    registerChannelPlugin({
       id: 'channel-telegram',
       name: 'Telegram',
       schemaVersion: 1,
@@ -147,7 +147,7 @@ describe('loadChannels', () => {
 
   it('provides default config when channel has no config entry', async () => {
     const factory = vi.fn().mockReturnValue(makeAdapter('telegram'))
-    registerChannelFactory({
+    registerChannelPlugin({
       id: 'channel-telegram',
       name: 'Telegram',
       schemaVersion: 1,
@@ -163,7 +163,7 @@ describe('loadChannels', () => {
 
 describe('getChannel / getAllChannels', () => {
   afterEach(() => {
-    clearChannelRegistry()
+    clearChannelPlugins()
   })
 
   it('returns undefined for unknown channel', () => {
@@ -177,7 +177,7 @@ describe('getChannel / getAllChannels', () => {
 
 describe('handleWebhook', () => {
   afterEach(() => {
-    clearChannelRegistry()
+    clearChannelPlugins()
   })
 
   it('returns null for unknown channel', () => {
@@ -188,7 +188,7 @@ describe('handleWebhook', () => {
 
 describe('verifyWebhook', () => {
   afterEach(() => {
-    clearChannelRegistry()
+    clearChannelPlugins()
   })
 
   it('returns false for unknown channel', async () => {
@@ -199,7 +199,7 @@ describe('verifyWebhook', () => {
   it('returns false when verify rejects the request', async () => {
     const adapter = makeAdapter('telegram', { webhook: true })
     vi.mocked(adapter.webhook?.verify as ReturnType<typeof vi.fn>).mockResolvedValue(false)
-    registerChannelFactory({
+    registerChannelPlugin({
       id: 'channel-telegram',
       name: 'Telegram',
       schemaVersion: 1,
@@ -214,7 +214,7 @@ describe('verifyWebhook', () => {
 
   it('returns true when verify accepts and passes env through', async () => {
     const adapter = makeAdapter('telegram', { webhook: true })
-    registerChannelFactory({
+    registerChannelPlugin({
       id: 'channel-telegram',
       name: 'Telegram',
       schemaVersion: 1,
@@ -233,14 +233,14 @@ describe('verifyWebhook', () => {
   })
 })
 
-describe('registerChannelFactory', () => {
+describe('registerChannelPlugin', () => {
   afterEach(() => {
-    clearChannelRegistry()
+    clearChannelPlugins()
   })
 
   it('rejects plugins with incompatible schema version', () => {
     expect(() =>
-      registerChannelFactory({
+      registerChannelPlugin({
         id: 'bad',
         name: 'Bad',
         schemaVersion: 99,
@@ -251,14 +251,14 @@ describe('registerChannelFactory', () => {
   })
 })
 
-describe('clearChannelRegistry', () => {
+describe('clearChannelPlugins', () => {
   afterEach(() => {
-    clearChannelRegistry()
+    clearChannelPlugins()
   })
 
   it('removes all loaded channels', async () => {
     const adapter = makeAdapter('telegram', { webhook: true })
-    registerChannelFactory({
+    registerChannelPlugin({
       id: 'channel-telegram',
       name: 'Telegram',
       schemaVersion: 1,
@@ -269,7 +269,7 @@ describe('clearChannelRegistry', () => {
     await loadChannels({}, {})
     expect(getAllChannels()).toHaveLength(1)
 
-    clearChannelRegistry()
+    clearChannelPlugins()
     expect(getAllChannels()).toHaveLength(0)
   })
 })

@@ -61,6 +61,8 @@ export const createStorage: StorageFactory = async (env) => {
 
 export default {
   id: 'storage-libsql',
+  name: 'SQLite',
   schemaVersion: 1,
+  envVars: [],
   factory: createStorage,
 } satisfies StoragePlugin

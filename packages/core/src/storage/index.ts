@@ -2,10 +2,13 @@ import type { MastraCompositeStore } from '@mastra/core/storage'
 import type { AuthStore } from '../auth/auth-store'
 import type { Config } from '../config'
 import { isServerless } from '../env'
+import type { ConfigFieldDescriptor } from '../plugin-types'
+import { PLUGIN_SCHEMA_VERSION } from '../plugin-types'
 import type { ConfigStore } from './config-store'
 
 export type { MastraCompositeStore, StorageDomains } from '@mastra/core/storage'
 export type { AuthStore } from '../auth/auth-store'
+export type { ConfigFieldDescriptor } from '../plugin-types'
 export type { ConfigStore } from './config-store'
 
 /**
@@ -31,8 +34,14 @@ export type StorageFactory = (
 export interface StoragePlugin {
   /** Unique plugin identifier, e.g. 'storage-libsql' */
   id: string
+  /** Human-readable display name, e.g. 'SQLite' */
+  name: string
   /** Schema version — must match core's expected version */
   schemaVersion: number
+  /** Required environment variable names */
+  envVars: string[]
+  /** Config field descriptors for the UI */
+  configFields?: ConfigFieldDescriptor[]
   /** Factory that creates storage instances */
   factory: StorageFactory
 }
@@ -41,23 +50,30 @@ export interface StoragePlugin {
 // Plugin registry
 // ---------------------------------------------------------------------------
 
-const STORAGE_SCHEMA_VERSION = 1
 const providers = new Map<string, StoragePlugin>()
 
 /**
- * Register a storage provider plugin.
+ * Register a storage plugin.
  *
  * Must be called before any request that uses storage.
  * Validates schema version compatibility on registration.
  */
-export function registerStorageProvider(plugin: StoragePlugin): void {
-  if (plugin.schemaVersion !== STORAGE_SCHEMA_VERSION) {
+export function registerStoragePlugin(plugin: StoragePlugin): void {
+  if (plugin.schemaVersion !== PLUGIN_SCHEMA_VERSION) {
     throw new Error(
       `Storage plugin '${plugin.id}' uses schema v${plugin.schemaVersion}, ` +
-        `but core expects v${STORAGE_SCHEMA_VERSION}. Update the package.`,
+        `but core expects v${PLUGIN_SCHEMA_VERSION}. Update the package.`,
     )
   }
   providers.set(plugin.id, plugin)
+}
+
+/** @deprecated Use `registerStoragePlugin` */
+export const registerStorageProvider = registerStoragePlugin
+
+/** Get all registered storage plugins (regardless of load status) */
+export function getAllRegisteredStoragePlugins(): StoragePlugin[] {
+  return [...providers.values()]
 }
 
 // ---------------------------------------------------------------------------
@@ -97,7 +113,7 @@ export async function getStorage(
  * Create new storage instances from the registered provider.
  *
  * Selects the provider by `STORAGE_PROVIDER` env var (default: `'storage-libsql'`).
- * The provider must have been registered via `registerStorageProvider()`.
+ * The provider must have been registered via `registerStoragePlugin()`.
  */
 async function createStorage(
   env: Record<string, string | undefined>,
@@ -110,7 +126,7 @@ async function createStorage(
     const registered = [...providers.keys()]
     throw new Error(
       `Storage provider '${id}' is not registered.\n` +
-        `Register it with registerStorageProvider() before starting the server.\n` +
+        `Register it with registerStoragePlugin() before starting the server.\n` +
         (registered.length > 0
           ? `Registered providers: ${registered.join(', ')}`
           : 'No providers registered.'),
@@ -135,8 +151,11 @@ export async function clearStorageCache(): Promise<void> {
 }
 
 /**
- * Clear the provider registry. Useful for testing.
+ * Clear the plugin registry. Useful for testing.
  */
-export function clearStorageProviders(): void {
+export function clearStoragePlugins(): void {
   providers.clear()
 }
+
+/** @deprecated Use `clearStoragePlugins` */
+export const clearStorageProviders = clearStoragePlugins

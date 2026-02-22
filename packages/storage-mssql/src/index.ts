@@ -35,6 +35,8 @@ export const createStorage: StorageFactory = async (env) => {
 
 export default {
   id: 'storage-mssql',
+  name: 'MSSQL',
   schemaVersion: 1,
+  envVars: ['DATABASE_URL'],
   factory: createStorage,
 } satisfies StoragePlugin

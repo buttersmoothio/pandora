@@ -1,0 +1,222 @@
+import { Steps, FileTree, Callout } from 'nextra/components'
+
+# Build a Channel
+
+A channel connects Pandora to an external messaging platform. Each channel is a standalone npm package that default-exports a `ChannelPlugin` descriptor.
+
+This tutorial walks through building a hypothetical Discord channel to illustrate the full process.
+
+## Package Structure
+
+<FileTree>
+  <FileTree.Folder name="pandora-channel-discord" defaultOpen>
+    <FileTree.File name="package.json" />
+    <FileTree.Folder name="src" defaultOpen>
+      <FileTree.File name="index.ts" />
+      <FileTree.File name="adapter.ts" />
+    </FileTree.Folder>
+    <FileTree.File name="tsconfig.json" />
+  </FileTree.Folder>
+</FileTree>
+
+```json
+{
+  "name": "pandora-channel-discord",
+  "type": "module",
+  "exports": { ".": "./src/index.ts" },
+  "peerDependencies": {
+    "@pandora/core": "*"
+  },
+  "dependencies": {
+    "discord.js": "^14.0.0"
+  }
+}
+```
+
+<Steps>
+
+### Define the plugin descriptor
+
+The entry point exports a `ChannelPlugin` — metadata about your channel plus a factory function:
+
+```ts
+// src/index.ts
+import type { ChannelPlugin } from '@pandora/core/channels'
+import { createDiscordAdapter } from './adapter'
+
+export default {
+  id: 'channel-discord',
+  name: 'Discord',
+  schemaVersion: 1,
+  envVars: ['DISCORD_BOT_TOKEN'],
+  configFields: [
+    {
+      key: 'guildId',
+      label: 'Server ID',
+      type: 'text',
+      required: true,
+      placeholder: '123456789012345678',
+      description: 'The Discord server (guild) ID to listen in.',
+    },
+    {
+      key: 'channelId',
+      label: 'Channel ID',
+      type: 'text',
+      required: true,
+      placeholder: '123456789012345678',
+      description: 'The text channel ID to respond in.',
+    },
+  ],
+  factory: (env, config) => {
+    const token = env.DISCORD_BOT_TOKEN
+    if (!token) return null
+    return createDiscordAdapter(
+      token,
+      config.guildId as string,
+      config.channelId as string,
+    )
+  },
+} satisfies ChannelPlugin
+```
+
+Key fields:
+
+- **`id`** — must be `channel-{name}`, matching your package name
+- **`schemaVersion`** — must match core's expected version (currently `1`)
+- **`envVars`** — env vars the factory needs. The UI shows whether they're configured.
+- **`configFields`** — describes UI inputs beyond the `enabled` toggle. Core auto-generates Zod validation from these.
+- **`factory`** — receives env vars and validated config. Return `null` if required env vars are missing.
+
+### Create the adapter
+
+The adapter implements `ChannelAdapter` with either `webhook`, `realtime`, or both:
+
+```ts
+// src/adapter.ts
+import type { ChannelAdapter, ChannelRealtime } from '@pandora/core/channels'
+import { Client, GatewayIntentBits } from 'discord.js'
+
+export function createDiscordAdapter(
+  token: string,
+  guildId: string,
+  channelId: string,
+): ChannelAdapter {
+  let client: Client | null = null
+
+  const realtime: ChannelRealtime = {
+    async start(runtime) {
+      client = new Client({
+        intents: [
+          GatewayIntentBits.Guilds,
+          GatewayIntentBits.GuildMessages,
+          GatewayIntentBits.MessageContent,
+        ],
+      })
+
+      client.on('messageCreate', async (message) => {
+        if (message.author.bot) return
+        if (message.guildId !== guildId) return
+        if (message.channelId !== channelId) return
+
+        const threadId = await runtime.resolveThread(
+          'discord',
+          message.channelId,
+        )
+
+        const result = await runtime.generate({
+          threadId,
+          parts: [{ type: 'text', text: message.content }],
+        })
+
+        if (result.text) {
+          await message.reply(result.text)
+        }
+      })
+
+      await client.login(token)
+    },
+
+    async stop() {
+      if (client) {
+        await client.destroy()
+        client = null
+      }
+    },
+  }
+
+  return {
+    id: 'discord',
+    name: 'Discord',
+    realtime,
+  }
+}
+```
+
+### Using the runtime
+
+The `ChannelRuntime` object passed to your adapter provides everything you need:
+
+- **`generate(opts)`** — send a message and wait for the full response. Best for platforms where you reply once per message (like Telegram and Discord).
+- **`stream(opts)`** — send a message and get a streaming response. Returns a `textStream` you can read incrementally, plus promise-based fields for the final values.
+- **`resolveThread(channelId, externalId)`** — map a platform conversation to a Pandora thread. Creates one if it doesn't exist yet.
+- **`newThread(channelId, externalId)`** — start a fresh conversation, discarding the previous thread mapping.
+- **`env`** — access to environment variables.
+
+<Callout type="info">
+  Use `generate()` when the platform expects a single reply. Use `stream()` when you can edit messages in real-time (e.g. updating a Discord message as tokens arrive).
+</Callout>
+
+### Register the plugin
+
+Install your package in the Pandora instance and register it in `plugins.ts`:
+
+```ts
+import discord from 'pandora-channel-discord'
+import { registerChannelPlugin } from './channels'
+
+registerChannelPlugin(discord)
+```
+
+### Test it
+
+Set the environment variable and start Pandora:
+
+```bash
+DISCORD_BOT_TOKEN=your-token-here bun run dev
+```
+
+Then enable the channel in **Settings → Channels** in the web UI.
+
+</Steps>
+
+## Webhook Mode
+
+If your platform pushes events via HTTP (e.g. Slack Events API), implement `ChannelWebhook` instead of or in addition to `ChannelRealtime`:
+
+```ts
+import type { ChannelWebhook } from '@pandora/core/channels'
+
+const webhook: ChannelWebhook = {
+  async verify(request, env) {
+    // Validate the request signature using platform-specific logic
+    const signature = request.headers.get('x-signature')
+    return signature === env.MY_WEBHOOK_SECRET
+  },
+
+  async handle(request, runtime) {
+    const body = await request.json()
+
+    const threadId = await runtime.resolveThread('my-channel', body.channelId)
+    const result = await runtime.generate({
+      threadId,
+      parts: [{ type: 'text', text: body.text }],
+    })
+
+    return new Response(JSON.stringify({ text: result.text }), {
+      headers: { 'Content-Type': 'application/json' },
+    })
+  },
+}
+```
+
+The webhook route is `POST /wh/:channel` where `:channel` is your adapter's `id`. The `verify()` method runs before `handle()` — return `false` to reject the request with a 401.

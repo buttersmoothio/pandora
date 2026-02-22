@@ -19,9 +19,9 @@ import { threadRoutes } from './routes/threads'
 import { webhookRoutes } from './routes/webhooks'
 
 // Re-export registration functions for plugin authors
-export { registerChannelFactory } from './channels'
-export { registerStorageProvider } from './storage'
-export { registerToolPackage } from './tools'
+export { registerChannel as registerChannelFactory, registerChannelPlugin } from './channels'
+export { registerStoragePlugin, registerStorageProvider } from './storage'
+export { registerToolPackage, registerToolPlugin } from './tools'
 
 // Create Hono app
 const app = new Hono<Env>()

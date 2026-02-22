@@ -1,9 +1,9 @@
 import { PROVIDER_REGISTRY } from '@mastra/core/llm'
 import { Hono } from 'hono'
-import { getAllChannels, getAllRegisteredPlugins } from '../channels'
+import { getAllChannels, getAllRegisteredChannelPlugins } from '../channels'
 import { getConfig } from '../config'
 import { getStorage } from '../storage'
-import { getAllManifests } from '../tools'
+import { getAllManifests, getAllRegisteredToolPlugins } from '../tools'
 import type { Env } from './helpers'
 import { ensureChannelsLoaded } from './helpers'
 
@@ -15,6 +15,7 @@ discoveryRoutes.get('/tools', async (c) => {
   const config = await getConfig(configStore)
 
   const manifests = getAllManifests()
+  const plugins = getAllRegisteredToolPlugins()
 
   const tools = Object.values(manifests).map((manifest) => {
     const toolConfig = config.tools[manifest.id]
@@ -26,7 +27,14 @@ discoveryRoutes.get('/tools', async (c) => {
     }
   })
 
-  return c.json({ tools })
+  const toolPlugins = plugins.map((plugin) => ({
+    id: plugin.id,
+    name: plugin.name,
+    envVars: plugin.envVars,
+    configFields: plugin.configFields ?? [],
+  }))
+
+  return c.json({ tools, plugins: toolPlugins })
 })
 
 // Models endpoint - returns available providers and models
@@ -56,7 +64,7 @@ discoveryRoutes.get('/channels', async (c) => {
   const loadedChannels = getAllChannels()
   const loadedIds = new Set(loadedChannels.map((ch) => ch.id))
 
-  const channels = getAllRegisteredPlugins().map((plugin) => {
+  const channels = getAllRegisteredChannelPlugins().map((plugin) => {
     const channelConfig = config.channels[plugin.id]
     const envConfigured = plugin.envVars.every((v) => !!c.var.envVars[v])
     const adapterId = plugin.id.replace(/^channel-/, '')

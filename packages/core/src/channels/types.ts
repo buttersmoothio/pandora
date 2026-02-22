@@ -8,25 +8,9 @@ import type {
   ToolCallChunk,
   ToolResultChunk,
 } from '@mastra/core/stream'
-// ---------------------------------------------------------------------------
-// Config field descriptors (UI rendering hints for channel-specific settings)
-// ---------------------------------------------------------------------------
+import type { ConfigFieldDescriptor } from '../plugin-types'
 
-/** Describes a config field for UI rendering */
-export interface ConfigFieldDescriptor {
-  /** Field key in config object, e.g. 'ownerId' */
-  key: string
-  /** Human-readable label, e.g. 'Owner ID' */
-  label: string
-  /** HTML input type hint */
-  type: 'text' | 'number' | 'password'
-  /** Whether this field is required */
-  required?: boolean
-  /** Placeholder text */
-  placeholder?: string
-  /** Help text shown below the input */
-  description?: string
-}
+export type { ConfigFieldDescriptor } from '../plugin-types'
 
 // Re-export Mastra types so channel packages only import from @pandora/core/channels
 export type {

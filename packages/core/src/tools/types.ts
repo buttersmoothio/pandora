@@ -1,4 +1,7 @@
 import type { Tool } from '@mastra/core/tools'
+import type { ConfigFieldDescriptor } from '../plugin-types'
+
+export type { ConfigFieldDescriptor } from '../plugin-types'
 
 /** A record of tool instances keyed by tool ID */
 // biome-ignore lint/suspicious/noExplicitAny: Tool generics require `any` for covariant assignment
@@ -76,14 +79,26 @@ export interface ToolAnnotations {
  * Factory function exported by `@pandora/tools-*` packages.
  * Receives environment variables and returns a record of tools.
  */
-export type ToolPackageFactory = (env: Record<string, string | undefined>) => ToolRecord
+export type ToolFactory = (env: Record<string, string | undefined>) => ToolRecord
+
+/** @deprecated Use `ToolFactory` */
+export type ToolPackageFactory = ToolFactory
 
 /** Plugin descriptor for tool packages */
-export interface ToolPackagePlugin {
+export interface ToolPlugin {
   /** Unique plugin identifier, e.g. 'tools-datetime' */
   id: string
+  /** Human-readable display name, e.g. 'Date & Time' */
+  name: string
   /** Schema version — must match core's expected version */
   schemaVersion: number
+  /** Required environment variable names */
+  envVars: string[]
+  /** Config field descriptors for the UI */
+  configFields?: ConfigFieldDescriptor[]
   /** Factory that creates tool instances from env vars */
-  factory: ToolPackageFactory
+  factory: ToolFactory
 }
+
+/** @deprecated Use `ToolPlugin` */
+export type ToolPackagePlugin = ToolPlugin

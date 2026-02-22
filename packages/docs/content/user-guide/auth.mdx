@@ -30,20 +30,4 @@ You can:
 - **Revoke a single session** — click the revoke button next to any session to log out that device
 - **Revoke all sessions** — logs out everywhere, including your current session (you'll need to log in again)
 
-## How Sessions Work
-
-When you log in, Pandora issues two tokens:
-
-- **Access token** (15 minutes) — used automatically by the UI for every request
-- **Refresh token** (7 days) — used automatically by the UI to stay logged in without re-entering your password
-
-The UI refreshes tokens transparently. You only need to log in again if you've been inactive for more than 7 days.
-
-## Rate Limits
-
-Login and setup endpoints are rate-limited per IP address to prevent brute-force attacks:
-
-| Action | Limit |
-|---|---|
-| Login attempts | 5 per minute |
-| Password changes | 3 per minute |
+Sessions expire after 7 days of inactivity — the UI handles token refresh transparently, so you only need to log in again after a prolonged absence.

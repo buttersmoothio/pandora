@@ -1,0 +1,166 @@
+import { Steps, FileTree, Tabs, Callout } from 'nextra/components'
+
+# Build a Storage Plugin
+
+Every storage plugin is a standalone npm package that default-exports a `StoragePlugin` descriptor. Your factory receives environment variables and returns three layers: a [Mastra storage adapter](https://mastra.ai/docs/memory/storage), a config store, and an auth store.
+
+<Callout type="info">
+  Pandora's storage layer depends on Mastra for thread and memory persistence. You can only build a provider for databases that Mastra already supports — see [Mastra's storage docs](https://mastra.ai/docs/memory/storage) for the current list.
+</Callout>
+
+## Built-in Helpers
+
+Most providers don't need to implement `ConfigStore` or `AuthStore` from scratch. Pandora ships reusable implementations for SQL and Redis-like databases.
+
+<Tabs items={['SQL', 'Redis']}>
+  <Tabs.Tab>
+    For SQL databases (SQLite/LibSQL, PostgreSQL, MSSQL). You provide an `execute` function wrapping your driver:
+
+    ```ts
+    import { SQLConfigStore, SQLAuthStore } from '@pandora/core/storage'
+
+    const execute = async (sql: string, params?: unknown[]) => {
+      const result = await myDriver.query(sql, params)
+      return result.rows
+    }
+
+    const config = new SQLConfigStore<Config>(execute, 'postgres')
+    const auth = new SQLAuthStore(execute, 'postgres')
+    ```
+
+    The `execute` function receives raw SQL and an optional params array. It must return an array of row objects. The dialect argument (`'sqlite'` | `'postgres'` | `'mssql'`) handles differences in placeholders, upsert strategy, and JSON storage.
+  </Tabs.Tab>
+  <Tabs.Tab>
+    For Redis-like key-value stores. You provide an object with `get`, `set`, and `del` methods:
+
+    ```ts
+    import { RedisConfigStore, RedisAuthStore } from '@pandora/core/storage'
+
+    const ops = {
+      get: (key) => myRedis.get(key),
+      set: (key, value, opts) => myRedis.set(key, value, opts),
+      del: (key) => myRedis.del(key),
+      smembers: (key) => myRedis.smembers(key),
+      sadd: (key, ...members) => myRedis.sadd(key, ...members),
+      srem: (key, ...members) => myRedis.srem(key, ...members),
+    }
+
+    const config = new RedisConfigStore<Config>(ops)
+    const auth = new RedisAuthStore(ops)
+    ```
+  </Tabs.Tab>
+</Tabs>
+
+If neither fits your database, implement `ConfigStore` and `AuthStore` directly — see the [Storage Reference](/reference/storage) for interface contracts.
+
+## Creating a Plugin
+
+Let's build a PostgreSQL plugin as an example.
+
+<Steps>
+
+### Create the package
+
+<FileTree>
+  <FileTree.Folder name="pandora-storage-postgres" defaultOpen>
+    <FileTree.File name="package.json" />
+    <FileTree.Folder name="src" defaultOpen>
+      <FileTree.File name="index.ts" />
+    </FileTree.Folder>
+    <FileTree.File name="tsconfig.json" />
+  </FileTree.Folder>
+</FileTree>
+
+### Set up `package.json`
+
+```json
+{
+  "name": "pandora-storage-postgres",
+  "version": "0.0.1",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@mastra/pg": "latest",
+    "pg": "^8.16.0"
+  },
+  "peerDependencies": {
+    "@pandora/core": "*"
+  }
+}
+```
+
+Key conventions:
+- `@pandora/core` is a peer dependency
+- Include the `@mastra/*` adapter for your database
+- Default-export a `StoragePlugin` descriptor from the package entry point
+
+### Implement the plugin
+
+Your entry point default-exports a `StoragePlugin` with metadata and a factory that creates three things: the Mastra adapter, a config store, and an auth store.
+
+```ts
+// src/index.ts
+import { Pool } from 'pg'
+import { PostgresStore } from '@mastra/pg'
+import type { Config, StorageFactory, StoragePlugin } from '@pandora/core/storage'
+import { SQLAuthStore, SQLConfigStore } from '@pandora/core/storage'
+
+const createStorage: StorageFactory = async (env) => {
+  const pool = new Pool({
+    connectionString: env.DATABASE_URL,
+  })
+
+  // Mastra adapter — handles thread and memory persistence
+  const mastra = new PostgresStore({
+    id: 'pandora-postgres',
+    pool,
+  })
+
+  // Pandora config and auth stores — use SQL helpers
+  const config = new SQLConfigStore<Config>(async (sql, params) => {
+    const result = await pool.query(sql, params)
+    return result.rows
+  }, 'postgres')
+
+  const auth = new SQLAuthStore(async (sql, params) => {
+    const result = await pool.query(sql, params)
+    return result.rows
+  }, 'postgres')
+
+  return { mastra, config, auth, close: () => pool.end() }
+}
+
+export default {
+  id: 'storage-postgres',
+  name: 'PostgreSQL',
+  schemaVersion: 1,
+  envVars: ['DATABASE_URL'],
+  factory: createStorage,
+} satisfies StoragePlugin
+```
+
+A few things to notice:
+
+- **Mastra adapter** — the `@mastra/pg` package handles thread storage, memory, and workflows. This is why you need Mastra to support your database first.
+- **SQL helpers** handle all table creation, parameterization, and dialect differences for Pandora's own config and auth. You just provide an `execute` function wrapping your driver.
+- **`init()`** on each store is called automatically by Pandora after `createStorage` returns — you don't need to call it yourself.
+- **`close()`** — if your database driver holds a persistent connection (connection pool, TCP socket, etc.), return a `close` function that tears it down. Pandora calls it on shutdown. HTTP-based providers (like Upstash) can omit it.
+
+### Register and test it
+
+Install your package in the Pandora instance, register it in `plugins.ts`, and start:
+
+```ts
+import postgres from 'pandora-storage-postgres'
+import { registerStoragePlugin } from './storage'
+
+registerStoragePlugin(postgres)
+```
+
+```bash
+STORAGE_PROVIDER=storage-postgres DATABASE_URL=postgres://localhost/pandora bun run dev
+```
+
+</Steps>
