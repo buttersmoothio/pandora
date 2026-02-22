@@ -197,40 +197,66 @@ describe('createChannelRuntime', () => {
         perPage: 1,
         hasMore: false,
       })
-      mockCreateThread.mockResolvedValue({ id: 'new-thread' })
 
       const threadId = await runtime.resolveThread('telegram', '12345')
 
       expect(threadId).toBeTypeOf('string')
-      expect(mockCreateThread).toHaveBeenCalledOnce()
-
-      const createArgs = mockCreateThread.mock.calls[0][0]
-      expect(createArgs.resourceId).toBe('default')
-      expect(createArgs.metadata).toEqual({
-        channel: 'telegram',
-        externalId: '12345',
-        root: true,
-      })
+      // Thread is NOT pre-created — metadata is deferred to generate/stream
+      expect(mockCreateThread).not.toHaveBeenCalled()
     })
   })
 
   describe('newThread', () => {
-    it('always creates a new thread with correct metadata', async () => {
-      mockCreateThread.mockResolvedValue({ id: 'brand-new' })
-
+    it('returns a thread ID without pre-creating in DB', async () => {
       const threadId = await runtime.newThread('discord', 'channel-99')
 
       expect(threadId).toBeTypeOf('string')
-      expect(mockCreateThread).toHaveBeenCalledOnce()
+      // Thread is NOT pre-created — Mastra will create it during generate/stream
+      expect(mockCreateThread).not.toHaveBeenCalled()
+    })
 
-      const createArgs = mockCreateThread.mock.calls[0][0]
-      expect(createArgs.resourceId).toBe('default')
-      expect(createArgs.metadata).toEqual({
-        channel: 'discord',
-        externalId: 'channel-99',
-        root: true,
+    it('passes stashed metadata through generate memory option', async () => {
+      mockGenerate.mockResolvedValue({
+        text: 'Hi',
+        sources: [],
+        toolCalls: [],
+        toolResults: [],
+        files: [],
+        reasoning: [],
+        reasoningText: undefined,
+        usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
       })
-      expect(createArgs.threadId).toBeTypeOf('string')
+
+      const threadId = await runtime.newThread('discord', 'channel-99')
+      await runtime.generate({ threadId, parts: [{ type: 'text', text: 'hey' }] })
+
+      const [, options] = mockGenerate.mock.calls[0]
+      expect(options.memory).toEqual({
+        thread: {
+          id: threadId,
+          metadata: { channel: 'discord', externalId: 'channel-99', root: true },
+        },
+        resource: 'default',
+      })
+    })
+
+    it('uses plain thread ID for existing threads', async () => {
+      mockGenerate.mockResolvedValue({
+        text: 'Hi',
+        sources: [],
+        toolCalls: [],
+        toolResults: [],
+        files: [],
+        reasoning: [],
+        reasoningText: undefined,
+        usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+      })
+
+      // generate with a thread ID that was NOT created via newThread
+      await runtime.generate({ threadId: 'existing-id', parts: [{ type: 'text', text: 'hey' }] })
+
+      const [, options] = mockGenerate.mock.calls[0]
+      expect(options.memory).toEqual({ thread: 'existing-id', resource: 'default' })
     })
   })
 })

@@ -26,18 +26,12 @@ chatRoutes.post('/', async (c) => {
     log.info('Chat request received', { threadId, partsCount: parts.length })
     const mastra = await getMastra(c.var.envVars, c.env)
 
-    // Mark new conversations as root threads for fork filtering
-    if (!clientThreadId) {
-      const memory = await mastra.getAgent('operator').getMemory()
-      if (memory) {
-        await memory.createThread({ resourceId: 'default', threadId, metadata: { root: true } })
-      }
-    }
-
     const params = {
       messages: [{ id: crypto.randomUUID(), role: 'user' as const, parts }],
       memory: {
-        thread: threadId,
+        // For new threads, pass metadata so Mastra creates the thread with root: true
+        // and generates a title. For existing threads, just pass the ID.
+        thread: clientThreadId ?? { id: threadId, metadata: { root: true } },
         resource: 'default',
       },
     }

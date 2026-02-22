@@ -36,9 +36,9 @@ export async function getMastra(
   const tools = await loadTools(config, env)
 
   // 4. Memory
-  const memory = createMemory(config)
+  const memory = createMemory()
 
-  // 5. Operator agent (with memory)
+  // 5. Operator agent
   const operator = createOperator(config, tools, memory)
 
   // 6. Mastra instance

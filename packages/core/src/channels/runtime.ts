@@ -18,11 +18,6 @@ function buildMessages(parts: MessagePart[]) {
   return [{ id: crypto.randomUUID(), role: 'user' as const, parts }]
 }
 
-/** Memory option for agent calls */
-function memoryOption(threadId: string) {
-  return { thread: threadId, resource: RESOURCE_ID }
-}
-
 /** Get Memory instance from agent, throw if not configured */
 async function getMemory(mastra: Mastra): Promise<Memory> {
   const memory = await mastra.getAgent('operator').getMemory()
@@ -36,6 +31,21 @@ async function getMemory(mastra: Mastra): Promise<Memory> {
  */
 export function createChannelRuntime(deps: ChannelRuntimeDeps): ChannelRuntime {
   const { mastra, env } = deps
+
+  // Metadata for threads not yet created in the DB. When newThread is called
+  // we stash metadata here instead of pre-creating the thread, so Mastra can
+  // create it during generate/stream and fire generateTitle.
+  const pendingMeta = new Map<string, Record<string, unknown>>()
+
+  /** Memory option — passes full thread object for new threads so Mastra creates them with metadata. */
+  function memoryOption(threadId: string) {
+    const metadata = pendingMeta.get(threadId)
+    if (metadata) {
+      pendingMeta.delete(threadId)
+      return { thread: { id: threadId, metadata }, resource: RESOURCE_ID }
+    }
+    return { thread: threadId, resource: RESOURCE_ID }
+  }
 
   return {
     env,
@@ -99,13 +109,10 @@ export function createChannelRuntime(deps: ChannelRuntimeDeps): ChannelRuntime {
     },
 
     async newThread(channelId, externalId) {
-      const memory = await getMemory(mastra)
       const threadId = crypto.randomUUID()
-      await memory.createThread({
-        resourceId: RESOURCE_ID,
-        threadId,
-        metadata: { channel: channelId, externalId, root: true },
-      })
+      // Don't create the thread in the DB yet — stash metadata so Mastra
+      // creates it (with generateTitle) when generate/stream is called.
+      pendingMeta.set(threadId, { channel: channelId, externalId, root: true })
       return threadId
     },
   }
