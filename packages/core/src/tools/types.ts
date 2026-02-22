@@ -1,7 +1,7 @@
 import type { Tool } from '@mastra/core/tools'
-import type { ConfigFieldDescriptor, PluginConfig } from '../plugin-types'
+import type { ConfigFieldDescriptor, EnvVarDescriptor, PluginConfig } from '../plugin-types'
 
-export type { ConfigFieldDescriptor, PluginConfig } from '../plugin-types'
+export type { ConfigFieldDescriptor, EnvVarDescriptor, PluginConfig } from '../plugin-types'
 
 /** Per-plugin user configuration for tool plugins */
 export type ToolPluginConfig = PluginConfig
@@ -49,6 +49,9 @@ export interface ToolPermissions {
   random?: boolean
 }
 
+/** Default tool execution timeout in milliseconds (60 seconds). */
+export const DEFAULT_TOOL_TIMEOUT = 60_000
+
 /**
  * Complete metadata manifest for a Pandora tool.
  * Attached to every tool regardless of sandbox mode.
@@ -70,6 +73,8 @@ export interface ToolManifest {
   sandbox: SandboxMode
   /** MCP-compatible annotations for UI hints. */
   annotations?: ToolAnnotations
+  /** Execution timeout in milliseconds. Defaults to 60 000 (60 s). */
+  timeout: number
 }
 
 /** MCP-compatible annotations describing tool behavior. */
@@ -85,8 +90,8 @@ export interface ToolAnnotations {
 }
 
 /**
- * Factory function exported by `@pandora/tools-*` packages.
- * Receives environment variables and validated plugin config,
+ * @deprecated Replaced by declarative `tools` array on `ToolPlugin`.
+ * Factory function that receives environment variables and plugin config,
  * and returns a record of tools.
  */
 export type ToolFactory = (
@@ -105,12 +110,12 @@ export interface ToolPlugin {
   name: string
   /** Schema version — must match core's expected version */
   schemaVersion: number
-  /** Required environment variable names */
-  envVars?: string[]
+  /** Environment variables this plugin depends on */
+  envVars?: EnvVarDescriptor[]
   /** Config field descriptors for the UI */
   configFields?: ConfigFieldDescriptor[]
-  /** Factory that creates tool instances from env vars */
-  factory: ToolFactory
+  /** Tool definitions provided by this plugin */
+  tools: import('./define').ToolDefinition[]
 }
 
 /** @deprecated Use `ToolPlugin` */

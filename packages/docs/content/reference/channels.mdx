@@ -25,7 +25,7 @@ The plugin descriptor exported by `@pandora/channel-*` packages:
 | `id` | `string` | Yes | Plugin identifier, e.g. `'channel-telegram'` |
 | `name` | `string` | Yes | Human-readable display name, e.g. `'Telegram'` |
 | `schemaVersion` | `number` | Yes | Must match core's expected version |
-| `envVars` | `string[]` | No | Required environment variable names |
+| `envVars` | `EnvVarDescriptor[]` | No | Environment variable descriptors |
 | `configFields` | `ConfigFieldDescriptor[]` | No | UI field descriptors beyond the `enabled` toggle |
 | `factory` | `ChannelFactory` | Yes | Creates a channel adapter from env vars and config |
 
@@ -152,7 +152,7 @@ Returns all registered channel plugins with their config and status:
     {
       "id": "channel-telegram",
       "name": "Telegram",
-      "envVars": ["TELEGRAM_BOT_TOKEN"],
+      "envVars": [{ "name": "TELEGRAM_BOT_TOKEN" }],
       "envConfigured": true,
       "configFields": [
         {
@@ -178,7 +178,7 @@ Returns all registered channel plugins with their config and status:
 |---|---|---|
 | `id` | `string` | Plugin identifier |
 | `name` | `string` | Display name |
-| `envVars` | `string[]` | Required env vars |
+| `envVars` | `EnvVarDescriptor[]` | Environment variable descriptors |
 | `envConfigured` | `boolean` | Whether all env vars are set |
 | `configFields` | `ConfigFieldDescriptor[]` | UI field descriptors |
 | `enabled` | `boolean` | Whether enabled in config |

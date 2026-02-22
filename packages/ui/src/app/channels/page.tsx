@@ -111,12 +111,31 @@ function ChannelCard({ channel }: { channel: ChannelInfo }) {
             </p>
             <p className="mt-1 text-muted-foreground">Add the following to your environment:</p>
             <div className="mt-1.5 flex flex-wrap gap-1.5">
-              {channel.envVars.map((v) => (
-                <code key={v} className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
-                  {v}
-                </code>
-              ))}
+              {channel.envVars
+                .filter((v) => v.required !== false)
+                .map((v) => (
+                  <code key={v.name} className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
+                    {v.name}
+                  </code>
+                ))}
             </div>
+            {channel.envVars.some((v) => v.required === false) && (
+              <div className="mt-2">
+                <p className="text-muted-foreground text-xs">Optional:</p>
+                <div className="mt-1 flex flex-wrap gap-1.5">
+                  {channel.envVars
+                    .filter((v) => v.required === false)
+                    .map((v) => (
+                      <code
+                        key={v.name}
+                        className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs opacity-60"
+                      >
+                        {v.name}
+                      </code>
+                    ))}
+                </div>
+              </div>
+            )}
           </div>
         </CardContent>
       )}

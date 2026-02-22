@@ -8,6 +8,7 @@ export type { DefineToolOptions, ToolDefinition } from './define'
 export { defineTool, getAllManifests, getManifest, getManifests } from './define'
 export type {
   ConfigFieldDescriptor,
+  EnvVarDescriptor,
   PluginConfig,
   SandboxMode,
   ToolAnnotations,
@@ -21,3 +22,4 @@ export type {
   ToolPluginConfig,
   ToolRecord,
 } from './types'
+export { DEFAULT_TOOL_TIMEOUT } from './types'

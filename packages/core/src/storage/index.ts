@@ -2,13 +2,13 @@ import type { MastraCompositeStore } from '@mastra/core/storage'
 import type { AuthStore } from '../auth/auth-store'
 import type { Config } from '../config'
 import { isServerless } from '../env'
-import type { ConfigFieldDescriptor } from '../plugin-types'
+import type { ConfigFieldDescriptor, EnvVarDescriptor } from '../plugin-types'
 import { PLUGIN_SCHEMA_VERSION } from '../plugin-types'
 import type { ConfigStore } from './config-store'
 
 export type { MastraCompositeStore, StorageDomains } from '@mastra/core/storage'
 export type { AuthStore } from '../auth/auth-store'
-export type { ConfigFieldDescriptor } from '../plugin-types'
+export type { ConfigFieldDescriptor, EnvVarDescriptor } from '../plugin-types'
 export type { ConfigStore } from './config-store'
 
 /**
@@ -38,8 +38,8 @@ export interface StoragePlugin {
   name: string
   /** Schema version — must match core's expected version */
   schemaVersion: number
-  /** Required environment variable names */
-  envVars?: string[]
+  /** Environment variables this plugin depends on */
+  envVars?: EnvVarDescriptor[]
   /** Config field descriptors for the UI */
   configFields?: ConfigFieldDescriptor[]
   /** Factory that creates storage instances */

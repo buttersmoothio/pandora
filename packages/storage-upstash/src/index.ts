@@ -33,6 +33,6 @@ export default {
   id: 'storage-upstash',
   name: 'Upstash Redis',
   schemaVersion: 1,
-  envVars: ['UPSTASH_URL', 'UPSTASH_TOKEN'],
+  envVars: [{ name: 'UPSTASH_URL' }, { name: 'UPSTASH_TOKEN' }],
   factory: createStorage,
 } satisfies StoragePlugin

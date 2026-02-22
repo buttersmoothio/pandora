@@ -75,7 +75,7 @@ export const weatherTool = defineTool({
 
 ### Export the plugin descriptor
 
-Each package default-exports a `ToolPlugin` descriptor with metadata and a factory that returns a tool record:
+Each package default-exports a `ToolPlugin` descriptor with metadata and a `tools` array listing the tool definitions:
 
 ```ts
 // src/index.ts
@@ -86,7 +86,7 @@ export default {
   id: 'tools-weather',
   name: 'Weather',
   schemaVersion: 1,
-  envVars: ['OPENWEATHER_API_KEY'],
+  envVars: [{ name: 'OPENWEATHER_API_KEY' }],
   configFields: [
     {
       key: 'units',
@@ -100,16 +100,15 @@ export default {
       ],
     },
   ],
-  factory: (env, config) => ({
-    weather: weatherTool(env, config),
-  }),
+  tools: [weatherTool],
 } satisfies ToolPlugin
 ```
 
 - **`name`** — human-readable display name for the UI.
-- **`envVars`** — environment variables the plugin needs. Listed in the discovery API so the UI can show configuration status.
+- **`tools`** — array of `ToolDefinition`s. Core binds `(env, config)` automatically — no factory needed.
+- **`envVars`** — environment variables the plugin needs, as `{ name, required? }` descriptors. Variables default to required; set `required: false` for optional ones. Listed in the discovery API so the UI can show configuration status.
 - **`configFields`** — describes user-configurable settings beyond `enabled`. Core auto-generates Zod validation and the UI renders input fields from these descriptors. Works the same way as channel `configFields`.
-- The factory receives environment variables and validated plugin config. If `configFields` are declared and the user hasn't configured them, the plugin is skipped.
+- If `configFields` are declared and the user hasn't configured them, the plugin is skipped.
 
 ### Register it
 

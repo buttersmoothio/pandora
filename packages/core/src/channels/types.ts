@@ -8,9 +8,9 @@ import type {
   ToolCallChunk,
   ToolResultChunk,
 } from '@mastra/core/stream'
-import type { ConfigFieldDescriptor } from '../plugin-types'
+import type { ConfigFieldDescriptor, EnvVarDescriptor } from '../plugin-types'
 
-export type { ConfigFieldDescriptor } from '../plugin-types'
+export type { ConfigFieldDescriptor, EnvVarDescriptor } from '../plugin-types'
 
 // Re-export Mastra types so channel packages only import from @pandora/core/channels
 export type {
@@ -76,8 +76,8 @@ export interface ChannelPlugin {
   name: string
   /** Schema version — must match core's expected version */
   schemaVersion: number
-  /** Required environment variable names, e.g. ['TELEGRAM_BOT_TOKEN'] */
-  envVars?: string[]
+  /** Environment variables this plugin depends on */
+  envVars?: EnvVarDescriptor[]
   /** Config field descriptors for the UI (beyond `enabled`). Also used to generate Zod validation. */
   configFields?: ConfigFieldDescriptor[]
   /** Factory that creates a channel adapter from env vars and config */

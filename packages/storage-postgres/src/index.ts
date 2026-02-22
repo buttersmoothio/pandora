@@ -32,6 +32,6 @@ export default {
   id: 'storage-postgres',
   name: 'PostgreSQL',
   schemaVersion: 1,
-  envVars: ['DATABASE_URL'],
+  envVars: [{ name: 'DATABASE_URL' }],
   factory: createStorage,
 } satisfies StoragePlugin

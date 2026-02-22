@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { z } from 'zod'
 import { defineTool, getAllManifests, getManifest, getManifests } from './define'
+import { DEFAULT_TOOL_TIMEOUT } from './types'
 
 const testSchema = z.object({ value: z.string() })
 const defaultEnv = {}
@@ -91,6 +92,50 @@ describe('defineTool', () => {
   it('passes requireApproval through to Mastra tool', () => {
     const tool = makeTestTool({ requireApproval: true })(defaultEnv, defaultConfig)
     expect(tool.requireApproval).toBe(true)
+  })
+
+  it('defaults timeout to DEFAULT_TOOL_TIMEOUT in manifest', () => {
+    const def = makeTestTool()
+    const manifest = getManifest(def)
+    expect(manifest?.timeout).toBe(DEFAULT_TOOL_TIMEOUT)
+  })
+
+  it('sets custom timeout in manifest when specified', () => {
+    const def = makeTestTool({ timeout: 5_000 })
+    const manifest = getManifest(def)
+    expect(manifest?.timeout).toBe(5_000)
+  })
+
+  it('rejects with timeout error when execute exceeds timeout', async () => {
+    const def = defineTool({
+      id: 'slow-tool',
+      name: 'Slow Tool',
+      description: 'Takes too long',
+      inputSchema: testSchema,
+      timeout: 50,
+      execute: async () => {
+        await new Promise((r) => setTimeout(r, 200))
+        return { echo: 'done' }
+      },
+    })
+    const tool = def(defaultEnv, defaultConfig)
+    await expect(tool.execute?.({ value: 'hi' }, {} as never)).rejects.toThrow(
+      "Tool 'slow-tool' timed out after 50ms",
+    )
+  })
+
+  it('resolves normally when execute completes within timeout', async () => {
+    const def = defineTool({
+      id: 'fast-tool',
+      name: 'Fast Tool',
+      description: 'Quick',
+      inputSchema: testSchema,
+      timeout: 1_000,
+      execute: async (input) => ({ echo: input.value }),
+    })
+    const tool = def(defaultEnv, defaultConfig)
+    const result = await tool.execute?.({ value: 'hi' }, {} as never)
+    expect(result).toEqual({ echo: 'hi' })
   })
 })
 

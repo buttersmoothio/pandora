@@ -30,7 +30,7 @@ The plugin descriptor that storage packages default-export:
 | `id` | `string` | Yes | Plugin identifier, e.g. `'storage-postgres'` |
 | `name` | `string` | Yes | Human-readable display name, e.g. `'PostgreSQL'` |
 | `schemaVersion` | `number` | Yes | Must match core's expected version |
-| `envVars` | `string[]` | No | Required environment variable names |
+| `envVars` | `EnvVarDescriptor[]` | No | Environment variable descriptors |
 | `configFields` | `ConfigFieldDescriptor[]` | No | UI config field descriptors |
 | `factory` | `StorageFactory` | Yes | Creates storage instances from env vars |
 

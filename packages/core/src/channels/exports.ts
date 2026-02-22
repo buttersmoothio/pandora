@@ -13,6 +13,7 @@ export type {
   ChannelRuntime,
   ChannelWebhook,
   ConfigFieldDescriptor,
+  EnvVarDescriptor,
   FileChunk,
   GenerateResult,
   LanguageModelUsage,

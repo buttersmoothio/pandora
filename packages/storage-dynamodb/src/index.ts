@@ -351,6 +351,6 @@ export default {
   id: 'storage-dynamodb',
   name: 'DynamoDB',
   schemaVersion: 1,
-  envVars: ['AWS_REGION'],
+  envVars: [{ name: 'AWS_REGION' }],
   factory: createStorage,
 } satisfies StoragePlugin

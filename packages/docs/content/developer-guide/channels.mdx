@@ -113,7 +113,7 @@ export default {
   id: 'channel-discord',
   name: 'Discord',
   schemaVersion: 1,
-  envVars: ['DISCORD_BOT_TOKEN'],
+  envVars: [{ name: 'DISCORD_BOT_TOKEN' }],
   configFields: [
     {
       key: 'guildId',
@@ -148,7 +148,7 @@ Key fields:
 
 - **`id`** — must be `channel-{name}`, matching your package name
 - **`schemaVersion`** — must match core's expected version (currently `1`)
-- **`envVars`** — env vars the factory needs. The UI shows whether they're configured.
+- **`envVars`** — env vars the factory needs, as `{ name, required? }` descriptors. Variables default to required; set `required: false` for optional ones. The UI shows whether they're configured.
 - **`configFields`** — describes UI inputs beyond the `enabled` toggle. Core auto-generates Zod validation from these.
 - **`factory`** — receives env vars and validated config. Return `null` if required env vars are missing.
 

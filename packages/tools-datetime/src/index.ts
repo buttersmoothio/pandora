@@ -5,5 +5,5 @@ export default {
   id: 'tools-datetime',
   name: 'Date & Time',
   schemaVersion: 1,
-  factory: (env, config) => ({ 'current-time': currentTime(env, config) }),
+  tools: [currentTime],
 } satisfies ToolPlugin

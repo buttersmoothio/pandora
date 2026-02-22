@@ -69,7 +69,7 @@ describe('registerToolPlugin', () => {
         name: 'Bad',
         schemaVersion: 99,
         envVars: [],
-        factory: () => ({}),
+        tools: [],
       }),
     ).toThrow(/schema v99/)
   })

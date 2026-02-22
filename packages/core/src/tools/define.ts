@@ -1,13 +1,14 @@
 import { createTool, type Tool } from '@mastra/core/tools'
 import type { z } from 'zod'
-import type {
-  SandboxMode,
-  ToolAnnotations,
-  ToolExecuteContext,
-  ToolManifest,
-  ToolPermissions,
-  ToolPluginConfig,
-  ToolRecord,
+import {
+  DEFAULT_TOOL_TIMEOUT,
+  type SandboxMode,
+  type ToolAnnotations,
+  type ToolExecuteContext,
+  type ToolManifest,
+  type ToolPermissions,
+  type ToolPluginConfig,
+  type ToolRecord,
 } from './types'
 
 // --- Manifest registry ---
@@ -75,6 +76,8 @@ export interface DefineToolOptions<TIn, TOut> {
   permissions?: ToolPermissions
   /** Sandbox mode. Defaults to `'compartment'`. */
   sandbox?: SandboxMode
+  /** Execution timeout in milliseconds. Defaults to 60 000 (60 s). */
+  timeout?: number
   /** Whether the tool requires explicit user approval before execution. */
   requireApproval?: boolean
   /** MCP-compatible annotations for UI hints. */
@@ -88,6 +91,8 @@ export interface DefineToolOptions<TIn, TOut> {
  * a callable `(env, config) => Tool` that produces a bound Mastra tool.
  */
 export function defineTool<TIn, TOut>(opts: DefineToolOptions<TIn, TOut>): ToolDefinition {
+  const timeout = opts.timeout ?? DEFAULT_TOOL_TIMEOUT
+
   const manifest: ToolManifest = {
     id: opts.id,
     name: opts.name,
@@ -95,6 +100,7 @@ export function defineTool<TIn, TOut>(opts: DefineToolOptions<TIn, TOut>): ToolD
     ...(opts.permissions && { permissions: opts.permissions }),
     sandbox: opts.sandbox ?? 'compartment',
     annotations: opts.annotations,
+    timeout,
   }
 
   manifestRegistry.set(opts.id, manifest)
@@ -108,7 +114,18 @@ export function defineTool<TIn, TOut>(opts: DefineToolOptions<TIn, TOut>): ToolD
         description: opts.description,
         inputSchema: opts.inputSchema,
         outputSchema: opts.outputSchema,
-        execute: (input, _mastraCtx) => opts.execute(input, { env, config }),
+        execute: (input, _mastraCtx) => {
+          const result = opts.execute(input, { env, config })
+          return Promise.race([
+            result,
+            new Promise<never>((_resolve, reject) => {
+              setTimeout(
+                () => reject(new Error(`Tool '${opts.id}' timed out after ${timeout}ms`)),
+                timeout,
+              )
+            }),
+          ])
+        },
         requireApproval: opts.requireApproval,
         ...(opts.annotations && {
           mcp: { annotations: opts.annotations },

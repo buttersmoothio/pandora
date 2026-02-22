@@ -24,6 +24,14 @@ export interface ConfigFieldDescriptor {
   options?: { value: string; label: string }[]
 }
 
+/** Describes an environment variable a plugin depends on */
+export interface EnvVarDescriptor {
+  /** Environment variable name, e.g. 'OPENWEATHER_API_KEY' */
+  name: string
+  /** Whether this variable is required. Defaults to `true` (omit for required vars). */
+  required?: boolean
+}
+
 /** Per-plugin user configuration (shared shape for all plugin types) */
 export interface PluginConfig {
   enabled: boolean

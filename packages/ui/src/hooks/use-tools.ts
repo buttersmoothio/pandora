@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import type { ConfigFieldDescriptor } from '@/hooks/use-channels'
+import type { ConfigFieldDescriptor, EnvVarDescriptor } from '@/hooks/use-channels'
 import { apiFetch } from '@/lib/api'
 
 export interface ToolPermissions {
@@ -24,6 +24,7 @@ export interface ToolInfo {
   permissions?: ToolPermissions
   sandbox: 'compartment' | 'host'
   annotations?: ToolAnnotations
+  timeout: number
   enabled: boolean
   requireApproval?: boolean
   settings?: Record<string, string>
@@ -32,11 +33,13 @@ export interface ToolInfo {
 export interface ToolPluginInfo {
   id: string
   name: string
-  envVars: string[]
+  envVars: EnvVarDescriptor[]
   envConfigured: boolean
   configFields: ConfigFieldDescriptor[]
   enabled: boolean
   config: Record<string, unknown>
+  validationErrors: string[]
+  toolIds: string[]
 }
 
 interface ToolsResponse {

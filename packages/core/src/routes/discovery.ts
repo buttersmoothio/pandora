@@ -3,7 +3,12 @@ import { Hono } from 'hono'
 import { getAllChannels, getAllRegisteredChannelPlugins } from '../channels'
 import { getConfig } from '../config'
 import { getStorage } from '../storage'
-import { getAllManifests, getAllRegisteredToolPlugins } from '../tools'
+import {
+  getAllManifests,
+  getAllRegisteredToolPlugins,
+  getPluginToolIds,
+  getPluginValidationErrors,
+} from '../tools'
 import type { Env } from './helpers'
 import { ensureChannelsLoaded } from './helpers'
 
@@ -16,6 +21,7 @@ discoveryRoutes.get('/tools', async (c) => {
 
   const manifests = getAllManifests()
   const plugins = getAllRegisteredToolPlugins()
+  const validationErrors = getPluginValidationErrors(config)
 
   const tools = Object.values(manifests).map((manifest) => {
     const toolConfig = config.tools[manifest.id]
@@ -29,15 +35,20 @@ discoveryRoutes.get('/tools', async (c) => {
 
   const toolPlugins = plugins.map((plugin) => {
     const pluginConfig = config.toolPlugins[plugin.id]
-    const envConfigured = (plugin.envVars ?? []).every((v) => !!c.var.envVars[v])
+    const descriptors = plugin.envVars ?? []
+    const envConfigured = descriptors
+      .filter((d) => d.required !== false)
+      .every((d) => !!c.var.envVars[d.name])
     return {
       id: plugin.id,
       name: plugin.name,
-      envVars: plugin.envVars ?? [],
+      envVars: descriptors,
       envConfigured,
       configFields: plugin.configFields ?? [],
       enabled: pluginConfig?.enabled ?? true,
       config: pluginConfig ?? {},
+      validationErrors: validationErrors[plugin.id] ?? [],
+      toolIds: getPluginToolIds(plugin.id),
     }
   })
 
@@ -73,7 +84,10 @@ discoveryRoutes.get('/channels', async (c) => {
 
   const channels = getAllRegisteredChannelPlugins().map((plugin) => {
     const channelConfig = config.channels[plugin.id]
-    const envConfigured = (plugin.envVars ?? []).every((v) => !!c.var.envVars[v])
+    const descriptors = plugin.envVars ?? []
+    const envConfigured = descriptors
+      .filter((d) => d.required !== false)
+      .every((d) => !!c.var.envVars[d.name])
     const adapterId = plugin.id.replace(/^channel-/, '')
     const loaded = loadedIds.has(adapterId)
     const adapter = loadedChannels.find((ch) => ch.id === adapterId)
@@ -81,7 +95,7 @@ discoveryRoutes.get('/channels', async (c) => {
     return {
       id: plugin.id,
       name: plugin.name,
-      envVars: plugin.envVars ?? [],
+      envVars: descriptors,
       envConfigured,
       configFields: plugin.configFields ?? [],
       enabled: channelConfig?.enabled ?? false,

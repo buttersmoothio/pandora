@@ -5,7 +5,7 @@ export default {
   id: 'channel-telegram',
   name: 'Telegram',
   schemaVersion: 1,
-  envVars: ['TELEGRAM_BOT_TOKEN'],
+  envVars: [{ name: 'TELEGRAM_BOT_TOKEN' }],
   configFields: [
     {
       key: 'ownerId',

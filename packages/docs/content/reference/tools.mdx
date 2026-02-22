@@ -12,11 +12,11 @@ import {
 
 import type {
   ConfigFieldDescriptor,
+  EnvVarDescriptor,
   ToolDefinition,
   ToolExecuteContext,
   ToolManifest,
   ToolAnnotations,
-  ToolFactory,
   ToolPlugin,
   ToolPluginConfig,
   ToolRecord,
@@ -36,7 +36,7 @@ interface ToolDefinition {
 }
 ```
 
-Call with `(env, config)` inside the plugin factory to produce a tool whose `execute` receives `{ env, config }`.
+Call with `(env, config)` to produce a tool whose `execute` receives `{ env, config }`. In a `ToolPlugin`, list definitions in the `tools` array and core binds them automatically.
 
 ## `ToolExecuteContext`
 
@@ -61,6 +61,7 @@ interface ToolExecuteContext {
 | `execute` | `(input, context: ToolExecuteContext) => Promise` | Yes | The tool's handler function |
 | `permissions` | `ToolPermissions` | No | Declared capabilities (time, network, env, fs, random) |
 | `sandbox` | `'compartment' \| 'host'` | No | Execution mode. Defaults to `'compartment'` |
+| `timeout` | `number` | No | Execution timeout in milliseconds. Defaults to `60000` (60 s) |
 | `requireApproval` | `boolean` | No | Require user approval before execution |
 | `annotations` | `ToolAnnotations` | No | MCP-compatible UI hints |
 
@@ -75,18 +76,9 @@ interface ToolAnnotations {
 }
 ```
 
-## `ToolFactory`
-
-```ts
-type ToolFactory = (
-  env: Record<string, string | undefined>,
-  config: ToolPluginConfig,
-) => ToolRecord
-```
-
 ## `ToolPluginConfig`
 
-The validated user configuration passed to the factory:
+The validated user configuration passed to tool definitions:
 
 ```ts
 interface ToolPluginConfig {
@@ -104,12 +96,21 @@ The plugin descriptor that `@pandora/tools-*` packages default-export:
 | `id` | `string` | Yes | Plugin identifier, e.g. `'tools-datetime'` |
 | `name` | `string` | Yes | Human-readable display name, e.g. `'Date & Time'` |
 | `schemaVersion` | `number` | Yes | Must match core's expected version |
-| `envVars` | `string[]` | No | Required environment variable names |
+| `envVars` | `EnvVarDescriptor[]` | No | Environment variable descriptors |
 | `configFields` | `ConfigFieldDescriptor[]` | No | UI config field descriptors |
-| `factory` | `ToolFactory` | Yes | Creates tool instances from env vars and config |
+| `tools` | `ToolDefinition[]` | Yes | Tool definitions provided by this plugin |
 
 ## `ToolManifest`
 
 The manifest registered for each tool via `defineTool()`. Retrieved via `getManifest(toolOrId)`, `getManifests(toolRecord)`, or `getAllManifests()`.
 
 `getManifest()` accepts a tool ID string, a tool instance, or a `ToolDefinition`.
+
+## `EnvVarDescriptor`
+
+Describes an environment variable a plugin depends on:
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `name` | `string` | Yes | Environment variable name |
+| `required` | `boolean` | No | Whether this variable is required. Defaults to `true` |

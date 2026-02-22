@@ -261,6 +261,6 @@ export default {
   id: 'storage-mongodb',
   name: 'MongoDB',
   schemaVersion: 1,
-  envVars: ['MONGODB_URI'],
+  envVars: [{ name: 'MONGODB_URI' }],
   factory: createStorage,
 } satisfies StoragePlugin

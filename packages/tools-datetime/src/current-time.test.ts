@@ -56,14 +56,16 @@ describe('plugin descriptor', () => {
     expect(plugin.schemaVersion).toBe(1)
   })
 
-  it('factory returns a tool record containing current-time', () => {
-    const tools = plugin.factory({}, { enabled: true })
-    expect(Object.keys(tools)).toEqual(['current-time'])
+  it('tools array contains current-time', () => {
+    expect(plugin.tools.map((t) => t.id)).toEqual(['current-time'])
   })
 
-  it('factory returns manifests for all tools', () => {
-    const tools = plugin.factory({}, { enabled: true })
-    const manifests = getManifests(tools)
+  it('tools produce manifests when instantiated', () => {
+    const record: Record<string, ReturnType<(typeof plugin.tools)[number]>> = {}
+    for (const toolDef of plugin.tools) {
+      record[toolDef.id] = toolDef({}, { enabled: true })
+    }
+    const manifests = getManifests(record)
     expect(manifests['current-time']).toBeDefined()
     expect(manifests['current-time'].id).toBe('current-time')
   })
