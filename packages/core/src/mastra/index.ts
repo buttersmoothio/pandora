@@ -22,9 +22,12 @@ export async function getMastra(
   env: Record<string, string | undefined>,
   bindings?: unknown,
 ): Promise<Mastra> {
+  const log = getLogger(env)
   if (!isServerless() && _cached) {
+    log.debug('[getMastra] returning cached instance')
     return _cached
   }
+  log.info('[getMastra] creating new Mastra instance')
 
   // 1. Storage
   const { mastra: mastraStorage, config: configStore } = await getStorage(env, bindings)
@@ -34,6 +37,12 @@ export async function getMastra(
 
   // 3. Tools
   const tools = await loadTools(config, env)
+  log.info('[getMastra] loaded tools', {
+    toolIds: Object.keys(tools),
+    toolsWithApproval: Object.entries(tools)
+      .filter(([, t]) => t.requireApproval)
+      .map(([id]) => id),
+  })
 
   // 4. Memory
   const memory = createMemory()

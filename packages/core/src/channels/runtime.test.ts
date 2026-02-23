@@ -228,7 +228,12 @@ describe('createChannelRuntime', () => {
       })
 
       const threadId = await runtime.newThread('discord', 'channel-99')
-      await runtime.generate({ threadId, parts: [{ type: 'text', text: 'hey' }] })
+      await runtime.generate({
+        threadId,
+        channelId: 'discord',
+        externalId: 'channel-99',
+        parts: [{ type: 'text', text: 'hey' }],
+      })
 
       const [, options] = mockGenerate.mock.calls[0]
       expect(options.memory).toEqual({

@@ -122,13 +122,45 @@ export interface StreamResult {
   usage: Promise<LanguageModelUsage>
 }
 
+/** Options for AI SDK streaming methods */
+export interface StreamAISdkOpts {
+  threadId: string
+  parts: MessagePart[]
+  sendReasoning?: boolean
+  sendSources?: boolean
+  /** Pass true if threadId is newly created (e.g., via crypto.randomUUID()) */
+  isNewThread?: boolean
+}
+
+/** Options for AI SDK tool approval methods */
+export interface ApproveToolCallAISdkOpts {
+  runId: string
+  toolCallId?: string
+  threadId: string
+  messageId?: string
+  sendReasoning?: boolean
+  sendSources?: boolean
+}
+
 /** The gateway — what core provides to channel adapters */
 export interface ChannelRuntime {
   /** Send message and get full response (non-streaming) */
-  generate(opts: { threadId: string; parts: MessagePart[] }): Promise<GenerateResult>
+  generate(opts: {
+    threadId: string
+    parts: MessagePart[]
+    /** Pass channelId + externalId to consume pending thread metadata */
+    channelId?: string
+    externalId?: string
+  }): Promise<GenerateResult>
 
   /** Send message and get streaming response */
-  stream(opts: { threadId: string; parts: MessagePart[] }): Promise<StreamResult>
+  stream(opts: {
+    threadId: string
+    parts: MessagePart[]
+    /** Pass channelId + externalId to consume pending thread metadata */
+    channelId?: string
+    externalId?: string
+  }): Promise<StreamResult>
 
   /** Approve a pending tool call and resume generation */
   approveToolCall(opts: { runId: string; toolCallId?: string }): Promise<GenerateResult>
@@ -136,10 +168,19 @@ export interface ChannelRuntime {
   /** Decline a pending tool call and resume generation */
   declineToolCall(opts: { runId: string; toolCallId?: string }): Promise<GenerateResult>
 
+  /** Stream with AI SDK-compatible output (for web UI) */
+  streamAISdk(opts: StreamAISdkOpts): Promise<ReadableStream>
+
+  /** Approve tool call with AI SDK streaming output */
+  approveToolCallAISdk(opts: ApproveToolCallAISdkOpts): Promise<ReadableStream>
+
+  /** Decline tool call with AI SDK streaming output */
+  declineToolCallAISdk(opts: ApproveToolCallAISdkOpts): Promise<ReadableStream>
+
   /** Get or create an active thread for a channel+externalId pair */
   resolveThread(channelId: string, externalId: string): Promise<string>
 
-  /** Start a new conversation for a channel+externalId pair, returns threadId */
+  /** Start a new conversation for a channel+externalId pair */
   newThread(channelId: string, externalId: string): Promise<string>
 
   /** Environment variables */

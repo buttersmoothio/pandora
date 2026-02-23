@@ -31,26 +31,58 @@ async function reply(ctx: Context, text: string): Promise<void> {
   }
 }
 
-/** Send the result to the chat — either an approval keyboard or text reply. */
-async function sendResult(ctx: Context, result: GenerateResult): Promise<void> {
-  if (result.pendingToolApproval) {
-    const { toolCallId, toolName, args } = result.pendingToolApproval
-    const keyboard = new InlineKeyboard()
-      .text('Approve', `approve:${result.runId}:${toolCallId}`)
-      .text('Deny', `deny:${result.runId}:${toolCallId}`)
-
-    const argsText = JSON.stringify(args, null, 2)
-    await ctx.reply(`<b>${toolName}</b> wants to run:\n<pre>${argsText}</pre>`, {
-      parse_mode: 'HTML',
-      reply_markup: keyboard,
+/** Format tool args as a readable key-value list */
+function formatArgs(args: unknown): string {
+  if (!args || typeof args !== 'object') return ''
+  const entries = Object.entries(args as Record<string, unknown>)
+  if (entries.length === 0) return ''
+  return entries
+    .map(([key, value]) => {
+      const formatted = typeof value === 'string' ? value : JSON.stringify(value)
+      return `• <b>${key}:</b> ${formatted}`
     })
-  } else if (result.text) {
-    await reply(ctx, markdownToHtml(result.text))
+    .join('\n')
+}
+
+/** Send the result to the chat — either an approval keyboard or text reply. */
+function sendResult(
+  ctx: Context,
+  result: GenerateResult,
+  pendingApprovals: Map<string, { runId: string; toolCallId: string }>,
+  nextId: () => string,
+): Promise<void> {
+  if (result.pendingToolApproval && result.runId) {
+    const { toolCallId, toolName, args } = result.pendingToolApproval
+    const id = nextId()
+    pendingApprovals.set(id, { runId: result.runId, toolCallId })
+
+    const keyboard = new InlineKeyboard().text('Approve', `a:${id}`).text('Deny', `d:${id}`)
+
+    const argsText = formatArgs(args)
+    const message = argsText
+      ? `<b>${toolName}</b> wants to run:\n${argsText}`
+      : `<b>${toolName}</b> wants to run`
+
+    return ctx
+      .reply(message, {
+        parse_mode: 'HTML',
+        reply_markup: keyboard,
+      })
+      .then(() => {})
   }
+  if (result.text) {
+    return reply(ctx, markdownToHtml(result.text))
+  }
+  return Promise.resolve()
 }
 
 export function createTelegramAdapter(token: string, ownerId: string): ChannelAdapter {
   let bot: Bot | null = null
+
+  // Store pending approvals — Telegram callback data has 64-byte limit, so we
+  // use short IDs and look up the full runId/toolCallId from this map.
+  let approvalCounter = 0
+  const pendingApprovals = new Map<string, { runId: string; toolCallId: string }>()
 
   const realtime: ChannelRealtime = {
     async start(runtime) {
@@ -85,8 +117,8 @@ export function createTelegramAdapter(token: string, ownerId: string): ChannelAd
         const text = ctx.message.text.trim()
         if (!text) return
 
-        const chatId = ctx.chat.id
-        const threadId = await runtime.resolveThread(CHANNEL_ID, String(chatId))
+        const chatId = String(ctx.chat.id)
+        const threadId = await runtime.resolveThread(CHANNEL_ID, chatId)
 
         await ctx.replyWithChatAction('typing')
         const typingInterval = setInterval(
@@ -94,30 +126,43 @@ export function createTelegramAdapter(token: string, ownerId: string): ChannelAd
           5_000,
         )
 
+        const nextId = () => String(++approvalCounter)
+
         try {
           const result = await runtime.generate({
             threadId,
+            channelId: CHANNEL_ID,
+            externalId: chatId,
             parts: [{ type: 'text', text }],
           })
-          await sendResult(ctx, result)
+          await sendResult(ctx, result, pendingApprovals, nextId)
         } finally {
           clearInterval(typingInterval)
         }
       })
 
-      bot.callbackQuery(/^(approve|deny):(.+):(.+)$/, async (ctx) => {
+      bot.callbackQuery(/^(a|d):(\d+)$/, async (ctx) => {
         const match = ctx.match as RegExpMatchArray
-        const [, action, runId, toolCallId] = match
-        await ctx.answerCallbackQuery(action === 'approve' ? 'Approved' : 'Denied')
+        const [, action, id] = match
+        const pending = pendingApprovals.get(id)
+        if (!pending) {
+          await ctx.answerCallbackQuery('Approval expired')
+          return
+        }
+        pendingApprovals.delete(id)
+
+        const { runId, toolCallId } = pending
+        await ctx.answerCallbackQuery(action === 'a' ? 'Approved' : 'Denied')
         await ctx.editMessageReplyMarkup({ reply_markup: { inline_keyboard: [] } })
 
         await ctx.replyWithChatAction('typing')
+        const nextId = () => String(++approvalCounter)
         const result =
-          action === 'approve'
+          action === 'a'
             ? await runtime.approveToolCall({ runId, toolCallId })
             : await runtime.declineToolCall({ runId, toolCallId })
 
-        await sendResult(ctx, result)
+        await sendResult(ctx, result, pendingApprovals, nextId)
       })
 
       bot.catch((err) => {

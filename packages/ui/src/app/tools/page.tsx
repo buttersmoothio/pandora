@@ -59,8 +59,6 @@ function ToolRow({ tool, allTools }: { tool: ToolInfo; allTools: ToolInfo[] }) {
     setRequireApproval(tool.requireApproval ?? false)
   }, [tool])
 
-  const isDirty = enabled !== tool.enabled || requireApproval !== (tool.requireApproval ?? false)
-
   function buildToolsRecord(overrides: Partial<{ enabled: boolean; requireApproval: boolean }>) {
     const record: Record<
       string,
@@ -68,15 +66,16 @@ function ToolRow({ tool, allTools }: { tool: ToolInfo; allTools: ToolInfo[] }) {
     > = {}
     for (const t of allTools) {
       if (t.id === tool.id) {
+        const approval = overrides.requireApproval ?? requireApproval
         record[t.id] = {
           enabled: overrides.enabled ?? enabled,
-          requireApproval: (overrides.requireApproval ?? requireApproval) || undefined,
+          requireApproval: approval,
           settings: t.settings,
         }
       } else {
         record[t.id] = {
           enabled: t.enabled,
-          requireApproval: t.requireApproval || undefined,
+          requireApproval: t.requireApproval,
           settings: t.settings,
         }
       }
@@ -84,13 +83,14 @@ function ToolRow({ tool, allTools }: { tool: ToolInfo; allTools: ToolInfo[] }) {
     return record
   }
 
-  function save() {
-    updateConfig.mutate({ tools: buildToolsRecord({}) })
-  }
-
   function handleToggle(checked: boolean) {
     setEnabled(checked)
     updateConfig.mutate({ tools: buildToolsRecord({ enabled: checked }) })
+  }
+
+  function handleApprovalToggle(checked: boolean) {
+    setRequireApproval(checked)
+    updateConfig.mutate({ tools: buildToolsRecord({ requireApproval: checked }) })
   }
 
   const permissions = tool.permissions ?? {}
@@ -125,22 +125,14 @@ function ToolRow({ tool, allTools }: { tool: ToolInfo; allTools: ToolInfo[] }) {
       </div>
 
       {enabled && (
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Switch
-              id={`${tool.id}-approval`}
-              checked={requireApproval}
-              onCheckedChange={setRequireApproval}
-              size="sm"
-            />
-            <Label htmlFor={`${tool.id}-approval`}>Require Approval</Label>
-          </div>
-
-          {isDirty && (
-            <Button size="sm" disabled={updateConfig.isPending} onClick={save}>
-              {updateConfig.isPending ? <Loader2Icon className="size-4 animate-spin" /> : 'Save'}
-            </Button>
-          )}
+        <div className="flex items-center gap-3">
+          <Switch
+            id={`${tool.id}-approval`}
+            checked={requireApproval}
+            onCheckedChange={handleApprovalToggle}
+            size="sm"
+          />
+          <Label htmlFor={`${tool.id}-approval`}>Require Approval</Label>
         </div>
       )}
     </div>

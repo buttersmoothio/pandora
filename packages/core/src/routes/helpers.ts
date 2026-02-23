@@ -4,6 +4,8 @@ import { env } from 'hono/adapter'
 import { createMiddleware } from 'hono/factory'
 import { HTTPException } from 'hono/http-exception'
 import { loadChannels } from '../channels'
+import { createChannelRuntime } from '../channels/runtime'
+import type { ChannelRuntime } from '../channels/types'
 import { getConfig } from '../config'
 import { getMastra } from '../mastra'
 import { getStorage } from '../storage'
@@ -62,4 +64,10 @@ export async function ensureChannelsLoaded(envVars: Record<string, string | unde
   const config = await getConfig(configStore)
   await loadChannels(envVars, config.channels)
   _channelsLoaded = true
+}
+
+/** Get a ChannelRuntime for web UI routes to use the same abstraction as channels */
+export async function getChannelRuntime(c: Context<Env>): Promise<ChannelRuntime> {
+  const mastra = await getMastra(c.var.envVars, c.env)
+  return createChannelRuntime({ mastra, env: c.var.envVars })
 }

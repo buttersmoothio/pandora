@@ -59,10 +59,7 @@ export function MessageParts({
           const isAwaitingApproval = state === 'approval-requested'
 
           return (
-            <Tool
-              key={`${message.id}-${i}`}
-              defaultOpen={isAwaitingApproval || state === 'output-available'}
-            >
+            <Tool key={`${message.id}-${i}`} defaultOpen={isAwaitingApproval}>
               {part.type === 'dynamic-tool' ? (
                 <ToolHeader type={part.type} state={state} toolName={part.toolName} />
               ) : (

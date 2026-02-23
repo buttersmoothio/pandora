@@ -30,11 +30,12 @@ configRoutes.patch('/', async (c) => {
     const { config: configStore } = await getStorage(c.var.envVars, c.env)
     const patch = await c.req.json()
     const updated = await updateConfig(configStore, patch)
-    // Invalidate Mastra cache so next request rebuilds with new config
+    // Invalidate caches so next request rebuilds with new config
     clearConfigCache()
     clearMastraCache()
-    // Reload channels when channel config changes
-    if (patch.channels) {
+    // Reload channels when config affecting the Mastra instance changes
+    // (channels use the runtime which holds a reference to Mastra)
+    if (patch.channels || patch.tools || patch.toolPlugins) {
       const mastra = await getMastra(c.var.envVars, c.env)
       await reloadChannels(mastra, c.var.envVars, updated.channels)
     }

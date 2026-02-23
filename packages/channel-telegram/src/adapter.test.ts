@@ -65,6 +65,9 @@ function createMockRuntime(): ChannelRuntime {
     stream: vi.fn(),
     approveToolCall: vi.fn().mockResolvedValue({ text: 'Approved result' }),
     declineToolCall: vi.fn().mockResolvedValue({ text: 'Declined result' }),
+    streamAISdk: vi.fn(),
+    approveToolCallAISdk: vi.fn(),
+    declineToolCallAISdk: vi.fn(),
     resolveThread: vi.fn().mockResolvedValue('thread-123'),
     newThread: vi.fn().mockResolvedValue('new-thread-456'),
   }
@@ -189,6 +192,8 @@ describe('realtime', () => {
     expect(runtime.resolveThread).toHaveBeenCalledWith('telegram', '42')
     expect(runtime.generate).toHaveBeenCalledWith({
       threadId: 'thread-123',
+      channelId: 'telegram',
+      externalId: '42',
       parts: [{ type: 'text', text: 'Hello AI' }],
     })
     expect(markdownToHtml).toHaveBeenCalledWith('AI response')

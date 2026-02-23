@@ -1,37 +1,10 @@
-import { handleChatStream, toAISdkStream } from '@mastra/ai-sdk'
 import { createUIMessageStreamResponse, UI_MESSAGE_STREAM_HEADERS } from 'ai'
 import { Hono } from 'hono'
 import { isServerless } from '../env'
 import { getLogger } from '../logger'
-import { getMastra } from '../mastra'
 import { getResumeStream, storeStream } from '../stream-store'
 import type { Env } from './helpers'
-
-/** Convert Mastra approval chunks to AI SDK tool-approval-request format. */
-function createApprovalTransform(): TransformStream {
-  const log = getLogger()
-  return new TransformStream({
-    transform(chunk: any, controller) {
-      if (chunk.type === 'data-tool-call-approval') {
-        log.info('[ApprovalTransform] data-tool-call-approval → tool-approval-request', {
-          runId: chunk.data.runId,
-          toolCallId: chunk.data.toolCallId,
-        })
-        controller.enqueue({
-          type: 'tool-approval-request',
-          approvalId: chunk.data.runId,
-          toolCallId: chunk.data.toolCallId,
-        })
-        return
-      }
-      if (chunk.type === 'data-tool-call-suspended') {
-        log.info('[ApprovalTransform] suppressing data-tool-call-suspended')
-        return
-      }
-      controller.enqueue(chunk)
-    },
-  })
-}
+import { getChannelRuntime } from './helpers'
 
 const chatRoutes = new Hono<Env>()
 
@@ -48,29 +21,18 @@ chatRoutes.post('/', async (c) => {
     }
 
     const threadId = clientThreadId ?? crypto.randomUUID()
+    const isNewThread = !clientThreadId
 
     log.info('Chat request received', { threadId, partsCount: parts.length })
-    const mastra = await getMastra(c.var.envVars, c.env)
 
-    const params = {
-      messages: [{ id: crypto.randomUUID(), role: 'user' as const, parts }],
-      memory: {
-        // For new threads, pass metadata so Mastra creates the thread with root: true
-        // and generates a title. For existing threads, just pass the ID.
-        thread: clientThreadId ?? { id: threadId, metadata: { root: true } },
-        resource: 'default',
-      },
-    }
-
-    const rawStream = await handleChatStream({
-      mastra,
-      agentId: 'operator',
-      params,
+    const runtime = await getChannelRuntime(c)
+    const stream = await runtime.streamAISdk({
+      threadId,
+      parts,
       sendReasoning: true,
       sendSources: true,
+      isNewThread,
     })
-
-    const stream = rawStream.pipeThrough(createApprovalTransform())
 
     log.debug('Chat stream created', { threadId })
     const res = createUIMessageStreamResponse({
@@ -100,25 +62,11 @@ chatRoutes.post('/approve', async (c) => {
     }
 
     log.info('Tool approval', { threadId, runId, toolCallId, approved })
-    const mastra = await getMastra(c.var.envVars, c.env)
-    const agent = mastra.getAgent('operator')
 
-    const options = {
-      runId,
-      ...(toolCallId && { toolCallId }),
-      memory: { thread: threadId, resource: 'default' },
-    }
-
-    const result = approved
-      ? await agent.approveToolCall(options)
-      : await agent.declineToolCall(options)
-
-    const stream = toAISdkStream(result, {
-      from: 'agent',
-      lastMessageId: messageId,
-      sendReasoning: true,
-      sendSources: true,
-    }).pipeThrough(createApprovalTransform())
+    const runtime = await getChannelRuntime(c)
+    const stream = approved
+      ? await runtime.approveToolCallAISdk({ runId, toolCallId, threadId, messageId })
+      : await runtime.declineToolCallAISdk({ runId, toolCallId, threadId, messageId })
 
     const res = createUIMessageStreamResponse({
       stream,
