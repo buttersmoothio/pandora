@@ -5,5 +5,6 @@ export default {
   channels: 'Channels',
   auth: 'Authentication',
   storage: 'Storage',
+  memory: 'Memory',
   threads: 'Threads & Branching',
 }

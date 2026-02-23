@@ -30,6 +30,12 @@ export interface Config {
   channels: Record<string, { enabled: boolean; [key: string]: unknown }>
   toolPlugins: Record<string, { enabled: boolean; [key: string]: unknown }>
   tools: Record<string, ToolConfig>
+  memory: {
+    semanticRecall: {
+      enabled: boolean
+      embedder?: string
+    }
+  }
 }
 
 const CONFIG_KEY = ['config'] as const

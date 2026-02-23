@@ -129,6 +129,21 @@ export const ConfigSchema = z.object({
     .default(() => ({
       'current-time': { enabled: true },
     })),
+
+  /** Memory configuration */
+  memory: z
+    .object({
+      semanticRecall: z.object({
+        enabled: z.boolean(),
+        embedder: z.string().optional(),
+      }),
+    })
+    .default(() => ({
+      semanticRecall: {
+        enabled: false,
+        embedder: 'openai/text-embedding-3-small',
+      },
+    })),
 })
 
 export type Config = z.infer<typeof ConfigSchema>

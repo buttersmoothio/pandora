@@ -6,6 +6,7 @@ import { getLogger } from '../logger'
 import { createMemory } from '../memory'
 import { getStorage } from '../storage'
 import { loadTools } from '../tools'
+import { getVector } from '../vector'
 
 /** Cached Mastra instance for server mode */
 let _cached: Mastra | null = null
@@ -15,9 +16,7 @@ let _cached: Mastra | null = null
  *
  * In server mode, caches the instance for the process lifetime.
  * In serverless mode, creates a fresh instance per invocation.
- *
- * Flow: getStorage() → getConfig() → loadTools() → createMemory() → createOperator() → new Mastra(...)
- */
+ * */
 export async function getMastra(
   env: Record<string, string | undefined>,
   bindings?: unknown,
@@ -44,13 +43,22 @@ export async function getMastra(
       .map(([id]) => id),
   })
 
-  // 4. Memory
-  const memory = createMemory()
+  // 4. Vector (for semantic recall)
+  const vectorResult = config.memory.semanticRecall.enabled ? await getVector(env, bindings) : null
+  if (config.memory.semanticRecall.enabled) {
+    log.info('[getMastra] semantic recall enabled', {
+      hasVector: !!vectorResult,
+      embedder: config.memory.semanticRecall.embedder,
+    })
+  }
 
-  // 5. Operator agent
+  // 5. Memory
+  const memory = createMemory({ config, vector: vectorResult })
+
+  // 6. Operator agent
   const operator = createOperator(config, tools, memory)
 
-  // 6. Mastra instance
+  // 7. Mastra instance
   const mastra = new Mastra({
     agents: { operator },
     storage: mastraStorage,

@@ -1,0 +1,45 @@
+---
+asIndexPage: true
+---
+
+import { Cards, Callout } from 'nextra/components'
+
+# Memory
+
+When enabled, your agent remembers past conversations and can bring up relevant context on its own — no need to remind it.
+
+## Enabling Semantic Recall
+
+Open the **Config** page and scroll to the **Memory** section:
+
+1. Toggle **Semantic Recall** on
+2. Pick a **Provider** and **Model** for embeddings
+
+<Callout type="info">
+  The embedding model requires a configured provider API key. For example, selecting an OpenAI model requires `OPENAI_API_KEY` to be set.
+</Callout>
+
+That's it. No extra setup is needed — memory works with the default SQLite local database.
+
+## Using a Different Vector Database
+
+By default, memory stores vectors in the same SQLite database as everything else. If you want to use a dedicated vector database instead, set `VECTOR_PROVIDER` and install the matching package — same pattern as [switching storage providers](/user-guide/storage).
+
+```bash
+# .env
+VECTOR_PROVIDER=vector-qdrant
+QDRANT_URL=http://localhost:6333
+QDRANT_API_KEY=secret
+```
+
+```bash
+bun add pandora-vector-qdrant
+```
+
+Restart the server after switching.
+
+## Providers
+
+<Cards num={2}>
+  <Cards.Card title="SQLite" href="/user-guide/memory/libsql" arrow />
+</Cards>

@@ -1,0 +1,25 @@
+{
+  "name": "@pandora/vector-libsql",
+  "version": "0.0.1",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest --coverage",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@mastra/libsql": "^1.4.0"
+  },
+  "peerDependencies": {
+    "@pandora/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.9",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
+  }
+}

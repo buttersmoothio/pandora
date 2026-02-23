@@ -1,0 +1,17 @@
+# Memory
+
+## Vector Plugin System
+
+The vector plugin system mirrors the [storage plugin](/architecture/storage) pattern — a separate concern with the same registry, factory, and cache model. A plugin registers a `VectorPlugin` descriptor; the factory creates a `MastraVector` instance from environment variables; the result is cached for the process lifetime in server mode and created fresh per request in serverless mode.
+
+## Why Vector Is Separate from Storage
+
+Storage and vector serve different workloads: storage handles structured data (threads, config, auth), while vector handles high-dimensional embedding search. Keeping them independent lets you mix backends — for example, Postgres for storage and Pinecone for vectors — without coupling unrelated concerns.
+
+The default vector plugin (`vector-libsql`) reads `DATABASE_URL`, the same env var as the default storage plugin. This keeps zero-config setups simple while still allowing full separation when needed.
+
+## Semantic Recall
+
+Semantic recall is opt-in. When disabled (the default), no vector store is initialized and no embedding overhead is incurred. When enabled via config, the agent's `Memory` instance receives the vector store and an embedder string.
+
+The embedding model is resolved via Mastra's model router using a `provider/model` string format (e.g. `openai/text-embedding-3-small`). Mastra defaults are used for `topK` and `messageRange` rather than re-inventing tuning parameters — the goal is to expose a simple on/off toggle to the user while deferring to Mastra's sensible defaults for retrieval behavior.

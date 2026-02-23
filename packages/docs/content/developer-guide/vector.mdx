@@ -1,0 +1,158 @@
+import { Steps, FileTree, Callout } from 'nextra/components'
+
+# Build a Vector Plugin
+
+Every vector plugin is a standalone npm package that default-exports a `VectorPlugin` descriptor. Your factory receives environment variables and returns a [Mastra vector adapter](https://mastra.ai/docs/rag/vector-databases).
+
+<Callout type="info">
+  Pandora's vector layer depends on Mastra for embedding storage and similarity search. You can only build a provider for databases that Mastra already supports — see [Mastra's vector database docs](https://mastra.ai/docs/rag/vector-databases) for the current list.
+</Callout>
+
+## Creating a Plugin
+
+Let's build a hypothetical Qdrant plugin as an example.
+
+<Steps>
+
+### Create the package
+
+<FileTree>
+  <FileTree.Folder name="pandora-vector-qdrant" defaultOpen>
+    <FileTree.File name="package.json" />
+    <FileTree.Folder name="src" defaultOpen>
+      <FileTree.File name="index.ts" />
+    </FileTree.Folder>
+    <FileTree.File name="tsconfig.json" />
+  </FileTree.Folder>
+</FileTree>
+
+### Set up `package.json`
+
+```json
+{
+  "name": "pandora-vector-qdrant",
+  "version": "0.0.1",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@mastra/qdrant": "latest"
+  },
+  "peerDependencies": {
+    "@pandora/core": "*"
+  }
+}
+```
+
+Key conventions:
+- `@pandora/core` is a peer dependency
+- Include the `@mastra/*` adapter for your database
+- Default-export a `VectorPlugin` descriptor from the package entry point
+
+### Implement the plugin
+
+Your entry point default-exports a `VectorPlugin` with metadata and a factory that creates the Mastra vector adapter.
+
+```ts
+// src/index.ts
+import { QdrantVector } from '@mastra/qdrant'
+import type { VectorPlugin } from '@pandora/core/vector'
+
+export default {
+  id: 'vector-qdrant',
+  name: 'Qdrant',
+  schemaVersion: 1,
+  envVars: [
+    { name: 'QDRANT_URL', required: true },
+    { name: 'QDRANT_API_KEY', required: true },
+  ],
+  factory: async (env) => {
+    const vector = new QdrantVector({
+      url: env.QDRANT_URL!,
+      apiKey: env.QDRANT_API_KEY,
+    })
+
+    return { vector }
+  },
+} satisfies VectorPlugin
+```
+
+A few things to notice:
+
+- **Mastra adapter** — the `@mastra/qdrant` package handles embedding storage and similarity search. This is why you need Mastra to support your database first.
+- **`close()`** — if your database driver holds a persistent connection, return a `close` function that tears it down. Pandora calls it on shutdown. HTTP-based providers can omit it.
+
+### Register and test it
+
+Install your package in the Pandora instance, register it in `plugins.ts`, and start:
+
+```ts
+import qdrant from 'pandora-vector-qdrant'
+import { registerVectorPlugin } from './vector'
+
+registerVectorPlugin(qdrant)
+```
+
+```bash
+VECTOR_PROVIDER=vector-qdrant QDRANT_URL=http://localhost:6333 QDRANT_API_KEY=secret bun run dev
+```
+
+</Steps>
+
+## Reference
+
+All types are exported from `@pandora/core/vector`:
+
+```ts
+import type {
+  ConfigFieldDescriptor,
+  EnvVarDescriptor,
+  MastraVector,
+  VectorFactory,
+  VectorPlugin,
+  VectorResult,
+} from '@pandora/core/vector'
+```
+
+### `VectorPlugin`
+
+The descriptor your package default-exports:
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `id` | `string` | Yes | Plugin identifier, e.g. `'vector-qdrant'` |
+| `name` | `string` | Yes | Human-readable display name, e.g. `'Qdrant'` |
+| `schemaVersion` | `number` | Yes | Must be `1` |
+| `envVars` | `EnvVarDescriptor[]` | No | Environment variable descriptors |
+| `configFields` | `ConfigFieldDescriptor[]` | No | UI config field descriptors |
+| `factory` | `VectorFactory` | Yes | Creates vector instances from env vars |
+
+### `VectorFactory`
+
+The factory function inside a `VectorPlugin`:
+
+```ts
+type VectorFactory = (
+  env: Record<string, string | undefined>,
+  bindings?: unknown,
+) => Promise<VectorResult>
+```
+
+| Parameter | Description |
+|---|---|
+| `env` | Environment variables |
+| `bindings` | Cloudflare Workers bindings, if applicable |
+
+### `VectorResult`
+
+The object your factory must return:
+
+```ts
+interface VectorResult {
+  /** Mastra vector store for embeddings */
+  vector: MastraVector
+  /** Close connection (optional cleanup on shutdown) */
+  close?(): Promise<void>
+}
+```
