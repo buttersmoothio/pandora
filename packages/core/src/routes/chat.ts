@@ -1,4 +1,4 @@
-import { handleChatStream } from '@mastra/ai-sdk'
+import { handleChatStream, toAISdkStream } from '@mastra/ai-sdk'
 import { createUIMessageStreamResponse, UI_MESSAGE_STREAM_HEADERS } from 'ai'
 import { Hono } from 'hono'
 import { isServerless } from '../env'
@@ -6,6 +6,32 @@ import { getLogger } from '../logger'
 import { getMastra } from '../mastra'
 import { getResumeStream, storeStream } from '../stream-store'
 import type { Env } from './helpers'
+
+/** Convert Mastra approval chunks to AI SDK tool-approval-request format. */
+function createApprovalTransform(): TransformStream {
+  const log = getLogger()
+  return new TransformStream({
+    transform(chunk: any, controller) {
+      if (chunk.type === 'data-tool-call-approval') {
+        log.info('[ApprovalTransform] data-tool-call-approval → tool-approval-request', {
+          runId: chunk.data.runId,
+          toolCallId: chunk.data.toolCallId,
+        })
+        controller.enqueue({
+          type: 'tool-approval-request',
+          approvalId: chunk.data.runId,
+          toolCallId: chunk.data.toolCallId,
+        })
+        return
+      }
+      if (chunk.type === 'data-tool-call-suspended') {
+        log.info('[ApprovalTransform] suppressing data-tool-call-suspended')
+        return
+      }
+      controller.enqueue(chunk)
+    },
+  })
+}
 
 const chatRoutes = new Hono<Env>()
 
@@ -36,13 +62,15 @@ chatRoutes.post('/', async (c) => {
       },
     }
 
-    const stream = await handleChatStream({
+    const rawStream = await handleChatStream({
       mastra,
       agentId: 'operator',
       params,
       sendReasoning: true,
       sendSources: true,
     })
+
+    const stream = rawStream.pipeThrough(createApprovalTransform())
 
     log.debug('Chat stream created', { threadId })
     const res = createUIMessageStreamResponse({
@@ -58,6 +86,52 @@ chatRoutes.post('/', async (c) => {
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error'
     log.error('Chat request failed', { error: message })
+    return c.json({ error: message }, 500)
+  }
+})
+
+// Tool approval endpoint — approve or deny a pending tool call
+chatRoutes.post('/approve', async (c) => {
+  const log = getLogger()
+  try {
+    const { runId, toolCallId, approved, threadId, messageId } = await c.req.json()
+    if (!(runId && threadId)) {
+      return c.json({ error: 'runId and threadId are required' }, 400)
+    }
+
+    log.info('Tool approval', { threadId, runId, toolCallId, approved })
+    const mastra = await getMastra(c.var.envVars, c.env)
+    const agent = mastra.getAgent('operator')
+
+    const options = {
+      runId,
+      ...(toolCallId && { toolCallId }),
+      memory: { thread: threadId, resource: 'default' },
+    }
+
+    const result = approved
+      ? await agent.approveToolCall(options)
+      : await agent.declineToolCall(options)
+
+    const stream = toAISdkStream(result, {
+      from: 'agent',
+      lastMessageId: messageId,
+      sendReasoning: true,
+      sendSources: true,
+    }).pipeThrough(createApprovalTransform())
+
+    const res = createUIMessageStreamResponse({
+      stream,
+      ...(!isServerless() && {
+        consumeSseStream: ({ stream: sseStream }) => {
+          storeStream(threadId, sseStream)
+        },
+      }),
+    })
+    return res
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown error'
+    log.error('Tool approval failed', { error: message })
     return c.json({ error: message }, 500)
   }
 })

@@ -19,6 +19,7 @@ export type {
   LanguageModelUsage,
   MastraMessagePart,
   MessagePart,
+  PendingToolApproval,
   ReasoningChunk,
   SourceChunk,
   StreamResult,

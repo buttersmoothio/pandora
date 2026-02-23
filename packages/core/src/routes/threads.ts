@@ -121,7 +121,35 @@ threadRoutes.get('/:id', async (c) => {
       resourceId: 'default',
     })
 
-    const messages = rawMessages.map((m) => AIV5Adapter.toUIMessage(m))
+    const messages = rawMessages.map((m) => {
+      const uiMsg = AIV5Adapter.toUIMessage(m)
+
+      // Mastra sets `pendingToolApprovals` metadata when the agent is suspended
+      // awaiting approval. Patch matching tool parts to `approval-requested`
+      // so the approve/deny buttons render immediately on page load.
+      const pendingMap = uiMsg.metadata?.pendingToolApprovals as
+        | Record<string, { toolCallId: string; runId: string }>
+        | undefined
+      if (pendingMap) {
+        const pending = Object.values(pendingMap)
+        for (const part of uiMsg.parts) {
+          const raw = part as Record<string, unknown>
+          if (
+            typeof raw.type === 'string' &&
+            raw.type.startsWith('tool-') &&
+            'toolCallId' in raw &&
+            raw.state === 'input-available'
+          ) {
+            const approval = pending.find((a) => a.toolCallId === raw.toolCallId)
+            if (approval) {
+              raw.state = 'approval-requested'
+              raw.approval = { id: approval.runId }
+            }
+          }
+        }
+      }
+      return uiMsg
+    })
 
     const { forks, forkInfo } = await computeBranchInfo(memory, threadId, rawThread)
 

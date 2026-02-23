@@ -88,6 +88,13 @@ export interface ChannelPlugin {
 // Channel runtime (the gateway — what core provides to channels)
 // ---------------------------------------------------------------------------
 
+/** Pending tool approval info returned when finishReason is 'suspended' */
+export interface PendingToolApproval {
+  toolCallId: string
+  toolName: string
+  args: unknown
+}
+
 /** Non-streaming result — all fields resolved */
 export interface GenerateResult {
   text: string
@@ -98,6 +105,8 @@ export interface GenerateResult {
   reasoning: ReasoningChunk[]
   reasoningText?: string
   usage: LanguageModelUsage
+  runId?: string
+  pendingToolApproval?: PendingToolApproval
 }
 
 /** Streaming result — live text stream + promise-based fields */
@@ -120,6 +129,12 @@ export interface ChannelRuntime {
 
   /** Send message and get streaming response */
   stream(opts: { threadId: string; parts: MessagePart[] }): Promise<StreamResult>
+
+  /** Approve a pending tool call and resume generation */
+  approveToolCall(opts: { runId: string; toolCallId?: string }): Promise<GenerateResult>
+
+  /** Decline a pending tool call and resume generation */
+  declineToolCall(opts: { runId: string; toolCallId?: string }): Promise<GenerateResult>
 
   /** Get or create an active thread for a channel+externalId pair */
   resolveThread(channelId: string, externalId: string): Promise<string>

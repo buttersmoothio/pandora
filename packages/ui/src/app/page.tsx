@@ -34,7 +34,7 @@ export default function Home() {
   const queryClient = useQueryClient()
   const threadIdRef = useRef<string | null>(null)
 
-  const { messages, sendMessage, status } = useChat({
+  const { messages, sendMessage, status, addToolApprovalResponse } = useChat({
     transport: new DefaultChatTransport({
       api: `${API_URL}/api/chat`,
       headers: (): Record<string, string> => {
@@ -86,6 +86,7 @@ export default function Home() {
                   message={message}
                   isLastMessage={index === messages.length - 1}
                   isStreaming={isStreaming}
+                  onToolApproval={addToolApprovalResponse}
                 />
               </Message>
             ))

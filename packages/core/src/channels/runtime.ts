@@ -1,4 +1,5 @@
 import type { Mastra } from '@mastra/core'
+import type { FullOutput } from '@mastra/core/stream'
 import type { Memory } from '@mastra/memory'
 import type {
   ChannelRuntime,
@@ -23,6 +24,29 @@ async function getMemory(mastra: Mastra): Promise<Memory> {
   const memory = await mastra.getAgent('operator').getMemory()
   if (!memory) throw new Error('Memory not configured')
   return memory as Memory
+}
+
+/** Map a Mastra FullOutput to a GenerateResult */
+function buildResult(result: FullOutput): GenerateResult {
+  return {
+    text: result.text,
+    sources: result.sources,
+    toolCalls: result.toolCalls,
+    toolResults: result.toolResults,
+    files: result.files,
+    reasoning: result.reasoning,
+    reasoningText: result.reasoningText ?? undefined,
+    usage: result.usage,
+    runId: result.runId ?? undefined,
+    pendingToolApproval:
+      result.finishReason === 'suspended' && result.suspendPayload
+        ? {
+            toolCallId: result.suspendPayload.toolCallId,
+            toolName: result.suspendPayload.toolName,
+            args: result.suspendPayload.args,
+          }
+        : undefined,
+  }
 }
 
 /**
@@ -55,17 +79,7 @@ export function createChannelRuntime(deps: ChannelRuntimeDeps): ChannelRuntime {
       const result = await agent.generate(buildMessages(parts), {
         memory: memoryOption(threadId),
       })
-
-      return {
-        text: result.text,
-        sources: result.sources,
-        toolCalls: result.toolCalls,
-        toolResults: result.toolResults,
-        files: result.files,
-        reasoning: result.reasoning,
-        reasoningText: result.reasoningText ?? undefined,
-        usage: result.usage,
-      } satisfies GenerateResult
+      return buildResult(result)
     },
 
     async stream({ threadId, parts }) {
@@ -85,6 +99,18 @@ export function createChannelRuntime(deps: ChannelRuntimeDeps): ChannelRuntime {
         reasoningText: output.reasoningText,
         usage: output.usage,
       } satisfies StreamResult
+    },
+
+    async approveToolCall({ runId, toolCallId }) {
+      const agent = mastra.getAgent('operator')
+      const result = await agent.approveToolCallGenerate({ runId, toolCallId })
+      return buildResult(result)
+    },
+
+    async declineToolCall({ runId, toolCallId }) {
+      const agent = mastra.getAgent('operator')
+      const result = await agent.declineToolCallGenerate({ runId, toolCallId })
+      return buildResult(result)
     },
 
     async resolveThread(channelId, externalId) {

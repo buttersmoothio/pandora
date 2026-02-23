@@ -15,6 +15,7 @@ vi.mock('grammy', () => ({
   Bot: vi.fn().mockImplementation(() => {
     const handlers: Record<string, Handler> = {}
     const commands: Record<string, Handler> = {}
+    const callbackHandlers: { pattern: RegExp; handler: Handler }[] = []
     const middlewares: Handler[] = []
 
     return {
@@ -28,16 +29,23 @@ vi.mock('grammy', () => ({
       command: vi.fn((cmd: string, handler: Handler) => {
         commands[cmd] = handler
       }),
+      callbackQuery: vi.fn((pattern: RegExp, handler: Handler) => {
+        callbackHandlers.push({ pattern, handler })
+      }),
       catch: vi.fn(),
       start: vi.fn(),
       stop: vi.fn(),
       _handlers: handlers,
       _commands: commands,
+      _callbackHandlers: callbackHandlers,
       _middlewares: middlewares,
     }
   }),
   GrammyError: class GrammyError extends Error {},
   HttpError: class HttpError extends Error {},
+  InlineKeyboard: vi.fn().mockImplementation(() => ({
+    text: vi.fn().mockReturnThis(),
+  })),
 }))
 
 // Mock format
@@ -55,6 +63,8 @@ function createMockRuntime(): ChannelRuntime {
     env: { TELEGRAM_BOT_TOKEN: 'test-token' },
     generate: vi.fn().mockResolvedValue({ text: 'AI response' }),
     stream: vi.fn(),
+    approveToolCall: vi.fn().mockResolvedValue({ text: 'Approved result' }),
+    declineToolCall: vi.fn().mockResolvedValue({ text: 'Declined result' }),
     resolveThread: vi.fn().mockResolvedValue('thread-123'),
     newThread: vi.fn().mockResolvedValue('new-thread-456'),
   }

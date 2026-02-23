@@ -158,6 +158,8 @@ The `ChannelRuntime` object passed to your adapter provides everything you need:
 
 - **`generate(opts)`** — send a message and wait for the full response. Best for platforms where you reply once per message (like Telegram and Discord).
 - **`stream(opts)`** — send a message and get a streaming response. Returns a `textStream` you can read incrementally, plus promise-based fields for the final values.
+- **`approveToolCall(opts)`** — approve a pending tool call and resume generation. Returns a new `GenerateResult`.
+- **`declineToolCall(opts)`** — decline a pending tool call and resume generation. Returns a new `GenerateResult`.
 - **`resolveThread(channelId, externalId)`** — map a platform conversation to a Pandora thread. Creates one if it doesn't exist yet.
 - **`newThread(channelId, externalId)`** — start a fresh conversation, discarding the previous thread mapping.
 - **`env`** — access to environment variables.
@@ -220,6 +222,31 @@ const webhook: ChannelWebhook = {
 ```
 
 The webhook route is `POST /wh/:channel` where `:channel` is your adapter's `id`. The `verify()` method runs before `handle()` — return `false` to reject the request with a 401.
+
+## Tool Approval
+
+When a tool has **Require Approval** enabled, `generate()` may return with `pendingToolApproval` set instead of a text response. Your adapter should present the user with a way to approve or deny, then call `approveToolCall` or `declineToolCall` to resume. The resumed result may itself require approval (if the agent calls another protected tool), so handle it in a loop or recursively.
+
+```ts
+async function handleResult(ctx: PlatformContext, runtime: ChannelRuntime, result: GenerateResult) {
+  if (result.pendingToolApproval) {
+    const { toolCallId, toolName, args } = result.pendingToolApproval
+    // Show approval UI to the user (platform-specific)
+    const approved = await askUser(ctx, toolName, args)
+
+    const resumed = approved
+      ? await runtime.approveToolCall({ runId: result.runId!, toolCallId })
+      : await runtime.declineToolCall({ runId: result.runId!, toolCallId })
+
+    // The resumed result may need approval again
+    return handleResult(ctx, runtime, resumed)
+  }
+
+  if (result.text) {
+    await ctx.reply(result.text)
+  }
+}
+```
 
 ## Reference
 
@@ -309,6 +336,8 @@ The object passed to your `start()`, `handle()`, and `stop()` methods:
 |---|---|---|
 | `generate` | `(opts: { threadId: string; parts: MessagePart[] }) => Promise<GenerateResult>` | Non-streaming: send message, get full response |
 | `stream` | `(opts: { threadId: string; parts: MessagePart[] }) => Promise<StreamResult>` | Streaming: send message, get live text stream |
+| `approveToolCall` | `(opts: { runId: string; toolCallId?: string }) => Promise<GenerateResult>` | Approve a pending tool call and resume |
+| `declineToolCall` | `(opts: { runId: string; toolCallId?: string }) => Promise<GenerateResult>` | Decline a pending tool call and resume |
 | `resolveThread` | `(channelId: string, externalId: string) => Promise<string>` | Get or create a thread for a platform conversation |
 | `newThread` | `(channelId: string, externalId: string) => Promise<string>` | Start a fresh thread, returns new threadId |
 | `env` | `Record<string, string \| undefined>` | Environment variables |
@@ -341,6 +370,16 @@ Non-streaming response — all fields resolved:
 | `reasoning` | `ReasoningChunk[]` | Reasoning steps |
 | `reasoningText` | `string?` | Combined reasoning text |
 | `usage` | `LanguageModelUsage` | Token usage statistics |
+| `runId` | `string?` | Run ID — pass to `approveToolCall`/`declineToolCall` when approval is pending |
+| `pendingToolApproval` | `PendingToolApproval?` | Present when a tool requires user approval before running |
+
+#### `PendingToolApproval`
+
+| Field | Type | Description |
+|---|---|---|
+| `toolCallId` | `string` | ID of the pending tool call |
+| `toolName` | `string` | Name of the tool awaiting approval |
+| `args` | `unknown` | Arguments the tool will be called with |
 
 ### `StreamResult`
 

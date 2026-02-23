@@ -16,7 +16,14 @@ You can also toggle individual tools within a plugin if you don't need all of th
 
 Each tool displays badges for the capabilities it declares: **Time**, **Network**, **Env**, **Filesystem**, and **Random**.
 
+## Require Approval
+
 You can check **Require Approval** on any tool to have the agent ask for confirmation before running it.
+
+When a tool with this setting is triggered:
+
+- **Web UI** — the tool card opens automatically showing the parameters. Click **Approve** to let it run or **Deny** to block it. The conversation resumes after your choice.
+- **Telegram** — an inline keyboard appears with **Approve** and **Deny** buttons below the tool name and parameters.
 
 ## Building Your Own
 

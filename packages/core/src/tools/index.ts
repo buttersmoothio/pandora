@@ -129,7 +129,11 @@ export async function loadTools(
 
     for (const toolDef of plugin.tools) {
       if (config.tools[toolDef.id]?.enabled) {
-        result[toolDef.id] = toolDef(envVars, pluginConfig)
+        const tool = toolDef(envVars, pluginConfig)
+        if (config.tools[toolDef.id]?.requireApproval) {
+          tool.requireApproval = true
+        }
+        result[toolDef.id] = tool
       }
     }
   }

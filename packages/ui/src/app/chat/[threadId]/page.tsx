@@ -2,7 +2,7 @@
 
 import { useChat } from '@ai-sdk/react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { DefaultChatTransport, type UIMessage } from 'ai'
+import { DefaultChatTransport, isToolUIPart, type UIMessage } from 'ai'
 import {
   CheckIcon,
   ChevronLeftIcon,
@@ -115,6 +115,26 @@ function ThreadChat({
         },
         prepareSendMessagesRequest: ({ messages }) => {
           const lastMessage = messages.at(-1)
+
+          // Route approval responses to the approval endpoint
+          if (lastMessage?.role === 'assistant') {
+            const approvalPart = lastMessage.parts.find(
+              (p) => isToolUIPart(p) && p.state === 'approval-responded',
+            )
+            if (approvalPart && isToolUIPart(approvalPart)) {
+              return {
+                api: `${API_URL}/api/chat/approve`,
+                body: {
+                  runId: approvalPart.approval.id,
+                  toolCallId: approvalPart.toolCallId,
+                  approved: approvalPart.approval.approved,
+                  threadId,
+                  messageId: lastMessage.id,
+                },
+              }
+            }
+          }
+
           const parts = lastMessage?.role === 'user' ? lastMessage.parts : []
           return { body: { parts, threadId } }
         },
@@ -126,11 +146,16 @@ function ThreadChat({
     [threadId, queryClient],
   )
 
-  const { messages, sendMessage, status } = useChat({
+  const { messages, sendMessage, status, addToolApprovalResponse } = useChat({
     id: threadId,
     transport,
     messages: initialMessages,
     resume: true,
+    sendAutomaticallyWhen: ({ messages: msgs }) => {
+      const lastMessage = msgs.at(-1)
+      if (lastMessage?.role !== 'assistant') return false
+      return lastMessage.parts.some((p) => isToolUIPart(p) && p.state === 'approval-responded')
+    },
     onFinish: () => {
       queryClient.invalidateQueries({ queryKey: THREADS_KEY })
     },
@@ -239,6 +264,7 @@ function ThreadChat({
                       message={message}
                       isLastMessage={index === messages.length - 1}
                       isStreaming={isStreaming}
+                      onToolApproval={addToolApprovalResponse}
                     />
                     {!isStreaming && (
                       <Button
@@ -257,6 +283,7 @@ function ThreadChat({
                     message={message}
                     isLastMessage={index === messages.length - 1}
                     isStreaming={isStreaming}
+                    onToolApproval={addToolApprovalResponse}
                   />
                 )}
               </Message>

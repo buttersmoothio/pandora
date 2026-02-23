@@ -1,6 +1,6 @@
-import type { ChannelAdapter, ChannelRealtime } from '@pandora/core/channels'
+import type { ChannelAdapter, ChannelRealtime, GenerateResult } from '@pandora/core/channels'
 import type { Context } from 'grammy'
-import { Bot, GrammyError, HttpError } from 'grammy'
+import { Bot, GrammyError, HttpError, InlineKeyboard } from 'grammy'
 import { markdownToHtml } from './format'
 import { splitMessage } from './telegram-api'
 
@@ -28,6 +28,24 @@ async function reply(ctx: Context, text: string): Promise<void> {
     } catch {
       await ctx.reply(chunk)
     }
+  }
+}
+
+/** Send the result to the chat — either an approval keyboard or text reply. */
+async function sendResult(ctx: Context, result: GenerateResult): Promise<void> {
+  if (result.pendingToolApproval) {
+    const { toolCallId, toolName, args } = result.pendingToolApproval
+    const keyboard = new InlineKeyboard()
+      .text('Approve', `approve:${result.runId}:${toolCallId}`)
+      .text('Deny', `deny:${result.runId}:${toolCallId}`)
+
+    const argsText = JSON.stringify(args, null, 2)
+    await ctx.reply(`<b>${toolName}</b> wants to run:\n<pre>${argsText}</pre>`, {
+      parse_mode: 'HTML',
+      reply_markup: keyboard,
+    })
+  } else if (result.text) {
+    await reply(ctx, markdownToHtml(result.text))
   }
 }
 
@@ -81,14 +99,25 @@ export function createTelegramAdapter(token: string, ownerId: string): ChannelAd
             threadId,
             parts: [{ type: 'text', text }],
           })
-
-          if (result.text) {
-            const html = markdownToHtml(result.text)
-            await reply(ctx, html)
-          }
+          await sendResult(ctx, result)
         } finally {
           clearInterval(typingInterval)
         }
+      })
+
+      bot.callbackQuery(/^(approve|deny):(.+):(.+)$/, async (ctx) => {
+        const match = ctx.match as RegExpMatchArray
+        const [, action, runId, toolCallId] = match
+        await ctx.answerCallbackQuery(action === 'approve' ? 'Approved' : 'Denied')
+        await ctx.editMessageReplyMarkup({ reply_markup: { inline_keyboard: [] } })
+
+        await ctx.replyWithChatAction('typing')
+        const result =
+          action === 'approve'
+            ? await runtime.approveToolCall({ runId, toolCallId })
+            : await runtime.declineToolCall({ runId, toolCallId })
+
+        await sendResult(ctx, result)
       })
 
       bot.catch((err) => {
