@@ -130,6 +130,54 @@ Once registered, users control your plugin at two levels in **Settings → Tools
 
 </Steps>
 
+## Dynamic Tools
+
+Some tools can't be defined statically — they depend on which model the user selected or which API keys are available. For these cases, `ToolPlugin` supports an async `getTools` hook that runs at load time and returns tools dynamically.
+
+This is the mechanism behind `@pandora/tools-websearch`: it detects the operator's model and returns the appropriate provider tool (OpenAI's `webSearch()`, Google's `googleSearch()`, or a third-party search API like Tavily).
+
+```ts
+import type { ToolPlugin } from '@pandora/core/tools'
+import { resolveSearchTools } from './resolve'
+
+export default {
+  id: 'tools-websearch',
+  name: 'Web Search',
+  schemaVersion: 1,
+  configFields: [
+    {
+      key: 'searchBackend',
+      label: 'Search Backend',
+      type: 'enum',
+      options: [
+        { value: 'auto', label: 'Auto-detect' },
+        { value: 'tavily', label: 'Tavily' },
+        { value: 'exa', label: 'Exa' },
+      ],
+    },
+  ],
+  tools: [],
+  async getTools({ model, pluginConfig, env }) {
+    const preferred = pluginConfig?.searchBackend as string | undefined
+    return (await resolveSearchTools({ model, preferred, env })) ?? {}
+  },
+} satisfies ToolPlugin
+```
+
+A plugin can have both static `tools` and a `getTools` hook. Static tools go through the normal per-tool enable/disable flow; dynamic tools are added unconditionally when the plugin is active.
+
+The `getTools` hook receives a `GetToolsContext`:
+
+```ts
+interface GetToolsContext {
+  model: string                          // e.g. 'openai/gpt-4o'
+  pluginConfig: Record<string, unknown>  // validated plugin config
+  env: Record<string, string | undefined>
+}
+```
+
+Return a `ToolRecord` — a record of tool instances keyed by ID. This can include Mastra tools, Vercel AI SDK tools, or provider-defined tools (like `openai.tools.webSearch()`). Return `{}` if no tools are available.
+
 ## Reference
 
 All types are exported from `@pandora/core/tools`:
@@ -208,6 +256,7 @@ The descriptor your package default-exports:
 | `envVars` | `EnvVarDescriptor[]` | No | Environment variable descriptors |
 | `configFields` | `ConfigFieldDescriptor[]` | No | UI config field descriptors |
 | `tools` | `ToolDefinition[]` | Yes | Tool definitions returned by `defineTool()` |
+| `getTools` | `(ctx: GetToolsContext) => Promise<ToolRecord>` | No | Async hook for dynamic tool resolution. See [Dynamic Tools](#dynamic-tools). |
 
 ### `EnvVarDescriptor`
 

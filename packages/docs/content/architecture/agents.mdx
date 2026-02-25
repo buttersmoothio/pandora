@@ -23,6 +23,14 @@ Scoped tools belong to individual agents, not to the global tool registry. Each 
 
 This per-agent scoping matters because different specialists need different capabilities. A researcher agent needs search tools; an analyst agent in the same plugin might only need a subset. The plugin author decides what each agent needs, and operators can fine-tune per-agent tool access through config.
 
+## Dynamic Tools
+
+Beyond static scoped tools, agents support a `getTools` hook for dynamic tool resolution. This is essential for tools that depend on runtime context — which model is configured, which API keys are available, or which provider SDKs are installed.
+
+The research agent uses this to resolve search capabilities: it checks for native model search (Perplexity, OpenAI, Google), then falls back to third-party search APIs (Tavily, Exa). If nothing is available, `getTools` returns `null` and the agent is not loaded — the operator handles requests directly instead of routing to a broken specialist.
+
+Static tools and dynamic tools are merged at load time. Static tools go through the manifest registry and appear in per-agent tool toggles. Dynamic tools (often provider-defined) bypass the manifest system — they're opaque to the UI but fully functional at runtime.
+
 ## Plugin Model
 
 Agent plugins follow the same define-plugin-register pattern as tools and channels:

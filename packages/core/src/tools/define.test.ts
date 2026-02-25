@@ -210,8 +210,9 @@ describe('getManifests', () => {
     })
     const pandoraTool = makeTestTool()(defaultEnv, defaultConfig)
 
-    const manifests = getManifests({ raw: rawTool, pandora: pandoraTool })
-    expect(Object.keys(manifests)).toEqual(['pandora'])
+    // Key-based lookup: 'raw' has no manifest, 'test-tool' does
+    const manifests = getManifests({ raw: rawTool, 'test-tool': pandoraTool })
+    expect(Object.keys(manifests)).toEqual(['test-tool'])
   })
 })
 

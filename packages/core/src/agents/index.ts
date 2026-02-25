@@ -1,4 +1,4 @@
-import { Agent, type ToolsInput } from '@mastra/core/agent'
+import { Agent } from '@mastra/core/agent'
 import type { MastraMemory } from '@mastra/core/memory'
 import { z } from 'zod'
 import type { Config } from '../config'
@@ -135,7 +135,7 @@ function loadScopedTools(
 function createAgentFromManifest(
   agentDef: AgentDefinition,
   config: Config,
-  tools: Record<string, unknown>,
+  tools: ToolRecord,
   memory: MastraMemory,
 ): Agent | null {
   const agentConfig = config.agents[agentDef.id]
@@ -151,7 +151,7 @@ function createAgentFromManifest(
     instructions: manifest.instructions,
     description: manifest.description,
     model: buildModelString(modelConfig),
-    tools: tools as ToolsInput,
+    tools,
     memory,
   })
 }
@@ -162,7 +162,7 @@ async function resolveDynamicTools(
   config: Config,
   envVars: Record<string, string | undefined>,
   pluginConfig: AgentPluginConfig,
-): Promise<Record<string, unknown> | null> {
+): Promise<ToolRecord | null> {
   if (!agentDef.getTools) return {}
   const agentConfig = config.agents[agentDef.id]
   const modelConfig = agentConfig?.model ?? config.models.operator

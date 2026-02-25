@@ -1,7 +1,17 @@
-import type { Tool } from '@mastra/core/tools'
-import type { ConfigFieldDescriptor, EnvVarDescriptor, PluginConfig } from '../plugin-types'
+import type { ToolsInput } from '@mastra/core/agent'
+import type {
+  ConfigFieldDescriptor,
+  EnvVarDescriptor,
+  GetToolsContext,
+  PluginConfig,
+} from '../plugin-types'
 
-export type { ConfigFieldDescriptor, EnvVarDescriptor, PluginConfig } from '../plugin-types'
+export type {
+  ConfigFieldDescriptor,
+  EnvVarDescriptor,
+  GetToolsContext,
+  PluginConfig,
+} from '../plugin-types'
 
 /** Per-plugin user configuration for tool plugins */
 export type ToolPluginConfig = PluginConfig
@@ -12,9 +22,8 @@ export interface ToolExecuteContext {
   config: ToolPluginConfig
 }
 
-/** A record of tool instances keyed by tool ID */
-// biome-ignore lint/suspicious/noExplicitAny: Tool generics require `any` for covariant assignment
-export type ToolRecord = Record<string, Tool<any, any, any, any, any, any>>
+/** A record of tool instances keyed by tool ID. Accepts Mastra tools, Vercel AI SDK tools, and provider-defined tools. */
+export type ToolRecord = ToolsInput
 
 // --- Sandbox mode ---
 
@@ -116,6 +125,8 @@ export interface ToolPlugin {
   configFields?: ConfigFieldDescriptor[]
   /** Tool definitions provided by this plugin */
   tools: import('./define').ToolDefinition[]
+  /** Async hook for dynamic tool resolution based on model/env. Return `{}` if nothing available. */
+  getTools?: (ctx: GetToolsContext) => Promise<ToolRecord>
 }
 
 /** @deprecated Use `ToolPlugin` */

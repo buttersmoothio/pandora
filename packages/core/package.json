@@ -28,6 +28,7 @@
     "@pandora/channel-telegram": "workspace:*",
     "@pandora/storage-libsql": "workspace:*",
     "@pandora/tools-datetime": "workspace:*",
+    "@pandora/tools-websearch": "workspace:*",
     "@pandora/vector-libsql": "workspace:*",
     "ai": "^6.0.90",
     "hono": "^4.11.9",

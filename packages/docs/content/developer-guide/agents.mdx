@@ -39,21 +39,22 @@ The `package.json` declares `@pandora/core` as a peer dependency:
 Agents can have their own tools that are scoped to them (not added to the global tool list). Define them with `defineTool()`:
 
 ```ts
-// src/search.ts
+// src/summarize.ts
 import { z } from 'zod'
 import { defineTool } from '@pandora/core/tools'
 
-export const webSearch = defineTool({
-  id: 'search',
-  name: 'Web Search',
-  description: 'Search the web for information',
+export const summarize = defineTool({
+  id: 'summarize',
+  name: 'Summarize',
+  description: 'Summarize a block of text',
   inputSchema: z.object({
-    query: z.string().describe('Search query'),
+    text: z.string().describe('Text to summarize'),
+    maxLength: z.number().optional().describe('Max summary length'),
   }),
   sandbox: 'host',
-  execute: async ({ query }, { env }) => {
-    // Your search implementation
-    return { results: [] }
+  execute: async ({ text, maxLength }, { env }) => {
+    // Your summarization implementation
+    return { summary: text.slice(0, maxLength ?? 500) }
   },
 })
 ```
@@ -65,21 +66,26 @@ Use `defineAgent()` to create an agent with its identity, instructions, and tool
 ```ts
 // src/researcher.ts
 import { defineAgent } from '@pandora/core/agents'
-import { webSearch } from './search'
+import { resolveSearchTools } from '@pandora/tools-websearch'
 
 export const researcher = defineAgent({
-  id: 'researcher',
-  name: 'Researcher',
-  description: 'Deep research on topics using web search and analysis',
-  instructions: `You are a research specialist. When given a topic:
-1. Search for authoritative sources
-2. Cross-reference claims across multiple sources
-3. Summarize findings with citations`,
-  tools: [webSearch],
+  id: 'web-search',
+  name: 'Web Search',
+  description: 'Search the web for current information, recent news, and fact-checking.',
+  instructions: `You are a web search specialist with access to current web information.
+Search for the most recent and relevant information, cite sources with URLs,
+and synthesize results into clear, concise answers.`,
+
+  async getTools({ model, pluginConfig, env }) {
+    const preferred = pluginConfig?.searchBackend as string | undefined
+    return resolveSearchTools({ model, preferred, env })
+  },
 })
 ```
 
-Multiple agents can share the same tool definition — just pass the same reference to each `defineAgent()` call.
+The `getTools` hook is an async function that resolves tools at load time. It receives the agent's model string, plugin config, and environment variables. Return `null` to skip loading the agent entirely (useful when required capabilities are missing — e.g. no search API key and no native model search).
+
+Agents can combine static `tools` with a `getTools` hook. Static tools are scoped to the agent; dynamic tools from `getTools` are merged in at load time.
 
 ### Export the plugin
 
@@ -91,13 +97,10 @@ import type { AgentPlugin } from '@pandora/core/agents'
 import { researcher } from './researcher'
 
 export default {
-  id: 'agent-researcher',
-  name: 'Researcher',
+  id: 'agent-research',
+  name: 'Research',
   schemaVersion: 1,
   agents: [researcher],
-  envVars: [
-    { name: 'SEARCH_API_KEY' },
-  ],
 } satisfies AgentPlugin
 ```
 
@@ -149,7 +152,8 @@ import type {
 | `name` | `string` | Yes | Human-readable display name |
 | `description` | `string` | Yes | What the agent does (used for routing decisions) |
 | `instructions` | `string` | Yes | System instructions for the agent |
-| `tools` | `ToolDefinition[]` | No | Scoped tools available to this agent |
+| `tools` | `ToolDefinition[]` | No | Static scoped tools available to this agent |
+| `getTools` | `(ctx: GetToolsContext) => Promise<ToolRecord \| null>` | No | Async hook for dynamic tool resolution. Return `null` to skip loading the agent. |
 
 ### `AgentPlugin`
 

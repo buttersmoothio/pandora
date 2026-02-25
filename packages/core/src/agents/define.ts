@@ -1,5 +1,10 @@
 import type { ToolDefinition } from '../tools/define'
+import type { ToolRecord } from '../tools/types'
 import type { AgentManifest } from './types'
+
+export type { GetToolsContext } from '../plugin-types'
+
+type GetToolsContext = import('../plugin-types').GetToolsContext
 
 // --- Manifest registry ---
 
@@ -21,18 +26,6 @@ export function clearAgentManifestRegistry(): void {
   manifestRegistry.clear()
 }
 
-// --- GetToolsContext ---
-
-/** Context passed to an agent's getTools hook — scoped to prevent leaking config to external plugins. */
-export interface GetToolsContext {
-  /** The resolved model string for this agent (e.g. 'openai/gpt-4o'). */
-  model: string
-  /** The agent plugin's own validated config. */
-  pluginConfig: Record<string, unknown>
-  /** Environment variables. */
-  env: Record<string, string | undefined>
-}
-
 // --- AgentDefinition ---
 
 /**
@@ -45,7 +38,7 @@ export interface AgentDefinition {
   readonly id: string
   readonly tools: readonly ToolDefinition[]
   /** Async hook for dynamic tool resolution. Return null to skip loading this agent. */
-  readonly getTools?: (ctx: GetToolsContext) => Promise<Record<string, unknown> | null>
+  readonly getTools?: (ctx: GetToolsContext) => Promise<ToolRecord | null>
 }
 
 // --- defineAgent ---
@@ -62,7 +55,7 @@ export interface DefineAgentOptions {
   /** Scoped tools available to this agent. */
   tools?: ToolDefinition[]
   /** Async hook for dynamic tool resolution. Return null to skip loading this agent. */
-  getTools?: (ctx: GetToolsContext) => Promise<Record<string, unknown> | null>
+  getTools?: (ctx: GetToolsContext) => Promise<ToolRecord | null>
 }
 
 /**

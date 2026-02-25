@@ -40,7 +40,7 @@ export async function getMastra(
   log.info('[getMastra] loaded tools', {
     toolIds: Object.keys(tools),
     toolsWithApproval: Object.entries(tools)
-      .filter(([, t]) => t.requireApproval)
+      .filter(([, t]) => 'requireApproval' in t && t.requireApproval)
       .map(([id]) => id),
   })
 

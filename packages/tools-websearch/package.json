@@ -1,5 +1,5 @@
 {
-  "name": "@pandora/agent-research",
+  "name": "@pandora/tools-websearch",
   "version": "0.0.1",
   "type": "module",
   "exports": {
@@ -11,14 +11,17 @@
     "test:coverage": "vitest --coverage",
     "typecheck": "tsc --noEmit"
   },
-  "dependencies": {
-    "@pandora/tools-websearch": "workspace:*"
-  },
   "peerDependencies": {
     "@pandora/core": "workspace:*"
   },
+  "optionalDependencies": {
+    "@ai-sdk/openai": "*",
+    "@ai-sdk/google": "*",
+    "@tavily/ai-sdk": "*",
+    "@exalabs/ai-sdk": "*",
+    "@perplexity-ai/ai-sdk": "*"
+  },
   "devDependencies": {
-    "@types/bun": "^1.3.9",
     "typescript": "^5.9.3",
     "vitest": "^3.2.4"
   }

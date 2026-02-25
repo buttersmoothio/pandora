@@ -27,8 +27,8 @@ export function getManifest(toolOrId: string | { id: string }): ToolManifest | u
 /** Retrieve all manifests for a ToolRecord. */
 export function getManifests(tools: ToolRecord): Record<string, ToolManifest> {
   const result: Record<string, ToolManifest> = {}
-  for (const [id, tool] of Object.entries(tools)) {
-    const manifest = manifestRegistry.get(tool.id)
+  for (const id of Object.keys(tools)) {
+    const manifest = manifestRegistry.get(id)
     if (manifest) result[id] = manifest
   }
   return result

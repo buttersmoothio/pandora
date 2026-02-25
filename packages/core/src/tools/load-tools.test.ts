@@ -1,9 +1,10 @@
 import datetime from '@pandora/tools-datetime'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Config } from '../config'
 import { DEFAULTS } from '../config'
 import { getManifest } from './define'
 import { clearToolPlugins, loadTools, registerToolPlugin } from './index'
+import type { ToolPlugin } from './types'
 
 describe('loadTools', () => {
   beforeEach(() => {
@@ -44,8 +45,8 @@ describe('loadTools', () => {
   })
 
   it('loaded tools have manifests', async () => {
-    const tools = await loadTools(DEFAULTS, {})
-    const manifest = getManifest(tools['current-time'])
+    await loadTools(DEFAULTS, {})
+    const manifest = getManifest('current-time')
     expect(manifest).toBeDefined()
     expect(manifest?.id).toBe('current-time')
   })
@@ -54,6 +55,67 @@ describe('loadTools', () => {
     clearToolPlugins()
     const tools = await loadTools(DEFAULTS, {})
     expect(Object.keys(tools)).toHaveLength(0)
+  })
+})
+
+describe('loadTools with getTools hook', () => {
+  afterEach(() => {
+    clearToolPlugins()
+  })
+
+  it('calls getTools hook and includes dynamic tools', async () => {
+    const dynamicPlugin: ToolPlugin = {
+      id: 'dynamic-test',
+      name: 'Dynamic Test',
+      schemaVersion: 1,
+      tools: [],
+      getTools: vi.fn(async () => ({
+        my_dynamic_tool: { type: 'provider-tool' } as never,
+      })),
+    }
+    registerToolPlugin(dynamicPlugin)
+
+    const tools = await loadTools(DEFAULTS, {})
+    expect(Object.keys(tools)).toContain('my_dynamic_tool')
+    expect(dynamicPlugin.getTools).toHaveBeenCalledOnce()
+  })
+
+  it('skips getTools when plugin is disabled', async () => {
+    const getToolsFn = vi.fn(async () => ({ tool: {} as never }))
+    const dynamicPlugin: ToolPlugin = {
+      id: 'dynamic-disabled',
+      name: 'Disabled Dynamic',
+      schemaVersion: 1,
+      configFields: [{ key: 'foo', label: 'Foo', type: 'text' }],
+      tools: [],
+      getTools: getToolsFn,
+    }
+    registerToolPlugin(dynamicPlugin)
+
+    const config: Config = {
+      ...DEFAULTS,
+      toolPlugins: { 'dynamic-disabled': { enabled: false } },
+    }
+    await loadTools(config, {})
+    expect(getToolsFn).not.toHaveBeenCalled()
+  })
+
+  it('merges static and dynamic tools', async () => {
+    registerToolPlugin(datetime)
+    const dynamicPlugin: ToolPlugin = {
+      id: 'dynamic-merge',
+      name: 'Merge Test',
+      schemaVersion: 1,
+      tools: [],
+      getTools: vi.fn(async () => ({
+        extra_tool: { type: 'extra' } as never,
+      })),
+    }
+    registerToolPlugin(dynamicPlugin)
+
+    const tools = await loadTools(DEFAULTS, {})
+    expect(Object.keys(tools)).toContain('current-time')
+    expect(Object.keys(tools)).toContain('extra_tool')
   })
 })
 

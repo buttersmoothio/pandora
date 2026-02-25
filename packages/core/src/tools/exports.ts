@@ -9,6 +9,7 @@ export { defineTool, getAllManifests, getManifest, getManifests } from './define
 export type {
   ConfigFieldDescriptor,
   EnvVarDescriptor,
+  GetToolsContext,
   PluginConfig,
   SandboxMode,
   ToolAnnotations,

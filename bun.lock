@@ -12,17 +12,13 @@
     "packages/agent-research": {
       "name": "@pandora/agent-research",
       "version": "0.0.1",
+      "dependencies": {
+        "@pandora/tools-websearch": "workspace:*",
+      },
       "devDependencies": {
         "@types/bun": "^1.3.9",
         "typescript": "^5.9.3",
         "vitest": "^3.2.4",
-      },
-      "optionalDependencies": {
-        "@ai-sdk/google": "*",
-        "@ai-sdk/openai": "*",
-        "@exalabs/ai-sdk": "*",
-        "@perplexity-ai/ai-sdk": "*",
-        "@tavily/ai-sdk": "*",
       },
       "peerDependencies": {
         "@pandora/core": "workspace:*",
@@ -58,6 +54,7 @@
         "@pandora/channel-telegram": "workspace:*",
         "@pandora/storage-libsql": "workspace:*",
         "@pandora/tools-datetime": "workspace:*",
+        "@pandora/tools-websearch": "workspace:*",
         "@pandora/vector-libsql": "workspace:*",
         "ai": "^6.0.90",
         "hono": "^4.11.9",
@@ -184,6 +181,24 @@
       "devDependencies": {
         "typescript": "^5.9.3",
         "vitest": "^3.2.4",
+      },
+      "peerDependencies": {
+        "@pandora/core": "workspace:*",
+      },
+    },
+    "packages/tools-websearch": {
+      "name": "@pandora/tools-websearch",
+      "version": "0.0.1",
+      "devDependencies": {
+        "typescript": "^5.9.3",
+        "vitest": "^3.2.4",
+      },
+      "optionalDependencies": {
+        "@ai-sdk/google": "*",
+        "@ai-sdk/openai": "*",
+        "@exalabs/ai-sdk": "*",
+        "@perplexity-ai/ai-sdk": "*",
+        "@tavily/ai-sdk": "*",
       },
       "peerDependencies": {
         "@pandora/core": "workspace:*",
@@ -845,6 +860,8 @@
     "@pandora/storage-upstash": ["@pandora/storage-upstash@workspace:packages/storage-upstash"],
 
     "@pandora/tools-datetime": ["@pandora/tools-datetime@workspace:packages/tools-datetime"],
+
+    "@pandora/tools-websearch": ["@pandora/tools-websearch@workspace:packages/tools-websearch"],
 
     "@pandora/ui": ["@pandora/ui@workspace:packages/ui"],
 

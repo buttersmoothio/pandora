@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import type { Config } from '../config'
 import { getLogger } from '../logger'
+import { buildModelString } from '../mastra/models'
 import { buildSchemaFromFields, PLUGIN_SCHEMA_VERSION } from '../plugin-types'
 import { clearManifestRegistry } from './define'
 import { clearToolSchemaRegistry, getToolSchema, registerToolSchema } from './schema-registry'
@@ -13,6 +14,7 @@ export { executeInCompartment } from './sandbox'
 export type {
   ConfigFieldDescriptor,
   EnvVarDescriptor,
+  GetToolsContext,
   PluginConfig,
   SandboxMode,
   ToolAnnotations,
@@ -127,6 +129,7 @@ export async function loadTools(
     const { config: pluginConfig } = validatePluginConfig(plugin, config.toolPlugins[plugin.id])
     if (!pluginConfig) continue
 
+    // Static tools from defineTool declarations
     for (const toolDef of plugin.tools) {
       if (config.tools[toolDef.id]?.enabled) {
         const tool = toolDef(envVars, pluginConfig)
@@ -135,6 +138,16 @@ export async function loadTools(
         }
         result[toolDef.id] = tool
       }
+    }
+
+    // Dynamic tools from getTools hook (provider-defined tools, etc.)
+    if (plugin.getTools) {
+      const dynamicTools = await plugin.getTools({
+        model: buildModelString(config.models.operator),
+        pluginConfig,
+        env: envVars,
+      })
+      Object.assign(result, dynamicTools)
     }
   }
 

@@ -6,6 +6,16 @@ import { z } from 'zod'
  */
 export const PLUGIN_SCHEMA_VERSION = 1
 
+/** Context passed to a plugin's getTools hook — shared by agent and tool plugins. */
+export interface GetToolsContext {
+  /** The resolved model string (e.g. 'openai/gpt-4o'). */
+  model: string
+  /** The plugin's own validated config. */
+  pluginConfig: Record<string, unknown>
+  /** Environment variables. */
+  env: Record<string, string | undefined>
+}
+
 /** Describes a config field for UI rendering */
 export interface ConfigFieldDescriptor {
   /** Field key in config object, e.g. 'ownerId' */
