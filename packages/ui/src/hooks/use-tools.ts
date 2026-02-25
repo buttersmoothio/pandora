@@ -25,9 +25,6 @@ export interface ToolInfo {
   sandbox: 'compartment' | 'host'
   annotations?: ToolAnnotations
   timeout: number
-  enabled: boolean
-  requireApproval?: boolean
-  settings?: Record<string, string>
 }
 
 export interface ToolPluginInfo {
@@ -39,7 +36,9 @@ export interface ToolPluginInfo {
   enabled: boolean
   config: Record<string, unknown>
   validationErrors: string[]
+  warnings: string[]
   toolIds: string[]
+  requireApproval?: boolean
 }
 
 interface ToolsResponse {

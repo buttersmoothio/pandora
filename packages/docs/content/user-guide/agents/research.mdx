@@ -1,0 +1,30 @@
+# Research Agent
+
+The Research agent gives Pandora the ability to search the web for current information. When you ask a question that needs up-to-date facts, recent news, or real-time data, Pandora automatically delegates to this specialist.
+
+## Enabling
+
+The Research plugin ships with Pandora. To activate it:
+
+1. Open the **Agents** page in the web UI
+2. Toggle the **Research** plugin on
+
+The Research agent gets its search capability from the **Web Search** tool plugin. Make sure it's configured on the **Tools** page — see [Web Search](/user-guide/tools#web-search) for details.
+
+## Web Search Backend
+
+The search backend is chosen automatically based on your model and available API keys.
+
+Models from **OpenAI**, **Google**, **Anthropic**, and **Perplexity** have built-in web search — no extra API key is needed.
+
+For other models, set one of these environment variables:
+
+| Variable | Provider |
+|---|---|
+| `TAVILY_API_KEY` | [Tavily](https://tavily.com) |
+| `EXA_API_KEY` | [Exa](https://exa.ai) |
+| `PERPLEXITY_API_KEY` | [Perplexity](https://www.perplexity.ai) |
+
+You can override auto-detection with the **Search Backend** dropdown on the Web Search plugin card (**Tools** page).
+
+If no backend is available, the plugin card shows a warning explaining what's missing.

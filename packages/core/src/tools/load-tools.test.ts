@@ -1,6 +1,5 @@
 import datetime from '@pandora/tools-datetime'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { Config } from '../config'
 import { DEFAULTS } from '../config'
 import { getManifest } from './define'
 import { clearToolPlugins, loadTools, registerToolPlugin } from './index'
@@ -15,32 +14,8 @@ describe('loadTools', () => {
     clearToolPlugins()
   })
 
-  it('loads tools from registered packages', async () => {
+  it('loads all tools from enabled plugins', async () => {
     const tools = await loadTools(DEFAULTS, {})
-    expect(Object.keys(tools)).toContain('current-time')
-  })
-
-  it('excludes tools not listed in config', async () => {
-    const config: Config = { ...DEFAULTS, tools: {} }
-    const tools = await loadTools(config, {})
-    expect(Object.keys(tools)).not.toContain('current-time')
-  })
-
-  it('excludes tools with enabled: false', async () => {
-    const config: Config = {
-      ...DEFAULTS,
-      tools: { 'current-time': { enabled: false } },
-    }
-    const tools = await loadTools(config, {})
-    expect(Object.keys(tools)).not.toContain('current-time')
-  })
-
-  it('keeps tools when enabled: true is set', async () => {
-    const config: Config = {
-      ...DEFAULTS,
-      tools: { 'current-time': { enabled: true } },
-    }
-    const tools = await loadTools(config, {})
     expect(Object.keys(tools)).toContain('current-time')
   })
 
@@ -92,7 +67,7 @@ describe('loadTools with getTools hook', () => {
     }
     registerToolPlugin(dynamicPlugin)
 
-    const config: Config = {
+    const config = {
       ...DEFAULTS,
       toolPlugins: { 'dynamic-disabled': { enabled: false } },
     }
@@ -116,6 +91,34 @@ describe('loadTools with getTools hook', () => {
     const tools = await loadTools(DEFAULTS, {})
     expect(Object.keys(tools)).toContain('current-time')
     expect(Object.keys(tools)).toContain('extra_tool')
+  })
+
+  it('loads plugin with only optional configFields without explicit config', async () => {
+    const dynamicPlugin: ToolPlugin = {
+      id: 'optional-config',
+      name: 'Optional Config',
+      schemaVersion: 1,
+      configFields: [
+        {
+          key: 'searchBackend',
+          label: 'Backend',
+          type: 'enum',
+          options: [
+            { value: 'auto', label: 'Auto' },
+            { value: 'tavily', label: 'Tavily' },
+          ],
+        },
+      ],
+      tools: [],
+      getTools: vi.fn(async () => ({
+        search_tool: { type: 'search' } as never,
+      })),
+    }
+    registerToolPlugin(dynamicPlugin)
+
+    const tools = await loadTools(DEFAULTS, {})
+    expect(Object.keys(tools)).toContain('search_tool')
+    expect(dynamicPlugin.getTools).toHaveBeenCalledOnce()
   })
 })
 

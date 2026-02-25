@@ -11,12 +11,6 @@ export interface ModelConfig {
   maxTokens?: number
 }
 
-export interface ToolConfig {
-  enabled: boolean
-  settings?: Record<string, string>
-  requireApproval?: boolean
-}
-
 export interface AgentConfig {
   enabled: boolean
   model?: ModelConfig
@@ -35,7 +29,6 @@ export interface Config {
   }
   channels: Record<string, { enabled: boolean; [key: string]: unknown }>
   toolPlugins: Record<string, { enabled: boolean; [key: string]: unknown }>
-  tools: Record<string, ToolConfig>
   agentPlugins: Record<string, { enabled: boolean; [key: string]: unknown }>
   agents: Record<string, AgentConfig>
   memory: {

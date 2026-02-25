@@ -127,6 +127,8 @@ export interface ToolPlugin {
   tools: import('./define').ToolDefinition[]
   /** Async hook for dynamic tool resolution based on model/env. Return `{}` if nothing available. */
   getTools?: (ctx: GetToolsContext) => Promise<ToolRecord>
+  /** Diagnostic warnings about the plugin's current state. */
+  getWarnings?: (ctx: GetToolsContext) => Promise<string[]>
 }
 
 /** @deprecated Use `ToolPlugin` */

@@ -37,12 +37,7 @@ export async function getMastra(
 
   // 3. Tools
   const tools = await loadTools(config, env)
-  log.info('[getMastra] loaded tools', {
-    toolIds: Object.keys(tools),
-    toolsWithApproval: Object.entries(tools)
-      .filter(([, t]) => 'requireApproval' in t && t.requireApproval)
-      .map(([id]) => id),
-  })
+  log.info('[getMastra] loaded tools', { toolIds: Object.keys(tools) })
 
   // 4. Vector (for semantic recall)
   const vectorResult = config.memory.semanticRecall.enabled ? await getVector(env, bindings) : null

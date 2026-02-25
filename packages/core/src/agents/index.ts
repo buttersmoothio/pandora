@@ -95,8 +95,12 @@ function validatePluginConfig(
   }
 
   if (!rawConfig && schema) {
-    log.debug(`Agent plugin ${plugin.id} skipped (not configured)`)
-    return { config: null, errors: [] }
+    const fallback = basePluginSchema.extend(schema.shape).safeParse({ enabled: true })
+    if (!fallback.success) {
+      log.debug(`Agent plugin ${plugin.id} skipped (not configured)`)
+      return { config: null, errors: [] }
+    }
+    return { config: fallback.data as AgentPluginConfig, errors: [] }
   }
 
   if (rawConfig && schema) {

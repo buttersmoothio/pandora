@@ -1,3 +1,9 @@
+---
+asIndexPage: true
+---
+
+import { Cards } from 'nextra/components'
+
 # Agents
 
 Agents are specialists that Pandora can delegate tasks to — a researcher, a coder, a summarizer, etc. Manage them from the **Agents** page in the web UI.
@@ -22,6 +28,12 @@ Within a plugin, each agent can be configured independently:
 Each agent can have its own tools. These tools are scoped to the agent — they don't appear in the global **Tools** page and are only available to that agent. Multiple agents in the same plugin can share the same tool.
 
 You can toggle individual scoped tools on or off within each agent's settings.
+
+## Available Agents
+
+<Cards num={2}>
+  <Cards.Card title="Research" href="/user-guide/agents/research" arrow />
+</Cards>
 
 ## Building Your Own
 

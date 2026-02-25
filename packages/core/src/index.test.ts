@@ -24,7 +24,7 @@ describe('Config routes', () => {
     const body = (await res.json()) as Record<string, Record<string, unknown>>
     expect(body.identity.name).toBe('Pandora')
     expect(body.models.operator).toHaveProperty('provider')
-    expect(body.tools['current-time']).toEqual({ enabled: true })
+    expect(body.toolPlugins).toBeDefined()
   })
 })
 
@@ -41,7 +41,6 @@ describe('Tools routes', () => {
     expect(currentTime?.description).toBe('Get the current date and time in ISO 8601 format')
     expect(currentTime?.permissions).toBeUndefined()
     expect(currentTime?.sandbox).toBe('host')
-    expect(currentTime?.enabled).toBe(true)
   })
 })
 

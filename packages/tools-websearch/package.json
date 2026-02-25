@@ -15,11 +15,12 @@
     "@pandora/core": "workspace:*"
   },
   "optionalDependencies": {
-    "@ai-sdk/openai": "*",
-    "@ai-sdk/google": "*",
-    "@tavily/ai-sdk": "*",
-    "@exalabs/ai-sdk": "*",
-    "@perplexity-ai/ai-sdk": "*"
+    "@ai-sdk/anthropic": "^3.0.47",
+    "@ai-sdk/openai": "^3.0.33",
+    "@ai-sdk/google": "^3.0.31",
+    "@tavily/ai-sdk": "^0.4.1",
+    "@exalabs/ai-sdk": "^1.0.5",
+    "@perplexity-ai/ai-sdk": "^0.1.2"
   },
   "devDependencies": {
     "typescript": "^5.9.3",

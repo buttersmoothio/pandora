@@ -108,7 +108,7 @@ export default {
 - **`tools`** — array of tool definitions returned by `defineTool()`. Pandora binds `(env, config)` automatically when loading plugins — you just list them.
 - **`envVars`** — environment variables the plugin needs, as `{ name, required? }` descriptors. Variables default to required; set `required: false` for optional ones. The settings UI shows whether they're configured.
 - **`configFields`** — describes user-configurable settings beyond `enabled`. Pandora validates input and renders fields in the settings UI from these descriptors.
-- If `configFields` are declared and the user hasn't configured them, the plugin is skipped.
+- If `configFields` includes required fields and the user hasn't configured them, the plugin is skipped. Plugins with only optional config fields load with defaults automatically.
 
 ### Register it
 
@@ -123,10 +123,13 @@ registerToolPlugin(weather)
 
 ### Enable it
 
-Once registered, users control your plugin at two levels in **Settings → Tools**:
+Once registered, users control your plugin in **Settings → Tools**:
 
-- **Plugin level** — toggles the plugin on/off and stores settings from your `configFields`. A plugin with required `configFields` is skipped until the user configures them.
-- **Tool level** — toggles individual tools within the plugin. Only enabled tools are loaded.
+- Toggle the plugin on/off
+- Configure settings from your `configFields`
+- Optionally enable **Require Approval** to prompt before any of the plugin's tools run
+
+A plugin with required `configFields` is skipped until the user configures them. Plugins with only optional config fields load with defaults automatically.
 
 </Steps>
 
@@ -164,7 +167,7 @@ export default {
 } satisfies ToolPlugin
 ```
 
-A plugin can have both static `tools` and a `getTools` hook. Static tools go through the normal per-tool enable/disable flow; dynamic tools are added unconditionally when the plugin is active.
+A plugin can have both static `tools` and a `getTools` hook. All tools — static and dynamic — are loaded when the plugin is active.
 
 The `getTools` hook receives a `GetToolsContext`:
 

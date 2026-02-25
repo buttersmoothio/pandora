@@ -65,7 +65,7 @@ export async function loadFirstAvailable(
 /**
  * Resolve search tools using the full priority chain:
  * 1. User's preferred backend (if explicitly set and available)
- * 2. Native model search (Perplexity → {}, OpenAI → webSearch, Google → googleSearch)
+ * 2. Native model search (Perplexity → {}, OpenAI → webSearch, Google → googleSearch, Anthropic → webSearch)
  * 3. First available search API backend by env var
  * 4. null — no search capability
  */
@@ -84,11 +84,14 @@ export async function resolveSearchTools(opts: {
   }
 
   // Native search: model has built-in web search
-  if (model.startsWith('perplexity/')) {
+  // Strip optional "vercel/" gateway prefix (e.g. "vercel/openai/gpt-4o" → "openai/gpt-4o")
+  const provider = model.replace(/^vercel\//, '')
+
+  if (provider.startsWith('perplexity/')) {
     return {} // Search is built-in, no tools needed
   }
 
-  if (model.startsWith('openai/')) {
+  if (provider.startsWith('openai/')) {
     try {
       const { openai } = await import('@ai-sdk/openai')
       return { web_search: openai.tools.webSearch({}) }
@@ -97,10 +100,19 @@ export async function resolveSearchTools(opts: {
     }
   }
 
-  if (model.startsWith('google/')) {
+  if (provider.startsWith('google/')) {
     try {
       const { google } = await import('@ai-sdk/google')
       return { google_search: google.tools.googleSearch({}) }
+    } catch {
+      /* SDK not installed */
+    }
+  }
+
+  if (provider.startsWith('anthropic/')) {
+    try {
+      const { anthropic } = await import('@ai-sdk/anthropic')
+      return { web_search: anthropic.tools.webSearch_20250305() }
     } catch {
       /* SDK not installed */
     }

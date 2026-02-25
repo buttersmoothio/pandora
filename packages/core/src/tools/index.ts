@@ -92,8 +92,12 @@ function validatePluginConfig(
   }
 
   if (!rawConfig && schema) {
-    log.debug(`Tool plugin ${plugin.id} skipped (not configured)`)
-    return { config: null, errors: [] }
+    const fallback = basePluginSchema.extend(schema.shape).safeParse({ enabled: true })
+    if (!fallback.success) {
+      log.debug(`Tool plugin ${plugin.id} skipped (not configured)`)
+      return { config: null, errors: [] }
+    }
+    return { config: fallback.data as ToolPluginConfig, errors: [] }
   }
 
   if (rawConfig && schema) {
@@ -117,7 +121,6 @@ function validatePluginConfig(
  *
  * Plugin-level config (`config.toolPlugins[pluginId]`) controls whether
  * a plugin is active and provides user settings to the factory.
- * Tool-level config (`config.tools[toolId].enabled`) controls individual tools.
  */
 export async function loadTools(
   config: Config,
@@ -131,13 +134,11 @@ export async function loadTools(
 
     // Static tools from defineTool declarations
     for (const toolDef of plugin.tools) {
-      if (config.tools[toolDef.id]?.enabled) {
-        const tool = toolDef(envVars, pluginConfig)
-        if (config.tools[toolDef.id]?.requireApproval) {
-          tool.requireApproval = true
-        }
-        result[toolDef.id] = tool
+      const tool = toolDef(envVars, pluginConfig)
+      if (pluginConfig.requireApproval) {
+        tool.requireApproval = true
       }
+      result[toolDef.id] = tool
     }
 
     // Dynamic tools from getTools hook (provider-defined tools, etc.)
@@ -162,6 +163,26 @@ export function getAllRegisteredToolPlugins(): ToolPlugin[] {
 /** Get the tool IDs that a plugin provides, discovered at registration time. */
 export function getPluginToolIds(pluginId: string): string[] {
   return pluginToolsMap.get(pluginId) ?? []
+}
+
+/** Collect diagnostic warnings from all enabled plugins. */
+export async function getPluginWarnings(
+  config: Config,
+  envVars: Record<string, string | undefined>,
+): Promise<Record<string, string[]>> {
+  const result: Record<string, string[]> = {}
+  for (const [, plugin] of pluginRegistry) {
+    if (!plugin.getWarnings) continue
+    const { config: pluginConfig } = validatePluginConfig(plugin, config.toolPlugins[plugin.id])
+    if (!pluginConfig) continue
+    const warnings = await plugin.getWarnings({
+      model: buildModelString(config.models.operator),
+      pluginConfig,
+      env: envVars,
+    })
+    if (warnings.length > 0) result[plugin.id] = warnings
+  }
+  return result
 }
 
 /** Validate all registered plugins and return errors keyed by plugin ID. */

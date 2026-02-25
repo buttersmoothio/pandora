@@ -15,6 +15,7 @@ import {
   getAllRegisteredToolPlugins,
   getPluginToolIds,
   getPluginValidationErrors,
+  getPluginWarnings,
 } from '../tools'
 import type { Env } from './helpers'
 import { ensureChannelsLoaded } from './helpers'
@@ -29,16 +30,9 @@ discoveryRoutes.get('/tools', async (c) => {
   const manifests = getAllManifests()
   const plugins = getAllRegisteredToolPlugins()
   const validationErrors = getPluginValidationErrors(config)
+  const warnings = await getPluginWarnings(config, c.var.envVars)
 
-  const tools = Object.values(manifests).map((manifest) => {
-    const toolConfig = config.tools[manifest.id]
-    return {
-      ...manifest,
-      enabled: toolConfig?.enabled ?? false,
-      requireApproval: toolConfig?.requireApproval,
-      settings: toolConfig?.settings,
-    }
-  })
+  const tools = Object.values(manifests).map((manifest) => ({ ...manifest }))
 
   const toolPlugins = plugins.map((plugin) => {
     const pluginConfig = config.toolPlugins[plugin.id]
@@ -55,6 +49,7 @@ discoveryRoutes.get('/tools', async (c) => {
       enabled: pluginConfig?.enabled ?? true,
       config: pluginConfig ?? {},
       validationErrors: validationErrors[plugin.id] ?? [],
+      warnings: warnings[plugin.id] ?? [],
       toolIds: getPluginToolIds(plugin.id),
     }
   })

@@ -117,20 +117,6 @@ export const ConfigSchema = z.object({
       }
     }),
 
-  /** Tool configurations — keyed by tool ID */
-  tools: z
-    .record(
-      z.string(),
-      z.object({
-        enabled: z.boolean(),
-        settings: z.record(z.string(), z.string()).optional(),
-        requireApproval: z.boolean().optional(),
-      }),
-    )
-    .default(() => ({
-      'current-time': { enabled: true },
-    })),
-
   /** Agent plugin configurations — keyed by agent plugin ID */
   agentPlugins: z
     .record(z.string(), z.looseObject({ enabled: z.boolean() }))

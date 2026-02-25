@@ -3,11 +3,6 @@
 import {
   AlertTriangleIcon,
   CheckCircle2Icon,
-  ClockIcon,
-  DicesIcon,
-  FolderIcon,
-  GlobeIcon,
-  KeyIcon,
   Loader2Icon,
   WrenchIcon,
   XCircleIcon,
@@ -28,130 +23,101 @@ import {
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { useUpdateConfig } from '@/hooks/use-config'
-import { type ToolInfo, type ToolPluginInfo, useTools } from '@/hooks/use-tools'
+import { type ToolPluginInfo, useTools } from '@/hooks/use-tools'
 
 // ---------------------------------------------------------------------------
-// Permission badges
+// Plugin alerts (errors + warnings)
 // ---------------------------------------------------------------------------
 
-const PERMISSION_BADGES: Record<
-  string,
-  { label: string; icon: React.ComponentType<{ className?: string }> }
-> = {
-  time: { label: 'Time', icon: ClockIcon },
-  network: { label: 'Network', icon: GlobeIcon },
-  env: { label: 'Env', icon: KeyIcon },
-  fs: { label: 'Filesystem', icon: FolderIcon },
-  random: { label: 'Random', icon: DicesIcon },
-}
-
-// ---------------------------------------------------------------------------
-// Individual tool row (enable, require approval)
-// ---------------------------------------------------------------------------
-
-function ToolRow({ tool, allTools }: { tool: ToolInfo; allTools: ToolInfo[] }) {
-  const updateConfig = useUpdateConfig()
-  const [enabled, setEnabled] = useState(tool.enabled)
-  const [requireApproval, setRequireApproval] = useState(tool.requireApproval ?? false)
-
-  useEffect(() => {
-    setEnabled(tool.enabled)
-    setRequireApproval(tool.requireApproval ?? false)
-  }, [tool])
-
-  function buildToolsRecord(overrides: Partial<{ enabled: boolean; requireApproval: boolean }>) {
-    const record: Record<
-      string,
-      { enabled: boolean; requireApproval?: boolean; settings?: Record<string, string> }
-    > = {}
-    for (const t of allTools) {
-      if (t.id === tool.id) {
-        const approval = overrides.requireApproval ?? requireApproval
-        record[t.id] = {
-          enabled: overrides.enabled ?? enabled,
-          requireApproval: approval,
-          settings: t.settings,
-        }
-      } else {
-        record[t.id] = {
-          enabled: t.enabled,
-          requireApproval: t.requireApproval,
-          settings: t.settings,
-        }
-      }
-    }
-    return record
-  }
-
-  function handleToggle(checked: boolean) {
-    setEnabled(checked)
-    updateConfig.mutate({ tools: buildToolsRecord({ enabled: checked }) })
-  }
-
-  function handleApprovalToggle(checked: boolean) {
-    setRequireApproval(checked)
-    updateConfig.mutate({ tools: buildToolsRecord({ requireApproval: checked }) })
-  }
-
-  const permissions = tool.permissions ?? {}
-  const permissionKeys = Object.keys(permissions).filter(
-    (k) => permissions[k as keyof typeof permissions],
-  )
-
+function PluginAlerts({ plugin }: { plugin: ToolPluginInfo }) {
   return (
-    <div className="flex flex-col gap-3 rounded-lg border p-4">
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex flex-col gap-1">
-          <p className="font-medium text-sm">{tool.name}</p>
-          <p className="text-muted-foreground text-xs">{tool.description}</p>
-          <div className="mt-1 flex flex-wrap gap-1.5">
-            <Badge variant="outline" className="text-[10px]">
-              {tool.sandbox}
-            </Badge>
-            {permissionKeys.map((key) => {
-              const badge = PERMISSION_BADGES[key]
-              if (!badge) return null
-              const Icon = badge.icon
-              return (
-                <Badge key={key} variant="secondary" className="text-[10px]">
-                  <Icon className="size-3" />
-                  {badge.label}
-                </Badge>
-              )
-            })}
-          </div>
-        </div>
-        <Switch checked={enabled} onCheckedChange={handleToggle} />
-      </div>
+    <>
+      {!plugin.envConfigured && plugin.envVars.length > 0 && (
+        <EnvVarWarning envVars={plugin.envVars} />
+      )}
 
-      {enabled && (
-        <div className="flex items-center gap-3">
-          <Switch
-            id={`${tool.id}-approval`}
-            checked={requireApproval}
-            onCheckedChange={handleApprovalToggle}
-            size="sm"
-          />
-          <Label htmlFor={`${tool.id}-approval`}>Require Approval</Label>
+      {plugin.validationErrors.length > 0 && (
+        <div className="rounded-md border border-destructive/30 bg-destructive/5 p-4 text-sm">
+          <p className="flex items-center gap-1.5 font-medium text-destructive">
+            <AlertTriangleIcon className="size-3.5" />
+            Invalid configuration
+          </p>
+          <ul className="mt-1.5 list-inside list-disc text-muted-foreground">
+            {plugin.validationErrors.map((err) => (
+              <li key={err} className="font-mono text-xs">
+                {err}
+              </li>
+            ))}
+          </ul>
         </div>
       )}
-    </div>
+
+      {plugin.warnings.length > 0 && (
+        <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-4 text-sm">
+          <p className="flex items-center gap-1.5 font-medium text-amber-600 dark:text-amber-400">
+            <AlertTriangleIcon className="size-3.5" />
+            Warning
+          </p>
+          <ul className="mt-1.5 list-inside list-disc text-muted-foreground">
+            {plugin.warnings.map((w) => (
+              <li key={w} className="text-xs">
+                {w}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </>
   )
 }
 
 // ---------------------------------------------------------------------------
-// Tool plugin card (plugin config + nested tools)
+// Plugin status badge
 // ---------------------------------------------------------------------------
 
-function ToolPluginCard({
+function PluginStatusBadge({
   plugin,
-  tools,
-  allTools,
+  configured,
 }: {
   plugin: ToolPluginInfo
-  tools: ToolInfo[]
-  allTools: ToolInfo[]
+  configured: boolean
 }) {
+  if (plugin.validationErrors.length > 0) {
+    return (
+      <Badge variant="destructive" className="text-[10px]">
+        <AlertTriangleIcon className="size-3" />
+        Invalid config
+      </Badge>
+    )
+  }
+  if (!plugin.envConfigured) {
+    return (
+      <Badge variant="destructive" className="text-[10px]">
+        <XCircleIcon className="size-3" />
+        Missing env vars
+      </Badge>
+    )
+  }
+  if (configured) {
+    return (
+      <Badge variant="secondary" className="text-[10px]">
+        <CheckCircle2Icon className="size-3" />
+        Configured
+      </Badge>
+    )
+  }
+  return (
+    <Badge variant="outline" className="text-[10px]">
+      Not configured
+    </Badge>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Tool plugin card
+// ---------------------------------------------------------------------------
+
+function ToolPluginCard({ plugin }: { plugin: ToolPluginInfo }) {
   const updateConfig = useUpdateConfig()
   const [enabled, setEnabled] = useState(plugin.enabled)
   const [fields, setFields] = useState<Record<string, unknown>>(plugin.config)
@@ -194,6 +160,13 @@ function ToolPluginCard({
     })
   }
 
+  const hasBody =
+    (!plugin.envConfigured && plugin.envVars.length > 0) ||
+    plugin.validationErrors.length > 0 ||
+    plugin.warnings.length > 0 ||
+    (plugin.envConfigured && plugin.configFields.length > 0) ||
+    enabled
+
   return (
     <Card>
       <CardHeader>
@@ -201,28 +174,7 @@ function ToolPluginCard({
           <CardTitle className="text-sm">{plugin.name}</CardTitle>
           <CardDescription className="font-mono text-xs">{plugin.id}</CardDescription>
           <div className="mt-1 flex flex-wrap gap-1.5">
-            {plugin.validationErrors.length > 0 ? (
-              <Badge variant="destructive" className="text-[10px]">
-                <AlertTriangleIcon className="size-3" />
-                Invalid config
-              </Badge>
-            ) : plugin.envConfigured ? (
-              configured ? (
-                <Badge variant="secondary" className="text-[10px]">
-                  <CheckCircle2Icon className="size-3" />
-                  Configured
-                </Badge>
-              ) : (
-                <Badge variant="outline" className="text-[10px]">
-                  Not configured
-                </Badge>
-              )
-            ) : (
-              <Badge variant="destructive" className="text-[10px]">
-                <XCircleIcon className="size-3" />
-                Missing env vars
-              </Badge>
-            )}
+            <PluginStatusBadge plugin={plugin} configured={configured} />
           </div>
         </div>
         <CardAction>
@@ -230,56 +182,56 @@ function ToolPluginCard({
         </CardAction>
       </CardHeader>
 
-      {!plugin.envConfigured && plugin.envVars.length > 0 && (
-        <CardContent>
-          <EnvVarWarning envVars={plugin.envVars} />
-        </CardContent>
-      )}
-
-      {plugin.validationErrors.length > 0 && (
-        <CardContent>
-          <div className="rounded-md border border-destructive/30 bg-destructive/5 p-4 text-sm">
-            <p className="flex items-center gap-1.5 font-medium text-destructive">
-              <AlertTriangleIcon className="size-3.5" />
-              Invalid configuration
-            </p>
-            <ul className="mt-1.5 list-inside list-disc text-muted-foreground">
-              {plugin.validationErrors.map((err) => (
-                <li key={err} className="font-mono text-xs">
-                  {err}
-                </li>
-              ))}
-            </ul>
-          </div>
-        </CardContent>
-      )}
-
-      {plugin.envConfigured && plugin.configFields.length > 0 && (
+      {hasBody && (
         <CardContent className="flex flex-col gap-4">
-          {plugin.configFields.map((field) => (
-            <ConfigField
-              key={field.key}
-              field={field}
-              scopeId={plugin.id}
-              value={fields[field.key]}
-              onChange={(v) => setFields({ ...fields, [field.key]: v })}
-            />
-          ))}
+          <PluginAlerts plugin={plugin} />
 
-          {isDirty && (
-            <Button size="sm" className="self-end" disabled={updateConfig.isPending} onClick={save}>
-              {updateConfig.isPending ? <Loader2Icon className="size-4 animate-spin" /> : 'Save'}
-            </Button>
+          {enabled && (
+            <div className="flex items-center gap-3">
+              <Switch
+                id={`${plugin.id}-approval`}
+                checked={!!fields.requireApproval}
+                onCheckedChange={(checked) => {
+                  const next = { ...fields, requireApproval: checked }
+                  setFields(next)
+                  updateConfig.mutate({
+                    toolPlugins: { [plugin.id]: { ...next, enabled } },
+                  })
+                }}
+                size="sm"
+              />
+              <Label htmlFor={`${plugin.id}-approval`}>Require Approval</Label>
+            </div>
           )}
-        </CardContent>
-      )}
 
-      {enabled && tools.length > 0 && (
-        <CardContent className="flex flex-col gap-3">
-          <p className="font-medium text-muted-foreground text-xs">Tools</p>
-          {tools.map((tool) => (
-            <ToolRow key={tool.id} tool={tool} allTools={allTools} />
-          ))}
+          {plugin.envConfigured && plugin.configFields.length > 0 && (
+            <>
+              {plugin.configFields.map((field) => (
+                <ConfigField
+                  key={field.key}
+                  field={field}
+                  scopeId={plugin.id}
+                  value={fields[field.key]}
+                  onChange={(v) => setFields({ ...fields, [field.key]: v })}
+                />
+              ))}
+
+              {isDirty && (
+                <Button
+                  size="sm"
+                  className="self-end"
+                  disabled={updateConfig.isPending}
+                  onClick={save}
+                >
+                  {updateConfig.isPending ? (
+                    <Loader2Icon className="size-4 animate-spin" />
+                  ) : (
+                    'Save'
+                  )}
+                </Button>
+              )}
+            </>
+          )}
         </CardContent>
       )}
     </Card>
@@ -291,7 +243,7 @@ function ToolPluginCard({
 // ---------------------------------------------------------------------------
 
 export default function ToolsPage() {
-  const { tools, plugins, isLoading, error } = useTools()
+  const { plugins, isLoading, error } = useTools()
 
   if (isLoading) {
     return (
@@ -318,26 +270,14 @@ export default function ToolsPage() {
     )
   }
 
-  const toolsById = new Map((tools ?? []).map((t) => [t.id, t]))
-
   return (
     <div className="flex flex-1 flex-col gap-6 p-6">
       <h1 className="font-semibold text-2xl">Tools</h1>
 
       <section className="flex flex-col gap-4">
-        {plugins.map((plugin) => {
-          const pluginTools = plugin.toolIds
-            .map((id) => toolsById.get(id))
-            .filter((t): t is ToolInfo => t != null)
-          return (
-            <ToolPluginCard
-              key={plugin.id}
-              plugin={plugin}
-              tools={pluginTools}
-              allTools={tools ?? []}
-            />
-          )
-        })}
+        {plugins.map((plugin) => (
+          <ToolPluginCard key={plugin.id} plugin={plugin} />
+        ))}
       </section>
     </div>
   )

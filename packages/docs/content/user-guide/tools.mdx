@@ -2,15 +2,15 @@
 
 Tools extend what Pandora can do — checking the current time, searching the web, calling external APIs, and more. Manage them from the **Tools** page in the web UI.
 
-## Enabling a Tool
+## Enabling a Plugin
 
-Each tool belongs to a plugin. To use a tool:
+Each tool belongs to a plugin. To activate a plugin's tools:
 
 1. Set the plugin's required environment variables (listed on the card)
 2. Fill in any required configuration fields and click **Save**
 3. Toggle the plugin on
 
-You can also toggle individual tools within a plugin if you don't need all of them.
+All tools from an enabled plugin are active. There is no per-tool toggling — the plugin is the unit of control.
 
 ## Permissions
 
@@ -18,12 +18,20 @@ Each tool displays badges for the capabilities it declares: **Time**, **Network*
 
 ## Require Approval
 
-You can check **Require Approval** on any tool to have Pandora ask for confirmation before running it.
+You can enable **Require Approval** on any plugin to have Pandora ask for confirmation before running any of its tools.
 
 When a tool with this setting is triggered:
 
 - **Web UI** — the tool card opens automatically showing the parameters. Click **Approve** to let it run or **Deny** to block it. The conversation resumes after your choice.
 - **Telegram** — an inline keyboard appears with **Approve** and **Deny** buttons below the tool name and parameters.
+
+## Web Search
+
+The **Web Search** plugin provides search tools that adapt to your model. Models from OpenAI, Google, Anthropic, and Perplexity use their native search capabilities automatically. For other models, set a third-party API key (`TAVILY_API_KEY`, `EXA_API_KEY`, or `PERPLEXITY_API_KEY`). You can override auto-detection with the **Search Backend** dropdown on the plugin card.
+
+If no search backend is available, the plugin card shows an amber warning explaining what's missing.
+
+See the [Research Agent](/user-guide/agents/research) page for the full setup guide.
 
 ## Building Your Own
 

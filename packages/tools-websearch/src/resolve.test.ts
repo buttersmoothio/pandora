@@ -15,6 +15,9 @@ vi.mock('@ai-sdk/openai', () => ({
 vi.mock('@ai-sdk/google', () => ({
   google: { tools: { googleSearch: vi.fn(() => ({ type: 'google-search' })) } },
 }))
+vi.mock('@ai-sdk/anthropic', () => ({
+  anthropic: { tools: { webSearch_20250305: vi.fn(() => ({ type: 'anthropic-web-search' })) } },
+}))
 
 const { loadBackend, loadFirstAvailable, resolveSearchTools } = await import('./resolve')
 
@@ -135,11 +138,37 @@ describe('resolveSearchTools', () => {
     expect(result).toEqual({ google_search: { type: 'google-search' } })
   })
 
+  it('returns anthropic web search tool for anthropic models', async () => {
+    const result = await resolveSearchTools({
+      model: 'anthropic/claude-sonnet-4-20250514',
+      env: {},
+    })
+    expect(result).toEqual({ web_search: { type: 'anthropic-web-search' } })
+  })
+
+  // --- Vercel gateway prefix ---
+
+  it('strips vercel/ prefix and detects native openai search', async () => {
+    const result = await resolveSearchTools({
+      model: 'vercel/openai/gpt-4o',
+      env: {},
+    })
+    expect(result).toEqual({ web_search: { type: 'openai-web-search' } })
+  })
+
+  it('strips vercel/ prefix and detects native anthropic search', async () => {
+    const result = await resolveSearchTools({
+      model: 'vercel/anthropic/claude-sonnet-4-20250514',
+      env: {},
+    })
+    expect(result).toEqual({ web_search: { type: 'anthropic-web-search' } })
+  })
+
   // --- Tool-based fallback ---
 
   it('falls back to tavily when env var is set and model has no native search', async () => {
     const result = await resolveSearchTools({
-      model: 'anthropic/claude-sonnet-4-20250514',
+      model: 'mistral/mistral-large',
       env: { TAVILY_API_KEY: 'key' },
     })
     expect(result).toEqual({ webSearch: { type: 'tavily' } })
@@ -149,7 +178,7 @@ describe('resolveSearchTools', () => {
 
   it('returns null when no search capability is available', async () => {
     const result = await resolveSearchTools({
-      model: 'anthropic/claude-sonnet-4-20250514',
+      model: 'mistral/mistral-large',
       env: {},
     })
     expect(result).toBeNull()

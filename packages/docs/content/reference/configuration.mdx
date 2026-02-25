@@ -49,8 +49,7 @@ Deletes the stored config and returns the default values.
 | `identity` | Agent name | `name` |
 | `personality` | Behavior and tone | `systemPrompt` |
 | `models` | LLM configuration | `operator: { provider, model, temperature?, maxTokens? }` |
-| `tools` | Tool management | Keyed by tool ID: `{ enabled, settings?, requireApproval? }` |
-| `toolPlugins` | Tool plugin management | Keyed by plugin ID: `{ enabled, ...pluginFields }` |
+| `toolPlugins` | Tool plugin management | Keyed by plugin ID: `{ enabled, requireApproval?, ...pluginFields }` |
 | `channels` | Channel integrations | Keyed by plugin ID: `{ enabled, ...channelFields }` |
 | `agentPlugins` | Agent plugin management | Keyed by plugin ID: `{ enabled, tools?, ...pluginFields }` |
 | `agents` | Per-agent configuration | Keyed by agent ID: `{ enabled, model? }` |
@@ -63,7 +62,7 @@ GET /api/tools
 Authorization: Bearer <token>
 ```
 
-Returns all registered stdlib tools with their manifests merged with the current config state. Unlike `GET /api/config` (which only returns tools already in config), this endpoint discovers all available tools regardless of whether they are enabled.
+Returns all registered tools with their manifests and plugin metadata. Tools are controlled at the plugin level — enable/disable and require approval are set on the plugin, not individual tools.
 
 ```json
 {
@@ -77,8 +76,22 @@ Returns all registered stdlib tools with their manifests merged with the current
         "readOnlyHint": true,
         "destructiveHint": false,
         "idempotentHint": true
-      },
-      "enabled": true
+      }
+    }
+  ],
+  "plugins": [
+    {
+      "id": "tools-websearch",
+      "name": "Web Search",
+      "envVars": [{ "name": "TAVILY_API_KEY", "required": false }],
+      "envConfigured": true,
+      "configFields": [],
+      "enabled": true,
+      "config": {},
+      "validationErrors": [],
+      "warnings": ["No search backend available..."],
+      "toolIds": [],
+      "requireApproval": false
     }
   ]
 }
@@ -93,9 +106,6 @@ Each tool object contains:
 | `permissions` | `object` | Declared capabilities (`time`, `network`, `env`, `fs`, `random`) |
 | `sandbox` | `string` | `'compartment'` or `'host'` |
 | `annotations` | `object?` | MCP-compatible UI hints (`title`, `readOnlyHint`, `destructiveHint`, `idempotentHint`) |
-| `enabled` | `boolean` | Whether the tool is active in the current config |
-| `requireApproval` | `boolean?` | Whether user approval is required before execution |
-| `settings` | `object?` | Tool-specific settings from config |
 
 ## Available Models
 
