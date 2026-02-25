@@ -61,23 +61,31 @@ export function createApprovalTransform(): TransformStream {
   return new TransformStream({
     // biome-ignore lint/suspicious/noExplicitAny: stream chunks are untyped
     transform(chunk: any, controller) {
-      if (chunk.type === 'data-tool-call-approval') {
-        log.info('[ApprovalTransform] data-tool-call-approval → tool-approval-request', {
-          runId: chunk.data.runId,
-          toolCallId: chunk.data.toolCallId,
+      try {
+        if (chunk.type === 'data-tool-call-approval') {
+          log.info('[ApprovalTransform] data-tool-call-approval → tool-approval-request', {
+            runId: chunk.data?.runId,
+            toolCallId: chunk.data?.toolCallId,
+          })
+          controller.enqueue({
+            type: 'tool-approval-request',
+            approvalId: chunk.data?.runId,
+            toolCallId: chunk.data?.toolCallId,
+          })
+          return
+        }
+        if (chunk.type === 'data-tool-call-suspended') {
+          log.info('[ApprovalTransform] suppressing data-tool-call-suspended')
+          return
+        }
+        controller.enqueue(chunk)
+      } catch (err) {
+        log.error('[ApprovalTransform] failed to transform chunk', {
+          type: chunk?.type,
+          error: err instanceof Error ? err.message : String(err),
         })
-        controller.enqueue({
-          type: 'tool-approval-request',
-          approvalId: chunk.data.runId,
-          toolCallId: chunk.data.toolCallId,
-        })
-        return
+        controller.enqueue(chunk)
       }
-      if (chunk.type === 'data-tool-call-suspended') {
-        log.info('[ApprovalTransform] suppressing data-tool-call-suspended')
-        return
-      }
-      controller.enqueue(chunk)
     },
   })
 }

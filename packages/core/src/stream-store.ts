@@ -1,6 +1,7 @@
 interface BufferedStream {
   chunks: string[]
   done: boolean
+  error: boolean
   listeners: Set<() => void>
 }
 
@@ -16,7 +17,7 @@ export function storeStream(chatId: string, sseStream: ReadableStream<string>): 
   // Replace any prior entry
   streams.delete(chatId)
 
-  const entry: BufferedStream = { chunks: [], done: false, listeners: new Set() }
+  const entry: BufferedStream = { chunks: [], done: false, error: false, listeners: new Set() }
   streams.set(chatId, entry)
 
   const reader = sseStream.getReader()
@@ -29,6 +30,8 @@ export function storeStream(chatId: string, sseStream: ReadableStream<string>): 
         entry.chunks.push(value)
         for (const notify of entry.listeners) notify()
       }
+    } catch {
+      entry.error = true
     } finally {
       entry.done = true
       for (const notify of entry.listeners) notify()
@@ -43,9 +46,21 @@ export function storeStream(chatId: string, sseStream: ReadableStream<string>): 
  */
 export function getResumeStream(chatId: string): ReadableStream<string> | null {
   const entry = streams.get(chatId)
-  if (!entry || entry.done) return null
+  if (!entry) return null
 
   let cursor = 0
+
+  // Already completed — replay all buffered chunks immediately
+  if (entry.done) {
+    return new ReadableStream<string>({
+      start(controller) {
+        for (const chunk of entry.chunks) {
+          controller.enqueue(chunk)
+        }
+        controller.close()
+      },
+    })
+  }
 
   let cleanup: (() => void) | undefined
 

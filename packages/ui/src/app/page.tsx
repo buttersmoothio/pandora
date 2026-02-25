@@ -6,6 +6,7 @@ import { DefaultChatTransport } from 'ai'
 import { MessageSquareIcon } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useRef } from 'react'
+import { toast } from 'sonner'
 import {
   Conversation,
   ConversationContent,
@@ -48,7 +49,6 @@ export default function Home() {
       },
       fetch: async (url, init) => {
         const res = await fetch(url, init)
-        // Stash the thread ID — we redirect in onFinish after streaming completes
         const threadId = res.headers.get('X-Thread-Id')
         if (threadId) {
           threadIdRef.current = threadId
@@ -64,6 +64,9 @@ export default function Home() {
         queryClient.invalidateQueries({ queryKey: THREADS_KEY })
         router.push(`/chat/${id}`)
       }
+    },
+    onError: (err) => {
+      toast.error(err.message || 'Stream failed')
     },
   })
 

@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import { useParams, useRouter } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { toast } from 'sonner'
 import {
   Conversation,
   ConversationContent,
@@ -158,6 +159,9 @@ function ThreadChat({
     },
     onFinish: () => {
       queryClient.invalidateQueries({ queryKey: THREADS_KEY })
+    },
+    onError: (err) => {
+      toast.error(err.message || 'Stream failed')
     },
   })
 

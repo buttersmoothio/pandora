@@ -5,6 +5,7 @@ import { isToolUIPart, type UIMessage } from 'ai'
 import { CheckIcon, XIcon } from 'lucide-react'
 import { MessageContent, MessageResponse } from '@/components/ai-elements/message'
 import { Reasoning, ReasoningContent, ReasoningTrigger } from '@/components/ai-elements/reasoning'
+import { Shimmer } from '@/components/ai-elements/shimmer'
 import { Source, Sources, SourcesContent, SourcesTrigger } from '@/components/ai-elements/sources'
 import { Tool, ToolContent, ToolHeader, ToolInput, ToolOutput } from '@/components/ai-elements/tool'
 import { Button } from '@/components/ui/button'
@@ -28,8 +29,19 @@ export function MessageParts({
 
   const sourceParts = message.parts.filter((p) => p.type === 'source-url')
 
+  const hasVisibleContent = message.parts.some(
+    (p) => p.type === 'text' || p.type === 'reasoning' || isToolUIPart(p),
+  )
+  const isThinking = isLastMessage && isStreaming && !hasVisibleContent
+
   return (
     <MessageContent>
+      {isThinking && (
+        <Shimmer className="text-sm" duration={1}>
+          Thinking...
+        </Shimmer>
+      )}
+
       {hasReasoning && (
         <Reasoning isStreaming={isReasoningStreaming}>
           <ReasoningTrigger />
