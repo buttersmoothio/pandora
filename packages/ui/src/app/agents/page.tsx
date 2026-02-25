@@ -15,6 +15,7 @@ import {
   XCircleIcon,
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { ProviderLogo } from '@/components/provider-logo'
 import { ConfigField } from '@/components/settings/config-field'
 import { EnvVarWarning } from '@/components/settings/env-var-warning'
 import { Badge } from '@/components/ui/badge'
@@ -225,7 +226,12 @@ function AgentRow({
                 <Popover open={providerOpen} onOpenChange={setProviderOpen}>
                   <PopoverTrigger asChild>
                     <Button variant="outline" size="sm" className="justify-between font-normal">
-                      {selectedProvider ? selectedProvider.name : provider || 'Provider...'}
+                      <span className="flex items-center gap-2 truncate">
+                        {selectedProvider && (
+                          <ProviderLogo providerId={provider} className="size-3.5" />
+                        )}
+                        {selectedProvider ? selectedProvider.name : provider || 'Provider...'}
+                      </span>
                       <ChevronsUpDownIcon className="ml-2 size-3 shrink-0 opacity-50" />
                     </Button>
                   </PopoverTrigger>
@@ -250,6 +256,7 @@ function AgentRow({
                                 provider === p.id ? 'opacity-100' : 'opacity-0',
                               )}
                             />
+                            <ProviderLogo providerId={p.id} />
                             <span className="truncate">{p.name}</span>
                             {!p.configured && (
                               <span className="ml-auto text-muted-foreground text-xs">

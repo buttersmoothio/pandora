@@ -46,21 +46,11 @@ export function storeStream(chatId: string, sseStream: ReadableStream<string>): 
  */
 export function getResumeStream(chatId: string): ReadableStream<string> | null {
   const entry = streams.get(chatId)
-  if (!entry) return null
+  // Only serve in-flight streams. Completed streams return null — the
+  // client already has the full response via its initial messages query.
+  if (!entry || entry.done) return null
 
   let cursor = 0
-
-  // Already completed — replay all buffered chunks immediately
-  if (entry.done) {
-    return new ReadableStream<string>({
-      start(controller) {
-        for (const chunk of entry.chunks) {
-          controller.enqueue(chunk)
-        }
-        controller.close()
-      },
-    })
-  }
 
   let cleanup: (() => void) | undefined
 

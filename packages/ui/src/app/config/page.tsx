@@ -2,6 +2,7 @@
 
 import { CheckIcon, ChevronsUpDownIcon, ExternalLinkIcon, Loader2Icon } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { ProviderLogo } from '@/components/provider-logo'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -139,7 +140,10 @@ function ModelsSection() {
             <Popover open={providerOpen} onOpenChange={setProviderOpen}>
               <PopoverTrigger asChild>
                 <Button variant="outline" className="justify-between font-normal">
-                  {selectedProvider ? selectedProvider.name : provider || 'Select provider...'}
+                  <span className="flex items-center gap-2 truncate">
+                    {selectedProvider && <ProviderLogo providerId={provider} />}
+                    {selectedProvider ? selectedProvider.name : provider || 'Select provider...'}
+                  </span>
                   <ChevronsUpDownIcon className="ml-2 size-4 shrink-0 opacity-50" />
                 </Button>
               </PopoverTrigger>
@@ -164,6 +168,7 @@ function ModelsSection() {
                             provider === p.id ? 'opacity-100' : 'opacity-0',
                           )}
                         />
+                        <ProviderLogo providerId={p.id} />
                         <span className="truncate">{p.name}</span>
                         {!p.configured && (
                           <span className="ml-auto text-muted-foreground text-xs">
@@ -370,9 +375,12 @@ function MemorySection() {
                 <Popover open={providerOpen} onOpenChange={setProviderOpen}>
                   <PopoverTrigger asChild>
                     <Button variant="outline" className="justify-between font-normal">
-                      {selectedProvider
-                        ? selectedProvider.name
-                        : embeddingProvider || 'Select provider...'}
+                      <span className="flex items-center gap-2 truncate">
+                        {selectedProvider && <ProviderLogo providerId={embeddingProvider} />}
+                        {selectedProvider
+                          ? selectedProvider.name
+                          : embeddingProvider || 'Select provider...'}
+                      </span>
                       <ChevronsUpDownIcon className="ml-2 size-4 shrink-0 opacity-50" />
                     </Button>
                   </PopoverTrigger>
@@ -397,6 +405,7 @@ function MemorySection() {
                                 embeddingProvider === p.id ? 'opacity-100' : 'opacity-0',
                               )}
                             />
+                            <ProviderLogo providerId={p.id} />
                             <span className="truncate">{p.name}</span>
                             {!p.configured && (
                               <span className="ml-auto text-muted-foreground text-xs">
