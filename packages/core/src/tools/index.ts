@@ -7,7 +7,7 @@ import { clearToolSchemaRegistry, getToolSchema, registerToolSchema } from './sc
 import type { ToolPlugin, ToolPluginConfig, ToolRecord } from './types'
 
 export type { DefineToolOptions, ToolDefinition } from './define'
-export { defineTool, getAllManifests, getManifest, getManifests } from './define'
+export { defineTool, getAllManifests, getManifest, getManifests, removeManifest } from './define'
 export type { CompartmentExecuteOptions, Endowments } from './sandbox'
 export { executeInCompartment } from './sandbox'
 export type {

@@ -1,0 +1,159 @@
+import { Steps, FileTree } from 'nextra/components'
+
+# Build an Agent
+
+Agent plugins add specialist subagents that the operator can route tasks to. They follow the same define-plugin-register pattern as tool plugins.
+
+<Steps>
+
+### Set up the package
+
+An agent package follows this structure:
+
+<FileTree>
+  <FileTree.Folder name="pandora-agent-researcher" defaultOpen>
+    <FileTree.File name="package.json" />
+    <FileTree.Folder name="src" defaultOpen>
+      <FileTree.File name="index.ts" />
+      <FileTree.File name="researcher.ts" />
+    </FileTree.Folder>
+    <FileTree.File name="tsconfig.json" />
+  </FileTree.Folder>
+</FileTree>
+
+The `package.json` declares `@pandora/core` as a peer dependency:
+
+```json
+{
+  "name": "pandora-agent-researcher",
+  "type": "module",
+  "exports": { ".": "./src/index.ts" },
+  "peerDependencies": {
+    "@pandora/core": "*"
+  }
+}
+```
+
+### Define the agent
+
+Use `defineAgent()` to register a manifest with the agent's identity and instructions:
+
+```ts
+// src/researcher.ts
+import { defineAgent } from '@pandora/core/agents'
+
+export const researcher = defineAgent({
+  id: 'researcher',
+  name: 'Researcher',
+  description: 'Deep research on topics using web search and analysis',
+  instructions: `You are a research specialist. When given a topic:
+1. Search for authoritative sources
+2. Cross-reference claims across multiple sources
+3. Summarize findings with citations`,
+})
+```
+
+### Bundle scoped tools (optional)
+
+Agent plugins can include tools that are scoped to the subagent (not added to the operator's global tools):
+
+```ts
+// src/search.ts
+import { z } from 'zod'
+import { defineTool } from '@pandora/core/tools'
+
+export const webSearch = defineTool({
+  id: 'search',
+  name: 'Web Search',
+  description: 'Search the web for information',
+  inputSchema: z.object({
+    query: z.string().describe('Search query'),
+  }),
+  sandbox: 'host',
+  execute: async ({ query }, { env }) => {
+    // Your search implementation
+    return { results: [] }
+  },
+})
+```
+
+### Export the plugin
+
+The default export is an `AgentPlugin` descriptor:
+
+```ts
+// src/index.ts
+import type { AgentPlugin } from '@pandora/core/agents'
+import { researcher } from './researcher'
+import { webSearch } from './search'
+
+export default {
+  id: 'agent-researcher',
+  name: 'Researcher',
+  schemaVersion: 1,
+  agents: [researcher],
+  tools: [webSearch],    // scoped to subagent, not global
+  envVars: [
+    { name: 'SEARCH_API_KEY' },
+  ],
+} satisfies AgentPlugin
+```
+
+### Register the plugin
+
+In your Pandora instance, import the plugin and register it in `plugins.ts`:
+
+```ts
+import researcher from 'pandora-agent-researcher'
+import { registerAgentPlugin } from './agents'
+
+registerAgentPlugin(researcher)
+```
+
+### Configure
+
+Enable the agent in your Pandora config:
+
+```json
+{
+  "agentPlugins": {
+    "agent-researcher": {
+      "enabled": true,
+      "tools": {
+        "search": { "enabled": true }
+      }
+    }
+  },
+  "agents": {
+    "researcher": {
+      "enabled": true,
+      "model": {
+        "provider": "anthropic",
+        "model": "claude-sonnet-4-20250514"
+      }
+    }
+  }
+}
+```
+
+The `agentPlugins` section controls plugins and their scoped tools. Tool IDs are scoped to the plugin — they only need to be unique within the plugin. The `agents` section controls individual agents. If `model` is omitted, the agent uses the operator's model.
+
+</Steps>
+
+## How it works
+
+When subagents are loaded, the operator uses Mastra's `.network()` for routing. The operator decides whether to handle a request directly or delegate to a specialist based on the request content and agent descriptions.
+
+With zero subagents registered, the operator handles all requests directly — behavior is unchanged from a standard setup.
+
+## Plugin descriptor
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | `string` | Unique plugin ID |
+| `name` | `string` | Display name |
+| `schemaVersion` | `number` | Must be `1` |
+| `agents` | `AgentDefinition[]` | Agent definitions from `defineAgent()` |
+| `tools` | `ToolDefinition[]?` | Scoped tools (not added to operator) |
+| `envVars` | `EnvVarDescriptor[]?` | Required environment variables |
+| `configFields` | `ConfigFieldDescriptor[]?` | UI config fields |

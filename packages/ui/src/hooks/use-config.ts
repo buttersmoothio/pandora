@@ -17,6 +17,11 @@ export interface ToolConfig {
   requireApproval?: boolean
 }
 
+export interface AgentConfig {
+  enabled: boolean
+  model?: ModelConfig
+}
+
 export interface Config {
   identity: {
     name: string
@@ -30,6 +35,11 @@ export interface Config {
   channels: Record<string, { enabled: boolean; [key: string]: unknown }>
   toolPlugins: Record<string, { enabled: boolean; [key: string]: unknown }>
   tools: Record<string, ToolConfig>
+  agentPlugins: Record<
+    string,
+    { enabled: boolean; tools?: Record<string, { enabled: boolean }>; [key: string]: unknown }
+  >
+  agents: Record<string, AgentConfig>
   memory: {
     semanticRecall: {
       enabled: boolean
@@ -63,6 +73,7 @@ export function useUpdateConfig() {
     onSuccess: (data) => {
       queryClient.setQueryData(CONFIG_KEY, data)
       queryClient.invalidateQueries({ queryKey: ['tools'] })
+      queryClient.invalidateQueries({ queryKey: ['agents'] })
       toast.success('Configuration saved')
     },
     onError: (err: Error) => {
@@ -82,6 +93,7 @@ export function useResetConfig() {
     onSuccess: (data) => {
       queryClient.setQueryData(CONFIG_KEY, data)
       queryClient.invalidateQueries({ queryKey: ['tools'] })
+      queryClient.invalidateQueries({ queryKey: ['agents'] })
       toast.success('Configuration reset to defaults')
     },
     onError: (err: Error) => {

@@ -51,6 +51,8 @@ Deletes the stored config and returns the default values.
 | `models` | LLM configuration | `operator: { provider, model, temperature?, maxTokens? }` |
 | `tools` | Tool management | Keyed by tool ID: `{ enabled, settings?, requireApproval? }` |
 | `channels` | Channel integrations | Keyed by plugin ID: `{ enabled, ...channelFields }` |
+| `agentPlugins` | Agent plugin management | Keyed by plugin ID: `{ enabled, tools?, ...pluginFields }` |
+| `agents` | Per-agent configuration | Keyed by agent ID: `{ enabled, model? }` |
 | `memory` | Semantic recall | `semanticRecall: { enabled, embedder? }` |
 
 ## Available Tools
@@ -172,3 +174,76 @@ Each channel object contains:
 | `loaded` | `boolean` | Whether the adapter loaded successfully |
 | `webhook` | `boolean \| null` | Whether webhook mode is available (`null` if not loaded) |
 | `realtime` | `boolean \| null` | Whether realtime mode is available (`null` if not loaded) |
+
+## Available Agents
+
+```
+GET /api/agents
+Authorization: Bearer <token>
+```
+
+Returns all registered agent plugins with their manifests and config state:
+
+```json
+{
+  "agents": [
+    {
+      "id": "researcher",
+      "name": "Researcher",
+      "description": "Deep research on topics",
+      "instructions": "You are a research specialist...",
+      "enabled": true,
+      "model": null
+    }
+  ],
+  "plugins": [
+    {
+      "id": "agent-researcher",
+      "name": "Researcher",
+      "envVars": [{ "name": "SEARCH_API_KEY" }],
+      "envConfigured": true,
+      "configFields": [],
+      "enabled": true,
+      "config": {},
+      "validationErrors": [],
+      "agentIds": ["researcher"],
+      "tools": [
+        {
+          "id": "search",
+          "name": "Web Search",
+          "description": "Search the web for information",
+          "sandbox": "host",
+          "timeout": 60000,
+          "enabled": true
+        }
+      ]
+    }
+  ]
+}
+```
+
+Each agent object contains:
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | `string` | Unique agent identifier |
+| `name` | `string` | Display name |
+| `description` | `string` | What the agent does |
+| `instructions` | `string` | System instructions |
+| `enabled` | `boolean` | Whether enabled in config |
+| `model` | `object?` | Model override (`{ provider, model }`) or `null` for operator's model |
+
+Each plugin object contains:
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | `string` | Plugin identifier |
+| `name` | `string` | Display name |
+| `envVars` | `EnvVarDescriptor[]` | Environment variable descriptors |
+| `envConfigured` | `boolean` | Whether all required env vars are set |
+| `configFields` | `ConfigFieldDescriptor[]` | UI field descriptors |
+| `enabled` | `boolean` | Whether enabled in config |
+| `config` | `object` | Current config values |
+| `validationErrors` | `string[]` | Config validation errors |
+| `agentIds` | `string[]` | Agent IDs provided by this plugin |
+| `tools` | `object[]` | Scoped tool manifests with `{ id, name, description, sandbox, timeout, enabled }` |

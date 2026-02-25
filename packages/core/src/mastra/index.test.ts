@@ -28,6 +28,12 @@ vi.mock('@mastra/core', () => ({
   },
 }))
 
+// Mock memory
+const mockMemory = { id: 'test-memory' }
+vi.mock('../memory', () => ({
+  createMemory: vi.fn().mockReturnValue(mockMemory),
+}))
+
 // Mock storage
 vi.mock('../storage', () => {
   const mockConfigStore = {

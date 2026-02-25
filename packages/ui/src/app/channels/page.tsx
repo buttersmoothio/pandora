@@ -2,7 +2,7 @@
 
 import { CheckCircle2Icon, Loader2Icon, RadioIcon, WebhookIcon, XCircleIcon } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { ConfigField } from '@/components/config-field'
+import { ConfigField } from '@/components/settings/config-field'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {

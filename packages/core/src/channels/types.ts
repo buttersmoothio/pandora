@@ -126,8 +126,6 @@ export interface StreamResult {
 export interface StreamAISdkOpts {
   threadId: string
   parts: MessagePart[]
-  sendReasoning?: boolean
-  sendSources?: boolean
   /** Pass true if threadId is newly created (e.g., via crypto.randomUUID()) */
   isNewThread?: boolean
 }
@@ -138,8 +136,6 @@ export interface ApproveToolCallAISdkOpts {
   toolCallId?: string
   threadId: string
   messageId?: string
-  sendReasoning?: boolean
-  sendSources?: boolean
 }
 
 /** The gateway — what core provides to channel adapters */

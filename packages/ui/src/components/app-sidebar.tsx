@@ -1,6 +1,7 @@
 'use client'
 
 import {
+  BotIcon,
   LogOutIcon,
   MoonIcon,
   PlusIcon,
@@ -33,6 +34,7 @@ const NAV_ITEMS = [
   { title: 'Configuration', href: '/config', icon: SettingsIcon },
   { title: 'Channels', href: '/channels', icon: RadioIcon },
   { title: 'Tools', href: '/tools', icon: WrenchIcon },
+  { title: 'Agents', href: '/agents', icon: BotIcon },
   { title: 'Security', href: '/security', icon: ShieldIcon },
 ]
 

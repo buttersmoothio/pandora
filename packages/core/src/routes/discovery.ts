@@ -1,5 +1,12 @@
 import { PROVIDER_REGISTRY } from '@mastra/core/llm'
 import { Hono } from 'hono'
+import {
+  getAgentPluginValidationErrors,
+  getAllAgentManifests,
+  getAllRegisteredAgentPlugins,
+  getPluginAgentIds,
+  getScopedToolManifests,
+} from '../agents'
 import { getAllChannels, getAllRegisteredChannelPlugins } from '../channels'
 import { getConfig } from '../config'
 import { getStorage } from '../storage'
@@ -107,6 +114,55 @@ discoveryRoutes.get('/channels', async (c) => {
   })
 
   return c.json({ channels })
+})
+
+// Agents endpoint - returns all registered agent plugins with manifests and config state
+discoveryRoutes.get('/agents', async (c) => {
+  const { config: configStore } = await getStorage(c.var.envVars, c.env)
+  const config = await getConfig(configStore)
+
+  const manifests = getAllAgentManifests()
+  const plugins = getAllRegisteredAgentPlugins()
+  const validationErrors = getAgentPluginValidationErrors(config)
+
+  const agents = Object.values(manifests).map((manifest) => {
+    const agentConfig = config.agents[manifest.id]
+    return {
+      ...manifest,
+      enabled: agentConfig?.enabled ?? true,
+      model: agentConfig?.model,
+    }
+  })
+
+  const agentPlugins = plugins.map((plugin) => {
+    const pluginConfig = config.agentPlugins[plugin.id]
+    const descriptors = plugin.envVars ?? []
+    const envConfigured = descriptors
+      .filter((d) => d.required !== false)
+      .every((d) => !!c.var.envVars[d.name])
+
+    const toolManifests = getScopedToolManifests(plugin.id)
+    const toolConfigs = (pluginConfig as { tools?: Record<string, { enabled: boolean }> })?.tools
+    const tools = toolManifests.map((manifest) => ({
+      ...manifest,
+      enabled: toolConfigs?.[manifest.id]?.enabled !== false,
+    }))
+
+    return {
+      id: plugin.id,
+      name: plugin.name,
+      envVars: descriptors,
+      envConfigured,
+      configFields: plugin.configFields ?? [],
+      enabled: pluginConfig?.enabled ?? true,
+      config: pluginConfig ?? {},
+      validationErrors: validationErrors[plugin.id] ?? [],
+      agentIds: getPluginAgentIds(plugin.id),
+      tools,
+    }
+  })
+
+  return c.json({ agents, plugins: agentPlugins })
 })
 
 export { discoveryRoutes }

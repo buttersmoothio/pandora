@@ -39,6 +39,11 @@ export function getAllManifests(): Record<string, ToolManifest> {
   return Object.fromEntries(manifestRegistry)
 }
 
+/** Remove a single manifest from the registry. */
+export function removeManifest(id: string): void {
+  manifestRegistry.delete(id)
+}
+
 /** Clear the manifest registry. Useful for testing. */
 export function clearManifestRegistry(): void {
   manifestRegistry.clear()
@@ -55,6 +60,7 @@ export function clearManifestRegistry(): void {
 export interface ToolDefinition {
   (env: Record<string, string | undefined>, config: ToolPluginConfig): AnyTool
   readonly id: string
+  readonly manifest: ToolManifest
 }
 
 // --- defineTool ---
@@ -132,6 +138,6 @@ export function defineTool<TIn, TOut>(opts: DefineToolOptions<TIn, TOut>): ToolD
         }),
       })
     },
-    { id: opts.id } as const,
+    { id: opts.id, manifest } as const,
   )
 }

@@ -29,8 +29,6 @@ chatRoutes.post('/', async (c) => {
     const stream = await runtime.streamAISdk({
       threadId,
       parts,
-      sendReasoning: true,
-      sendSources: true,
       isNewThread,
     })
 

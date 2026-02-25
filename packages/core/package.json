@@ -8,6 +8,7 @@
     "./tools": "./src/tools/exports.ts",
     "./channels": "./src/channels/exports.ts",
     "./vector": "./src/vector/exports.ts",
+    "./agents": "./src/agents/exports.ts",
     "./plugins": "./src/plugins.ts"
   },
   "scripts": {

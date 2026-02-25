@@ -1,4 +1,4 @@
-import { handleChatStream, toAISdkStream } from '@mastra/ai-sdk'
+import { handleNetworkStream, toAISdkStream } from '@mastra/ai-sdk'
 import type { Mastra } from '@mastra/core'
 import type { FullOutput } from '@mastra/core/stream'
 import type { Memory } from '@mastra/memory'
@@ -154,31 +154,22 @@ export function createChannelRuntime(deps: ChannelRuntimeDeps): ChannelRuntime {
       return buildResult(result)
     },
 
-    async streamAISdk({ threadId, parts, sendReasoning, sendSources, isNewThread }) {
+    async streamAISdk({ threadId, parts, isNewThread }) {
       // Build memory option: for new threads pass metadata so Mastra creates with root: true
       const memory = isNewThread
         ? { thread: { id: threadId, metadata: { root: true } }, resource: RESOURCE_ID }
         : { thread: threadId, resource: RESOURCE_ID }
 
-      const rawStream = await handleChatStream({
+      const rawStream = await handleNetworkStream({
         mastra,
         agentId: 'operator',
         params: { messages: buildMessages(parts), memory },
-        sendReasoning: sendReasoning ?? true,
-        sendSources: sendSources ?? true,
       })
 
       return rawStream.pipeThrough(createApprovalTransform())
     },
 
-    async approveToolCallAISdk({
-      runId,
-      toolCallId,
-      threadId,
-      messageId,
-      sendReasoning,
-      sendSources,
-    }) {
+    async approveToolCallAISdk({ runId, toolCallId, threadId, messageId }) {
       const agent = mastra.getAgent('operator')
       const result = await agent.approveToolCall({
         runId,
@@ -189,19 +180,12 @@ export function createChannelRuntime(deps: ChannelRuntimeDeps): ChannelRuntime {
       return toAISdkStream(result, {
         from: 'agent',
         lastMessageId: messageId,
-        sendReasoning: sendReasoning ?? true,
-        sendSources: sendSources ?? true,
+        sendReasoning: true,
+        sendSources: true,
       }).pipeThrough(createApprovalTransform())
     },
 
-    async declineToolCallAISdk({
-      runId,
-      toolCallId,
-      threadId,
-      messageId,
-      sendReasoning,
-      sendSources,
-    }) {
+    async declineToolCallAISdk({ runId, toolCallId, threadId, messageId }) {
       const agent = mastra.getAgent('operator')
       const result = await agent.declineToolCall({
         runId,
@@ -212,8 +196,8 @@ export function createChannelRuntime(deps: ChannelRuntimeDeps): ChannelRuntime {
       return toAISdkStream(result, {
         from: 'agent',
         lastMessageId: messageId,
-        sendReasoning: sendReasoning ?? true,
-        sendSources: sendSources ?? true,
+        sendReasoning: true,
+        sendSources: true,
       }).pipeThrough(createApprovalTransform())
     },
 

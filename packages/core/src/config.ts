@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { getAgentSchema } from './agents/schema-registry'
 import { getChannelSchema } from './channels/schema-registry'
 import { isServerless } from './env'
 import type { ConfigStore } from './storage/config-store'
@@ -129,6 +130,34 @@ export const ConfigSchema = z.object({
     .default(() => ({
       'current-time': { enabled: true },
     })),
+
+  /** Agent plugin configurations — keyed by agent plugin ID */
+  agentPlugins: z
+    .record(z.string(), z.looseObject({ enabled: z.boolean() }))
+    .default(() => ({}))
+    .superRefine((plugins, ctx) => {
+      for (const [id, raw] of Object.entries(plugins)) {
+        const schema = getAgentSchema(id)
+        if (!schema) continue
+        const result = z.object({ enabled: z.boolean() }).extend(schema.shape).safeParse(raw)
+        if (!result.success) {
+          for (const issue of result.error.issues) {
+            ctx.addIssue({ ...issue, path: [id, ...issue.path] })
+          }
+        }
+      }
+    }),
+
+  /** Agent configurations — keyed by agent ID */
+  agents: z
+    .record(
+      z.string(),
+      z.object({
+        enabled: z.boolean(),
+        model: ModelConfigSchema.optional(),
+      }),
+    )
+    .default(() => ({})),
 
   /** Memory configuration */
   memory: z

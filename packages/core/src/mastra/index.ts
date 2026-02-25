@@ -1,4 +1,5 @@
 import { Mastra } from '@mastra/core'
+import { loadAgents } from '../agents'
 import { createOperator } from '../agents/operator'
 import { getConfig } from '../config'
 import { isServerless } from '../env'
@@ -55,12 +56,18 @@ export async function getMastra(
   // 5. Memory
   const memory = createMemory({ config, vector: vectorResult })
 
-  // 6. Operator agent
-  const operator = createOperator(config, tools, memory)
+  // 6. Subagents (from agent plugins)
+  const subagents = await loadAgents(config, env, memory)
+  if (Object.keys(subagents).length > 0) {
+    log.info('[getMastra] loaded subagents', { agentIds: Object.keys(subagents) })
+  }
 
-  // 7. Mastra instance
+  // 7. Operator agent
+  const operator = createOperator(config, tools, memory, subagents)
+
+  // 8. Mastra instance
   const mastra = new Mastra({
-    agents: { operator },
+    agents: { operator, ...subagents },
     storage: mastraStorage,
     memory: { default: memory },
     logger: getLogger(env),
