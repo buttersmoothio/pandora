@@ -44,7 +44,7 @@ import {
   useAgents,
 } from '@/hooks/use-agents'
 import type { ModelConfig } from '@/hooks/use-config'
-import { useUpdateConfig } from '@/hooks/use-config'
+import { useConfig, useUpdateConfig } from '@/hooks/use-config'
 import { useModels } from '@/hooks/use-models'
 import { cn } from '@/lib/utils'
 
@@ -69,12 +69,12 @@ const PERMISSION_BADGES: Record<
 
 function ScopedToolRow({
   tool,
-  pluginId,
-  pluginConfig,
+  agentId,
+  agentConfig,
 }: {
   tool: ScopedToolInfo
-  pluginId: string
-  pluginConfig: Record<string, unknown>
+  agentId: string
+  agentConfig?: { enabled: boolean; tools?: Record<string, { enabled: boolean }> }
 }) {
   const updateConfig = useUpdateConfig()
   const [enabled, setEnabled] = useState(tool.enabled)
@@ -85,12 +85,11 @@ function ScopedToolRow({
 
   function handleToggle(checked: boolean) {
     setEnabled(checked)
-    const currentTools = (pluginConfig.tools ?? {}) as Record<string, { enabled: boolean }>
+    const currentTools = agentConfig?.tools ?? {}
     updateConfig.mutate({
-      agentPlugins: {
-        [pluginId]: {
-          ...pluginConfig,
-          enabled: (pluginConfig.enabled as boolean) ?? true,
+      agents: {
+        [agentId]: {
+          enabled: agentConfig?.enabled ?? true,
           tools: { ...currentTools, [tool.id]: { enabled: checked } },
         },
       },
@@ -135,7 +134,13 @@ function ScopedToolRow({
 // Agent row with model selector
 // ---------------------------------------------------------------------------
 
-function AgentRow({ agent }: { agent: AgentInfo }) {
+function AgentRow({
+  agent,
+  agentConfig,
+}: {
+  agent: AgentInfo
+  agentConfig?: { enabled: boolean; tools?: Record<string, { enabled: boolean }> }
+}) {
   const updateConfig = useUpdateConfig()
   const { data: modelsData } = useModels()
   const [enabled, setEnabled] = useState(agent.enabled)
@@ -308,6 +313,20 @@ function AgentRow({ agent }: { agent: AgentInfo }) {
               </Button>
             </div>
           )}
+
+          {agent.tools.length > 0 && (
+            <div className="flex flex-col gap-2">
+              <p className="font-medium text-muted-foreground text-xs">Tools</p>
+              {agent.tools.map((tool) => (
+                <ScopedToolRow
+                  key={tool.id}
+                  tool={tool}
+                  agentId={agent.id}
+                  agentConfig={agentConfig}
+                />
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -360,7 +379,15 @@ function PluginStatusBadge({
 // Agent plugin card
 // ---------------------------------------------------------------------------
 
-function AgentPluginCard({ plugin, agents }: { plugin: AgentPluginInfo; agents: AgentInfo[] }) {
+function AgentPluginCard({
+  plugin,
+  agents,
+  agentConfigs,
+}: {
+  plugin: AgentPluginInfo
+  agents: AgentInfo[]
+  agentConfigs: Record<string, { enabled: boolean; tools?: Record<string, { enabled: boolean }> }>
+}) {
   const updateConfig = useUpdateConfig()
   const [enabled, setEnabled] = useState(plugin.enabled)
   const [fields, setFields] = useState<Record<string, unknown>>(plugin.config)
@@ -466,21 +493,7 @@ function AgentPluginCard({ plugin, agents }: { plugin: AgentPluginInfo; agents: 
         <CardContent className="flex flex-col gap-3">
           <p className="font-medium text-muted-foreground text-xs">Agents</p>
           {agents.map((agent) => (
-            <AgentRow key={agent.id} agent={agent} />
-          ))}
-        </CardContent>
-      )}
-
-      {enabled && plugin.tools.length > 0 && (
-        <CardContent className="flex flex-col gap-3">
-          <p className="font-medium text-muted-foreground text-xs">Tools</p>
-          {plugin.tools.map((tool) => (
-            <ScopedToolRow
-              key={tool.id}
-              tool={tool}
-              pluginId={plugin.id}
-              pluginConfig={plugin.config}
-            />
+            <AgentRow key={agent.id} agent={agent} agentConfig={agentConfigs[agent.id]} />
           ))}
         </CardContent>
       )}
@@ -494,6 +507,7 @@ function AgentPluginCard({ plugin, agents }: { plugin: AgentPluginInfo; agents: 
 
 export default function AgentsPage() {
   const { agents, plugins, isLoading, error } = useAgents()
+  const { data: configData } = useConfig()
 
   if (isLoading) {
     return (
@@ -531,7 +545,14 @@ export default function AgentsPage() {
           const pluginAgents = plugin.agentIds
             .map((id) => agentsById.get(id))
             .filter((a): a is AgentInfo => a != null)
-          return <AgentPluginCard key={plugin.id} plugin={plugin} agents={pluginAgents} />
+          return (
+            <AgentPluginCard
+              key={plugin.id}
+              plugin={plugin}
+              agents={pluginAgents}
+              agentConfigs={configData?.agents ?? {}}
+            />
+          )
         })}
       </section>
     </div>

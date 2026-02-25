@@ -26,6 +26,7 @@ export interface AgentInfo {
   instructions: string
   enabled: boolean
   model?: ModelConfig
+  tools: ScopedToolInfo[]
 }
 
 export interface AgentPluginInfo {
@@ -38,7 +39,6 @@ export interface AgentPluginInfo {
   config: Record<string, unknown>
   validationErrors: string[]
   agentIds: string[]
-  tools: ScopedToolInfo[]
 }
 
 interface AgentsResponse {

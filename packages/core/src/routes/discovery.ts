@@ -127,10 +127,17 @@ discoveryRoutes.get('/agents', async (c) => {
 
   const agents = Object.values(manifests).map((manifest) => {
     const agentConfig = config.agents[manifest.id]
+    const toolManifests = getScopedToolManifests(manifest.id)
+    const toolConfigs = agentConfig?.tools
+    const tools = toolManifests.map((tm) => ({
+      ...tm,
+      enabled: toolConfigs?.[tm.id]?.enabled !== false,
+    }))
     return {
       ...manifest,
       enabled: agentConfig?.enabled ?? true,
       model: agentConfig?.model,
+      tools,
     }
   })
 
@@ -140,13 +147,6 @@ discoveryRoutes.get('/agents', async (c) => {
     const envConfigured = descriptors
       .filter((d) => d.required !== false)
       .every((d) => !!c.var.envVars[d.name])
-
-    const toolManifests = getScopedToolManifests(plugin.id)
-    const toolConfigs = (pluginConfig as { tools?: Record<string, { enabled: boolean }> })?.tools
-    const tools = toolManifests.map((manifest) => ({
-      ...manifest,
-      enabled: toolConfigs?.[manifest.id]?.enabled !== false,
-    }))
 
     return {
       id: plugin.id,
@@ -158,7 +158,6 @@ discoveryRoutes.get('/agents', async (c) => {
       config: pluginConfig ?? {},
       validationErrors: validationErrors[plugin.id] ?? [],
       agentIds: getPluginAgentIds(plugin.id),
-      tools,
     }
   })
 

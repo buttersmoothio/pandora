@@ -20,6 +20,7 @@ export interface ToolConfig {
 export interface AgentConfig {
   enabled: boolean
   model?: ModelConfig
+  tools?: Record<string, { enabled: boolean }>
 }
 
 export interface Config {
@@ -35,10 +36,7 @@ export interface Config {
   channels: Record<string, { enabled: boolean; [key: string]: unknown }>
   toolPlugins: Record<string, { enabled: boolean; [key: string]: unknown }>
   tools: Record<string, ToolConfig>
-  agentPlugins: Record<
-    string,
-    { enabled: boolean; tools?: Record<string, { enabled: boolean }>; [key: string]: unknown }
-  >
+  agentPlugins: Record<string, { enabled: boolean; [key: string]: unknown }>
   agents: Record<string, AgentConfig>
   memory: {
     semanticRecall: {

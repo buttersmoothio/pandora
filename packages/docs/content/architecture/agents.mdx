@@ -1,0 +1,38 @@
+# Agents
+
+Agents add specialist subagents that the operator can delegate to. This page covers the design decisions behind the agent system.
+
+## Why Subagents
+
+A monolithic operator that handles everything — research, coding, summarization — needs a massive system prompt and every tool loaded at once. Subagents let the operator stay lean: it routes requests to specialists, each with their own focused instructions and tool set. This keeps context windows smaller and tool lists relevant.
+
+## Network Routing
+
+The operator is a Mastra `Agent` with subagents passed via the `agents` constructor field. At runtime, `handleNetworkStream` delegates to Mastra's network routing — the operator reads each subagent's `description` and decides whether to handle the request itself or hand it off to a specialist.
+
+The routing decision is made by the LLM, not by rules. The operator sees what each subagent is good at and picks the best fit. This means adding a new specialist is just registering a plugin — no routing configuration needed.
+
+## Scoped Tools
+
+Scoped tools belong to individual agents, not to the global tool registry. Each `defineAgent()` call declares its own `tools` array. When `registerAgentPlugin()` runs, it collects all tools from its agents and removes them from the global manifest registry. This means:
+
+- Scoped tools don't appear in `/api/tools` or the Tools settings page
+- The operator never sees them — only the owning agent can use them
+- Tool IDs only need to be unique within a plugin, not globally
+- Multiple agents in the same plugin can share the same tool definition
+
+This per-agent scoping matters because different specialists need different capabilities. A researcher agent needs search tools; an analyst agent in the same plugin might only need a subset. The plugin author decides what each agent needs, and operators can fine-tune per-agent tool access through config.
+
+## Plugin Model
+
+Agent plugins follow the same define-plugin-register pattern as tools and channels:
+
+1. `defineAgent()` registers a manifest at import time
+2. An `AgentPlugin` descriptor bundles agents, env vars, and config fields
+3. `registerAgentPlugin()` adds it to the registry
+
+This consistency means the same UI patterns (env var cards, config fields, enable toggles) work across all plugin types without special-casing.
+
+## Zero-Subagent Fallback
+
+When no agent plugins are registered, the operator receives an empty `agents: {}` and handles all requests directly. Behavior is identical to a standard single-agent setup — subagents are purely additive.

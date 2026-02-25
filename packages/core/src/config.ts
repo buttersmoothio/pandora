@@ -155,6 +155,7 @@ export const ConfigSchema = z.object({
       z.object({
         enabled: z.boolean(),
         model: ModelConfigSchema.optional(),
+        tools: z.record(z.string(), z.object({ enabled: z.boolean() })).optional(),
       }),
     )
     .default(() => ({})),

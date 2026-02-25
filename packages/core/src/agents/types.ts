@@ -4,9 +4,7 @@ import type { ConfigFieldDescriptor, EnvVarDescriptor, PluginConfig } from '../p
 export type { ConfigFieldDescriptor, EnvVarDescriptor, PluginConfig } from '../plugin-types'
 
 /** Per-plugin user configuration for agent plugins */
-export interface AgentPluginConfig extends PluginConfig {
-  tools?: Record<string, { enabled: boolean }>
-}
+export interface AgentPluginConfig extends PluginConfig {}
 
 /** A record of agent instances keyed by agent ID */
 export type AgentRecord = Record<string, Agent>
@@ -37,6 +35,4 @@ export interface AgentPlugin {
   configFields?: ConfigFieldDescriptor[]
   /** Agent definitions provided by this plugin */
   agents: import('./define').AgentDefinition[]
-  /** Tool definitions scoped to agents in this plugin */
-  tools?: import('../tools/define').ToolDefinition[]
 }

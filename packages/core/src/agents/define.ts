@@ -1,3 +1,4 @@
+import type { ToolDefinition } from '../tools/define'
 import type { AgentManifest } from './types'
 
 // --- Manifest registry ---
@@ -30,6 +31,7 @@ export function clearAgentManifestRegistry(): void {
  */
 export interface AgentDefinition {
   readonly id: string
+  readonly tools: readonly ToolDefinition[]
 }
 
 // --- defineAgent ---
@@ -43,6 +45,8 @@ export interface DefineAgentOptions {
   description: string
   /** System instructions for the agent. */
   instructions: string
+  /** Scoped tools available to this agent. */
+  tools?: ToolDefinition[]
 }
 
 /**
@@ -64,5 +68,5 @@ export function defineAgent(opts: DefineAgentOptions): AgentDefinition {
 
   manifestRegistry.set(opts.id, manifest)
 
-  return { id: opts.id }
+  return { id: opts.id, tools: opts.tools ?? [] }
 }

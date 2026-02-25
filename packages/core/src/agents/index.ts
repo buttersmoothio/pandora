@@ -55,10 +55,14 @@ export function registerAgentPlugin(plugin: AgentPlugin): void {
   )
 
   // Remove scoped tool manifests from the global tool registry.
-  // Scoped tools are plugin-namespaced and should not appear in /api/tools.
-  if (plugin.tools) {
-    for (const toolDef of plugin.tools) {
-      removeManifest(toolDef.id)
+  // Scoped tools are agent-namespaced and should not appear in /api/tools.
+  const seen = new Set<string>()
+  for (const agentDef of plugin.agents) {
+    for (const toolDef of agentDef.tools) {
+      if (!seen.has(toolDef.id)) {
+        seen.add(toolDef.id)
+        removeManifest(toolDef.id)
+      }
     }
   }
 
@@ -111,18 +115,18 @@ function validatePluginConfig(
 // Loading
 // ---------------------------------------------------------------------------
 
-/** Load scoped tools from a plugin's tool definitions, filtered by config. */
+/** Load scoped tools from an agent's tool definitions, filtered by config. */
 function loadScopedTools(
-  plugin: AgentPlugin,
+  agentDef: AgentDefinition,
+  config: Config,
   envVars: Record<string, string | undefined>,
   pluginConfig: AgentPluginConfig,
 ): ToolRecord {
   const tools: ToolRecord = {}
-  if (plugin.tools) {
-    for (const toolDef of plugin.tools) {
-      if (pluginConfig.tools?.[toolDef.id]?.enabled === false) continue
-      tools[toolDef.id] = toolDef(envVars, pluginConfig)
-    }
+  const agentConfig = config.agents[agentDef.id]
+  for (const toolDef of agentDef.tools) {
+    if (agentConfig?.tools?.[toolDef.id]?.enabled === false) continue
+    tools[toolDef.id] = toolDef(envVars, pluginConfig)
   }
   return tools
 }
@@ -170,9 +174,8 @@ export async function loadAgents(
     const { config: pluginConfig } = validatePluginConfig(plugin, config.agentPlugins[plugin.id])
     if (!pluginConfig) continue
 
-    const scopedTools = loadScopedTools(plugin, envVars, pluginConfig)
-
     for (const agentDef of plugin.agents) {
+      const scopedTools = loadScopedTools(agentDef, config, envVars, pluginConfig)
       const agent = createAgentFromManifest(agentDef, config, scopedTools, memory)
       if (agent) result[agentDef.id] = agent
     }
@@ -191,11 +194,13 @@ export function getPluginAgentIds(pluginId: string): string[] {
   return pluginAgentsMap.get(pluginId) ?? []
 }
 
-/** Get scoped tool manifests for a plugin. */
-export function getScopedToolManifests(pluginId: string): ToolManifest[] {
-  const plugin = pluginRegistry.get(pluginId)
-  if (!plugin?.tools) return []
-  return plugin.tools.map((t) => t.manifest)
+/** Get scoped tool manifests for an agent by ID. */
+export function getScopedToolManifests(agentId: string): ToolManifest[] {
+  for (const plugin of pluginRegistry.values()) {
+    const agentDef = plugin.agents.find((a) => a.id === agentId)
+    if (agentDef) return agentDef.tools.map((t) => t.manifest)
+  }
+  return []
 }
 
 /** Validate all registered plugins and return errors keyed by plugin ID. */

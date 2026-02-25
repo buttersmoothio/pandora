@@ -1,0 +1,28 @@
+# Agents
+
+Agents are specialists that Pandora can delegate tasks to — a researcher, a coder, a summarizer, etc. Manage them from the **Agents** page in the web UI.
+
+## Enabling an Agent Plugin
+
+Each agent belongs to a plugin. To use an agent:
+
+1. Set the plugin's required environment variables (listed on the card)
+2. Fill in any required configuration fields and click **Save**
+3. Toggle the plugin on
+
+## Configuring Individual Agents
+
+Within a plugin, each agent can be configured independently:
+
+- **Enable / Disable** — toggle an agent off to prevent Pandora from routing to it
+- **Model Override** — set a custom model (provider + model name) for the agent. If left blank, the agent uses the default model.
+
+## Scoped Tools
+
+Each agent can have its own tools. These tools are scoped to the agent — they don't appear in the global **Tools** page and are only available to that agent. Multiple agents in the same plugin can share the same tool.
+
+You can toggle individual scoped tools on or off within each agent's settings.
+
+## Building Your Own
+
+See the [Build an Agent](/developer-guide/agents) guide.
