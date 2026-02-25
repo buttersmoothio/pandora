@@ -1,4 +1,4 @@
-import { Agent } from '@mastra/core/agent'
+import { Agent, type ToolsInput } from '@mastra/core/agent'
 import type { MastraMemory } from '@mastra/core/memory'
 import { z } from 'zod'
 import type { Config } from '../config'
@@ -12,7 +12,7 @@ import { clearAgentManifestRegistry, getAgentManifest } from './define'
 import { clearAgentSchemaRegistry, getAgentSchema, registerAgentSchema } from './schema-registry'
 import type { AgentPlugin, AgentPluginConfig, AgentRecord } from './types'
 
-export type { AgentDefinition, DefineAgentOptions } from './define'
+export type { AgentDefinition, DefineAgentOptions, GetToolsContext } from './define'
 export { defineAgent, getAgentManifest, getAllAgentManifests } from './define'
 export type {
   AgentManifest,
@@ -135,7 +135,7 @@ function loadScopedTools(
 function createAgentFromManifest(
   agentDef: AgentDefinition,
   config: Config,
-  tools: ToolRecord,
+  tools: Record<string, unknown>,
   memory: MastraMemory,
 ): Agent | null {
   const agentConfig = config.agents[agentDef.id]
@@ -151,8 +151,25 @@ function createAgentFromManifest(
     instructions: manifest.instructions,
     description: manifest.description,
     model: buildModelString(modelConfig),
-    tools,
+    tools: tools as ToolsInput,
     memory,
+  })
+}
+
+/** Resolve dynamic tools from an agent's getTools hook. Returns null if the agent opts out. */
+async function resolveDynamicTools(
+  agentDef: AgentDefinition,
+  config: Config,
+  envVars: Record<string, string | undefined>,
+  pluginConfig: AgentPluginConfig,
+): Promise<Record<string, unknown> | null> {
+  if (!agentDef.getTools) return {}
+  const agentConfig = config.agents[agentDef.id]
+  const modelConfig = agentConfig?.model ?? config.models.operator
+  return agentDef.getTools({
+    model: buildModelString(modelConfig),
+    pluginConfig,
+    env: envVars,
   })
 }
 
@@ -175,8 +192,12 @@ export async function loadAgents(
     if (!pluginConfig) continue
 
     for (const agentDef of plugin.agents) {
+      const dynamicTools = await resolveDynamicTools(agentDef, config, envVars, pluginConfig)
+      if (dynamicTools === null) continue // Agent opted out of loading
+
       const scopedTools = loadScopedTools(agentDef, config, envVars, pluginConfig)
-      const agent = createAgentFromManifest(agentDef, config, scopedTools, memory)
+      const allTools = { ...scopedTools, ...dynamicTools }
+      const agent = createAgentFromManifest(agentDef, config, allTools, memory)
       if (agent) result[agentDef.id] = agent
     }
   }

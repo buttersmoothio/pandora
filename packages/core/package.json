@@ -24,6 +24,7 @@
     "@mastra/ai-sdk": "^1.0.4",
     "@mastra/core": "^1.4.0",
     "@mastra/memory": "^1.4.0",
+    "@pandora/agent-research": "workspace:*",
     "@pandora/channel-telegram": "workspace:*",
     "@pandora/storage-libsql": "workspace:*",
     "@pandora/tools-datetime": "workspace:*",

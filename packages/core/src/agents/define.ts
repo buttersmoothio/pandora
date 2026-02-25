@@ -21,6 +21,18 @@ export function clearAgentManifestRegistry(): void {
   manifestRegistry.clear()
 }
 
+// --- GetToolsContext ---
+
+/** Context passed to an agent's getTools hook — scoped to prevent leaking config to external plugins. */
+export interface GetToolsContext {
+  /** The resolved model string for this agent (e.g. 'openai/gpt-4o'). */
+  model: string
+  /** The agent plugin's own validated config. */
+  pluginConfig: Record<string, unknown>
+  /** Environment variables. */
+  env: Record<string, string | undefined>
+}
+
 // --- AgentDefinition ---
 
 /**
@@ -32,6 +44,8 @@ export function clearAgentManifestRegistry(): void {
 export interface AgentDefinition {
   readonly id: string
   readonly tools: readonly ToolDefinition[]
+  /** Async hook for dynamic tool resolution. Return null to skip loading this agent. */
+  readonly getTools?: (ctx: GetToolsContext) => Promise<Record<string, unknown> | null>
 }
 
 // --- defineAgent ---
@@ -47,6 +61,8 @@ export interface DefineAgentOptions {
   instructions: string
   /** Scoped tools available to this agent. */
   tools?: ToolDefinition[]
+  /** Async hook for dynamic tool resolution. Return null to skip loading this agent. */
+  getTools?: (ctx: GetToolsContext) => Promise<Record<string, unknown> | null>
 }
 
 /**
@@ -68,5 +84,5 @@ export function defineAgent(opts: DefineAgentOptions): AgentDefinition {
 
   manifestRegistry.set(opts.id, manifest)
 
-  return { id: opts.id, tools: opts.tools ?? [] }
+  return { id: opts.id, tools: opts.tools ?? [], getTools: opts.getTools }
 }
