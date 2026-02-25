@@ -16,7 +16,7 @@ function buildInstructions(config: Config): string {
  * Create the main operator agent from config.
  *
  * When `subagents` is provided (even if empty), the operator can be used
- * with `.network()` for routing to specialist agents.
+ * Subagents are delegated to automatically via the supervisor pattern.
  */
 export function createOperator(
   config: Config,
@@ -27,7 +27,7 @@ export function createOperator(
   return new Agent({
     id: 'operator',
     name: config.identity.name,
-    description: 'Routes user requests to the appropriate specialist or handles them directly.',
+    description: 'The main assistant. Handles any request that specialist agents cannot.',
     instructions: buildInstructions(config),
     model: resolveModel(config, 'operator'),
     tools,

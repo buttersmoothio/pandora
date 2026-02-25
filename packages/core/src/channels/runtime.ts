@@ -1,4 +1,4 @@
-import { handleNetworkStream, toAISdkStream } from '@mastra/ai-sdk'
+import { toAISdkStream } from '@mastra/ai-sdk'
 import type { Mastra } from '@mastra/core'
 import type { FullOutput } from '@mastra/core/stream'
 import type { Memory } from '@mastra/memory'
@@ -160,13 +160,14 @@ export function createChannelRuntime(deps: ChannelRuntimeDeps): ChannelRuntime {
         ? { thread: { id: threadId, metadata: { root: true } }, resource: RESOURCE_ID }
         : { thread: threadId, resource: RESOURCE_ID }
 
-      const rawStream = await handleNetworkStream({
-        mastra,
-        agentId: 'operator',
-        params: { messages: buildMessages(parts), memory },
-      })
+      const agent = mastra.getAgent('operator')
+      const output = await agent.stream(buildMessages(parts), { memory })
 
-      return rawStream.pipeThrough(createApprovalTransform())
+      return toAISdkStream(output, {
+        from: 'agent',
+        sendReasoning: true,
+        sendSources: true,
+      }).pipeThrough(createApprovalTransform())
     },
 
     async approveToolCallAISdk({ runId, toolCallId, threadId, messageId }) {
