@@ -32,6 +32,15 @@ const backends: SearchBackend[] = [
     },
   },
   {
+    id: 'brave',
+    name: 'Brave Search',
+    envVar: 'BRAVE_API_KEY',
+    load: async (env) => {
+      const { braveSearch } = await import('./brave')
+      return { webSearch: braveSearch({ apiKey: env.BRAVE_API_KEY as string }) }
+    },
+  },
+  {
     id: 'perplexity',
     name: 'Perplexity Search',
     envVar: 'PERPLEXITY_API_KEY',
@@ -70,7 +79,6 @@ export async function loadFirstAvailable(
 
 /** Try loading a native search tool based on the model provider. */
 async function loadNativeSearch(
-  model: string,
   provider: string,
 ): Promise<{ tools: ToolRecord; message: string } | null> {
   if (provider.startsWith('perplexity/')) {
@@ -90,15 +98,7 @@ async function loadNativeSearch(
   }
 
   if (provider.startsWith('google/')) {
-    // Vercel gateway routes through Vertex AI; direct google/ uses the Google Generative AI SDK
     try {
-      if (model.startsWith('vercel/')) {
-        const { vertex } = await import('@ai-sdk/google-vertex')
-        return {
-          tools: { google_search: vertex.tools.googleSearch({}) },
-          message: 'Using Google Vertex native search',
-        }
-      }
       const { google } = await import('@ai-sdk/google')
       return {
         tools: { google_search: google.tools.googleSearch({}) },
@@ -152,7 +152,7 @@ export async function resolveSearchTools(opts: {
   // Native search: model has built-in web search
   // Strip optional "vercel/" gateway prefix (e.g. "vercel/openai/gpt-4o" → "openai/gpt-4o")
   const provider = model.replace(/^vercel\//, '')
-  const native = await loadNativeSearch(model, provider)
+  const native = await loadNativeSearch(provider)
   if (native) {
     alerts.push({ level: 'info', message: native.message })
     return { tools: native.tools, alerts }
@@ -169,7 +169,7 @@ export async function resolveSearchTools(opts: {
   alerts.push({
     level: 'warning',
     message:
-      'No search backend available. Set a search API key (Tavily, Exa, or Perplexity) or switch to a model with native search (OpenAI, Google, Anthropic, Perplexity).',
+      'No search backend available. Set a search API key (Tavily, Brave, Exa, or Perplexity) or switch to a model with native search (OpenAI, Google, Anthropic, Perplexity).',
   })
   return { tools: null, alerts }
 }

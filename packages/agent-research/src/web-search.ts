@@ -5,8 +5,8 @@ export const webSearch = defineAgent({
   id: 'web-search',
   name: 'Web Search',
   description:
-    'Search the web for current information. Handles real-time lookups, ' +
-    'recent news, fact-checking, and research questions.',
+    'Quick web search for current information. Handles simple lookups, ' +
+    'recent news, fact-checking, and single-query questions.',
   instructions: `You are a web search specialist with access to current web information.
 
 When answering:

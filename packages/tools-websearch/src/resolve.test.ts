@@ -3,6 +3,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 vi.mock('@tavily/ai-sdk', () => ({
   tavilySearch: vi.fn(() => ({ type: 'tavily' })),
 }))
+vi.mock('./brave', () => ({
+  braveSearch: vi.fn(() => ({ type: 'brave' })),
+}))
 vi.mock('@exalabs/ai-sdk', () => ({
   webSearch: vi.fn(() => ({ type: 'exa' })),
 }))
@@ -14,9 +17,6 @@ vi.mock('@ai-sdk/openai', () => ({
 }))
 vi.mock('@ai-sdk/google', () => ({
   google: { tools: { googleSearch: vi.fn(() => ({ type: 'google-search' })) } },
-}))
-vi.mock('@ai-sdk/google-vertex', () => ({
-  vertex: { tools: { googleSearch: vi.fn(() => ({ type: 'google-vertex-search' })) } },
 }))
 vi.mock('@ai-sdk/anthropic', () => ({
   anthropic: { tools: { webSearch_20250305: vi.fn(() => ({ type: 'anthropic-web-search' })) } },
@@ -45,6 +45,11 @@ describe('loadBackend', () => {
   it('loads exa when env var is set', async () => {
     const result = await loadBackend('exa', { EXA_API_KEY: 'key' })
     expect(result).toEqual({ tools: { webSearch: { type: 'exa' } }, name: 'Exa' })
+  })
+
+  it('loads brave when env var is set', async () => {
+    const result = await loadBackend('brave', { BRAVE_API_KEY: 'key' })
+    expect(result).toEqual({ tools: { webSearch: { type: 'brave' } }, name: 'Brave Search' })
   })
 
   it('loads perplexity when env var is set', async () => {
@@ -168,18 +173,6 @@ describe('resolveSearchTools', () => {
     expect(result.alerts).toContainEqual({
       level: 'info',
       message: 'Using Google native search',
-    })
-  })
-
-  it('returns vertex search tool for vercel/google models', async () => {
-    const result = await resolveSearchTools({
-      model: 'vercel/google/gemini-2.0-flash',
-      env: {},
-    })
-    expect(result.tools).toEqual({ google_search: { type: 'google-vertex-search' } })
-    expect(result.alerts).toContainEqual({
-      level: 'info',
-      message: 'Using Google Vertex native search',
     })
   })
 

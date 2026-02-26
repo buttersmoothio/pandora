@@ -10,6 +10,7 @@ export default {
   schemaVersion: 1,
   envVars: [
     { name: 'TAVILY_API_KEY', required: false },
+    { name: 'BRAVE_API_KEY', required: false },
     { name: 'EXA_API_KEY', required: false },
     { name: 'PERPLEXITY_API_KEY', required: false },
   ],
@@ -22,6 +23,7 @@ export default {
       options: [
         { value: 'auto', label: 'Auto-detect' },
         { value: 'tavily', label: 'Tavily' },
+        { value: 'brave', label: 'Brave Search' },
         { value: 'exa', label: 'Exa' },
         { value: 'perplexity', label: 'Perplexity Search' },
       ],
