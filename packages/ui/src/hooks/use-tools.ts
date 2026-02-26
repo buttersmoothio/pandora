@@ -27,6 +27,11 @@ export interface ToolInfo {
   timeout: number
 }
 
+export interface Alert {
+  level: 'info' | 'warning'
+  message: string
+}
+
 export interface ToolPluginInfo {
   id: string
   name: string
@@ -36,7 +41,7 @@ export interface ToolPluginInfo {
   enabled: boolean
   config: Record<string, unknown>
   validationErrors: string[]
-  warnings: string[]
+  alerts: Alert[]
   toolIds: string[]
   requireApproval?: boolean
 }

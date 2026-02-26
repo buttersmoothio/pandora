@@ -4,7 +4,12 @@ import { z } from 'zod'
 import type { Config } from '../config'
 import { getLogger } from '../logger'
 import { buildModelString } from '../mastra/models'
-import { buildSchemaFromFields, PLUGIN_SCHEMA_VERSION } from '../plugin-types'
+import {
+  type Alert,
+  buildSchemaFromFields,
+  PLUGIN_SCHEMA_VERSION,
+  unwrapGetToolsResult,
+} from '../plugin-types'
 import type { ToolRecord } from '../tools'
 import { removeManifest, type ToolManifest } from '../tools'
 import type { AgentDefinition } from './define'
@@ -31,6 +36,7 @@ export type {
 const basePluginSchema = z.object({ enabled: z.boolean() })
 const pluginRegistry = new Map<string, AgentPlugin>()
 const pluginAgentsMap = new Map<string, string[]>()
+const agentAlertsMap = new Map<string, Alert[]>()
 
 /**
  * Register an agent plugin.
@@ -160,21 +166,22 @@ function createAgentFromManifest(
   })
 }
 
-/** Resolve dynamic tools from an agent's getTools hook. Returns null if the agent opts out. */
+/** Resolve dynamic tools from an agent's getTools hook. Returns null tools if the agent opts out. */
 async function resolveDynamicTools(
   agentDef: AgentDefinition,
   config: Config,
   envVars: Record<string, string | undefined>,
   pluginConfig: AgentPluginConfig,
-): Promise<ToolRecord | null> {
-  if (!agentDef.getTools) return {}
+): Promise<{ tools: ToolRecord | null; alerts: Alert[] }> {
+  if (!agentDef.getTools) return { tools: {}, alerts: [] }
   const agentConfig = config.agents[agentDef.id]
   const modelConfig = agentConfig?.model ?? config.models.operator
-  return agentDef.getTools({
+  const raw = await agentDef.getTools({
     model: buildModelString(modelConfig),
     pluginConfig,
     env: envVars,
   })
+  return unwrapGetToolsResult(raw)
 }
 
 /**
@@ -190,13 +197,23 @@ export async function loadAgents(
   memory: MastraMemory,
 ): Promise<AgentRecord> {
   const result: AgentRecord = {}
+  agentAlertsMap.clear()
 
   for (const [, plugin] of pluginRegistry) {
     const { config: pluginConfig } = validatePluginConfig(plugin, config.agentPlugins[plugin.id])
     if (!pluginConfig) continue
 
     for (const agentDef of plugin.agents) {
-      const dynamicTools = await resolveDynamicTools(agentDef, config, envVars, pluginConfig)
+      const { tools: dynamicTools, alerts } = await resolveDynamicTools(
+        agentDef,
+        config,
+        envVars,
+        pluginConfig,
+      )
+
+      // Store alerts before the null-tools skip so warnings show even when agent opts out
+      if (alerts.length > 0) agentAlertsMap.set(agentDef.id, alerts)
+
       if (dynamicTools === null) continue // Agent opted out of loading
 
       const scopedTools = loadScopedTools(agentDef, config, envVars, pluginConfig)
@@ -228,6 +245,11 @@ export function getScopedToolManifests(agentId: string): ToolManifest[] {
   return []
 }
 
+/** Get alerts for a specific agent (populated after `loadAgents()`). */
+export function getAgentAlerts(agentId: string): Alert[] {
+  return agentAlertsMap.get(agentId) ?? []
+}
+
 /** Validate all registered plugins and return errors keyed by plugin ID. */
 export function getAgentPluginValidationErrors(config: Config): Record<string, string[]> {
   const result: Record<string, string[]> = {}
@@ -246,6 +268,7 @@ export function getAgentPluginValidationErrors(config: Config): Record<string, s
 export function clearAgentPlugins(): void {
   pluginRegistry.clear()
   pluginAgentsMap.clear()
+  agentAlertsMap.clear()
   clearAgentSchemaRegistry()
   clearAgentManifestRegistry()
 }

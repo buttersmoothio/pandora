@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import type { ConfigFieldDescriptor, EnvVarDescriptor } from '@/hooks/use-channels'
 import type { ModelConfig } from '@/hooks/use-config'
+import type { Alert } from '@/hooks/use-tools'
 import { apiFetch } from '@/lib/api'
 
 export interface ScopedToolInfo {
@@ -27,6 +28,7 @@ export interface AgentInfo {
   enabled: boolean
   model?: ModelConfig
   tools: ScopedToolInfo[]
+  alerts: Alert[]
 }
 
 export interface AgentPluginInfo {
@@ -38,6 +40,7 @@ export interface AgentPluginInfo {
   enabled: boolean
   config: Record<string, unknown>
   validationErrors: string[]
+  alerts: Alert[]
   agentIds: string[]
 }
 

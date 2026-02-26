@@ -31,8 +31,11 @@ describe('web-search getTools', () => {
     expect(webSearch.getTools).toBeTypeOf('function')
   })
 
-  it('delegates to resolveSearchTools with model, preferred, and env', async () => {
-    mockResolve.mockResolvedValue({ webSearch: { type: 'tavily' } } as never)
+  it('delegates to resolveSearchTools and passes through tools and alerts', async () => {
+    mockResolve.mockResolvedValue({
+      tools: { webSearch: { type: 'tavily' } } as never,
+      alerts: [{ level: 'info', message: 'Using Tavily for web search' }],
+    })
 
     const result = await getTools(
       ctx({
@@ -46,18 +49,27 @@ describe('web-search getTools', () => {
       preferred: 'tavily',
       env: { TAVILY_API_KEY: 'key' },
     })
-    expect(result).toEqual({ webSearch: { type: 'tavily' } })
+    expect(result).toEqual({
+      tools: { webSearch: { type: 'tavily' } },
+      alerts: [{ level: 'info', message: 'Using Tavily for web search' }],
+    })
   })
 
-  it('returns null when resolveSearchTools returns null (no capability)', async () => {
-    mockResolve.mockResolvedValue(null)
+  it('returns null tools with warning when no capability', async () => {
+    mockResolve.mockResolvedValue({
+      tools: null,
+      alerts: [{ level: 'warning', message: 'No search backend available' }],
+    })
 
     const result = await getTools(ctx())
-    expect(result).toBeNull()
+    expect(result).toEqual({
+      tools: null,
+      alerts: [{ level: 'warning', message: 'No search backend available' }],
+    })
   })
 
   it('passes undefined preferred when searchBackend is not set', async () => {
-    mockResolve.mockResolvedValue({})
+    mockResolve.mockResolvedValue({ tools: {}, alerts: [] })
 
     await getTools(ctx())
 

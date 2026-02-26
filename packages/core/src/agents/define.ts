@@ -1,5 +1,5 @@
 import type { ToolDefinition } from '../tools/define'
-import type { ToolRecord } from '../tools/types'
+import type { Alert, ToolRecord } from '../tools/types'
 import type { AgentManifest } from './types'
 
 export type { GetToolsContext } from '../plugin-types'
@@ -37,8 +37,10 @@ export function clearAgentManifestRegistry(): void {
 export interface AgentDefinition {
   readonly id: string
   readonly tools: readonly ToolDefinition[]
-  /** Async hook for dynamic tool resolution. Return null to skip loading this agent. */
-  readonly getTools?: (ctx: GetToolsContext) => Promise<ToolRecord | null>
+  /** Async hook for dynamic tool resolution. Return null to skip loading this agent. Can return `{ tools, alerts }` to surface diagnostics. */
+  readonly getTools?: (
+    ctx: GetToolsContext,
+  ) => Promise<ToolRecord | null | { tools: ToolRecord | null; alerts?: Alert[] }>
 }
 
 // --- defineAgent ---
@@ -54,8 +56,10 @@ export interface DefineAgentOptions {
   instructions: string
   /** Scoped tools available to this agent. */
   tools?: ToolDefinition[]
-  /** Async hook for dynamic tool resolution. Return null to skip loading this agent. */
-  getTools?: (ctx: GetToolsContext) => Promise<ToolRecord | null>
+  /** Async hook for dynamic tool resolution. Return null to skip loading this agent. Can return `{ tools, alerts }` to surface diagnostics. */
+  getTools?: (
+    ctx: GetToolsContext,
+  ) => Promise<ToolRecord | null | { tools: ToolRecord | null; alerts?: Alert[] }>
 }
 
 /**

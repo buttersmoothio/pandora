@@ -181,6 +181,27 @@ interface GetToolsContext {
 
 Return a `ToolRecord` — a record of tool instances keyed by ID. This can include Mastra tools, Vercel AI SDK tools, or provider-defined tools (like `openai.tools.webSearch()`). Return `{}` if no tools are available.
 
+### Alerts
+
+`getTools` can also return diagnostic alerts alongside tools by returning `{ tools, alerts }` instead of a plain `ToolRecord`:
+
+```ts
+async getTools({ model, env }) {
+  if (!env.MY_API_KEY) {
+    return {
+      tools: {},
+      alerts: [{ level: 'warning', message: 'API key not set' }],
+    }
+  }
+  return {
+    tools: { myTool: createTool(env.MY_API_KEY) },
+    alerts: [{ level: 'info', message: 'Using MyService' }],
+  }
+}
+```
+
+Alerts are stored at load time and surfaced in the settings UI and the `/api/tools` endpoint. Levels are `'info'` (informational) and `'warning'` (actionable).
+
 ## Reference
 
 All types are exported from `@pandora/core/tools`:
@@ -259,7 +280,7 @@ The descriptor your package default-exports:
 | `envVars` | `EnvVarDescriptor[]` | No | Environment variable descriptors |
 | `configFields` | `ConfigFieldDescriptor[]` | No | UI config field descriptors |
 | `tools` | `ToolDefinition[]` | Yes | Tool definitions returned by `defineTool()` |
-| `getTools` | `(ctx: GetToolsContext) => Promise<ToolRecord>` | No | Async hook for dynamic tool resolution. See [Dynamic Tools](#dynamic-tools). |
+| `getTools` | `(ctx: GetToolsContext) => Promise<ToolRecord \| { tools: ToolRecord; alerts?: Alert[] }>` | No | Async hook for dynamic tool resolution. Can return alerts. See [Dynamic Tools](#dynamic-tools). |
 
 ### `EnvVarDescriptor`
 

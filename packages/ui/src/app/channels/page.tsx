@@ -194,7 +194,7 @@ export default function ChannelsPage() {
   return (
     <div className="flex flex-1 flex-col gap-6 p-6">
       <h1 className="font-semibold text-2xl">Channels</h1>
-      <div className="flex flex-col gap-4">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {channels.map((channel) => (
           <ChannelCard key={channel.id} channel={channel} />
         ))}

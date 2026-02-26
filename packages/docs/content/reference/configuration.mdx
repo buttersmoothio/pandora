@@ -89,7 +89,7 @@ Returns all registered tools with their manifests and plugin metadata. Tools are
       "enabled": true,
       "config": {},
       "validationErrors": [],
-      "warnings": ["No search backend available..."],
+      "alerts": [{ "level": "warning", "message": "No search backend available..." }],
       "toolIds": [],
       "requireApproval": false
     }
@@ -204,7 +204,8 @@ Returns all registered agent plugins with their manifests and config state:
       "description": "Search the web for current information...",
       "instructions": "You are a web search specialist...",
       "enabled": true,
-      "model": null
+      "model": null,
+      "alerts": [{ "level": "info", "message": "Using Anthropic native search" }]
     }
   ],
   "plugins": [
@@ -217,8 +218,8 @@ Returns all registered agent plugins with their manifests and config state:
       "enabled": true,
       "config": {},
       "validationErrors": [],
-      "agentIds": ["web-search"],
-      "tools": []
+      "alerts": [{ "level": "info", "message": "Using Anthropic native search" }],
+      "agentIds": ["web-search"]
     }
   ]
 }
@@ -234,6 +235,7 @@ Each agent object contains:
 | `instructions` | `string` | System instructions |
 | `enabled` | `boolean` | Whether enabled in config |
 | `model` | `object?` | Model override (`{ provider, model }`) or `null` for operator's model |
+| `alerts` | `Alert[]` | Diagnostic alerts (`{ level: 'info' \| 'warning', message }`) |
 
 Each plugin object contains:
 
@@ -247,5 +249,5 @@ Each plugin object contains:
 | `enabled` | `boolean` | Whether enabled in config |
 | `config` | `object` | Current config values |
 | `validationErrors` | `string[]` | Config validation errors |
+| `alerts` | `Alert[]` | Aggregated alerts from all agents in this plugin |
 | `agentIds` | `string[]` | Agent IDs provided by this plugin |
-| `tools` | `object[]` | Scoped tool manifests with `{ id, name, description, sandbox, timeout, enabled }` |

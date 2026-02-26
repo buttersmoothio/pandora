@@ -1,5 +1,6 @@
 import type { ToolsInput } from '@mastra/core/agent'
 import type {
+  Alert,
   ConfigFieldDescriptor,
   EnvVarDescriptor,
   GetToolsContext,
@@ -7,6 +8,7 @@ import type {
 } from '../plugin-types'
 
 export type {
+  Alert,
   ConfigFieldDescriptor,
   EnvVarDescriptor,
   GetToolsContext,
@@ -125,10 +127,8 @@ export interface ToolPlugin {
   configFields?: ConfigFieldDescriptor[]
   /** Tool definitions provided by this plugin */
   tools: import('./define').ToolDefinition[]
-  /** Async hook for dynamic tool resolution based on model/env. Return `{}` if nothing available. */
-  getTools?: (ctx: GetToolsContext) => Promise<ToolRecord>
-  /** Diagnostic warnings about the plugin's current state. */
-  getWarnings?: (ctx: GetToolsContext) => Promise<string[]>
+  /** Async hook for dynamic tool resolution based on model/env. Return `{}` if nothing available. Can return `{ tools, alerts }` to surface diagnostics. */
+  getTools?: (ctx: GetToolsContext) => Promise<ToolRecord | { tools: ToolRecord; alerts?: Alert[] }>
 }
 
 /** @deprecated Use `ToolPlugin` */

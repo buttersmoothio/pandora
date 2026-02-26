@@ -1,6 +1,7 @@
 import type { ToolPlugin } from '@pandora/core/tools'
 import { resolveSearchTools } from './resolve'
 
+export type { SearchToolsResult } from './resolve'
 export { loadBackend, loadFirstAvailable, resolveSearchTools } from './resolve'
 
 export default {
@@ -29,23 +30,7 @@ export default {
   tools: [],
   async getTools({ model, pluginConfig, env }) {
     const preferred = pluginConfig?.searchBackend as string | undefined
-    return (await resolveSearchTools({ model, preferred, env })) ?? {}
-  },
-  async getWarnings({ model, env }) {
-    const provider = model.replace(/^vercel\//, '')
-    if (
-      provider.startsWith('perplexity/') ||
-      provider.startsWith('openai/') ||
-      provider.startsWith('google/') ||
-      provider.startsWith('anthropic/')
-    ) {
-      return []
-    }
-    if (env.TAVILY_API_KEY || env.EXA_API_KEY || env.PERPLEXITY_API_KEY) {
-      return []
-    }
-    return [
-      'No search backend available. Set a search API key (Tavily, Exa, or Perplexity) or switch to a model with native search (OpenAI, Google, Anthropic, Perplexity).',
-    ]
+    const result = await resolveSearchTools({ model, preferred, env })
+    return { tools: result.tools ?? {}, alerts: result.alerts }
   },
 } satisfies ToolPlugin

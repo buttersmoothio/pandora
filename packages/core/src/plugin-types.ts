@@ -6,6 +6,35 @@ import { z } from 'zod'
  */
 export const PLUGIN_SCHEMA_VERSION = 1
 
+/** A diagnostic alert produced at plugin load time. */
+export interface Alert {
+  level: 'info' | 'warning'
+  message: string
+}
+
+/** Result shape when `getTools` returns tools together with alerts. */
+export interface GetToolsResultWithAlerts {
+  tools: import('./tools/types').ToolRecord | null
+  alerts?: Alert[]
+}
+
+/**
+ * Normalize a `getTools` return value into `{ tools, alerts }`.
+ *
+ * Accepts either:
+ * - a plain `ToolRecord | null`
+ * - `{ tools, alerts? }`
+ */
+export function unwrapGetToolsResult(
+  result: import('./tools/types').ToolRecord | null | GetToolsResultWithAlerts,
+): { tools: import('./tools/types').ToolRecord | null; alerts: Alert[] } {
+  if (result !== null && typeof result === 'object' && 'tools' in result) {
+    const r = result as GetToolsResultWithAlerts
+    return { tools: r.tools, alerts: r.alerts ?? [] }
+  }
+  return { tools: result as import('./tools/types').ToolRecord | null, alerts: [] }
+}
+
 /** Context passed to a plugin's getTools hook — shared by agent and tool plugins. */
 export interface GetToolsContext {
   /** The resolved model string (e.g. 'openai/gpt-4o'). */

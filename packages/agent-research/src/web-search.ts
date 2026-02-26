@@ -18,6 +18,7 @@ When answering:
 
   async getTools({ model, pluginConfig, env }) {
     const preferred = pluginConfig?.searchBackend as string | undefined
-    return resolveSearchTools({ model, preferred, env })
+    const result = await resolveSearchTools({ model, preferred, env })
+    return { tools: result.tools, alerts: result.alerts }
   },
 })

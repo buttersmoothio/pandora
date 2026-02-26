@@ -15,6 +15,9 @@ vi.mock('@ai-sdk/openai', () => ({
 vi.mock('@ai-sdk/google', () => ({
   google: { tools: { googleSearch: vi.fn(() => ({ type: 'google-search' })) } },
 }))
+vi.mock('@ai-sdk/google-vertex', () => ({
+  vertex: { tools: { googleSearch: vi.fn(() => ({ type: 'google-vertex-search' })) } },
+}))
 vi.mock('@ai-sdk/anthropic', () => ({
   anthropic: { tools: { webSearch_20250305: vi.fn(() => ({ type: 'anthropic-web-search' })) } },
 }))
@@ -36,17 +39,20 @@ describe('loadBackend', () => {
 
   it('loads tavily when env var is set', async () => {
     const result = await loadBackend('tavily', { TAVILY_API_KEY: 'key' })
-    expect(result).toEqual({ webSearch: { type: 'tavily' } })
+    expect(result).toEqual({ tools: { webSearch: { type: 'tavily' } }, name: 'Tavily' })
   })
 
   it('loads exa when env var is set', async () => {
     const result = await loadBackend('exa', { EXA_API_KEY: 'key' })
-    expect(result).toEqual({ webSearch: { type: 'exa' } })
+    expect(result).toEqual({ tools: { webSearch: { type: 'exa' } }, name: 'Exa' })
   })
 
   it('loads perplexity when env var is set', async () => {
     const result = await loadBackend('perplexity', { PERPLEXITY_API_KEY: 'key' })
-    expect(result).toEqual({ webSearch: { type: 'perplexity' } })
+    expect(result).toEqual({
+      tools: { webSearch: { type: 'perplexity' } },
+      name: 'Perplexity Search',
+    })
   })
 })
 
@@ -64,17 +70,20 @@ describe('loadFirstAvailable', () => {
       TAVILY_API_KEY: 'key',
       EXA_API_KEY: 'key',
     })
-    expect(result).toEqual({ webSearch: { type: 'tavily' } })
+    expect(result).toEqual({ tools: { webSearch: { type: 'tavily' } }, name: 'Tavily' })
   })
 
   it('skips unavailable backends and returns next available', async () => {
     const result = await loadFirstAvailable({ EXA_API_KEY: 'key' })
-    expect(result).toEqual({ webSearch: { type: 'exa' } })
+    expect(result).toEqual({ tools: { webSearch: { type: 'exa' } }, name: 'Exa' })
   })
 
   it('returns perplexity when only perplexity key is set', async () => {
     const result = await loadFirstAvailable({ PERPLEXITY_API_KEY: 'key' })
-    expect(result).toEqual({ webSearch: { type: 'perplexity' } })
+    expect(result).toEqual({
+      tools: { webSearch: { type: 'perplexity' } },
+      name: 'Perplexity Search',
+    })
   })
 })
 
@@ -91,7 +100,11 @@ describe('resolveSearchTools', () => {
       preferred: 'tavily',
       env: { TAVILY_API_KEY: 'key' },
     })
-    expect(result).toEqual({ webSearch: { type: 'tavily' } })
+    expect(result.tools).toEqual({ webSearch: { type: 'tavily' } })
+    expect(result.alerts).toContainEqual({
+      level: 'info',
+      message: 'Using Tavily for web search',
+    })
   })
 
   it('falls through to auto-detect when preferred backend env var is missing', async () => {
@@ -100,7 +113,11 @@ describe('resolveSearchTools', () => {
       preferred: 'tavily',
       env: {},
     })
-    expect(result).toEqual({})
+    expect(result.tools).toEqual({})
+    expect(result.alerts).toContainEqual({
+      level: 'info',
+      message: 'Using Perplexity built-in search',
+    })
   })
 
   it('preferred backend takes priority over native model search', async () => {
@@ -109,7 +126,11 @@ describe('resolveSearchTools', () => {
       preferred: 'tavily',
       env: { TAVILY_API_KEY: 'key' },
     })
-    expect(result).toEqual({ webSearch: { type: 'tavily' } })
+    expect(result.tools).toEqual({ webSearch: { type: 'tavily' } })
+    expect(result.alerts).toContainEqual({
+      level: 'info',
+      message: 'Using Tavily for web search',
+    })
   })
 
   // --- Native model search ---
@@ -119,7 +140,11 @@ describe('resolveSearchTools', () => {
       model: 'perplexity/sonar',
       env: {},
     })
-    expect(result).toEqual({})
+    expect(result.tools).toEqual({})
+    expect(result.alerts).toContainEqual({
+      level: 'info',
+      message: 'Using Perplexity built-in search',
+    })
   })
 
   it('returns openai web search tool for openai models', async () => {
@@ -127,15 +152,35 @@ describe('resolveSearchTools', () => {
       model: 'openai/gpt-4o',
       env: {},
     })
-    expect(result).toEqual({ web_search: { type: 'openai-web-search' } })
+    expect(result.tools).toEqual({ web_search: { type: 'openai-web-search' } })
+    expect(result.alerts).toContainEqual({
+      level: 'info',
+      message: 'Using OpenAI native search',
+    })
   })
 
-  it('returns google search tool for google models', async () => {
+  it('returns google search tool for google models (direct)', async () => {
     const result = await resolveSearchTools({
       model: 'google/gemini-2.0-flash',
       env: {},
     })
-    expect(result).toEqual({ google_search: { type: 'google-search' } })
+    expect(result.tools).toEqual({ google_search: { type: 'google-search' } })
+    expect(result.alerts).toContainEqual({
+      level: 'info',
+      message: 'Using Google native search',
+    })
+  })
+
+  it('returns vertex search tool for vercel/google models', async () => {
+    const result = await resolveSearchTools({
+      model: 'vercel/google/gemini-2.0-flash',
+      env: {},
+    })
+    expect(result.tools).toEqual({ google_search: { type: 'google-vertex-search' } })
+    expect(result.alerts).toContainEqual({
+      level: 'info',
+      message: 'Using Google Vertex native search',
+    })
   })
 
   it('returns anthropic web search tool for anthropic models', async () => {
@@ -143,7 +188,11 @@ describe('resolveSearchTools', () => {
       model: 'anthropic/claude-sonnet-4-20250514',
       env: {},
     })
-    expect(result).toEqual({ web_search: { type: 'anthropic-web-search' } })
+    expect(result.tools).toEqual({ web_search: { type: 'anthropic-web-search' } })
+    expect(result.alerts).toContainEqual({
+      level: 'info',
+      message: 'Using Anthropic native search',
+    })
   })
 
   // --- Vercel gateway prefix ---
@@ -153,7 +202,11 @@ describe('resolveSearchTools', () => {
       model: 'vercel/openai/gpt-4o',
       env: {},
     })
-    expect(result).toEqual({ web_search: { type: 'openai-web-search' } })
+    expect(result.tools).toEqual({ web_search: { type: 'openai-web-search' } })
+    expect(result.alerts).toContainEqual({
+      level: 'info',
+      message: 'Using OpenAI native search',
+    })
   })
 
   it('strips vercel/ prefix and detects native anthropic search', async () => {
@@ -161,7 +214,11 @@ describe('resolveSearchTools', () => {
       model: 'vercel/anthropic/claude-sonnet-4-20250514',
       env: {},
     })
-    expect(result).toEqual({ web_search: { type: 'anthropic-web-search' } })
+    expect(result.tools).toEqual({ web_search: { type: 'anthropic-web-search' } })
+    expect(result.alerts).toContainEqual({
+      level: 'info',
+      message: 'Using Anthropic native search',
+    })
   })
 
   // --- Tool-based fallback ---
@@ -171,17 +228,24 @@ describe('resolveSearchTools', () => {
       model: 'mistral/mistral-large',
       env: { TAVILY_API_KEY: 'key' },
     })
-    expect(result).toEqual({ webSearch: { type: 'tavily' } })
+    expect(result.tools).toEqual({ webSearch: { type: 'tavily' } })
+    expect(result.alerts).toContainEqual({
+      level: 'info',
+      message: 'Using Tavily for web search',
+    })
   })
 
   // --- No capability ---
 
-  it('returns null when no search capability is available', async () => {
+  it('returns null tools with warning when no search capability is available', async () => {
     const result = await resolveSearchTools({
       model: 'mistral/mistral-large',
       env: {},
     })
-    expect(result).toBeNull()
+    expect(result.tools).toBeNull()
+    expect(result.alerts).toContainEqual(
+      expect.objectContaining({ level: 'warning', message: expect.stringContaining('No search') }),
+    )
   })
 
   // --- auto config ---
@@ -192,6 +256,10 @@ describe('resolveSearchTools', () => {
       preferred: 'auto',
       env: {},
     })
-    expect(result).toEqual({})
+    expect(result.tools).toEqual({})
+    expect(result.alerts).toContainEqual({
+      level: 'info',
+      message: 'Using Perplexity built-in search',
+    })
   })
 })

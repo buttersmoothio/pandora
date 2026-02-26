@@ -1,6 +1,7 @@
 import { PROVIDER_REGISTRY } from '@mastra/core/llm'
 import { Hono } from 'hono'
 import {
+  getAgentAlerts,
   getAgentPluginValidationErrors,
   getAllAgentManifests,
   getAllRegisteredAgentPlugins,
@@ -13,9 +14,9 @@ import { getStorage } from '../storage'
 import {
   getAllManifests,
   getAllRegisteredToolPlugins,
+  getPluginAlerts,
   getPluginToolIds,
   getPluginValidationErrors,
-  getPluginWarnings,
 } from '../tools'
 import type { Env } from './helpers'
 import { ensureChannelsLoaded } from './helpers'
@@ -30,7 +31,6 @@ discoveryRoutes.get('/tools', async (c) => {
   const manifests = getAllManifests()
   const plugins = getAllRegisteredToolPlugins()
   const validationErrors = getPluginValidationErrors(config)
-  const warnings = await getPluginWarnings(config, c.var.envVars)
 
   const tools = Object.values(manifests).map((manifest) => ({ ...manifest }))
 
@@ -49,7 +49,7 @@ discoveryRoutes.get('/tools', async (c) => {
       enabled: pluginConfig?.enabled ?? true,
       config: pluginConfig ?? {},
       validationErrors: validationErrors[plugin.id] ?? [],
-      warnings: warnings[plugin.id] ?? [],
+      alerts: getPluginAlerts(plugin.id),
       toolIds: getPluginToolIds(plugin.id),
     }
   })
@@ -133,6 +133,7 @@ discoveryRoutes.get('/agents', async (c) => {
       enabled: agentConfig?.enabled ?? true,
       model: agentConfig?.model,
       tools,
+      alerts: getAgentAlerts(manifest.id),
     }
   })
 
@@ -143,6 +144,9 @@ discoveryRoutes.get('/agents', async (c) => {
       .filter((d) => d.required !== false)
       .every((d) => !!c.var.envVars[d.name])
 
+    // Aggregate alerts from all agents in this plugin
+    const pluginAlerts = getPluginAgentIds(plugin.id).flatMap((id) => getAgentAlerts(id))
+
     return {
       id: plugin.id,
       name: plugin.name,
@@ -152,6 +156,7 @@ discoveryRoutes.get('/agents', async (c) => {
       enabled: pluginConfig?.enabled ?? true,
       config: pluginConfig ?? {},
       validationErrors: validationErrors[plugin.id] ?? [],
+      alerts: pluginAlerts,
       agentIds: getPluginAgentIds(plugin.id),
     }
   })

@@ -18,7 +18,9 @@ vi.mock('@mastra/core/agent', () => ({
 }))
 
 const { defineAgent } = await import('./define')
-const { registerAgentPlugin, loadAgents, clearAgentPlugins } = await import('./index')
+const { registerAgentPlugin, loadAgents, clearAgentPlugins, getAgentAlerts } = await import(
+  './index'
+)
 
 const mockMemory = {} as MastraMemory
 
@@ -181,5 +183,65 @@ describe('loadAgents with getTools', () => {
     expect(result['empty-tools-agent']).toBeDefined()
     const config = mockAgentConstructor.mock.calls.at(-1)?.[0]
     expect(config.tools).toEqual({})
+  })
+
+  it('stores alerts from getTools returning { tools, alerts }', async () => {
+    const agent = defineAgent({
+      id: 'alert-agent',
+      name: 'AlertAgent',
+      description: 'Agent with alerts',
+      instructions: 'Do things',
+      async getTools() {
+        return {
+          tools: { myTool: { type: 'test' } },
+          alerts: [{ level: 'info' as const, message: 'Using test search' }],
+        }
+      },
+    })
+    registerAgentPlugin(makePlugin([agent]))
+
+    await loadAgents(DEFAULTS, {}, mockMemory)
+
+    expect(getAgentAlerts('alert-agent')).toEqual([{ level: 'info', message: 'Using test search' }])
+  })
+
+  it('stores alerts even when agent opts out (null tools)', async () => {
+    const agent = defineAgent({
+      id: 'optout-alert-agent',
+      name: 'OptOutAlert',
+      description: 'Opts out but has warnings',
+      instructions: 'Nothing',
+      async getTools() {
+        return {
+          tools: null,
+          alerts: [{ level: 'warning' as const, message: 'No search backend available' }],
+        }
+      },
+    })
+    registerAgentPlugin(makePlugin([agent]))
+
+    const result = await loadAgents(DEFAULTS, {}, mockMemory)
+
+    expect(result['optout-alert-agent']).toBeUndefined()
+    expect(getAgentAlerts('optout-alert-agent')).toEqual([
+      { level: 'warning', message: 'No search backend available' },
+    ])
+  })
+
+  it('returns no alerts for plain ToolRecord return', async () => {
+    const agent = defineAgent({
+      id: 'no-alert-agent',
+      name: 'NoAlert',
+      description: 'No alerts',
+      instructions: 'Do things',
+      async getTools() {
+        return { myTool: {} }
+      },
+    })
+    registerAgentPlugin(makePlugin([agent]))
+
+    await loadAgents(DEFAULTS, {}, mockMemory)
+
+    expect(getAgentAlerts('no-alert-agent')).toEqual([])
   })
 })

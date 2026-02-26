@@ -3,6 +3,7 @@
 import {
   AlertTriangleIcon,
   CheckCircle2Icon,
+  InfoIcon,
   Loader2Icon,
   WrenchIcon,
   XCircleIcon,
@@ -24,52 +25,6 @@ import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { useUpdateConfig } from '@/hooks/use-config'
 import { type ToolPluginInfo, useTools } from '@/hooks/use-tools'
-
-// ---------------------------------------------------------------------------
-// Plugin alerts (errors + warnings)
-// ---------------------------------------------------------------------------
-
-function PluginAlerts({ plugin }: { plugin: ToolPluginInfo }) {
-  return (
-    <>
-      {!plugin.envConfigured && plugin.envVars.length > 0 && (
-        <EnvVarWarning envVars={plugin.envVars} />
-      )}
-
-      {plugin.validationErrors.length > 0 && (
-        <div className="rounded-md border border-destructive/30 bg-destructive/5 p-4 text-sm">
-          <p className="flex items-center gap-1.5 font-medium text-destructive">
-            <AlertTriangleIcon className="size-3.5" />
-            Invalid configuration
-          </p>
-          <ul className="mt-1.5 list-inside list-disc text-muted-foreground">
-            {plugin.validationErrors.map((err) => (
-              <li key={err} className="font-mono text-xs">
-                {err}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {plugin.warnings.length > 0 && (
-        <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-4 text-sm">
-          <p className="flex items-center gap-1.5 font-medium text-amber-600 dark:text-amber-400">
-            <AlertTriangleIcon className="size-3.5" />
-            Warning
-          </p>
-          <ul className="mt-1.5 list-inside list-disc text-muted-foreground">
-            {plugin.warnings.map((w) => (
-              <li key={w} className="text-xs">
-                {w}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-    </>
-  )
-}
 
 // ---------------------------------------------------------------------------
 // Plugin status badge
@@ -160,12 +115,8 @@ function ToolPluginCard({ plugin }: { plugin: ToolPluginInfo }) {
     })
   }
 
-  const hasBody =
-    (!plugin.envConfigured && plugin.envVars.length > 0) ||
-    plugin.validationErrors.length > 0 ||
-    plugin.warnings.length > 0 ||
-    (plugin.envConfigured && plugin.configFields.length > 0) ||
-    enabled
+  const warnings = plugin.alerts.filter((a) => a.level === 'warning')
+  const infos = plugin.alerts.filter((a) => a.level === 'info')
 
   return (
     <Card>
@@ -175,6 +126,12 @@ function ToolPluginCard({ plugin }: { plugin: ToolPluginInfo }) {
           <CardDescription className="font-mono text-xs">{plugin.id}</CardDescription>
           <div className="mt-1 flex flex-wrap gap-1.5">
             <PluginStatusBadge plugin={plugin} configured={configured} />
+            {infos.map((info) => (
+              <Badge key={info.message} variant="outline" className="text-[10px]">
+                <InfoIcon className="size-3" />
+                {info.message}
+              </Badge>
+            ))}
           </div>
         </div>
         <CardAction>
@@ -182,55 +139,84 @@ function ToolPluginCard({ plugin }: { plugin: ToolPluginInfo }) {
         </CardAction>
       </CardHeader>
 
-      {hasBody && (
-        <CardContent className="flex flex-col gap-4">
-          <PluginAlerts plugin={plugin} />
+      {!plugin.envConfigured && plugin.envVars.length > 0 && (
+        <CardContent>
+          <EnvVarWarning envVars={plugin.envVars} />
+        </CardContent>
+      )}
 
-          {enabled && (
-            <div className="flex items-center gap-3">
-              <Switch
-                id={`${plugin.id}-approval`}
-                checked={!!fields.requireApproval}
-                onCheckedChange={(checked) => {
-                  const next = { ...fields, requireApproval: checked }
-                  setFields(next)
-                  updateConfig.mutate({
-                    toolPlugins: { [plugin.id]: { ...next, enabled } },
-                  })
-                }}
-                size="sm"
-              />
-              <Label htmlFor={`${plugin.id}-approval`}>Require Approval</Label>
-            </div>
-          )}
-
-          {plugin.envConfigured && plugin.configFields.length > 0 && (
-            <>
-              {plugin.configFields.map((field) => (
-                <ConfigField
-                  key={field.key}
-                  field={field}
-                  scopeId={plugin.id}
-                  value={fields[field.key]}
-                  onChange={(v) => setFields({ ...fields, [field.key]: v })}
-                />
+      {plugin.validationErrors.length > 0 && (
+        <CardContent>
+          <div className="rounded-md border border-destructive/30 bg-destructive/5 p-4 text-sm">
+            <p className="flex items-center gap-1.5 font-medium text-destructive">
+              <AlertTriangleIcon className="size-3.5" />
+              Invalid configuration
+            </p>
+            <ul className="mt-1.5 list-inside list-disc text-muted-foreground">
+              {plugin.validationErrors.map((err) => (
+                <li key={err} className="font-mono text-xs">
+                  {err}
+                </li>
               ))}
+            </ul>
+          </div>
+        </CardContent>
+      )}
 
-              {isDirty && (
-                <Button
-                  size="sm"
-                  className="self-end"
-                  disabled={updateConfig.isPending}
-                  onClick={save}
-                >
-                  {updateConfig.isPending ? (
-                    <Loader2Icon className="size-4 animate-spin" />
-                  ) : (
-                    'Save'
-                  )}
-                </Button>
-              )}
-            </>
+      {warnings.length > 0 && (
+        <CardContent>
+          <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-4 text-sm">
+            <p className="flex items-center gap-1.5 font-medium text-amber-600 dark:text-amber-400">
+              <AlertTriangleIcon className="size-3.5" />
+              Warning
+            </p>
+            <ul className="mt-1.5 list-inside list-disc text-muted-foreground">
+              {warnings.map((w) => (
+                <li key={w.message} className="text-xs">
+                  {w.message}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </CardContent>
+      )}
+
+      {enabled && (
+        <CardContent>
+          <div className="flex items-center gap-3">
+            <Switch
+              id={`${plugin.id}-approval`}
+              checked={!!fields.requireApproval}
+              onCheckedChange={(checked) => {
+                const next = { ...fields, requireApproval: checked }
+                setFields(next)
+                updateConfig.mutate({
+                  toolPlugins: { [plugin.id]: { ...next, enabled } },
+                })
+              }}
+              size="sm"
+            />
+            <Label htmlFor={`${plugin.id}-approval`}>Require Approval</Label>
+          </div>
+        </CardContent>
+      )}
+
+      {plugin.envConfigured && plugin.configFields.length > 0 && (
+        <CardContent className="flex flex-col gap-4">
+          {plugin.configFields.map((field) => (
+            <ConfigField
+              key={field.key}
+              field={field}
+              scopeId={plugin.id}
+              value={fields[field.key]}
+              onChange={(v) => setFields({ ...fields, [field.key]: v })}
+            />
+          ))}
+
+          {isDirty && (
+            <Button size="sm" className="self-end" disabled={updateConfig.isPending} onClick={save}>
+              {updateConfig.isPending ? <Loader2Icon className="size-4 animate-spin" /> : 'Save'}
+            </Button>
           )}
         </CardContent>
       )}
@@ -274,7 +260,7 @@ export default function ToolsPage() {
     <div className="flex flex-1 flex-col gap-6 p-6">
       <h1 className="font-semibold text-2xl">Tools</h1>
 
-      <section className="flex flex-col gap-4">
+      <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {plugins.map((plugin) => (
           <ToolPluginCard key={plugin.id} plugin={plugin} />
         ))}

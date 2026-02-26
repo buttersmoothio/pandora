@@ -7,6 +7,7 @@
 export type { DefineToolOptions, ToolDefinition } from './define'
 export { defineTool, getAllManifests, getManifest, getManifests } from './define'
 export type {
+  Alert,
   ConfigFieldDescriptor,
   EnvVarDescriptor,
   GetToolsContext,

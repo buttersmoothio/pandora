@@ -2,7 +2,12 @@ import { z } from 'zod'
 import type { Config } from '../config'
 import { getLogger } from '../logger'
 import { buildModelString } from '../mastra/models'
-import { buildSchemaFromFields, PLUGIN_SCHEMA_VERSION } from '../plugin-types'
+import {
+  type Alert,
+  buildSchemaFromFields,
+  PLUGIN_SCHEMA_VERSION,
+  unwrapGetToolsResult,
+} from '../plugin-types'
 import { clearManifestRegistry } from './define'
 import { clearToolSchemaRegistry, getToolSchema, registerToolSchema } from './schema-registry'
 import type { ToolPlugin, ToolPluginConfig, ToolRecord } from './types'
@@ -12,6 +17,7 @@ export { defineTool, getAllManifests, getManifest, getManifests, removeManifest 
 export type { CompartmentExecuteOptions, Endowments } from './sandbox'
 export { executeInCompartment } from './sandbox'
 export type {
+  Alert,
   ConfigFieldDescriptor,
   EnvVarDescriptor,
   GetToolsContext,
@@ -37,6 +43,7 @@ export { DEFAULT_TOOL_TIMEOUT } from './types'
 const basePluginSchema = z.object({ enabled: z.boolean() })
 const pluginRegistry = new Map<string, ToolPlugin>()
 const pluginToolsMap = new Map<string, string[]>()
+const pluginAlertsMap = new Map<string, Alert[]>()
 
 /**
  * Register a tool plugin.
@@ -116,6 +123,23 @@ function validatePluginConfig(
 // Loading
 // ---------------------------------------------------------------------------
 
+/** Load static tools from a plugin's defineTool declarations. */
+function loadStaticTools(
+  plugin: ToolPlugin,
+  envVars: Record<string, string | undefined>,
+  pluginConfig: ToolPluginConfig,
+): ToolRecord {
+  const tools: ToolRecord = {}
+  for (const toolDef of plugin.tools) {
+    const tool = toolDef(envVars, pluginConfig)
+    if (pluginConfig.requireApproval) {
+      tool.requireApproval = true
+    }
+    tools[toolDef.id] = tool
+  }
+  return tools
+}
+
 /**
  * Load all tools from registered packages, filtered by config.
  *
@@ -127,28 +151,24 @@ export async function loadTools(
   envVars: Record<string, string | undefined>,
 ): Promise<ToolRecord> {
   const result: ToolRecord = {}
+  pluginAlertsMap.clear()
 
   for (const [, plugin] of pluginRegistry) {
     const { config: pluginConfig } = validatePluginConfig(plugin, config.toolPlugins[plugin.id])
     if (!pluginConfig) continue
 
-    // Static tools from defineTool declarations
-    for (const toolDef of plugin.tools) {
-      const tool = toolDef(envVars, pluginConfig)
-      if (pluginConfig.requireApproval) {
-        tool.requireApproval = true
-      }
-      result[toolDef.id] = tool
-    }
+    Object.assign(result, loadStaticTools(plugin, envVars, pluginConfig))
 
     // Dynamic tools from getTools hook (provider-defined tools, etc.)
     if (plugin.getTools) {
-      const dynamicTools = await plugin.getTools({
+      const raw = await plugin.getTools({
         model: buildModelString(config.models.operator),
         pluginConfig,
         env: envVars,
       })
-      Object.assign(result, dynamicTools)
+      const { tools: dynamicTools, alerts } = unwrapGetToolsResult(raw)
+      if (dynamicTools) Object.assign(result, dynamicTools)
+      if (alerts.length > 0) pluginAlertsMap.set(plugin.id, alerts)
     }
   }
 
@@ -165,24 +185,9 @@ export function getPluginToolIds(pluginId: string): string[] {
   return pluginToolsMap.get(pluginId) ?? []
 }
 
-/** Collect diagnostic warnings from all enabled plugins. */
-export async function getPluginWarnings(
-  config: Config,
-  envVars: Record<string, string | undefined>,
-): Promise<Record<string, string[]>> {
-  const result: Record<string, string[]> = {}
-  for (const [, plugin] of pluginRegistry) {
-    if (!plugin.getWarnings) continue
-    const { config: pluginConfig } = validatePluginConfig(plugin, config.toolPlugins[plugin.id])
-    if (!pluginConfig) continue
-    const warnings = await plugin.getWarnings({
-      model: buildModelString(config.models.operator),
-      pluginConfig,
-      env: envVars,
-    })
-    if (warnings.length > 0) result[plugin.id] = warnings
-  }
-  return result
+/** Get alerts for a specific plugin (populated after `loadTools()`). */
+export function getPluginAlerts(pluginId: string): Alert[] {
+  return pluginAlertsMap.get(pluginId) ?? []
 }
 
 /** Validate all registered plugins and return errors keyed by plugin ID. */
@@ -203,6 +208,7 @@ export function getPluginValidationErrors(config: Config): Record<string, string
 export function clearToolPlugins(): void {
   pluginRegistry.clear()
   pluginToolsMap.clear()
+  pluginAlertsMap.clear()
   clearToolSchemaRegistry()
   clearManifestRegistry()
 }
