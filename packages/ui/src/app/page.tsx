@@ -74,7 +74,7 @@ export default function Home() {
 
   return (
     <div className="flex h-full flex-1 flex-col">
-      <Conversation className="relative flex-1">
+      <Conversation>
         <ConversationContent>
           {messages.length === 0 ? (
             <ConversationEmptyState
@@ -104,7 +104,6 @@ export default function Home() {
             <PromptInputTextarea placeholder="Send a message..." />
           </PromptInputBody>
           <PromptInputFooter>
-            <div />
             <PromptInputSubmit status={status} />
           </PromptInputFooter>
         </PromptInput>

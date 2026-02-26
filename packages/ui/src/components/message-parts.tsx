@@ -10,6 +10,27 @@ import { Source, Sources, SourcesContent, SourcesTrigger } from '@/components/ai
 import { Tool, ToolContent, ToolHeader, ToolInput, ToolOutput } from '@/components/ai-elements/tool'
 import { Button } from '@/components/ui/button'
 
+type ToolPart = Extract<UIMessage['parts'][number], { type: `tool-${string}` | 'dynamic-tool' }>
+type TextPart = Extract<UIMessage['parts'][number], { type: 'text' }>
+type PartGroup = { type: 'text'; part: TextPart } | { type: 'tools'; parts: ToolPart[] }
+
+function groupParts(parts: UIMessage['parts']): PartGroup[] {
+  const groups: PartGroup[] = []
+  for (const part of parts) {
+    if (part.type === 'text') {
+      groups.push({ type: 'text', part })
+    } else if (isToolUIPart(part)) {
+      const last = groups.at(-1)
+      if (last?.type === 'tools') {
+        last.parts.push(part as ToolPart)
+      } else {
+        groups.push({ type: 'tools', parts: [part as ToolPart] })
+      }
+    }
+  }
+  return groups
+}
+
 export function MessageParts({
   message,
   isLastMessage,
@@ -35,18 +56,11 @@ export function MessageParts({
   const isThinking = isLastMessage && isStreaming && !hasVisibleContent
 
   return (
-    <MessageContent>
+    <div className="flex flex-col gap-2">
       {isThinking && (
         <Shimmer className="text-sm" duration={1}>
           Thinking...
         </Shimmer>
-      )}
-
-      {hasReasoning && (
-        <Reasoning isStreaming={isReasoningStreaming}>
-          <ReasoningTrigger />
-          <ReasoningContent>{reasoningText}</ReasoningContent>
-        </Reasoning>
       )}
 
       {sourceParts.length > 0 && (
@@ -60,66 +74,88 @@ export function MessageParts({
         </Sources>
       )}
 
-      {message.parts.map((part, i) => {
-        if (part.type.startsWith('data-')) return null
-        if (part.type === 'text') {
-          return <MessageResponse key={`${message.id}-${i}`}>{part.text}</MessageResponse>
-        }
+      {hasReasoning && (
+        <Reasoning isStreaming={isReasoningStreaming}>
+          <ReasoningTrigger />
+          <ReasoningContent>{reasoningText}</ReasoningContent>
+        </Reasoning>
+      )}
 
-        if (isToolUIPart(part)) {
-          const state = part.state
-          const isAwaitingApproval = state === 'approval-requested'
-
+      {groupParts(message.parts).map((group, gi) => {
+        if (group.type === 'text') {
           return (
-            <Tool key={`${message.id}-${i}`} defaultOpen={isAwaitingApproval}>
-              {part.type === 'dynamic-tool' ? (
-                <ToolHeader type={part.type} state={state} toolName={part.toolName} />
+            <MessageContent key={`${message.id}-text-${gi}`}>
+              {message.role === 'assistant' ? (
+                <MessageResponse>{group.part.text}</MessageResponse>
               ) : (
-                <ToolHeader type={part.type} state={state} />
+                <span>{group.part.text}</span>
               )}
-              <ToolContent>
-                <ToolInput input={part.input as Record<string, unknown>} />
-                {isAwaitingApproval && onToolApproval && part.approval != null && (
-                  <div className="flex items-center gap-2">
-                    <Button
-                      size="sm"
-                      onClick={() =>
-                        onToolApproval({
-                          id: part.approval.id,
-                          approved: true,
-                        })
-                      }
-                    >
-                      <CheckIcon className="size-3.5" />
-                      Approve
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() =>
-                        onToolApproval({
-                          id: part.approval.id,
-                          approved: false,
-                        })
-                      }
-                    >
-                      <XIcon className="size-3.5" />
-                      Deny
-                    </Button>
-                  </div>
-                )}
-                {(state === 'output-available' || state === 'output-error') && (
-                  <ToolOutput
-                    output={part.output as string | undefined}
-                    errorText={'errorText' in part ? (part.errorText as string) : undefined}
-                  />
-                )}
-              </ToolContent>
-            </Tool>
+            </MessageContent>
           )
         }
+
+        if (group.type === 'tools') {
+          return (
+            <div key={`${message.id}-tools-${gi}`} className="flex flex-col gap-0">
+              {group.parts.map((part, ti) => {
+                const state = part.state
+                const isAwaitingApproval = state === 'approval-requested'
+
+                return (
+                  <Tool
+                    key={`${message.id}-tool-${gi}-${ti}`}
+                    className="w-fit max-w-full"
+                    defaultOpen={isAwaitingApproval}
+                  >
+                    {part.type === 'dynamic-tool' ? (
+                      <ToolHeader type={part.type} state={state} toolName={part.toolName} />
+                    ) : (
+                      <ToolHeader type={part.type} state={state} />
+                    )}
+                    <ToolContent>
+                      <ToolInput input={part.input} />
+                      {isAwaitingApproval && onToolApproval && part.approval != null && (
+                        <div className="flex items-center gap-2">
+                          <Button
+                            size="sm"
+                            onClick={() =>
+                              onToolApproval({
+                                id: part.approval.id,
+                                approved: true,
+                              })
+                            }
+                          >
+                            <CheckIcon className="size-3.5" />
+                            Approve
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() =>
+                              onToolApproval({
+                                id: part.approval.id,
+                                approved: false,
+                              })
+                            }
+                          >
+                            <XIcon className="size-3.5" />
+                            Deny
+                          </Button>
+                        </div>
+                      )}
+                      {(state === 'output-available' || state === 'output-error') && (
+                        <ToolOutput output={part.output} errorText={part.errorText} />
+                      )}
+                    </ToolContent>
+                  </Tool>
+                )
+              })}
+            </div>
+          )
+        }
+
         return null
       })}
-    </MessageContent>
+    </div>
   )
 }

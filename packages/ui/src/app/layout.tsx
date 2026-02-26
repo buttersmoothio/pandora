@@ -37,11 +37,11 @@ export default function RootLayout({
             <AuthProvider>
               <SidebarProvider>
                 <AppSidebar />
-                <SidebarInset>
+                <SidebarInset className="min-w-0">
                   <header className="flex h-12 shrink-0 items-center gap-2 border-b px-4">
                     <SidebarTrigger className="-ml-1" />
                   </header>
-                  <main className="flex flex-1 flex-col">{children}</main>
+                  <main className="flex min-w-0 flex-1 flex-col">{children}</main>
                 </SidebarInset>
               </SidebarProvider>
             </AuthProvider>

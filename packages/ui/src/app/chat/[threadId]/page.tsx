@@ -237,7 +237,7 @@ function ThreadChat({
 
   return (
     <div className="flex h-[calc(100svh-3rem)] flex-col">
-      <Conversation className="relative flex-1">
+      <Conversation>
         <ConversationContent>
           {messages.length === 0 ? (
             <ConversationEmptyState
@@ -303,7 +303,6 @@ function ThreadChat({
             <PromptInputTextarea placeholder="Send a message..." />
           </PromptInputBody>
           <PromptInputFooter>
-            <div />
             <PromptInputSubmit status={status} />
           </PromptInputFooter>
         </PromptInput>
