@@ -24,6 +24,12 @@ describe('pluginManifestSchema', () => {
       id: 'test-plugin',
       name: 'Test Plugin',
       description: 'A test plugin',
+      author: 'Test Author',
+      icon: 'https://example.com/icon.png',
+      version: '1.0.0',
+      homepage: 'https://example.com',
+      repository: 'https://github.com/example/test-plugin',
+      license: 'MIT',
       pandora: '>=0.0.1',
       provides: {
         tools: {
@@ -49,14 +55,26 @@ describe('pluginManifestSchema', () => {
           ],
         },
       ],
-      store: {
-        icon: 'search',
-        categories: ['search'],
-      },
     }
 
     const result = pluginManifestSchema.safeParse(full)
     expect(result.success).toBe(true)
+  })
+
+  it('rejects unknown fields (strict mode)', () => {
+    const result = pluginManifestSchema.safeParse({
+      ...minimal,
+      unknownField: 'should fail',
+    })
+    expect(result.success).toBe(false)
+  })
+
+  it('rejects invalid pandora version range', () => {
+    const result = pluginManifestSchema.safeParse({
+      ...minimal,
+      pandora: 'not-a-range',
+    })
+    expect(result.success).toBe(false)
   })
 
   it('accepts array provides entries', () => {

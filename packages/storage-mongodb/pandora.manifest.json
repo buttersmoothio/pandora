@@ -15,5 +15,5 @@
       "sandbox": "host"
     }
   },
-  "envVars": [{ "name": "MONGODB_URI" }]
+  "envVars": [{ "name": "MONGODB_URI" }, { "name": "MONGODB_DB_NAME" }]
 }

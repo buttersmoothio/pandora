@@ -1,8 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
-import type { ConfigFieldDescriptor, EnvVarDescriptor } from '@/hooks/use-channels'
 import type { ModelConfig } from '@/hooks/use-config'
-import type { Alert } from '@/hooks/use-tools'
 import { apiFetch } from '@/lib/api'
+import type { Alert, ConfigFieldDescriptor, EnvVarDescriptor } from './plugin-types'
 
 export interface ScopedToolInfo {
   id: string

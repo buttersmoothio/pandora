@@ -36,6 +36,20 @@ export interface StoragePlugin {
   id: string
   /** Human-readable display name, e.g. 'SQLite' */
   name: string
+  /** Short description */
+  description?: string
+  /** Plugin author name */
+  author?: string
+  /** URL to an icon image */
+  icon?: string
+  /** Plugin version string */
+  version?: string
+  /** Project homepage URL */
+  homepage?: string
+  /** Source code repository URL */
+  repository?: string
+  /** License identifier */
+  license?: string
   /** Schema version — must match core's expected version */
   schemaVersion: number
   /** Environment variables this plugin depends on */

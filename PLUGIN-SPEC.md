@@ -443,6 +443,12 @@ The manifest unifies these. **A single package can provide any combination** —
   "id": "pandora-plugin-weather",
   "name": "Weather Tools",
   "description": "Current weather and forecasts for any city",
+  "author": "Weather Co",
+  "icon": "https://example.com/weather-icon.png",
+  "version": "1.0.0",
+  "homepage": "https://github.com/example/pandora-plugin-weather",
+  "repository": "https://github.com/example/pandora-plugin-weather",
+  "license": "MIT",
 
   "pandora": ">=0.0.1",
 
@@ -481,15 +487,7 @@ The manifest unifies these. **A single package can provide any combination** —
         { "value": "fahrenheit", "label": "Fahrenheit" }
       ]
     }
-  ],
-
-  "store": {
-    "icon": "cloud-sun",
-    "categories": ["weather", "utilities"],
-    "screenshots": [],
-    "homepage": "https://github.com/example/pandora-plugin-weather",
-    "repository": "https://github.com/example/pandora-plugin-weather"
-  }
+  ]
 }
 ```
 
@@ -503,7 +501,11 @@ A Telegram package that provides a channel adapter (needs host for WebSocket) an
 {
   "id": "pandora-telegram",
   "name": "Telegram",
-  "description": "Telegram bot channel and messaging tools",
+  "description": "Chat with your assistant through Telegram",
+  "author": "Pandora",
+  "version": "0.0.1",
+  "repository": "https://github.com/example/pandora",
+  "license": "MIT",
   "pandora": ">=0.0.1",
   "manifestVersion": 1,
 
@@ -539,8 +541,21 @@ The channel entry loads in host mode (grammy needs Node.js builtins). The tools 
 | `manifestVersion` | `number` | Yes | Manifest schema version. Currently `1`. |
 | `id` | `string` | Yes | Unique plugin identifier. Must match `package.json` `name`. |
 | `name` | `string` | Yes | Human-readable display name. |
-| `description` | `string` | Yes | Short description (1-2 sentences). |
+| `description` | `string` | No | Short description (1-2 sentences). |
 | `pandora` | `string` | Yes | Semver range of compatible Pandora versions. |
+
+**Metadata (all optional, top-level):**
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `author` | `string` | No | Plugin author name. |
+| `icon` | `string` | No | URL to an icon image. Displayed in the UI as 32px on cards, 48px in dialogs. Falls back to a colored letter-initial. |
+| `version` | `string` | No | Plugin version string (e.g., `"1.0.0"`). |
+| `homepage` | `string` | No | Project homepage URL. |
+| `repository` | `string` | No | Source code repository URL. |
+| `license` | `string` | No | License identifier (e.g., `"MIT"`, `"Apache-2.0"`). |
+
+These fields were originally nested under a `store` sub-object but have been promoted to the manifest top-level. `categories` and `screenshots` were dropped — they will be re-added when the plugin store is built.
 
 **Provides (per-capability):**
 
@@ -558,16 +573,6 @@ Each key in `provides` (`tools`, `agents`, `channels`, `storage`, `vector`) is a
 |---|---|---|---|
 | `envVars` | `EnvVarDescriptor[]` | No | Environment variables the plugin depends on. |
 | `configFields` | `ConfigFieldDescriptor[]` | No | User-configurable fields rendered in the UI. |
-
-**Store metadata:**
-
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `store.icon` | `string` | No | Icon name (from a standard icon set TBD). |
-| `store.categories` | `string[]` | No | Plugin categories for store browsing. |
-| `store.screenshots` | `string[]` | No | URLs to screenshot images. |
-| `store.homepage` | `string` | No | Project homepage URL. |
-| `store.repository` | `string` | No | Source code repository URL. |
 
 ### Multiple entry points per capability
 
@@ -688,7 +693,11 @@ export default {
 
   "id": "tools-websearch",
   "name": "Web Search",
-  "description": "Web search via Tavily, Brave, Exa, or native model search",
+  "description": "Let your assistant search the web for up-to-date information",
+  "author": "Pandora",
+  "version": "0.0.1",
+  "repository": "https://github.com/example/pandora",
+  "license": "MIT",
   "pandora": ">=0.5.0",
 
   "provides": {
@@ -781,6 +790,19 @@ The manifest is validated with a Zod schema at discovery time. Invalid manifests
 - [x] `tools-datetime` refactored as first compartmentalized plugin
 - [x] `tools-websearch` stays `sandbox: 'host'` (dynamic imports for optional SDK packages)
 
+### Done — UI plugin management
+
+- [x] Manifest `store` sub-object flattened to top-level metadata fields (`author`, `icon`, `version`, `homepage`, `repository`, `license`)
+- [x] Metadata fields propagated through full stack: schema → adapter → plugin types → discovery routes → UI hooks → UI components
+- [x] Two-panel `PluginInfoDialog` — settings on the left, metadata sidebar on the right (responsive, single-panel fallback when no metadata)
+- [x] `PluginIcon` component — icon URL via `next/image` with colored letter-initial fallback
+- [x] Header action button in dialog (Enable/Disable with tooltip for unconfigured plugins)
+- [x] Shared `PluginInfoDialog` used by all plugin types (tools, channels, agents) via `PluginBase` interface
+- [x] `agentAsPlugin()` adapter — converts `AgentInfo` + parent plugin metadata into `PluginBase` for reuse in `PluginInfoDialog`
+- [x] Permission display component — badges for sandboxed/full-access, expandable permission rows with network hosts, env keys, filesystem paths
+- [x] All 11 plugin manifests populated with metadata (`author`, `version`, `license`, `repository`) and user-friendly descriptions
+- [x] Fixed-width single-column layout (`max-w-2xl`) for all settings pages (tools, channels, agents, config, security)
+
 ### Not done — Compartment sandbox (remaining)
 
 - [ ] `@pandora/core` as exit module for plugins that need framework imports at runtime
@@ -820,5 +842,5 @@ The manifest is validated with a Zod schema at discovery time. Invalid manifests
 
 - [ ] `$schema` JSON schema generation and hosting for IDE autocompletion
 - [ ] Agent-written code sandbox wiring (`executeInCompartment` called from tool execution path)
-- [ ] UI permission display ("This plugin requests network access to X, Y, Z")
+- [x] UI permission display — sandbox badge + per-permission badges on cards, expandable permission rows with host/key/path lists in dialogs
 - [ ] Pin Endo package versions to tested release

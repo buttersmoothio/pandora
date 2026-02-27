@@ -15,5 +15,10 @@
       "sandbox": "host"
     }
   },
-  "envVars": [{ "name": "AWS_REGION" }]
+  "envVars": [
+    { "name": "AWS_REGION" },
+    { "name": "AWS_ACCESS_KEY_ID" },
+    { "name": "AWS_SECRET_ACCESS_KEY" },
+    { "name": "DYNAMODB_TABLE_NAME" }
+  ]
 }

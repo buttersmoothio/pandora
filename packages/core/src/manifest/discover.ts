@@ -55,7 +55,9 @@ export async function discoverPlugins(packagesDir?: string): Promise<DiscoveredP
 
     const result = pluginManifestSchema.safeParse(json)
     if (!result.success) {
-      const issues = result.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`)
+      const issues = result.error.issues.map((i) =>
+        i.path.length > 0 ? `${i.path.join('.')}: ${i.message}` : i.message,
+      )
       log.warn(`Plugin discovery: invalid manifest ${manifestPath}`, { issues })
       continue
     }

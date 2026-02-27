@@ -621,7 +621,12 @@ export function PluginCard({
                 configKey={configKey}
                 permissions={permissions}
                 trigger={
-                  <Button variant="ghost" size="icon" className="size-7">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-7"
+                    aria-label="Plugin settings"
+                  >
                     <SettingsIcon className="size-4" />
                   </Button>
                 }

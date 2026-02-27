@@ -410,7 +410,7 @@ function AgentRow({
               plugin={plugin}
               configKey="agents"
               trigger={
-                <Button variant="ghost" size="icon" className="size-7">
+                <Button variant="ghost" size="icon" className="size-7" aria-label="Agent settings">
                   <SettingsIcon className="size-3.5" />
                 </Button>
               }

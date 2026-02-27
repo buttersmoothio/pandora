@@ -1,6 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
-import type { ConfigFieldDescriptor, EnvVarDescriptor } from '@/hooks/use-channels'
 import { apiFetch } from '@/lib/api'
+import type { Alert, ConfigFieldDescriptor, EnvVarDescriptor } from './plugin-types'
+
+export type { Alert } from './plugin-types'
 
 export interface ToolPermissions {
   time?: boolean
@@ -25,11 +27,6 @@ export interface ToolInfo {
   sandbox: 'compartment' | 'host'
   annotations?: ToolAnnotations
   timeout: number
-}
-
-export interface Alert {
-  level: 'info' | 'warning'
-  message: string
 }
 
 export interface ToolPluginInfo {

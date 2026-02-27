@@ -53,29 +53,31 @@ const providesValueSchema = z.union([providesEntrySchema, z.array(providesEntryS
 // Full manifest schema
 // ---------------------------------------------------------------------------
 
-export const pluginManifestSchema = z.object({
-  $schema: z.string().optional(),
-  manifestVersion: z.literal(1),
-  id: z.string(),
-  name: z.string(),
-  description: z.string().optional(),
-  author: z.string().optional(),
-  icon: z.string().optional(),
-  version: z.string().optional(),
-  homepage: z.string().optional(),
-  repository: z.string().optional(),
-  license: z.string().optional(),
-  pandora: z.string(),
-  provides: z.object({
-    tools: providesValueSchema.optional(),
-    agents: providesValueSchema.optional(),
-    channels: providesValueSchema.optional(),
-    storage: providesValueSchema.optional(),
-    vector: providesValueSchema.optional(),
-  }),
-  envVars: z.array(envVarDescriptorSchema).optional(),
-  configFields: z.array(configFieldDescriptorSchema).optional(),
-})
+export const pluginManifestSchema = z
+  .object({
+    $schema: z.string().optional(),
+    manifestVersion: z.literal(1),
+    id: z.string(),
+    name: z.string(),
+    description: z.string().optional(),
+    author: z.string().optional(),
+    icon: z.string().optional(),
+    version: z.string().optional(),
+    homepage: z.string().optional(),
+    repository: z.string().optional(),
+    license: z.string().optional(),
+    pandora: z.string().regex(/^[><=~^]/, 'Must be a semver range (e.g., ">=0.0.1")'),
+    provides: z.object({
+      tools: providesValueSchema.optional(),
+      agents: providesValueSchema.optional(),
+      channels: providesValueSchema.optional(),
+      storage: providesValueSchema.optional(),
+      vector: providesValueSchema.optional(),
+    }),
+    envVars: z.array(envVarDescriptorSchema).optional(),
+    configFields: z.array(configFieldDescriptorSchema).optional(),
+  })
+  .strict()
 
 // ---------------------------------------------------------------------------
 // Inferred types

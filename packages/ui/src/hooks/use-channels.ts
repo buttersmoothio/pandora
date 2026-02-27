@@ -1,21 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
 import { apiFetch } from '@/lib/api'
+import type { ConfigFieldDescriptor, EnvVarDescriptor } from './plugin-types'
 
-export interface ConfigFieldDescriptor {
-  key: string
-  label: string
-  type: 'text' | 'number' | 'password' | 'enum'
-  required?: boolean
-  placeholder?: string
-  description?: string
-  options?: { value: string; label: string }[]
-}
-
-export interface EnvVarDescriptor {
-  name: string
-  required?: boolean
-  configured?: boolean
-}
+export type { ConfigFieldDescriptor, EnvVarDescriptor } from './plugin-types'
 
 export interface ChannelInfo {
   id: string

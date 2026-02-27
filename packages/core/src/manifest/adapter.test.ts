@@ -191,43 +191,82 @@ describe('adaptManifest', () => {
     ])
   })
 
-  it('includes store metadata fields in adapted plugins', () => {
+  it('propagates all metadata fields to every plugin type', () => {
     const manifest: PluginManifest = {
       ...baseManifest,
+      description: 'A test plugin',
+      author: 'Test Author',
       icon: 'https://example.com/icon.png',
       version: '1.2.0',
       homepage: 'https://example.com',
       repository: 'https://github.com/example/plugin',
       license: 'MIT',
+      envVars: [{ name: 'API_KEY' }],
+      configFields: [{ key: 'mode', label: 'Mode', type: 'text' }],
     }
 
     const entries: LoadedEntry[] = [
       {
         key: 'tools',
-        entry: { entry: './src/index.ts' },
+        entry: { entry: './src/tools.ts' },
         namespace: { tools: [] },
+      },
+      {
+        key: 'agents',
+        entry: { entry: './src/agent.ts' },
+        namespace: { agent: { id: 'test-agent' } },
       },
       {
         key: 'channels',
         entry: { entry: './src/channel.ts' },
         namespace: { factory: () => null },
       },
+      {
+        key: 'storage',
+        entry: { entry: './src/storage.ts' },
+        namespace: { factory: async () => ({}) },
+      },
+      {
+        key: 'vector',
+        entry: { entry: './src/vector.ts' },
+        namespace: { factory: async () => ({}) },
+      },
     ]
 
     const result = adaptManifest(manifest, entries)
 
-    // Tools plugin
-    expect(result.tools[0].icon).toBe('https://example.com/icon.png')
-    expect(result.tools[0].version).toBe('1.2.0')
-    expect(result.tools[0].homepage).toBe('https://example.com')
-    expect(result.tools[0].repository).toBe('https://github.com/example/plugin')
-    expect(result.tools[0].license).toBe('MIT')
+    const expected = {
+      id: 'test-plugin',
+      name: 'Test Plugin',
+      description: 'A test plugin',
+      author: 'Test Author',
+      icon: 'https://example.com/icon.png',
+      version: '1.2.0',
+      homepage: 'https://example.com',
+      repository: 'https://github.com/example/plugin',
+      license: 'MIT',
+      envVars: [{ name: 'API_KEY' }],
+      configFields: [{ key: 'mode', label: 'Mode', type: 'text' }],
+    }
 
-    // Channels plugin
-    expect(result.channels[0].icon).toBe('https://example.com/icon.png')
-    expect(result.channels[0].version).toBe('1.2.0')
-    expect(result.channels[0].homepage).toBe('https://example.com')
-    expect(result.channels[0].repository).toBe('https://github.com/example/plugin')
-    expect(result.channels[0].license).toBe('MIT')
+    for (const plugin of [
+      result.tools[0],
+      result.agents[0],
+      result.channels[0],
+      result.storage[0],
+      result.vector[0],
+    ]) {
+      expect(plugin.id).toBe(expected.id)
+      expect(plugin.name).toBe(expected.name)
+      expect(plugin.description).toBe(expected.description)
+      expect(plugin.author).toBe(expected.author)
+      expect(plugin.icon).toBe(expected.icon)
+      expect(plugin.version).toBe(expected.version)
+      expect(plugin.homepage).toBe(expected.homepage)
+      expect(plugin.repository).toBe(expected.repository)
+      expect(plugin.license).toBe(expected.license)
+      expect(plugin.envVars).toEqual(expected.envVars)
+      expect(plugin.configFields).toEqual(expected.configFields)
+    }
   })
 })
