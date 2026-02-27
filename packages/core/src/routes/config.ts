@@ -30,15 +30,11 @@ configRoutes.patch('/', async (c) => {
     const { config: configStore } = await getStorage(c.var.envVars, c.env)
     const patch = await c.req.json()
     const updated = await updateConfig(configStore, patch)
-    // Invalidate caches so next request rebuilds with new config
+    // Invalidate caches and rebuild everything — many subsystems depend on each other
     clearConfigCache()
     clearMastraCache()
-    // Reload channels when config affecting the Mastra instance changes
-    // (channels use the runtime which holds a reference to Mastra)
-    if (patch.channels || patch.tools || patch.toolPlugins) {
-      const mastra = await getMastra(c.var.envVars, c.env)
-      await reloadChannels(mastra, c.var.envVars, updated.channels)
-    }
+    const mastra = await getMastra(c.var.envVars, c.env)
+    await reloadChannels(mastra, c.var.envVars, updated.channels)
     log.info('Config updated', { keys: Object.keys(patch) })
     return c.json(updated)
   } catch (err) {
@@ -59,6 +55,10 @@ configRoutes.delete('/', async (c) => {
   try {
     const { config: configStore } = await getStorage(c.var.envVars, c.env)
     const config = await resetConfig(configStore)
+    // Rebuild everything with default config
+    clearMastraCache()
+    const mastra = await getMastra(c.var.envVars, c.env)
+    await reloadChannels(mastra, c.var.envVars, config.channels)
     return c.json(config)
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error'

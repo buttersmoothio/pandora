@@ -1,12 +1,9 @@
 import { createTool, type Tool } from '@mastra/core/tools'
-import type { z } from 'zod'
+import { z } from 'zod'
 import {
   DEFAULT_TOOL_TIMEOUT,
-  type SandboxMode,
-  type ToolAnnotations,
-  type ToolExecuteContext,
+  type ToolExport,
   type ToolManifest,
-  type ToolPermissions,
   type ToolPluginConfig,
   type ToolRecord,
 } from './types'
@@ -39,6 +36,11 @@ export function getAllManifests(): Record<string, ToolManifest> {
   return Object.fromEntries(manifestRegistry)
 }
 
+/** Register a pre-built manifest (e.g. from a ToolExport). */
+export function registerManifest(manifest: ToolManifest): void {
+  manifestRegistry.set(manifest.id, manifest)
+}
+
 /** Remove a single manifest from the registry. */
 export function removeManifest(id: string): void {
   manifestRegistry.delete(id)
@@ -49,95 +51,51 @@ export function clearManifestRegistry(): void {
   manifestRegistry.clear()
 }
 
-// --- ToolDefinition ---
+// --- buildManifest ---
 
 /**
- * A tool definition returned by `defineTool`.
+ * Build a ToolManifest from a ToolExport.
  *
- * Call with `(env, config)` to produce a bound Mastra tool instance.
- * The `id` property is available immediately for manifest lookups.
+ * Note: `sandbox` defaults to `'compartment'`. When host-mode plugins
+ * adopt ToolExport, add an optional sandbox override parameter.
  */
-export interface ToolDefinition {
-  (env: Record<string, string | undefined>, config: ToolPluginConfig): AnyTool
-  readonly id: string
-  readonly manifest: ToolManifest
-}
-
-// --- defineTool ---
-
-export interface DefineToolOptions<TIn, TOut> {
-  /** Unique tool identifier. */
-  id: string
-  /** Human-readable display name. */
-  name: string
-  /** What the tool does (shown to the LLM). */
-  description: string
-  /** Zod schema for input validation. */
-  inputSchema: z.ZodType<TIn>
-  /** Optional Zod schema for output validation. */
-  outputSchema?: z.ZodType<TOut>
-  /** The tool's execute function. Receives `{ env, config }` as the second argument. */
-  execute: (input: TIn, context: ToolExecuteContext) => Promise<TOut>
-  /** Declared permissions — what capabilities this tool requires. */
-  permissions?: ToolPermissions
-  /** Sandbox mode. Defaults to `'compartment'`. */
-  sandbox?: SandboxMode
-  /** Execution timeout in milliseconds. Defaults to 60 000 (60 s). */
-  timeout?: number
-  /** Whether the tool requires explicit user approval before execution. */
-  requireApproval?: boolean
-  /** MCP-compatible annotations for UI hints. */
-  annotations?: ToolAnnotations
-}
-
-/**
- * Define a Pandora tool with a permission manifest.
- *
- * Registers the manifest immediately and returns a `ToolDefinition` —
- * a callable `(env, config) => Tool` that produces a bound Mastra tool.
- */
-export function defineTool<TIn, TOut>(opts: DefineToolOptions<TIn, TOut>): ToolDefinition {
-  const timeout = opts.timeout ?? DEFAULT_TOOL_TIMEOUT
-
-  const manifest: ToolManifest = {
-    id: opts.id,
-    name: opts.name,
-    description: opts.description,
-    ...(opts.permissions && { permissions: opts.permissions }),
-    sandbox: opts.sandbox ?? 'compartment',
-    annotations: opts.annotations,
-    timeout,
+export function buildManifest(exp: ToolExport): ToolManifest {
+  return {
+    id: exp.id,
+    name: exp.name,
+    description: exp.description,
+    sandbox: 'compartment',
+    annotations: exp.annotations,
+    timeout: exp.timeout ?? DEFAULT_TOOL_TIMEOUT,
   }
+}
 
-  manifestRegistry.set(opts.id, manifest)
+// --- bindToolExport ---
 
-  return Object.assign(
-    (env: Record<string, string | undefined>, config: ToolPluginConfig): AnyTool => {
-      // Re-register manifest in case registry was cleared between define and call
-      manifestRegistry.set(opts.id, manifest)
-      return createTool({
-        id: opts.id,
-        description: opts.description,
-        inputSchema: opts.inputSchema,
-        outputSchema: opts.outputSchema,
-        execute: (input, _mastraCtx) => {
-          const result = opts.execute(input, { env, config })
-          return Promise.race([
-            result,
-            new Promise<never>((_resolve, reject) => {
-              setTimeout(
-                () => reject(new Error(`Tool '${opts.id}' timed out after ${timeout}ms`)),
-                timeout,
-              )
-            }),
-          ])
-        },
-        requireApproval: opts.requireApproval,
-        ...(opts.annotations && {
-          mcp: { annotations: opts.annotations },
-        }),
-      })
+/** Bind a ToolExport to env/config and produce a Mastra Tool instance. */
+export function bindToolExport(
+  exp: ToolExport,
+  envVars: Record<string, string | undefined>,
+  _pluginConfig: ToolPluginConfig,
+): AnyTool {
+  const timeout = exp.timeout ?? DEFAULT_TOOL_TIMEOUT
+  const inputSchema = exp.parameters ? z.fromJSONSchema(exp.parameters) : z.object({})
+  return createTool({
+    id: exp.id,
+    description: exp.description,
+    inputSchema,
+    execute: (input) => {
+      const result = exp.execute(input, { env: envVars })
+      return Promise.race([
+        result,
+        new Promise<never>((_, reject) =>
+          setTimeout(
+            () => reject(new Error(`Tool '${exp.id}' timed out after ${timeout}ms`)),
+            timeout,
+          ),
+        ),
+      ])
     },
-    { id: opts.id, manifest } as const,
-  )
+    ...(exp.annotations && { mcp: { annotations: exp.annotations } }),
+  })
 }

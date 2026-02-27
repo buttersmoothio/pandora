@@ -27,7 +27,9 @@
     "@mastra/memory": "^1.4.0",
     "ai": "^6.0.90",
     "hono": "^4.11.9",
+    "@endo/compartment-mapper": "^2.0.0",
     "ses": "^1.14.0",
+    "ts-blank-space": "^0.7.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {

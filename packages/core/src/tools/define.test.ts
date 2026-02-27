@@ -1,245 +1,206 @@
 import { describe, expect, it } from 'vitest'
-import { z } from 'zod'
-import { defineTool, getAllManifests, getManifest, getManifests } from './define'
+import {
+  bindToolExport,
+  buildManifest,
+  clearManifestRegistry,
+  getAllManifests,
+  getManifest,
+  getManifests,
+  registerManifest,
+} from './define'
+import type { ToolExport } from './types'
 import { DEFAULT_TOOL_TIMEOUT } from './types'
 
-const testSchema = z.object({ value: z.string() })
 const defaultEnv = {}
 const defaultConfig = { enabled: true }
 
-function makeTestTool(overrides?: Record<string, unknown>) {
-  return defineTool({
+function makeTestExport(overrides?: Partial<ToolExport>): ToolExport {
+  return {
     id: 'test-tool',
     name: 'Test Tool',
     description: 'A test tool',
-    inputSchema: testSchema,
-    execute: async (input) => ({ echo: input.value }),
+    parameters: {
+      type: 'object',
+      properties: { value: { type: 'string' } },
+    },
+    execute: async (input: { value: string }) => ({ echo: input.value }),
     ...overrides,
-  })
+  }
 }
 
-describe('defineTool', () => {
-  it('returns a definition with the correct id', () => {
-    const def = makeTestTool()
-    expect(def.id).toBe('test-tool')
-  })
-
-  it('creates a Mastra Tool with correct id and description when called', () => {
-    const tool = makeTestTool()(defaultEnv, defaultConfig)
+describe('bindToolExport', () => {
+  it('returns a Mastra Tool with correct id and description', () => {
+    const exp = makeTestExport()
+    const tool = bindToolExport(exp, defaultEnv, defaultConfig)
     expect(tool.id).toBe('test-tool')
     expect(tool.description).toBe('A test tool')
   })
 
-  it('tool execute function works', async () => {
-    const tool = makeTestTool()(defaultEnv, defaultConfig)
+  it('execute function works', async () => {
+    const exp = makeTestExport()
+    const tool = bindToolExport(exp, defaultEnv, defaultConfig)
     const result = await tool.execute?.({ value: 'hello' }, {} as never)
     expect(result).toEqual({ echo: 'hello' })
   })
 
-  it('passes env and config to execute context', async () => {
-    const def = defineTool({
-      id: 'ctx-tool',
-      name: 'Ctx Tool',
-      description: 'Test context',
-      inputSchema: testSchema,
-      execute: async (_input, ctx) => ({ gotEnv: ctx.env.MY_KEY, gotConfig: ctx.config.enabled }),
+  it('passes env to execute context', async () => {
+    const exp = makeTestExport({
+      execute: async (_input: unknown, ctx: { env: Record<string, string | undefined> }) => ({
+        gotEnv: ctx.env.MY_KEY,
+      }),
     })
-    const tool = def({ MY_KEY: 'secret' }, { enabled: true })
+    const tool = bindToolExport(exp, { MY_KEY: 'secret' }, defaultConfig)
     const result = await tool.execute?.({ value: '' }, {} as never)
-    expect(result).toEqual({ gotEnv: 'secret', gotConfig: true })
+    expect(result).toEqual({ gotEnv: 'secret' })
   })
 
-  it('defaults sandbox to compartment', () => {
-    const def = makeTestTool()
-    const manifest = getManifest(def)
-    expect(manifest?.sandbox).toBe('compartment')
-  })
-
-  it('sets sandbox to host when specified', () => {
-    const def = makeTestTool({ sandbox: 'host' })
-    const manifest = getManifest(def)
-    expect(manifest?.sandbox).toBe('host')
-  })
-
-  it('omits permissions from manifest when not provided', () => {
-    const def = makeTestTool()
-    const manifest = getManifest(def)
-    expect(manifest?.permissions).toBeUndefined()
-  })
-
-  it('passes permissions through to manifest when provided', () => {
-    const permissions = { time: true, network: ['api.example.com'], env: ['API_KEY'] }
-    const def = makeTestTool({ permissions })
-    const manifest = getManifest(def)
-    expect(manifest?.permissions).toEqual(permissions)
-  })
-
-  it('passes annotations through to manifest and Mastra mcp', () => {
+  it('passes annotations through to Mastra mcp', () => {
     const annotations = { readOnlyHint: true, destructiveHint: false }
-    const def = makeTestTool({ annotations })
-    const manifest = getManifest(def)
-    expect(manifest?.annotations).toEqual(annotations)
-
-    const tool = def(defaultEnv, defaultConfig)
+    const exp = makeTestExport({ annotations })
+    const tool = bindToolExport(exp, defaultEnv, defaultConfig)
     expect(tool.mcp?.annotations).toEqual(annotations)
   })
 
   it('omits mcp when no annotations', () => {
-    const tool = makeTestTool()(defaultEnv, defaultConfig)
+    const exp = makeTestExport()
+    const tool = bindToolExport(exp, defaultEnv, defaultConfig)
     expect(tool.mcp).toBeUndefined()
   })
 
-  it('passes requireApproval through to Mastra tool', () => {
-    const tool = makeTestTool({ requireApproval: true })(defaultEnv, defaultConfig)
-    expect(tool.requireApproval).toBe(true)
-  })
-
-  it('defaults timeout to DEFAULT_TOOL_TIMEOUT in manifest', () => {
-    const def = makeTestTool()
-    const manifest = getManifest(def)
-    expect(manifest?.timeout).toBe(DEFAULT_TOOL_TIMEOUT)
-  })
-
-  it('sets custom timeout in manifest when specified', () => {
-    const def = makeTestTool({ timeout: 5_000 })
-    const manifest = getManifest(def)
-    expect(manifest?.timeout).toBe(5_000)
-  })
-
   it('rejects with timeout error when execute exceeds timeout', async () => {
-    const def = defineTool({
+    const exp = makeTestExport({
       id: 'slow-tool',
-      name: 'Slow Tool',
-      description: 'Takes too long',
-      inputSchema: testSchema,
       timeout: 50,
       execute: async () => {
         await new Promise((r) => setTimeout(r, 200))
         return { echo: 'done' }
       },
     })
-    const tool = def(defaultEnv, defaultConfig)
+    const tool = bindToolExport(exp, defaultEnv, defaultConfig)
     await expect(tool.execute?.({ value: 'hi' }, {} as never)).rejects.toThrow(
       "Tool 'slow-tool' timed out after 50ms",
     )
   })
 
   it('resolves normally when execute completes within timeout', async () => {
-    const def = defineTool({
+    const exp = makeTestExport({
       id: 'fast-tool',
-      name: 'Fast Tool',
-      description: 'Quick',
-      inputSchema: testSchema,
       timeout: 1_000,
-      execute: async (input) => ({ echo: input.value }),
     })
-    const tool = def(defaultEnv, defaultConfig)
+    const tool = bindToolExport(exp, defaultEnv, defaultConfig)
     const result = await tool.execute?.({ value: 'hi' }, {} as never)
     expect(result).toEqual({ echo: 'hi' })
+  })
+
+  it('handles ToolExport with no parameters (empty schema)', async () => {
+    const exp = makeTestExport({ parameters: undefined })
+    const tool = bindToolExport(exp, defaultEnv, defaultConfig)
+    expect(tool.id).toBe('test-tool')
+  })
+})
+
+describe('buildManifest', () => {
+  it('builds a manifest from a ToolExport', () => {
+    const exp = makeTestExport()
+    const manifest = buildManifest(exp)
+    expect(manifest).toEqual({
+      id: 'test-tool',
+      name: 'Test Tool',
+      description: 'A test tool',
+      sandbox: 'compartment',
+      annotations: undefined,
+      timeout: DEFAULT_TOOL_TIMEOUT,
+    })
+  })
+
+  it('includes annotations when present', () => {
+    const annotations = { readOnlyHint: true }
+    const exp = makeTestExport({ annotations })
+    const manifest = buildManifest(exp)
+    expect(manifest.annotations).toEqual(annotations)
+  })
+
+  it('uses custom timeout when specified', () => {
+    const exp = makeTestExport({ timeout: 5_000 })
+    const manifest = buildManifest(exp)
+    expect(manifest.timeout).toBe(5_000)
+  })
+
+  it('defaults timeout to DEFAULT_TOOL_TIMEOUT', () => {
+    const exp = makeTestExport()
+    const manifest = buildManifest(exp)
+    expect(manifest.timeout).toBe(DEFAULT_TOOL_TIMEOUT)
   })
 })
 
 describe('getManifest', () => {
-  it('returns manifest for a tool definition', () => {
-    const def = makeTestTool()
-    const manifest = getManifest(def)
-    expect(manifest).toBeDefined()
-    expect(manifest?.id).toBe('test-tool')
-  })
-
   it('returns manifest by tool ID string', () => {
-    makeTestTool() // registers manifest
+    clearManifestRegistry()
+    const exp = makeTestExport()
+    registerManifest(buildManifest(exp))
     const manifest = getManifest('test-tool')
     expect(manifest).toBeDefined()
     expect(manifest?.id).toBe('test-tool')
   })
 
-  it('returns manifest for an instantiated tool', () => {
-    const tool = makeTestTool()(defaultEnv, defaultConfig)
-    const manifest = getManifest(tool)
-    expect(manifest).toBeDefined()
+  it('returns manifest by object with id', () => {
+    clearManifestRegistry()
+    const exp = makeTestExport()
+    registerManifest(buildManifest(exp))
+    const manifest = getManifest({ id: 'test-tool' })
     expect(manifest?.id).toBe('test-tool')
   })
 
-  it('returns undefined for tools not created via defineTool', () => {
-    const { createTool } = require('@mastra/core/tools')
-    const rawTool = createTool({
-      id: 'raw-tool',
-      description: 'Not a Pandora tool',
-      inputSchema: testSchema,
-      execute: async () => ({}),
-    })
-    expect(getManifest(rawTool)).toBeUndefined()
+  it('returns undefined for unregistered tools', () => {
+    expect(getManifest('nonexistent')).toBeUndefined()
   })
 })
 
 describe('getManifests', () => {
   it('returns all manifests for a ToolRecord', () => {
-    const tool1 = defineTool({
-      id: 'tool-a',
-      name: 'Tool A',
-      description: 'Tool A',
-      inputSchema: testSchema,
-      permissions: { time: true },
-      execute: async () => ({}),
-    })(defaultEnv, defaultConfig)
+    clearManifestRegistry()
+    const expA = makeTestExport({ id: 'tool-a', name: 'Tool A', description: 'Tool A' })
+    const expB = makeTestExport({ id: 'tool-b', name: 'Tool B', description: 'Tool B' })
+    registerManifest(buildManifest(expA))
+    registerManifest(buildManifest(expB))
 
-    const tool2 = defineTool({
-      id: 'tool-b',
-      name: 'Tool B',
-      description: 'Tool B',
-      inputSchema: testSchema,
-      permissions: { network: ['example.com'] },
-      sandbox: 'host',
-      execute: async () => ({}),
-    })(defaultEnv, defaultConfig)
+    const toolA = bindToolExport(expA, defaultEnv, defaultConfig)
+    const toolB = bindToolExport(expB, defaultEnv, defaultConfig)
 
-    const manifests = getManifests({ 'tool-a': tool1, 'tool-b': tool2 })
+    const manifests = getManifests({ 'tool-a': toolA, 'tool-b': toolB })
     expect(Object.keys(manifests)).toEqual(['tool-a', 'tool-b'])
-    expect(manifests['tool-a'].permissions?.time).toBe(true)
-    expect(manifests['tool-b'].sandbox).toBe('host')
   })
 
   it('skips tools without manifests', () => {
+    clearManifestRegistry()
+    const exp = makeTestExport()
+    registerManifest(buildManifest(exp))
+    const tool = bindToolExport(exp, defaultEnv, defaultConfig)
+
     const { createTool } = require('@mastra/core/tools')
     const rawTool = createTool({
       id: 'raw',
       description: 'Raw',
-      inputSchema: testSchema,
+      inputSchema: require('zod').z.object({}),
       execute: async () => ({}),
     })
-    const pandoraTool = makeTestTool()(defaultEnv, defaultConfig)
 
-    // Key-based lookup: 'raw' has no manifest, 'test-tool' does
-    const manifests = getManifests({ raw: rawTool, 'test-tool': pandoraTool })
+    const manifests = getManifests({ raw: rawTool, 'test-tool': tool })
     expect(Object.keys(manifests)).toEqual(['test-tool'])
   })
 })
 
 describe('getAllManifests', () => {
   it('returns all registered manifests keyed by id', () => {
-    defineTool({
-      id: 'all-test-a',
-      name: 'Tool A',
-      description: 'Tool A',
-      inputSchema: testSchema,
-      permissions: { time: true },
-      execute: async () => ({}),
-    })
-    defineTool({
-      id: 'all-test-b',
-      name: 'Tool B',
-      description: 'Tool B',
-      inputSchema: testSchema,
-      permissions: { random: true },
-      sandbox: 'host',
-      execute: async () => ({}),
-    })
+    clearManifestRegistry()
+    const expA = makeTestExport({ id: 'all-a', name: 'A', description: 'A' })
+    const expB = makeTestExport({ id: 'all-b', name: 'B', description: 'B' })
+    registerManifest(buildManifest(expA))
+    registerManifest(buildManifest(expB))
 
     const all = getAllManifests()
-    expect(all['all-test-a']).toBeDefined()
-    expect(all['all-test-a'].description).toBe('Tool A')
-    expect(all['all-test-b']).toBeDefined()
-    expect(all['all-test-b'].sandbox).toBe('host')
+    expect(all['all-a']).toBeDefined()
+    expect(all['all-a'].description).toBe('A')
+    expect(all['all-b']).toBeDefined()
   })
 })

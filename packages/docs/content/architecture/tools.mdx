@@ -22,13 +22,13 @@ Tools are explicit opt-in: only enabled tools are loaded. The default configurat
 
 ## Provider-Defined Tools
 
-Not all tools are Pandora-defined. Some models have native tool support — OpenAI has `webSearch()`, Google has `googleSearch()`, Perplexity has built-in search. These are provider-defined tools from the Vercel AI SDK that don't go through `defineTool()` and have no Pandora manifest.
+Not all tools are Pandora-defined. Some models have native tool support — OpenAI has `webSearch()`, Google has `googleSearch()`, Perplexity has built-in search. These are provider-defined tools from the Vercel AI SDK that don't go through `ToolExport` and have no Pandora manifest.
 
 To accommodate this, `ToolRecord` is typed as Mastra's `ToolsInput` — a union that accepts Mastra tools, Vercel AI SDK tools, and provider-defined tools. This means a tool plugin can return any tool type the AI SDK understands, not just Pandora tools.
 
 The `getTools` hook on `ToolPlugin` is the entry point for dynamic tools. It receives the operator's model string and returns the appropriate tools at load time. This is how `@pandora/tools-websearch` works: it checks the model, tries native search, then falls back to third-party search APIs.
 
-Static tools (from `defineTool()`) and dynamic tools (from `getTools`) are complementary. Static tools have manifests, go through per-tool enable/disable, and show in the UI. Dynamic tools are added unconditionally when the plugin is active — they're opaque to the manifest system.
+Static tools (from `ToolExport` objects) and dynamic tools (from `getTools`) are complementary. Static tools have manifests, go through per-tool enable/disable, and show in the UI. Dynamic tools are added unconditionally when the plugin is active — they're opaque to the manifest system.
 
 ## Manifest Registry
 

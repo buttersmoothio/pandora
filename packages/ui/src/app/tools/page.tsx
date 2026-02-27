@@ -126,8 +126,8 @@ function ToolPluginCard({ plugin }: { plugin: ToolPluginInfo }) {
           <CardDescription className="font-mono text-xs">{plugin.id}</CardDescription>
           <div className="mt-1 flex flex-wrap gap-1.5">
             <PluginStatusBadge plugin={plugin} configured={configured} />
-            {infos.map((info) => (
-              <Badge key={info.message} variant="outline" className="text-[10px]">
+            {infos.map((info, i) => (
+              <Badge key={`${i}-${info.message}`} variant="outline" className="text-[10px]">
                 <InfoIcon className="size-3" />
                 {info.message}
               </Badge>

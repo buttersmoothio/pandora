@@ -2,7 +2,7 @@ import type { AgentPlugin } from '../agents/types'
 import type { ChannelPlugin } from '../channels/types'
 import { PLUGIN_SCHEMA_VERSION } from '../plugin-types'
 import type { StoragePlugin } from '../storage'
-import type { ToolPlugin } from '../tools/types'
+import type { ToolExport, ToolPlugin } from '../tools/types'
 import type { VectorPlugin } from '../vector'
 import type { LoadedEntry } from './loader'
 import type { PluginManifest } from './schema'
@@ -34,6 +34,8 @@ function baseFields(manifest: PluginManifest) {
  * - channels: `export const factory`
  * - storage: `export const factory`
  * - vector: `export const factory`
+ *
+ * All tools are `ToolExport` objects — wrapping into Mastra tools happens at load time.
  */
 export function adaptManifest(manifest: PluginManifest, entries: LoadedEntry[]): AdaptedPlugins {
   const result: AdaptedPlugins = {
@@ -53,7 +55,7 @@ export function adaptManifest(manifest: PluginManifest, entries: LoadedEntry[]):
       case 'tools':
         result.tools.push({
           ...base,
-          tools: (ns.tools ?? []) as ToolPlugin['tools'],
+          tools: (ns.tools ?? []) as ToolExport[],
           getTools: ns.getTools as ToolPlugin['getTools'],
         })
         break

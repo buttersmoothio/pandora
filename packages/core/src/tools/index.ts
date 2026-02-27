@@ -8,12 +8,17 @@ import {
   PLUGIN_SCHEMA_VERSION,
   unwrapGetToolsResult,
 } from '../plugin-types'
-import { clearManifestRegistry } from './define'
+import { bindToolExport, buildManifest, clearManifestRegistry, registerManifest } from './define'
 import { clearToolSchemaRegistry, getToolSchema, registerToolSchema } from './schema-registry'
 import type { ToolPlugin, ToolPluginConfig, ToolRecord } from './types'
 
-export type { DefineToolOptions, ToolDefinition } from './define'
-export { defineTool, getAllManifests, getManifest, getManifests, removeManifest } from './define'
+export {
+  getAllManifests,
+  getManifest,
+  getManifests,
+  registerManifest,
+  removeManifest,
+} from './define'
 export type { CompartmentExecuteOptions, Endowments } from './sandbox'
 export { executeInCompartment } from './sandbox'
 export type {
@@ -24,11 +29,8 @@ export type {
   PluginConfig,
   SandboxMode,
   ToolAnnotations,
-  ToolExecuteContext,
-  ToolFactory,
+  ToolExport,
   ToolManifest,
-  ToolPackageFactory,
-  ToolPackagePlugin,
   ToolPermissions,
   ToolPlugin,
   ToolPluginConfig,
@@ -48,10 +50,7 @@ const pluginAlertsMap = new Map<string, Alert[]>()
 /**
  * Register a tool plugin.
  *
- * Must be called before tools are loaded. Importing the package
- * triggers its `defineTool` calls, so manifests are registered as
- * a side effect of importing the factory module.
- *
+ * Registers tool manifests immediately so they appear in `/api/tools`.
  * Validates schema version compatibility on registration.
  */
 export function registerToolPlugin(plugin: ToolPlugin): void {
@@ -62,6 +61,11 @@ export function registerToolPlugin(plugin: ToolPlugin): void {
     )
   }
   pluginRegistry.set(plugin.id, plugin)
+
+  for (const entry of plugin.tools) {
+    registerManifest(buildManifest(entry))
+  }
+
   pluginToolsMap.set(
     plugin.id,
     plugin.tools.map((t) => t.id),
@@ -71,9 +75,6 @@ export function registerToolPlugin(plugin: ToolPlugin): void {
     registerToolSchema(plugin.id, buildSchemaFromFields(plugin.configFields))
   }
 }
-
-/** @deprecated Use `registerToolPlugin` */
-export const registerToolPackage = registerToolPlugin
 
 // ---------------------------------------------------------------------------
 // Config validation
@@ -123,19 +124,19 @@ function validatePluginConfig(
 // Loading
 // ---------------------------------------------------------------------------
 
-/** Load static tools from a plugin's defineTool declarations. */
+/** Load static tools from a plugin's ToolExport entries. */
 function loadStaticTools(
   plugin: ToolPlugin,
   envVars: Record<string, string | undefined>,
   pluginConfig: ToolPluginConfig,
 ): ToolRecord {
   const tools: ToolRecord = {}
-  for (const toolDef of plugin.tools) {
-    const tool = toolDef(envVars, pluginConfig)
+  for (const exp of plugin.tools) {
+    const tool = bindToolExport(exp, envVars, pluginConfig)
     if (pluginConfig.requireApproval) {
       tool.requireApproval = true
     }
-    tools[toolDef.id] = tool
+    tools[exp.id] = tool
   }
   return tools
 }
@@ -212,6 +213,3 @@ export function clearToolPlugins(): void {
   clearToolSchemaRegistry()
   clearManifestRegistry()
 }
-
-/** @deprecated Use `clearToolPlugins` */
-export const clearToolPackages = clearToolPlugins

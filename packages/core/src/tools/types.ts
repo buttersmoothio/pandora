@@ -18,12 +18,6 @@ export type {
 /** Per-plugin user configuration for tool plugins */
 export type ToolPluginConfig = PluginConfig
 
-/** Context passed to a tool's `execute` function as the second argument. */
-export interface ToolExecuteContext {
-  env: Record<string, string | undefined>
-  config: ToolPluginConfig
-}
-
 /** A record of tool instances keyed by tool ID. Accepts Mastra tools, Vercel AI SDK tools, and provider-defined tools. */
 export type ToolRecord = ToolsInput
 
@@ -100,19 +94,6 @@ export interface ToolAnnotations {
   idempotentHint?: boolean
 }
 
-/**
- * @deprecated Replaced by declarative `tools` array on `ToolPlugin`.
- * Factory function that receives environment variables and plugin config,
- * and returns a record of tools.
- */
-export type ToolFactory = (
-  env: Record<string, string | undefined>,
-  config: ToolPluginConfig,
-) => ToolRecord
-
-/** @deprecated Use `ToolFactory` */
-export type ToolPackageFactory = ToolFactory
-
 /** Plugin descriptor for tool packages */
 export interface ToolPlugin {
   /** Unique plugin identifier, e.g. 'tools-datetime' */
@@ -125,11 +106,28 @@ export interface ToolPlugin {
   envVars?: EnvVarDescriptor[]
   /** Config field descriptors for the UI */
   configFields?: ConfigFieldDescriptor[]
-  /** Tool definitions provided by this plugin */
-  tools: import('./define').ToolDefinition[]
+  /** Tool exports provided by this plugin */
+  // biome-ignore lint/suspicious/noExplicitAny: variance — ToolExport<T> must be assignable here for any T
+  tools: ToolExport<any, any>[]
   /** Async hook for dynamic tool resolution based on model/env. Return `{}` if nothing available. Can return `{ tools, alerts }` to surface diagnostics. */
   getTools?: (ctx: GetToolsContext) => Promise<ToolRecord | { tools: ToolRecord; alerts?: Alert[] }>
 }
 
-/** @deprecated Use `ToolPlugin` */
-export type ToolPackagePlugin = ToolPlugin
+/**
+ * The standard tool export interface for all plugins.
+ *
+ * No framework dependencies — only type-only imports from `@pandora/core`.
+ * The core wraps these into Mastra tools at load time.
+ */
+export interface ToolExport<TIn = unknown, TOut = unknown> {
+  id: string
+  name: string
+  description: string
+  /** JSON Schema for input validation. */
+  parameters?: Record<string, unknown>
+  /** MCP-compatible annotations. */
+  annotations?: ToolAnnotations
+  /** Execution timeout in ms. */
+  timeout?: number
+  execute: (input: TIn, context: { env: Record<string, string | undefined> }) => Promise<TOut>
+}

@@ -1,13 +1,34 @@
-import { getManifest, getManifests } from '@pandora/core/tools'
 import { describe, expect, it } from 'vitest'
 import { currentTime } from './current-time'
 import { tools } from './index'
 
-describe('current-time tool', () => {
-  const tool = currentTime({}, { enabled: true })
+describe('current-time tool (plain export)', () => {
+  it('has required ToolExport fields', () => {
+    expect(currentTime.id).toBe('current-time')
+    expect(currentTime.name).toBe('Current Time')
+    expect(currentTime.description).toBeDefined()
+    expect(currentTime.execute).toBeTypeOf('function')
+  })
 
-  it('returns ISO timestamp', async () => {
-    const result = (await tool.execute?.({ timezone: undefined }, {} as never)) as {
+  it('has JSON Schema parameters', () => {
+    expect(currentTime.parameters).toEqual({
+      type: 'object',
+      properties: {
+        timezone: {
+          type: 'string',
+          description: expect.any(String),
+        },
+      },
+    })
+  })
+
+  it('has MCP annotations', () => {
+    expect(currentTime.annotations?.readOnlyHint).toBe(true)
+    expect(currentTime.annotations?.idempotentHint).toBe(true)
+  })
+
+  it('returns ISO timestamp for default UTC', async () => {
+    const result = (await currentTime.execute({}, { env: {} })) as {
       iso: string
       formatted: string
       timezone: string
@@ -17,7 +38,7 @@ describe('current-time tool', () => {
   })
 
   it('accepts a timezone', async () => {
-    const result = (await tool.execute?.({ timezone: 'America/New_York' }, {} as never)) as {
+    const result = (await currentTime.execute({ timezone: 'America/New_York' }, { env: {} })) as {
       iso: string
       formatted: string
       timezone: string
@@ -27,41 +48,17 @@ describe('current-time tool', () => {
   })
 
   it('falls back to UTC for invalid timezone', async () => {
-    const result = (await tool.execute?.({ timezone: 'Invalid/Zone' }, {} as never)) as {
+    const result = (await currentTime.execute({ timezone: 'Invalid/Zone' }, { env: {} })) as {
       iso: string
       formatted: string
       timezone: string
     }
     expect(result.timezone).toBe('UTC')
   })
-
-  it('has a manifest with sandbox: host and no permissions', () => {
-    const manifest = getManifest(currentTime)
-    expect(manifest).toBeDefined()
-    expect(manifest?.sandbox).toBe('host')
-    expect(manifest?.permissions).toBeUndefined()
-  })
-
-  it('has MCP annotations', () => {
-    const manifest = getManifest(currentTime)
-    expect(manifest?.annotations?.readOnlyHint).toBe(true)
-    expect(manifest?.annotations?.destructiveHint).toBe(false)
-    expect(manifest?.annotations?.idempotentHint).toBe(true)
-  })
 })
 
 describe('tools export', () => {
   it('tools array contains current-time', () => {
     expect(tools.map((t) => t.id)).toEqual(['current-time'])
-  })
-
-  it('tools produce manifests when instantiated', () => {
-    const record: Record<string, ReturnType<(typeof tools)[number]>> = {}
-    for (const toolDef of tools) {
-      record[toolDef.id] = toolDef({}, { enabled: true })
-    }
-    const manifests = getManifests(record)
-    expect(manifests['current-time']).toBeDefined()
-    expect(manifests['current-time'].id).toBe('current-time')
   })
 })

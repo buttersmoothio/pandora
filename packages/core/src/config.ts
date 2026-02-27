@@ -184,13 +184,15 @@ function deepMerge<T extends Record<string, unknown>>(base: T, override: Partial
     const baseVal = base[key]
     const overrideVal = override[key]
 
-    if (
+    // Explicit null means "delete this key"
+    if (overrideVal === null) {
+      delete result[key]
+    } else if (
       overrideVal !== undefined &&
       typeof baseVal === 'object' &&
       baseVal !== null &&
       !Array.isArray(baseVal) &&
       typeof overrideVal === 'object' &&
-      overrideVal !== null &&
       !Array.isArray(overrideVal)
     ) {
       result[key] = deepMerge(

@@ -36,27 +36,28 @@ The `package.json` declares `@pandora/core` as a peer dependency:
 
 ### Define scoped tools (optional)
 
-Agents can have their own tools that are scoped to them (not added to the global tool list). Define them with `defineTool()`:
+Agents can have their own tools that are scoped to them (not added to the global tool list). Define them as `ToolExport` objects:
 
 ```ts
 // src/summarize.ts
-import { z } from 'zod'
-import { defineTool } from '@pandora/core/tools'
+import type { ToolExport } from '@pandora/core/tools'
 
-export const summarize = defineTool({
+export const summarize: ToolExport = {
   id: 'summarize',
   name: 'Summarize',
   description: 'Summarize a block of text',
-  inputSchema: z.object({
-    text: z.string().describe('Text to summarize'),
-    maxLength: z.number().optional().describe('Max summary length'),
-  }),
-  sandbox: 'host',
-  execute: async ({ text, maxLength }, { env }) => {
-    // Your summarization implementation
-    return { summary: text.slice(0, maxLength ?? 500) }
+  parameters: {
+    type: 'object',
+    properties: {
+      text: { type: 'string', description: 'Text to summarize' },
+      maxLength: { type: 'number', description: 'Max summary length' },
+    },
+    required: ['text'],
   },
-})
+  execute: async (input: { text: string; maxLength?: number }, { env }) => {
+    return { summary: input.text.slice(0, input.maxLength ?? 500) }
+  },
+}
 ```
 
 ### Define the agent
@@ -152,7 +153,7 @@ import type {
 | `name` | `string` | Yes | Human-readable display name |
 | `description` | `string` | Yes | What the agent does (used for routing decisions) |
 | `instructions` | `string` | Yes | System instructions for the agent |
-| `tools` | `ToolDefinition[]` | No | Static scoped tools available to this agent |
+| `tools` | `ToolExport[]` | No | Static scoped tools available to this agent |
 | `getTools` | `(ctx: GetToolsContext) => Promise<ToolRecord \| null>` | No | Async hook for dynamic tool resolution. Return `null` to skip loading the agent. |
 
 ### `AgentPlugin`

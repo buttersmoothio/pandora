@@ -12,15 +12,19 @@ const baseManifest: PluginManifest = {
 }
 
 describe('adaptManifest', () => {
-  it('adapts a tools entry', () => {
+  it('adapts a tools entry with ToolExports', () => {
+    const toolExport = {
+      id: 'greet',
+      name: 'Greet',
+      description: 'Greet someone',
+      parameters: { type: 'object', properties: { name: { type: 'string' } } },
+      execute: async (input: { name: string }) => ({ greeting: `Hello ${input.name}` }),
+    }
     const entries: LoadedEntry[] = [
       {
         key: 'tools',
-        entry: { entry: './src/index.ts' },
-        namespace: {
-          tools: [{ id: 'my-tool' }],
-          getTools: async () => ({}),
-        },
+        entry: { entry: './src/index.ts', sandbox: 'compartment' },
+        namespace: { tools: [toolExport], getTools: async () => ({}) },
       },
     ]
 
@@ -28,6 +32,7 @@ describe('adaptManifest', () => {
     expect(result.tools).toHaveLength(1)
     expect(result.tools[0].id).toBe('test-plugin')
     expect(result.tools[0].tools).toHaveLength(1)
+    expect(result.tools[0].tools[0]).toBe(toolExport)
     expect(result.tools[0].getTools).toBeTypeOf('function')
   })
 

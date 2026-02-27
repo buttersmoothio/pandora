@@ -22,7 +22,7 @@ import { webhookRoutes } from './routes/webhooks'
 export { registerChannel as registerChannelFactory, registerChannelPlugin } from './channels'
 export { loadAllPlugins } from './manifest'
 export { registerStoragePlugin, registerStorageProvider } from './storage'
-export { registerToolPackage, registerToolPlugin } from './tools'
+export { registerToolPlugin } from './tools'
 
 // Discover and register all manifest-based plugins
 await loadAllPlugins()

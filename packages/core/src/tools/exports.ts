@@ -4,8 +4,7 @@
  * Import from `@pandora/core/tools` to define tools in external packages.
  */
 
-export type { DefineToolOptions, ToolDefinition } from './define'
-export { defineTool, getAllManifests, getManifest, getManifests } from './define'
+export { getAllManifests, getManifest, getManifests } from './define'
 export type {
   Alert,
   ConfigFieldDescriptor,
@@ -14,11 +13,8 @@ export type {
   PluginConfig,
   SandboxMode,
   ToolAnnotations,
-  ToolExecuteContext,
-  ToolFactory,
+  ToolExport,
   ToolManifest,
-  ToolPackageFactory,
-  ToolPackagePlugin,
   ToolPermissions,
   ToolPlugin,
   ToolPluginConfig,

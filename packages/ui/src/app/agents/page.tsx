@@ -15,7 +15,7 @@ import {
   Loader2Icon,
   XCircleIcon,
 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { ProviderLogo } from '@/components/provider-logo'
 import { ConfigField } from '@/components/settings/config-field'
 import { EnvVarWarning } from '@/components/settings/env-var-warning'
@@ -29,6 +29,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import {
   Command,
   CommandEmpty,
@@ -179,7 +180,7 @@ function AgentRow({
       agents: {
         [agent.id]: {
           enabled: isEnabled,
-          ...(modelValue ? { model: modelValue } : {}),
+          ...(modelValue !== undefined ? { model: modelValue } : {}),
         },
       },
     })
@@ -199,145 +200,196 @@ function AgentRow({
     }
   }
 
+  const warnings = agent.alerts.filter((a) => a.level === 'warning')
+  const infos = agent.alerts.filter((a) => a.level === 'info')
+
+  const hasSettings = enabled
+  const modelSummary = useMemo(() => {
+    if (!agent.model) return null
+    return `${agent.model.provider}/${agent.model.model}`
+  }, [agent.model])
+
   return (
-    <div className="flex flex-col gap-3 rounded-lg border p-4">
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex flex-col gap-1">
-          <p className="font-medium text-sm">{agent.name}</p>
+    <Collapsible className="rounded-lg border">
+      <div className="flex items-center justify-between gap-4 p-4">
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <div className="flex items-center gap-2">
+            <p className="font-medium text-sm">{agent.name}</p>
+            {infos.map((info, i) => (
+              <Badge key={`${i}-${info.message}`} variant="outline" className="text-[10px]">
+                <InfoIcon className="size-3" />
+                {info.message}
+              </Badge>
+            ))}
+          </div>
           <p className="text-muted-foreground text-xs">{agent.description}</p>
+          {modelSummary && (
+            <p className="mt-0.5 font-mono text-[10px] text-muted-foreground">{modelSummary}</p>
+          )}
         </div>
-        <Switch checked={enabled} onCheckedChange={handleToggle} />
+        <div className="flex items-center gap-2">
+          {hasSettings && (
+            <CollapsibleTrigger asChild>
+              <Button variant="ghost" size="icon" className="size-7">
+                <ChevronsUpDownIcon className="size-3.5" />
+              </Button>
+            </CollapsibleTrigger>
+          )}
+          <Switch checked={enabled} onCheckedChange={handleToggle} />
+        </div>
       </div>
 
-      {enabled && (
-        <div className="flex flex-col gap-3">
-          <div className="flex items-center gap-3">
-            <Switch
-              id={`${agent.id}-custom-model`}
-              checked={customModel}
-              onCheckedChange={handleCustomModelToggle}
-              size="sm"
-            />
-            <Label htmlFor={`${agent.id}-custom-model`}>Custom model</Label>
-          </div>
-
-          {customModel && (
-            <div className="flex gap-3">
-              <div className="flex flex-1 flex-col gap-2">
-                <Popover open={providerOpen} onOpenChange={setProviderOpen}>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" size="sm" className="justify-between font-normal">
-                      <span className="flex items-center gap-2 truncate">
-                        {selectedProvider && (
-                          <ProviderLogo providerId={provider} className="size-3.5" />
-                        )}
-                        {selectedProvider ? selectedProvider.name : provider || 'Provider...'}
-                      </span>
-                      <ChevronsUpDownIcon className="ml-2 size-3 shrink-0 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="p-0">
-                    <Command>
-                      <CommandInput placeholder="Search providers..." />
-                      <CommandList>
-                        <CommandEmpty>No provider found.</CommandEmpty>
-                        {providers.map((p) => (
-                          <CommandItem
-                            key={p.id}
-                            value={p.name}
-                            onSelect={() => {
-                              setProvider(p.id)
-                              if (provider !== p.id) setModel('')
-                              setProviderOpen(false)
-                            }}
-                          >
-                            <CheckIcon
-                              className={cn(
-                                'mr-2 size-4',
-                                provider === p.id ? 'opacity-100' : 'opacity-0',
-                              )}
-                            />
-                            <ProviderLogo providerId={p.id} />
-                            <span className="truncate">{p.name}</span>
-                            {!p.configured && (
-                              <span className="ml-auto text-muted-foreground text-xs">
-                                Not configured
-                              </span>
-                            )}
-                          </CommandItem>
-                        ))}
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-              </div>
-              <div className="flex flex-1 flex-col gap-2">
-                <Popover open={modelOpen} onOpenChange={setModelOpen}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="justify-between font-normal"
-                      disabled={!provider}
-                    >
-                      {model || 'Model...'}
-                      <ChevronsUpDownIcon className="ml-2 size-3 shrink-0 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="p-0">
-                    <Command>
-                      <CommandInput placeholder="Search models..." />
-                      <CommandList>
-                        <CommandEmpty>No model found.</CommandEmpty>
-                        {models.map((m) => (
-                          <CommandItem
-                            key={m}
-                            value={m}
-                            onSelect={() => {
-                              setModel(m)
-                              setModelOpen(false)
-                            }}
-                          >
-                            <CheckIcon
-                              className={cn(
-                                'mr-2 size-4',
-                                model === m ? 'opacity-100' : 'opacity-0',
-                              )}
-                            />
-                            {m}
-                          </CommandItem>
-                        ))}
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-              </div>
-              <Button
-                size="sm"
-                disabled={updateConfig.isPending || !provider || !model}
-                onClick={() => save()}
-              >
-                {updateConfig.isPending ? <Loader2Icon className="size-4 animate-spin" /> : 'Save'}
-              </Button>
-            </div>
-          )}
-
-          {agent.tools.length > 0 && (
-            <div className="flex flex-col gap-2">
-              <p className="font-medium text-muted-foreground text-xs">Tools</p>
-              {agent.tools.map((tool) => (
-                <ScopedToolRow
-                  key={tool.id}
-                  tool={tool}
-                  agentId={agent.id}
-                  agentConfig={agentConfig}
-                />
-              ))}
-            </div>
-          )}
+      {warnings.length > 0 && (
+        <div className="mx-4 mb-4 rounded-md border border-amber-500/30 bg-amber-500/5 p-3 text-sm">
+          <p className="flex items-center gap-1.5 font-medium text-amber-600 dark:text-amber-400">
+            <AlertTriangleIcon className="size-3.5" />
+            Warning
+          </p>
+          <ul className="mt-1.5 list-inside list-disc text-muted-foreground">
+            {warnings.map((w, i) => (
+              <li key={`${i}-${w.message}`} className="text-xs">
+                {w.message}
+              </li>
+            ))}
+          </ul>
         </div>
       )}
-    </div>
+
+      {enabled && (
+        <CollapsibleContent>
+          <div className="flex flex-col gap-3 border-t px-4 py-3">
+            <div className="flex items-center gap-3">
+              <Switch
+                id={`${agent.id}-custom-model`}
+                checked={customModel}
+                onCheckedChange={handleCustomModelToggle}
+                size="sm"
+              />
+              <Label htmlFor={`${agent.id}-custom-model`}>Custom model</Label>
+            </div>
+
+            {customModel && (
+              <div className="flex gap-3">
+                <div className="flex flex-1 flex-col gap-2">
+                  <Popover open={providerOpen} onOpenChange={setProviderOpen}>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" size="sm" className="justify-between font-normal">
+                        <span className="flex items-center gap-2 truncate">
+                          {selectedProvider && (
+                            <ProviderLogo providerId={provider} className="size-3.5" />
+                          )}
+                          {selectedProvider ? selectedProvider.name : provider || 'Provider...'}
+                        </span>
+                        <ChevronsUpDownIcon className="ml-2 size-3 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="p-0">
+                      <Command>
+                        <CommandInput placeholder="Search providers..." />
+                        <CommandList>
+                          <CommandEmpty>No provider found.</CommandEmpty>
+                          {providers.map((p) => (
+                            <CommandItem
+                              key={p.id}
+                              value={p.name}
+                              onSelect={() => {
+                                setProvider(p.id)
+                                if (provider !== p.id) setModel('')
+                                setProviderOpen(false)
+                              }}
+                            >
+                              <CheckIcon
+                                className={cn(
+                                  'mr-2 size-4',
+                                  provider === p.id ? 'opacity-100' : 'opacity-0',
+                                )}
+                              />
+                              <ProviderLogo providerId={p.id} />
+                              <span className="truncate">{p.name}</span>
+                              {!p.configured && (
+                                <span className="ml-auto text-muted-foreground text-xs">
+                                  Not configured
+                                </span>
+                              )}
+                            </CommandItem>
+                          ))}
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <div className="flex flex-1 flex-col gap-2">
+                  <Popover open={modelOpen} onOpenChange={setModelOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="justify-between font-normal"
+                        disabled={!provider}
+                      >
+                        {model || 'Model...'}
+                        <ChevronsUpDownIcon className="ml-2 size-3 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="p-0">
+                      <Command>
+                        <CommandInput placeholder="Search models..." />
+                        <CommandList>
+                          <CommandEmpty>No model found.</CommandEmpty>
+                          {models.map((m) => (
+                            <CommandItem
+                              key={m}
+                              value={m}
+                              onSelect={() => {
+                                setModel(m)
+                                setModelOpen(false)
+                              }}
+                            >
+                              <CheckIcon
+                                className={cn(
+                                  'mr-2 size-4',
+                                  model === m ? 'opacity-100' : 'opacity-0',
+                                )}
+                              />
+                              {m}
+                            </CommandItem>
+                          ))}
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <Button
+                  size="sm"
+                  disabled={updateConfig.isPending || !provider || !model}
+                  onClick={() => save()}
+                >
+                  {updateConfig.isPending ? (
+                    <Loader2Icon className="size-4 animate-spin" />
+                  ) : (
+                    'Save'
+                  )}
+                </Button>
+              </div>
+            )}
+
+            {agent.tools.length > 0 && (
+              <div className="flex flex-col gap-2">
+                <p className="font-medium text-muted-foreground text-xs">Tools</p>
+                {agent.tools.map((tool) => (
+                  <ScopedToolRow
+                    key={tool.id}
+                    tool={tool}
+                    agentId={agent.id}
+                    agentConfig={agentConfig}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        </CollapsibleContent>
+      )}
+    </Collapsible>
   )
 }
 
@@ -438,9 +490,6 @@ function AgentPluginCard({
     })
   }
 
-  const warnings = plugin.alerts.filter((a) => a.level === 'warning')
-  const infos = plugin.alerts.filter((a) => a.level === 'info')
-
   return (
     <Card>
       <CardHeader>
@@ -449,12 +498,6 @@ function AgentPluginCard({
           <CardDescription className="font-mono text-xs">{plugin.id}</CardDescription>
           <div className="mt-1 flex flex-wrap gap-1.5">
             <PluginStatusBadge plugin={plugin} configured={configured} />
-            {infos.map((info) => (
-              <Badge key={info.message} variant="outline" className="text-[10px]">
-                <InfoIcon className="size-3" />
-                {info.message}
-              </Badge>
-            ))}
           </div>
         </div>
         <CardAction>
@@ -479,24 +522,6 @@ function AgentPluginCard({
               {plugin.validationErrors.map((err) => (
                 <li key={err} className="font-mono text-xs">
                   {err}
-                </li>
-              ))}
-            </ul>
-          </div>
-        </CardContent>
-      )}
-
-      {warnings.length > 0 && (
-        <CardContent>
-          <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-4 text-sm">
-            <p className="flex items-center gap-1.5 font-medium text-amber-600 dark:text-amber-400">
-              <AlertTriangleIcon className="size-3.5" />
-              Warning
-            </p>
-            <ul className="mt-1.5 list-inside list-disc text-muted-foreground">
-              {warnings.map((w) => (
-                <li key={w.message} className="text-xs">
-                  {w.message}
                 </li>
               ))}
             </ul>

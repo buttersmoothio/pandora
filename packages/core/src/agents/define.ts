@@ -1,5 +1,4 @@
-import type { ToolDefinition } from '../tools/define'
-import type { Alert, ToolRecord } from '../tools/types'
+import type { Alert, ToolExport, ToolRecord } from '../tools/types'
 import type { AgentManifest } from './types'
 
 export type { GetToolsContext } from '../plugin-types'
@@ -36,7 +35,7 @@ export function clearAgentManifestRegistry(): void {
  */
 export interface AgentDefinition {
   readonly id: string
-  readonly tools: readonly ToolDefinition[]
+  readonly tools: readonly ToolExport[]
   /** Async hook for dynamic tool resolution. Return null to skip loading this agent. Can return `{ tools, alerts }` to surface diagnostics. */
   readonly getTools?: (
     ctx: GetToolsContext,
@@ -55,7 +54,7 @@ export interface DefineAgentOptions {
   /** System instructions for the agent. */
   instructions: string
   /** Scoped tools available to this agent. */
-  tools?: ToolDefinition[]
+  tools?: ToolExport[]
   /** Async hook for dynamic tool resolution. Return null to skip loading this agent. Can return `{ tools, alerts }` to surface diagnostics. */
   getTools?: (
     ctx: GetToolsContext,

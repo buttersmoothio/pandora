@@ -309,9 +309,9 @@ const websearch = await loadPlugin('@pandora/tools-websearch', {
 registerToolPlugin(websearch.default)
 ```
 
-### `defineTool()` — No change needed
+### `ToolExport` — The universal tool interface
 
-When a tool is defined inside a Compartment, its `execute` closure captures the Compartment's scope. The function still runs when Mastra calls it, but it only has access to what the Compartment provides. The `defineTool()` API is unchanged.
+All plugins (host and compartment mode) export `ToolExport` objects — plain objects with JSON Schema parameters, no framework dependencies. The core wraps these into Mastra tools at load time via `bindToolExport()`. When a tool runs inside a Compartment, its `execute` closure only has access to what the Compartment provides.
 
 ### `getTools()` hook — No change needed
 
@@ -598,8 +598,9 @@ Each capability type has a defined set of exports the system looks for in its en
 
 **Tools** (`provides.tools.entry`):
 ```typescript
-// An entry point can export multiple tools — they share the same Compartment
-export const tools: ToolDefinition[]
+// Both host and compartment mode: plain objects with JSON Schema parameters
+export const tools: ToolExport[]
+// Optional dynamic tool resolution (host mode only — uses provider SDK tools)
 export function getTools(ctx: GetToolsContext): Promise<ToolRecord | GetToolsResult>
 ```
 
@@ -769,13 +770,21 @@ The manifest is validated with a Zod schema at discovery time. Invalid manifests
 - [x] Existing tests updated for named export convention
 - [x] Spec updated with entry point convention and implementation status
 
-### Not done — Compartment sandbox
+### Done — Compartment sandbox (Approach A)
 
-- [ ] `@endo/compartment-mapper` integration for `sandbox: 'compartment'` plugins
-- [ ] `@pandora/core` as exit module for compartmentalized plugins
-- [ ] Scoped endowments from manifest `permissions` (scoped `fetch`, `env.get()`, `Date`, etc.)
-- [ ] Runtime enforcement of `ToolPermissions` via Compartment scope
-- [ ] Test first-party plugin compatibility in Compartments (`ai`, `zod`, `@tavily/ai-sdk`, etc.)
+- [x] `@endo/compartment-mapper` `importLocation` integration for `sandbox: 'compartment'` plugins
+- [x] TypeScript type erasure via `ts-blank-space` in `syncModuleTransforms`
+- [x] Scoped endowments from manifest `permissions` (scoped `fetch`, `env.get()`, `Date`, etc.)
+- [x] Runtime enforcement of `ToolPermissions` via Compartment scope
+- [x] `ToolExport` interface for plain compartmentalized plugin exports (JSON Schema, no zod)
+- [x] `bindToolExport()` wraps `ToolExport` → Mastra Tool using `z.fromJSONSchema()`
+- [x] `tools-datetime` refactored as first compartmentalized plugin
+- [x] `tools-websearch` stays `sandbox: 'host'` (dynamic imports for optional SDK packages)
+
+### Not done — Compartment sandbox (remaining)
+
+- [ ] `@pandora/core` as exit module for plugins that need framework imports at runtime
+- [ ] Test third-party plugin compatibility in Compartments (`ai`, `zod`, `@tavily/ai-sdk`, etc.)
 - [ ] Source map support via `sourceMapHook` for Compartment stack traces
 
 ### Not done — Per-dependency policy

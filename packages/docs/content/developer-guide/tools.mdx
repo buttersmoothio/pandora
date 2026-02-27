@@ -22,55 +22,55 @@ A tool package follows this structure:
   </FileTree.Folder>
 </FileTree>
 
-The `package.json` declares `@pandora/core` as a peer dependency:
+The `package.json` declares `@pandora/core` as a dev dependency (only type-only imports are used at runtime):
 
 ```json
 {
   "name": "pandora-tools-weather",
   "type": "module",
   "exports": { ".": "./src/index.ts" },
-  "peerDependencies": {
+  "devDependencies": {
     "@pandora/core": "*"
-  },
-  "dependencies": {
-    "zod": "^4.3.6"
   }
 }
 ```
 
 ### Define the tool
 
-Use `defineTool()` to create a tool. Here's a weather tool that fetches data from an external API:
+Export a `ToolExport` object — a plain object with metadata, JSON Schema parameters, and an `execute` function:
 
 ```ts
 // src/weather.ts
-import { z } from 'zod'
-import { defineTool } from '@pandora/core/tools'
+import type { ToolExport } from '@pandora/core/tools'
 
-export const weatherTool = defineTool({
+export const weatherTool: ToolExport = {
   id: 'weather',
   name: 'Weather',
   description: 'Get current weather for a city',
-  inputSchema: z.object({
-    city: z.string().describe('City name'),
-  }),
+  parameters: {
+    type: 'object',
+    properties: {
+      city: { type: 'string', description: 'City name' },
+    },
+    required: ['city'],
+  },
   annotations: {
     readOnlyHint: true,
     destructiveHint: false,
     idempotentHint: true,
   },
-  execute: async (input, { env, config }) => {
+  execute: async (input: { city: string }, { env }) => {
     const key = env.OPENWEATHER_API_KEY
-    const units = config.units ?? 'metric'
     const res = await fetch(
-      `https://api.openweathermap.org/data/2.5/weather?q=${input.city}&units=${units}&appid=${key}`
+      `https://api.openweathermap.org/data/2.5/weather?q=${input.city}&units=metric&appid=${key}`
     )
     return res.json()
   },
-})
+}
 ```
 
-- `defineTool()` returns a **tool definition** that you list in your plugin's `tools` array. The `execute` function receives `{ env, config }` as its second argument, giving tools clean access to environment variables and plugin configuration.
+- `ToolExport` is a plain object — no framework dependencies at runtime. Only type-only imports from `@pandora/core` (erased by the TypeScript compiler).
+- The `execute` function receives `{ env }` as its second argument, giving tools access to environment variables.
 - **`annotations`** are MCP-compatible hints that help the UI decide whether to auto-approve or prompt for confirmation. A tool marked `readOnlyHint: true` and `destructiveHint: false` can be auto-approved.
 
 ### Export the plugin descriptor
@@ -105,7 +105,7 @@ export default {
 ```
 
 - **`name`** — human-readable display name for the UI.
-- **`tools`** — array of tool definitions returned by `defineTool()`. Pandora binds `(env, config)` automatically when loading plugins — you just list them.
+- **`tools`** — array of `ToolExport` objects. Pandora wraps them into Mastra tools automatically when loading plugins.
 - **`envVars`** — environment variables the plugin needs, as `{ name, required? }` descriptors. Variables default to required; set `required: false` for optional ones. The settings UI shows whether they're configured.
 - **`configFields`** — describes user-configurable settings beyond `enabled`. Pandora validates input and renders fields in the settings UI from these descriptors.
 - If `configFields` includes required fields and the user hasn't configured them, the plugin is skipped. Plugins with only optional config fields load with defaults automatically.
@@ -207,43 +207,27 @@ Alerts are stored at load time and surfaced in the settings UI and the `/api/too
 All types are exported from `@pandora/core/tools`:
 
 ```ts
-import { defineTool } from '@pandora/core/tools'
-
 import type {
   ConfigFieldDescriptor,
   EnvVarDescriptor,
-  ToolExecuteContext,
   ToolAnnotations,
+  ToolExport,
   ToolPlugin,
-  ToolPluginConfig,
 } from '@pandora/core/tools'
 ```
 
-### `ToolExecuteContext`
+### `ToolExport`
 
-The second argument passed to the tool's `execute` function:
-
-```ts
-interface ToolExecuteContext {
-  env: Record<string, string | undefined>
-  config: ToolPluginConfig
-}
-```
-
-### `DefineToolOptions`
+The standard tool export interface. All plugins use this — no framework dependencies required.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `id` | `string` | Yes | Unique tool identifier |
 | `name` | `string` | Yes | Human-readable display name |
 | `description` | `string` | Yes | What the tool does (shown to the LLM) |
-| `inputSchema` | `z.ZodType` | Yes | Zod schema for input validation |
-| `outputSchema` | `z.ZodType` | No | Optional Zod schema for output validation |
-| `execute` | `(input, context: ToolExecuteContext) => Promise` | Yes | The tool's handler function |
-| `permissions` | `ToolPermissions` | No | Declared capabilities (time, network, env, fs, random) |
-| `sandbox` | `'compartment' \| 'host'` | No | `'host'` runs with full Node.js access (default for tool plugins). `'compartment'` runs in a restricted sandbox. |
+| `parameters` | `Record<string, unknown>` | No | JSON Schema for input validation |
+| `execute` | `(input, context: { env }) => Promise` | Yes | The tool's handler function |
 | `timeout` | `number` | No | Execution timeout in milliseconds. Defaults to `60000` (60 s) |
-| `requireApproval` | `boolean` | No | Require user approval before execution |
 | `annotations` | `ToolAnnotations` | No | MCP-compatible UI hints |
 
 ### `ToolAnnotations`
@@ -279,7 +263,7 @@ The descriptor your package default-exports:
 | `schemaVersion` | `number` | Yes | Must be `1` |
 | `envVars` | `EnvVarDescriptor[]` | No | Environment variable descriptors |
 | `configFields` | `ConfigFieldDescriptor[]` | No | UI config field descriptors |
-| `tools` | `ToolDefinition[]` | Yes | Tool definitions returned by `defineTool()` |
+| `tools` | `ToolExport[]` | Yes | Tool exports — plain objects with metadata and execute function |
 | `getTools` | `(ctx: GetToolsContext) => Promise<ToolRecord \| { tools: ToolRecord; alerts?: Alert[] }>` | No | Async hook for dynamic tool resolution. Can return alerts. See [Dynamic Tools](#dynamic-tools). |
 
 ### `EnvVarDescriptor`

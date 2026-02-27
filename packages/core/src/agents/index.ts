@@ -11,7 +11,9 @@ import {
   unwrapGetToolsResult,
 } from '../plugin-types'
 import type { ToolRecord } from '../tools'
-import { removeManifest, type ToolManifest } from '../tools'
+import { removeManifest } from '../tools'
+import { bindToolExport, buildManifest } from '../tools/define'
+import type { ToolManifest } from '../tools/types'
 import type { AgentDefinition } from './define'
 import { clearAgentManifestRegistry, getAgentManifest } from './define'
 import { clearAgentSchemaRegistry, getAgentSchema, registerAgentSchema } from './schema-registry'
@@ -125,7 +127,7 @@ function validatePluginConfig(
 // Loading
 // ---------------------------------------------------------------------------
 
-/** Load scoped tools from an agent's tool definitions, filtered by config. */
+/** Load scoped tools from an agent's ToolExport entries, filtered by config. */
 function loadScopedTools(
   agentDef: AgentDefinition,
   config: Config,
@@ -134,9 +136,9 @@ function loadScopedTools(
 ): ToolRecord {
   const tools: ToolRecord = {}
   const agentConfig = config.agents[agentDef.id]
-  for (const toolDef of agentDef.tools) {
-    if (agentConfig?.tools?.[toolDef.id]?.enabled === false) continue
-    tools[toolDef.id] = toolDef(envVars, pluginConfig)
+  for (const exp of agentDef.tools) {
+    if (agentConfig?.tools?.[exp.id]?.enabled === false) continue
+    tools[exp.id] = bindToolExport(exp, envVars, pluginConfig)
   }
   return tools
 }
@@ -240,7 +242,7 @@ export function getPluginAgentIds(pluginId: string): string[] {
 export function getScopedToolManifests(agentId: string): ToolManifest[] {
   for (const plugin of pluginRegistry.values()) {
     const agentDef = plugin.agents.find((a) => a.id === agentId)
-    if (agentDef) return agentDef.tools.map((t) => t.manifest)
+    if (agentDef) return agentDef.tools.map(buildManifest)
   }
   return []
 }
