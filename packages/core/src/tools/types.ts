@@ -100,12 +100,30 @@ export interface ToolPlugin {
   id: string
   /** Human-readable display name, e.g. 'Date & Time' */
   name: string
+  /** Human-readable description from the manifest. */
+  description?: string
+  /** Author of the plugin. */
+  author?: string
+  /** Icon URL or path. */
+  icon?: string
+  /** Semver version string. */
+  version?: string
+  /** Homepage URL. */
+  homepage?: string
+  /** Source repository URL. */
+  repository?: string
+  /** SPDX license identifier. */
+  license?: string
   /** Schema version — must match core's expected version */
   schemaVersion: number
   /** Environment variables this plugin depends on */
   envVars?: EnvVarDescriptor[]
   /** Config field descriptors for the UI */
   configFields?: ConfigFieldDescriptor[]
+  /** Sandbox mode declared in the manifest provides entry. */
+  sandbox?: SandboxMode
+  /** Permissions declared in the manifest provides entry. */
+  permissions?: ToolPermissions
   /** Tool exports provided by this plugin */
   // biome-ignore lint/suspicious/noExplicitAny: variance — ToolExport<T> must be assignable here for any T
   tools: ToolExport<any, any>[]
@@ -129,5 +147,9 @@ export interface ToolExport<TIn = unknown, TOut = unknown> {
   annotations?: ToolAnnotations
   /** Execution timeout in ms. */
   timeout?: number
+  /** Sandbox mode — stamped by the manifest adapter from the provides entry. */
+  sandbox?: SandboxMode
+  /** Permission declarations — stamped by the manifest adapter from the provides entry. */
+  permissions?: ToolPermissions
   execute: (input: TIn, context: { env: Record<string, string | undefined> }) => Promise<TOut>
 }

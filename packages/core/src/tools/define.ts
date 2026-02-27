@@ -64,7 +64,8 @@ export function buildManifest(exp: ToolExport): ToolManifest {
     id: exp.id,
     name: exp.name,
     description: exp.description,
-    sandbox: 'compartment',
+    permissions: exp.permissions,
+    sandbox: exp.sandbox ?? 'compartment',
     annotations: exp.annotations,
     timeout: exp.timeout ?? DEFAULT_TOOL_TIMEOUT,
   }

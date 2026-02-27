@@ -19,6 +19,13 @@ function baseFields(manifest: PluginManifest) {
   return {
     id: manifest.id,
     name: manifest.name,
+    description: manifest.description,
+    author: manifest.author,
+    icon: manifest.icon,
+    version: manifest.version,
+    homepage: manifest.homepage,
+    repository: manifest.repository,
+    license: manifest.license,
     schemaVersion: PLUGIN_SCHEMA_VERSION,
     envVars: manifest.envVars,
     configFields: manifest.configFields,
@@ -48,17 +55,25 @@ export function adaptManifest(manifest: PluginManifest, entries: LoadedEntry[]):
 
   const agentDefs: AgentPlugin['agents'] = []
 
-  for (const { key, namespace: ns } of entries) {
+  for (const { key, entry, namespace: ns } of entries) {
     const base = baseFields(manifest)
 
     switch (key) {
-      case 'tools':
+      case 'tools': {
+        const tools = (ns.tools ?? []) as ToolExport[]
+        for (const t of tools) {
+          t.sandbox = entry.sandbox
+          t.permissions = entry.permissions
+        }
         result.tools.push({
           ...base,
-          tools: (ns.tools ?? []) as ToolExport[],
+          sandbox: entry.sandbox,
+          permissions: entry.permissions,
+          tools,
           getTools: ns.getTools as ToolPlugin['getTools'],
         })
         break
+      }
 
       case 'agents':
         if (ns.agent) {

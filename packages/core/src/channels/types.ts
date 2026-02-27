@@ -74,6 +74,20 @@ export interface ChannelPlugin {
   id: string
   /** Human-readable display name, e.g. 'Telegram' */
   name: string
+  /** Human-readable description from the manifest. */
+  description?: string
+  /** Author of the plugin. */
+  author?: string
+  /** Icon URL or path. */
+  icon?: string
+  /** Semver version string. */
+  version?: string
+  /** Homepage URL. */
+  homepage?: string
+  /** Source repository URL. */
+  repository?: string
+  /** SPDX license identifier. */
+  license?: string
   /** Schema version — must match core's expected version */
   schemaVersion: number
   /** Environment variables this plugin depends on */

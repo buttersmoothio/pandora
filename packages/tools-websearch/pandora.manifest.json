@@ -2,7 +2,11 @@
   "manifestVersion": 1,
   "id": "tools-websearch",
   "name": "Web Search",
-  "description": "Web search via Tavily, Brave, Exa, or native model search",
+  "description": "Let your assistant search the web for up-to-date information",
+  "author": "Pandora",
+  "version": "0.1.0",
+  "license": "MIT",
+  "repository": "https://github.com/mprasanjith/pandora/tree/master/packages/tools-websearch",
   "pandora": ">=0.0.1",
   "provides": {
     "tools": {
@@ -25,7 +29,7 @@
       "key": "searchBackend",
       "label": "Search Backend",
       "type": "enum",
-      "description": "Preferred search backend. \"Auto\" detects from model and available API keys.",
+      "description": "Which search service to use. Auto picks the best available option.",
       "options": [
         { "value": "auto", "label": "Auto-detect" },
         { "value": "tavily", "label": "Tavily" },

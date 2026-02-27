@@ -295,7 +295,7 @@ function SessionsSection() {
 
 export default function SecurityPage() {
   return (
-    <div className="flex flex-1 flex-col gap-6 p-6">
+    <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 p-6">
       <h1 className="font-semibold text-2xl">Security</h1>
       <ChangePasswordSection />
       <SessionsSection />

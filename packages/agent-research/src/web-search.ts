@@ -4,9 +4,7 @@ import { resolveSearchTools } from '@pandora/tools-websearch'
 export const agent = defineAgent({
   id: 'web-search',
   name: 'Web Search',
-  description:
-    'Quick web search for current information. Handles simple lookups, ' +
-    'recent news, fact-checking, and single-query questions.',
+  description: 'Quick web search for current information',
   instructions: `You are a web search specialist with access to current web information.
 
 When answering:

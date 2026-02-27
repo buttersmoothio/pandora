@@ -4,10 +4,7 @@ import { resolveSearchTools } from '@pandora/tools-websearch'
 export const agent = defineAgent({
   id: 'research',
   name: 'Deep Research',
-  description:
-    'Conduct in-depth, multi-step research on complex topics. ' +
-    'Iteratively searches, cross-references sources, and synthesizes comprehensive answers. ' +
-    'Use for questions that require thorough investigation rather than a quick lookup.',
+  description: 'Thorough, multi-step research on complex topics',
   instructions: `You are a deep research specialist. Your job is to thoroughly investigate complex questions by conducting multiple rounds of web searches, cross-referencing sources, and synthesizing your findings.
 
 Research process:

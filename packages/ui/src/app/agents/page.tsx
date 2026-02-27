@@ -3,33 +3,17 @@
 import {
   AlertTriangleIcon,
   BotIcon,
-  CheckCircle2Icon,
   CheckIcon,
   ChevronsUpDownIcon,
-  ClockIcon,
-  DicesIcon,
-  FolderIcon,
-  GlobeIcon,
-  InfoIcon,
-  KeyIcon,
   Loader2Icon,
-  XCircleIcon,
+  SettingsIcon,
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { ProviderLogo } from '@/components/provider-logo'
-import { ConfigField } from '@/components/settings/config-field'
-import { EnvVarWarning } from '@/components/settings/env-var-warning'
+import { PermissionDisplay } from '@/components/settings/permission-display'
+import { type PluginBase, PluginCard, PluginInfoDialog } from '@/components/settings/plugin-card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import {
   Command,
   CommandEmpty,
@@ -50,21 +34,6 @@ import type { ModelConfig } from '@/hooks/use-config'
 import { useConfig, useUpdateConfig } from '@/hooks/use-config'
 import { useModels } from '@/hooks/use-models'
 import { cn } from '@/lib/utils'
-
-// ---------------------------------------------------------------------------
-// Permission badges (shared pattern from tools page)
-// ---------------------------------------------------------------------------
-
-const PERMISSION_BADGES: Record<
-  string,
-  { label: string; icon: React.ComponentType<{ className?: string }> }
-> = {
-  time: { label: 'Time', icon: ClockIcon },
-  network: { label: 'Network', icon: GlobeIcon },
-  env: { label: 'Env', icon: KeyIcon },
-  fs: { label: 'Filesystem', icon: FolderIcon },
-  random: { label: 'Random', icon: DicesIcon },
-}
 
 // ---------------------------------------------------------------------------
 // Scoped tool row
@@ -99,32 +68,18 @@ function ScopedToolRow({
     })
   }
 
-  const permissions = tool.permissions ?? {}
-  const permissionKeys = Object.keys(permissions).filter(
-    (k) => permissions[k as keyof typeof permissions],
-  )
-
   return (
     <div className="flex flex-col gap-3 rounded-lg border p-4">
       <div className="flex items-start justify-between gap-4">
         <div className="flex flex-col gap-1">
           <p className="font-medium text-sm">{tool.name}</p>
           <p className="text-muted-foreground text-xs">{tool.description}</p>
-          <div className="mt-1 flex flex-wrap gap-1.5">
-            <Badge variant="outline" className="text-[10px]">
-              {tool.sandbox}
-            </Badge>
-            {permissionKeys.map((key) => {
-              const badge = PERMISSION_BADGES[key]
-              if (!badge) return null
-              const Icon = badge.icon
-              return (
-                <Badge key={key} variant="secondary" className="text-[10px]">
-                  <Icon className="size-3" />
-                  {badge.label}
-                </Badge>
-              )
-            })}
+          <div className="mt-1">
+            <PermissionDisplay
+              permissions={tool.permissions as Record<string, boolean | string[]>}
+              sandbox={tool.sandbox}
+              compact
+            />
           </div>
         </div>
         <Switch checked={enabled} onCheckedChange={handleToggle} />
@@ -134,10 +89,10 @@ function ScopedToolRow({
 }
 
 // ---------------------------------------------------------------------------
-// Agent row with model selector
+// Agent settings dialog content
 // ---------------------------------------------------------------------------
 
-function AgentRow({
+function AgentSettingsContent({
   agent,
   agentConfig,
 }: {
@@ -146,7 +101,6 @@ function AgentRow({
 }) {
   const updateConfig = useUpdateConfig()
   const { data: modelsData } = useModels()
-  const [enabled, setEnabled] = useState(agent.enabled)
   const [customModel, setCustomModel] = useState(!!agent.model)
   const [provider, setProvider] = useState(agent.model?.provider ?? '')
   const [model, setModel] = useState(agent.model?.model ?? '')
@@ -154,7 +108,6 @@ function AgentRow({
   const [modelOpen, setModelOpen] = useState(false)
 
   useEffect(() => {
-    setEnabled(agent.enabled)
     setCustomModel(!!agent.model)
     setProvider(agent.model?.provider ?? '')
     setModel(agent.model?.model ?? '')
@@ -168,27 +121,21 @@ function AgentRow({
   const selectedProvider = allProviders.find((p) => p.id === provider)
   const models = selectedProvider?.models ?? []
 
-  function save(overrides?: { enabled?: boolean; model?: ModelConfig | null }) {
-    const isEnabled = overrides?.enabled ?? enabled
+  function save(overrides?: { model?: ModelConfig | null }) {
     const modelValue =
       overrides?.model !== undefined
-        ? overrides.model
+        ? (overrides.model ?? undefined)
         : customModel
           ? { provider, model }
           : undefined
     updateConfig.mutate({
       agents: {
         [agent.id]: {
-          enabled: isEnabled,
+          enabled: agent.enabled,
           ...(modelValue !== undefined ? { model: modelValue } : {}),
         },
       },
     })
-  }
-
-  function handleToggle(checked: boolean) {
-    setEnabled(checked)
-    save({ enabled: checked })
   }
 
   function handleCustomModelToggle(checked: boolean) {
@@ -200,40 +147,276 @@ function AgentRow({
     }
   }
 
-  const warnings = agent.alerts.filter((a) => a.level === 'warning')
-  const infos = agent.alerts.filter((a) => a.level === 'info')
+  return (
+    <div className="flex flex-col gap-3">
+      {/* Custom model toggle */}
+      <div className="flex items-center gap-3">
+        <Switch
+          id={`${agent.id}-custom-model`}
+          checked={customModel}
+          onCheckedChange={handleCustomModelToggle}
+          size="sm"
+        />
+        <Label htmlFor={`${agent.id}-custom-model`}>Custom model</Label>
+      </div>
 
-  const hasSettings = enabled
+      {customModel && (
+        <ModelSelector
+          provider={provider}
+          model={model}
+          providers={providers}
+          models={models}
+          selectedProvider={selectedProvider}
+          providerOpen={providerOpen}
+          modelOpen={modelOpen}
+          onProviderChange={(id) => {
+            setProvider(id)
+            if (provider !== id) setModel('')
+          }}
+          onModelSelect={(m) => {
+            setModel(m)
+            if (provider) save({ model: { provider, model: m } })
+          }}
+          onProviderOpenChange={setProviderOpen}
+          onModelOpenChange={setModelOpen}
+        />
+      )}
+
+      {/* Scoped tools */}
+      {agent.tools.length > 0 && (
+        <div className="flex flex-col gap-2">
+          <p className="font-medium text-muted-foreground text-xs">Tools</p>
+          {agent.tools.map((tool) => (
+            <ScopedToolRow key={tool.id} tool={tool} agentId={agent.id} agentConfig={agentConfig} />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Model selector (extracted to reduce complexity)
+// ---------------------------------------------------------------------------
+
+interface ProviderInfo {
+  id: string
+  name: string
+  configured: boolean
+  models: string[]
+}
+
+function ModelSelector({
+  provider,
+  model,
+  providers,
+  models,
+  selectedProvider,
+  providerOpen,
+  modelOpen,
+  onProviderChange,
+  onModelSelect,
+  onProviderOpenChange,
+  onModelOpenChange,
+}: {
+  provider: string
+  model: string
+  providers: ProviderInfo[]
+  models: string[]
+  selectedProvider?: ProviderInfo
+  providerOpen: boolean
+  modelOpen: boolean
+  onProviderChange: (id: string) => void
+  onModelSelect: (m: string) => void
+  onProviderOpenChange: (open: boolean) => void
+  onModelOpenChange: (open: boolean) => void
+}) {
+  return (
+    <div className="flex gap-3">
+      <div className="flex flex-1 flex-col gap-2">
+        <Popover open={providerOpen} onOpenChange={onProviderOpenChange}>
+          <PopoverTrigger asChild>
+            <Button variant="outline" size="sm" className="justify-between font-normal">
+              <span className="flex items-center gap-2 truncate">
+                {selectedProvider && <ProviderLogo providerId={provider} className="size-3.5" />}
+                {selectedProvider ? selectedProvider.name : provider || 'Provider...'}
+              </span>
+              <ChevronsUpDownIcon className="ml-2 size-3 shrink-0 opacity-50" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="p-0">
+            <Command>
+              <CommandInput placeholder="Search providers..." />
+              <CommandList>
+                <CommandEmpty>No provider found.</CommandEmpty>
+                {providers.map((p) => (
+                  <CommandItem
+                    key={p.id}
+                    value={p.name}
+                    onSelect={() => {
+                      onProviderChange(p.id)
+                      onProviderOpenChange(false)
+                    }}
+                  >
+                    <CheckIcon
+                      className={cn('mr-2 size-4', provider === p.id ? 'opacity-100' : 'opacity-0')}
+                    />
+                    <ProviderLogo providerId={p.id} />
+                    <span className="truncate">{p.name}</span>
+                    {!p.configured && (
+                      <span className="ml-auto text-muted-foreground text-xs">Not configured</span>
+                    )}
+                  </CommandItem>
+                ))}
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
+      </div>
+      <div className="flex flex-1 flex-col gap-2">
+        <Popover open={modelOpen} onOpenChange={onModelOpenChange}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              className="justify-between font-normal"
+              disabled={!provider}
+            >
+              {model || 'Model...'}
+              <ChevronsUpDownIcon className="ml-2 size-3 shrink-0 opacity-50" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="p-0">
+            <Command>
+              <CommandInput placeholder="Search models..." />
+              <CommandList>
+                <CommandEmpty>No model found.</CommandEmpty>
+                {models.map((m) => (
+                  <CommandItem
+                    key={m}
+                    value={m}
+                    onSelect={() => {
+                      onModelSelect(m)
+                      onModelOpenChange(false)
+                    }}
+                  >
+                    <CheckIcon
+                      className={cn('mr-2 size-4', model === m ? 'opacity-100' : 'opacity-0')}
+                    />
+                    {m}
+                  </CommandItem>
+                ))}
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Adapt AgentInfo → PluginBase (inherits metadata from parent plugin)
+// ---------------------------------------------------------------------------
+
+function agentAsPlugin(
+  agent: AgentInfo,
+  parentPlugin: AgentPluginInfo,
+  agentConfig?: { enabled: boolean; tools?: Record<string, { enabled: boolean }> },
+): PluginBase {
+  // Preserve model + tools in config so the dialog's save doesn't lose them
+  const config: Record<string, unknown> = {}
+  if (agent.model) config.model = agent.model
+  if (agentConfig?.tools) config.tools = agentConfig.tools
+
+  return {
+    id: agent.id,
+    name: agent.name,
+    description: agent.description,
+    author: parentPlugin.author,
+    icon: parentPlugin.icon,
+    version: parentPlugin.version,
+    homepage: parentPlugin.homepage,
+    repository: parentPlugin.repository,
+    license: parentPlugin.license,
+    envVars: [],
+    envConfigured: true,
+    configFields: [],
+    enabled: agent.enabled,
+    config,
+    alerts: agent.alerts,
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Agent row — uses PluginInfoDialog
+// ---------------------------------------------------------------------------
+
+function AgentRow({
+  agent,
+  parentPlugin,
+  agentConfig,
+}: {
+  agent: AgentInfo
+  parentPlugin: AgentPluginInfo
+  agentConfig?: { enabled: boolean; tools?: Record<string, { enabled: boolean }> }
+}) {
+  const updateConfig = useUpdateConfig()
+  const [enabled, setEnabled] = useState(agent.enabled)
+
+  useEffect(() => {
+    setEnabled(agent.enabled)
+  }, [agent])
+
+  const infos = agent.alerts.filter((a) => a.level === 'info')
+  const warnings = agent.alerts.filter((a) => a.level === 'warning')
+
   const modelSummary = useMemo(() => {
     if (!agent.model) return null
     return `${agent.model.provider}/${agent.model.model}`
   }, [agent.model])
 
+  const plugin = agentAsPlugin(agent, parentPlugin, agentConfig)
+
+  function handleToggle(checked: boolean) {
+    setEnabled(checked)
+    updateConfig.mutate({
+      agents: {
+        [agent.id]: { enabled: checked },
+      },
+    })
+  }
+
   return (
-    <Collapsible className="rounded-lg border">
+    <div className="rounded-lg border">
       <div className="flex items-center justify-between gap-4 p-4">
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <div className="flex items-center gap-2">
             <p className="font-medium text-sm">{agent.name}</p>
             {infos.map((info, i) => (
-              <Badge key={`${i}-${info.message}`} variant="outline" className="text-[10px]">
-                <InfoIcon className="size-3" />
+              <Badge key={`${i}-${info.message}`} variant="outline">
                 {info.message}
               </Badge>
             ))}
           </div>
           <p className="text-muted-foreground text-xs">{agent.description}</p>
           {modelSummary && (
-            <p className="mt-0.5 font-mono text-[10px] text-muted-foreground">{modelSummary}</p>
+            <p className="mt-0.5 font-mono text-muted-foreground text-xs">{modelSummary}</p>
           )}
         </div>
         <div className="flex items-center gap-2">
-          {hasSettings && (
-            <CollapsibleTrigger asChild>
-              <Button variant="ghost" size="icon" className="size-7">
-                <ChevronsUpDownIcon className="size-3.5" />
-              </Button>
-            </CollapsibleTrigger>
+          {enabled && (
+            <PluginInfoDialog
+              plugin={plugin}
+              configKey="agents"
+              trigger={
+                <Button variant="ghost" size="icon" className="size-7">
+                  <SettingsIcon className="size-3.5" />
+                </Button>
+              }
+            >
+              <AgentSettingsContent agent={agent} agentConfig={agentConfig} />
+            </PluginInfoDialog>
           )}
           <Switch checked={enabled} onCheckedChange={handleToggle} />
         </div>
@@ -254,184 +437,7 @@ function AgentRow({
           </ul>
         </div>
       )}
-
-      {enabled && (
-        <CollapsibleContent>
-          <div className="flex flex-col gap-3 border-t px-4 py-3">
-            <div className="flex items-center gap-3">
-              <Switch
-                id={`${agent.id}-custom-model`}
-                checked={customModel}
-                onCheckedChange={handleCustomModelToggle}
-                size="sm"
-              />
-              <Label htmlFor={`${agent.id}-custom-model`}>Custom model</Label>
-            </div>
-
-            {customModel && (
-              <div className="flex gap-3">
-                <div className="flex flex-1 flex-col gap-2">
-                  <Popover open={providerOpen} onOpenChange={setProviderOpen}>
-                    <PopoverTrigger asChild>
-                      <Button variant="outline" size="sm" className="justify-between font-normal">
-                        <span className="flex items-center gap-2 truncate">
-                          {selectedProvider && (
-                            <ProviderLogo providerId={provider} className="size-3.5" />
-                          )}
-                          {selectedProvider ? selectedProvider.name : provider || 'Provider...'}
-                        </span>
-                        <ChevronsUpDownIcon className="ml-2 size-3 shrink-0 opacity-50" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="p-0">
-                      <Command>
-                        <CommandInput placeholder="Search providers..." />
-                        <CommandList>
-                          <CommandEmpty>No provider found.</CommandEmpty>
-                          {providers.map((p) => (
-                            <CommandItem
-                              key={p.id}
-                              value={p.name}
-                              onSelect={() => {
-                                setProvider(p.id)
-                                if (provider !== p.id) setModel('')
-                                setProviderOpen(false)
-                              }}
-                            >
-                              <CheckIcon
-                                className={cn(
-                                  'mr-2 size-4',
-                                  provider === p.id ? 'opacity-100' : 'opacity-0',
-                                )}
-                              />
-                              <ProviderLogo providerId={p.id} />
-                              <span className="truncate">{p.name}</span>
-                              {!p.configured && (
-                                <span className="ml-auto text-muted-foreground text-xs">
-                                  Not configured
-                                </span>
-                              )}
-                            </CommandItem>
-                          ))}
-                        </CommandList>
-                      </Command>
-                    </PopoverContent>
-                  </Popover>
-                </div>
-                <div className="flex flex-1 flex-col gap-2">
-                  <Popover open={modelOpen} onOpenChange={setModelOpen}>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="justify-between font-normal"
-                        disabled={!provider}
-                      >
-                        {model || 'Model...'}
-                        <ChevronsUpDownIcon className="ml-2 size-3 shrink-0 opacity-50" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="p-0">
-                      <Command>
-                        <CommandInput placeholder="Search models..." />
-                        <CommandList>
-                          <CommandEmpty>No model found.</CommandEmpty>
-                          {models.map((m) => (
-                            <CommandItem
-                              key={m}
-                              value={m}
-                              onSelect={() => {
-                                setModel(m)
-                                setModelOpen(false)
-                              }}
-                            >
-                              <CheckIcon
-                                className={cn(
-                                  'mr-2 size-4',
-                                  model === m ? 'opacity-100' : 'opacity-0',
-                                )}
-                              />
-                              {m}
-                            </CommandItem>
-                          ))}
-                        </CommandList>
-                      </Command>
-                    </PopoverContent>
-                  </Popover>
-                </div>
-                <Button
-                  size="sm"
-                  disabled={updateConfig.isPending || !provider || !model}
-                  onClick={() => save()}
-                >
-                  {updateConfig.isPending ? (
-                    <Loader2Icon className="size-4 animate-spin" />
-                  ) : (
-                    'Save'
-                  )}
-                </Button>
-              </div>
-            )}
-
-            {agent.tools.length > 0 && (
-              <div className="flex flex-col gap-2">
-                <p className="font-medium text-muted-foreground text-xs">Tools</p>
-                {agent.tools.map((tool) => (
-                  <ScopedToolRow
-                    key={tool.id}
-                    tool={tool}
-                    agentId={agent.id}
-                    agentConfig={agentConfig}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-        </CollapsibleContent>
-      )}
-    </Collapsible>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Plugin status badge
-// ---------------------------------------------------------------------------
-
-function PluginStatusBadge({
-  plugin,
-  configured,
-}: {
-  plugin: AgentPluginInfo
-  configured: boolean
-}) {
-  if (plugin.validationErrors.length > 0) {
-    return (
-      <Badge variant="destructive" className="text-[10px]">
-        <AlertTriangleIcon className="size-3" />
-        Invalid config
-      </Badge>
-    )
-  }
-  if (!plugin.envConfigured) {
-    return (
-      <Badge variant="destructive" className="text-[10px]">
-        <XCircleIcon className="size-3" />
-        Missing env vars
-      </Badge>
-    )
-  }
-  if (configured) {
-    return (
-      <Badge variant="secondary" className="text-[10px]">
-        <CheckCircle2Icon className="size-3" />
-        Configured
-      </Badge>
-    )
-  }
-  return (
-    <Badge variant="outline" className="text-[10px]">
-      Not configured
-    </Badge>
+    </div>
   )
 }
 
@@ -448,116 +454,23 @@ function AgentPluginCard({
   agents: AgentInfo[]
   agentConfigs: Record<string, { enabled: boolean; tools?: Record<string, { enabled: boolean }> }>
 }) {
-  const updateConfig = useUpdateConfig()
-  const [enabled, setEnabled] = useState(plugin.enabled)
-  const [fields, setFields] = useState<Record<string, unknown>>(plugin.config)
-
-  useEffect(() => {
-    setEnabled(plugin.enabled)
-    setFields(plugin.config)
-  }, [plugin])
-
-  const requiredFieldsFilled = plugin.configFields
-    .filter((f) => f.required)
-    .every((f) => {
-      const val = fields[f.key]
-      return typeof val === 'string' ? val.trim() !== '' : val != null
-    })
-
-  const savedRequiredFieldsFilled = plugin.configFields
-    .filter((f) => f.required)
-    .every((f) => {
-      const val = plugin.config[f.key]
-      return typeof val === 'string' ? val.trim() !== '' : val != null
-    })
-
-  const configured = plugin.envConfigured && savedRequiredFieldsFilled
-  const canEnable = plugin.envConfigured && requiredFieldsFilled
-
-  const isDirty =
-    enabled !== plugin.enabled || JSON.stringify(fields) !== JSON.stringify(plugin.config)
-
-  function save() {
-    updateConfig.mutate({
-      agentPlugins: { [plugin.id]: { ...fields, enabled } },
-    })
-  }
-
-  function handleToggle(checked: boolean) {
-    setEnabled(checked)
-    updateConfig.mutate({
-      agentPlugins: { [plugin.id]: { ...plugin.config, enabled: checked } },
-    })
-  }
-
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex flex-col gap-1">
-          <CardTitle className="text-sm">{plugin.name}</CardTitle>
-          <CardDescription className="font-mono text-xs">{plugin.id}</CardDescription>
-          <div className="mt-1 flex flex-wrap gap-1.5">
-            <PluginStatusBadge plugin={plugin} configured={configured} />
-          </div>
-        </div>
-        <CardAction>
-          <Switch checked={enabled} onCheckedChange={handleToggle} disabled={!canEnable} />
-        </CardAction>
-      </CardHeader>
+    <div className="flex flex-col gap-4">
+      <PluginCard plugin={{ ...plugin, alerts: [] }} configKey="agentPlugins" />
 
-      {!plugin.envConfigured && plugin.envVars.length > 0 && (
-        <CardContent>
-          <EnvVarWarning envVars={plugin.envVars} />
-        </CardContent>
-      )}
-
-      {plugin.validationErrors.length > 0 && (
-        <CardContent>
-          <div className="rounded-md border border-destructive/30 bg-destructive/5 p-4 text-sm">
-            <p className="flex items-center gap-1.5 font-medium text-destructive">
-              <AlertTriangleIcon className="size-3.5" />
-              Invalid configuration
-            </p>
-            <ul className="mt-1.5 list-inside list-disc text-muted-foreground">
-              {plugin.validationErrors.map((err) => (
-                <li key={err} className="font-mono text-xs">
-                  {err}
-                </li>
-              ))}
-            </ul>
-          </div>
-        </CardContent>
-      )}
-
-      {plugin.envConfigured && plugin.configFields.length > 0 && (
-        <CardContent className="flex flex-col gap-4">
-          {plugin.configFields.map((field) => (
-            <ConfigField
-              key={field.key}
-              field={field}
-              scopeId={plugin.id}
-              value={fields[field.key]}
-              onChange={(v) => setFields({ ...fields, [field.key]: v })}
+      {plugin.enabled && agents.length > 0 && (
+        <div className="flex flex-col gap-3 pl-4">
+          {agents.map((agent) => (
+            <AgentRow
+              key={agent.id}
+              agent={agent}
+              parentPlugin={plugin}
+              agentConfig={agentConfigs[agent.id]}
             />
           ))}
-
-          {isDirty && (
-            <Button size="sm" className="self-end" disabled={updateConfig.isPending} onClick={save}>
-              {updateConfig.isPending ? <Loader2Icon className="size-4 animate-spin" /> : 'Save'}
-            </Button>
-          )}
-        </CardContent>
+        </div>
       )}
-
-      {enabled && agents.length > 0 && (
-        <CardContent className="flex flex-col gap-3">
-          <p className="font-medium text-muted-foreground text-xs">Agents</p>
-          {agents.map((agent) => (
-            <AgentRow key={agent.id} agent={agent} agentConfig={agentConfigs[agent.id]} />
-          ))}
-        </CardContent>
-      )}
-    </Card>
+    </div>
   )
 }
 
@@ -597,10 +510,10 @@ export default function AgentsPage() {
   const agentsById = new Map((agents ?? []).map((a) => [a.id, a]))
 
   return (
-    <div className="flex flex-1 flex-col gap-6 p-6">
+    <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 p-6">
       <h1 className="font-semibold text-2xl">Agents</h1>
 
-      <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <section className="flex flex-col gap-4">
         {plugins.map((plugin) => {
           const pluginAgents = plugin.agentIds
             .map((id) => agentsById.get(id))

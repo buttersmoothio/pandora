@@ -36,6 +36,30 @@ describe('adaptManifest', () => {
     expect(result.tools[0].getTools).toBeTypeOf('function')
   })
 
+  it('stamps tool exports with sandbox and permissions from provides entry', () => {
+    const toolExport = {
+      id: 'search',
+      name: 'Search',
+      description: 'Search the web',
+      execute: async () => ({}),
+    }
+    const permissions = { network: ['api.example.com'], env: ['API_KEY'] }
+    const entries: LoadedEntry[] = [
+      {
+        key: 'tools',
+        entry: { entry: './src/index.ts', sandbox: 'host', permissions },
+        namespace: { tools: [toolExport] },
+      },
+    ]
+
+    const result = adaptManifest(baseManifest, entries)
+    const plugin = result.tools[0]
+    expect(plugin.sandbox).toBe('host')
+    expect(plugin.permissions).toEqual(permissions)
+    expect(plugin.tools[0].sandbox).toBe('host')
+    expect(plugin.tools[0].permissions).toEqual(permissions)
+  })
+
   it('adapts agent entries (one per entry point)', () => {
     const entries: LoadedEntry[] = [
       {
@@ -165,5 +189,45 @@ describe('adaptManifest', () => {
     expect(result.tools[0].configFields).toEqual([
       { key: 'backend', label: 'Backend', type: 'text' },
     ])
+  })
+
+  it('includes store metadata fields in adapted plugins', () => {
+    const manifest: PluginManifest = {
+      ...baseManifest,
+      icon: 'https://example.com/icon.png',
+      version: '1.2.0',
+      homepage: 'https://example.com',
+      repository: 'https://github.com/example/plugin',
+      license: 'MIT',
+    }
+
+    const entries: LoadedEntry[] = [
+      {
+        key: 'tools',
+        entry: { entry: './src/index.ts' },
+        namespace: { tools: [] },
+      },
+      {
+        key: 'channels',
+        entry: { entry: './src/channel.ts' },
+        namespace: { factory: () => null },
+      },
+    ]
+
+    const result = adaptManifest(manifest, entries)
+
+    // Tools plugin
+    expect(result.tools[0].icon).toBe('https://example.com/icon.png')
+    expect(result.tools[0].version).toBe('1.2.0')
+    expect(result.tools[0].homepage).toBe('https://example.com')
+    expect(result.tools[0].repository).toBe('https://github.com/example/plugin')
+    expect(result.tools[0].license).toBe('MIT')
+
+    // Channels plugin
+    expect(result.channels[0].icon).toBe('https://example.com/icon.png')
+    expect(result.channels[0].version).toBe('1.2.0')
+    expect(result.channels[0].homepage).toBe('https://example.com')
+    expect(result.channels[0].repository).toBe('https://github.com/example/plugin')
+    expect(result.channels[0].license).toBe('MIT')
   })
 })

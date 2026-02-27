@@ -37,13 +37,19 @@ discoveryRoutes.get('/tools', async (c) => {
   const toolPlugins = plugins.map((plugin) => {
     const pluginConfig = config.toolPlugins[plugin.id]
     const descriptors = plugin.envVars ?? []
-    const envConfigured = descriptors
-      .filter((d) => d.required !== false)
-      .every((d) => !!c.var.envVars[d.name])
+    const envVars = descriptors.map((d) => ({ ...d, configured: !!c.var.envVars[d.name] }))
+    const envConfigured = envVars.filter((d) => d.required !== false).every((d) => d.configured)
     return {
       id: plugin.id,
       name: plugin.name,
-      envVars: descriptors,
+      description: plugin.description,
+      author: plugin.author,
+      icon: plugin.icon,
+      version: plugin.version,
+      homepage: plugin.homepage,
+      repository: plugin.repository,
+      license: plugin.license,
+      envVars,
       envConfigured,
       configFields: plugin.configFields ?? [],
       enabled: pluginConfig?.enabled ?? true,
@@ -51,6 +57,8 @@ discoveryRoutes.get('/tools', async (c) => {
       validationErrors: validationErrors[plugin.id] ?? [],
       alerts: getPluginAlerts(plugin.id),
       toolIds: getPluginToolIds(plugin.id),
+      sandbox: plugin.sandbox ?? 'compartment',
+      permissions: plugin.permissions,
     }
   })
 
@@ -87,9 +95,8 @@ discoveryRoutes.get('/channels', async (c) => {
   const channels = getAllRegisteredChannelPlugins().map((plugin) => {
     const channelConfig = config.channels[plugin.id]
     const descriptors = plugin.envVars ?? []
-    const envConfigured = descriptors
-      .filter((d) => d.required !== false)
-      .every((d) => !!c.var.envVars[d.name])
+    const envVars = descriptors.map((d) => ({ ...d, configured: !!c.var.envVars[d.name] }))
+    const envConfigured = envVars.filter((d) => d.required !== false).every((d) => d.configured)
     const adapterId = plugin.id.replace(/^channel-/, '')
     const loaded = loadedIds.has(adapterId)
     const adapter = loadedChannels.find((ch) => ch.id === adapterId)
@@ -97,7 +104,14 @@ discoveryRoutes.get('/channels', async (c) => {
     return {
       id: plugin.id,
       name: plugin.name,
-      envVars: descriptors,
+      description: plugin.description,
+      author: plugin.author,
+      icon: plugin.icon,
+      version: plugin.version,
+      homepage: plugin.homepage,
+      repository: plugin.repository,
+      license: plugin.license,
+      envVars,
       envConfigured,
       configFields: plugin.configFields ?? [],
       enabled: channelConfig?.enabled ?? false,
@@ -140,9 +154,8 @@ discoveryRoutes.get('/agents', async (c) => {
   const agentPlugins = plugins.map((plugin) => {
     const pluginConfig = config.agentPlugins[plugin.id]
     const descriptors = plugin.envVars ?? []
-    const envConfigured = descriptors
-      .filter((d) => d.required !== false)
-      .every((d) => !!c.var.envVars[d.name])
+    const envVars = descriptors.map((d) => ({ ...d, configured: !!c.var.envVars[d.name] }))
+    const envConfigured = envVars.filter((d) => d.required !== false).every((d) => d.configured)
 
     // Aggregate alerts from all agents in this plugin
     const pluginAlerts = getPluginAgentIds(plugin.id).flatMap((id) => getAgentAlerts(id))
@@ -150,7 +163,14 @@ discoveryRoutes.get('/agents', async (c) => {
     return {
       id: plugin.id,
       name: plugin.name,
-      envVars: descriptors,
+      description: plugin.description,
+      author: plugin.author,
+      icon: plugin.icon,
+      version: plugin.version,
+      homepage: plugin.homepage,
+      repository: plugin.repository,
+      license: plugin.license,
+      envVars,
       envConfigured,
       configFields: plugin.configFields ?? [],
       enabled: pluginConfig?.enabled ?? true,

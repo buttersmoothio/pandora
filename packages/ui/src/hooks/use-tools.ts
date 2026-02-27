@@ -35,6 +35,13 @@ export interface Alert {
 export interface ToolPluginInfo {
   id: string
   name: string
+  description?: string
+  author?: string
+  icon?: string
+  version?: string
+  homepage?: string
+  repository?: string
+  license?: string
   envVars: EnvVarDescriptor[]
   envConfigured: boolean
   configFields: ConfigFieldDescriptor[]
@@ -43,6 +50,8 @@ export interface ToolPluginInfo {
   validationErrors: string[]
   alerts: Alert[]
   toolIds: string[]
+  sandbox: 'compartment' | 'host'
+  permissions?: ToolPermissions
   requireApproval?: boolean
 }
 

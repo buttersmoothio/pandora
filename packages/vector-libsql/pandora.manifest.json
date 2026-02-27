@@ -2,7 +2,12 @@
   "manifestVersion": 1,
   "id": "vector-libsql",
   "name": "SQLite Vector",
-  "description": "LibSQL/SQLite vector storage provider",
+  "description": "Enable long-term memory with local SQLite vector search",
+  "author": "Pandora",
+  "version": "0.1.0",
+  "license": "MIT",
+  "homepage": "https://turso.tech/libsql",
+  "repository": "https://github.com/mprasanjith/pandora/tree/master/packages/vector-libsql",
   "pandora": ">=0.0.1",
   "provides": {
     "vector": {

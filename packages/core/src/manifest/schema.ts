@@ -50,20 +50,6 @@ const providesEntrySchema = z.object({
 const providesValueSchema = z.union([providesEntrySchema, z.array(providesEntrySchema)])
 
 // ---------------------------------------------------------------------------
-// Store metadata (optional, for future plugin store)
-// ---------------------------------------------------------------------------
-
-const storeMetadataSchema = z
-  .object({
-    icon: z.string().optional(),
-    categories: z.array(z.string()).optional(),
-    screenshots: z.array(z.string()).optional(),
-    homepage: z.string().optional(),
-    repository: z.string().optional(),
-  })
-  .optional()
-
-// ---------------------------------------------------------------------------
 // Full manifest schema
 // ---------------------------------------------------------------------------
 
@@ -73,6 +59,12 @@ export const pluginManifestSchema = z.object({
   id: z.string(),
   name: z.string(),
   description: z.string().optional(),
+  author: z.string().optional(),
+  icon: z.string().optional(),
+  version: z.string().optional(),
+  homepage: z.string().optional(),
+  repository: z.string().optional(),
+  license: z.string().optional(),
   pandora: z.string(),
   provides: z.object({
     tools: providesValueSchema.optional(),
@@ -83,7 +75,6 @@ export const pluginManifestSchema = z.object({
   }),
   envVars: z.array(envVarDescriptorSchema).optional(),
   configFields: z.array(configFieldDescriptorSchema).optional(),
-  store: storeMetadataSchema,
 })
 
 // ---------------------------------------------------------------------------

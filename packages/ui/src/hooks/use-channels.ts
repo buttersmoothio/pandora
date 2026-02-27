@@ -14,11 +14,19 @@ export interface ConfigFieldDescriptor {
 export interface EnvVarDescriptor {
   name: string
   required?: boolean
+  configured?: boolean
 }
 
 export interface ChannelInfo {
   id: string
   name: string
+  description?: string
+  author?: string
+  icon?: string
+  version?: string
+  homepage?: string
+  repository?: string
+  license?: string
   envVars: EnvVarDescriptor[]
   envConfigured: boolean
   configFields: ConfigFieldDescriptor[]

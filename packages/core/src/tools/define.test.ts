@@ -107,6 +107,7 @@ describe('buildManifest', () => {
       id: 'test-tool',
       name: 'Test Tool',
       description: 'A test tool',
+      permissions: undefined,
       sandbox: 'compartment',
       annotations: undefined,
       timeout: DEFAULT_TOOL_TIMEOUT,
@@ -130,6 +131,19 @@ describe('buildManifest', () => {
     const exp = makeTestExport()
     const manifest = buildManifest(exp)
     expect(manifest.timeout).toBe(DEFAULT_TOOL_TIMEOUT)
+  })
+
+  it('includes permissions from ToolExport', () => {
+    const permissions = { network: ['api.example.com'], env: ['API_KEY'] }
+    const exp = makeTestExport({ permissions })
+    const manifest = buildManifest(exp)
+    expect(manifest.permissions).toEqual(permissions)
+  })
+
+  it('uses sandbox from ToolExport', () => {
+    const exp = makeTestExport({ sandbox: 'host' })
+    const manifest = buildManifest(exp)
+    expect(manifest.sandbox).toBe('host')
   })
 })
 

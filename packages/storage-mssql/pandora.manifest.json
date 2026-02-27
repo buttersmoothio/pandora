@@ -2,7 +2,12 @@
   "manifestVersion": 1,
   "id": "storage-mssql",
   "name": "MSSQL",
-  "description": "Microsoft SQL Server storage provider",
+  "description": "Store conversations and settings in Microsoft SQL Server",
+  "author": "Pandora",
+  "version": "0.1.0",
+  "license": "MIT",
+  "homepage": "https://www.microsoft.com/sql-server",
+  "repository": "https://github.com/mprasanjith/pandora/tree/master/packages/storage-mssql",
   "pandora": ">=0.0.1",
   "provides": {
     "storage": {

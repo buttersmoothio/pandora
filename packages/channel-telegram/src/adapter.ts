@@ -182,7 +182,11 @@ export function createTelegramAdapter(token: string, ownerId: string): ChannelAd
 
     async stop() {
       if (bot) {
-        await bot.stop()
+        try {
+          await bot.stop()
+        } catch {
+          // 409 "Conflict" is expected when cancelling long-polling
+        }
         bot = null
       }
     },

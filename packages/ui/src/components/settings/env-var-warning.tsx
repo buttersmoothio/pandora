@@ -1,36 +1,40 @@
+import { CheckCircle2Icon, CircleDotIcon, XCircleIcon } from 'lucide-react'
 import type { EnvVarDescriptor } from '@/hooks/use-channels'
 
-export function EnvVarWarning({ envVars }: { envVars: EnvVarDescriptor[] }) {
-  const required = envVars.filter((v) => v.required !== false)
-  const optional = envVars.filter((v) => v.required === false)
-  return (
-    <div className="rounded-md border border-yellow-500/30 bg-yellow-500/5 p-4 text-sm">
-      <p className="font-medium text-yellow-600 dark:text-yellow-400">
-        Missing environment variables
-      </p>
-      <p className="mt-1 text-muted-foreground">Add the following to your environment:</p>
-      <div className="mt-1.5 flex flex-wrap gap-1.5">
-        {required.map((v) => (
-          <code key={v.name} className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
-            {v.name}
-          </code>
-        ))}
+function EnvVarRow({ v }: { v: EnvVarDescriptor }) {
+  const isOptional = v.required === false
+
+  if (v.configured) {
+    return (
+      <div className="flex items-center gap-2 py-0.5">
+        <CheckCircle2Icon className="size-4 shrink-0 text-emerald-500" />
+        <code className="font-mono text-sm">{v.name}</code>
+        {isOptional && <span className="text-muted-foreground text-xs">optional</span>}
       </div>
-      {optional.length > 0 && (
-        <div className="mt-2">
-          <p className="text-muted-foreground text-xs">Optional:</p>
-          <div className="mt-1 flex flex-wrap gap-1.5">
-            {optional.map((v) => (
-              <code
-                key={v.name}
-                className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs opacity-60"
-              >
-                {v.name}
-              </code>
-            ))}
-          </div>
-        </div>
+    )
+  }
+
+  return (
+    <div className="flex items-center gap-2 py-0.5">
+      {isOptional ? (
+        <CircleDotIcon className="size-4 shrink-0 text-muted-foreground/40" />
+      ) : (
+        <XCircleIcon className="size-4 shrink-0 text-destructive" />
       )}
+      <code className="font-mono text-muted-foreground text-sm">{v.name}</code>
+      {isOptional && <span className="text-muted-foreground text-xs">optional</span>}
+    </div>
+  )
+}
+
+export function EnvVarOverview({ envVars }: { envVars: EnvVarDescriptor[] }) {
+  if (envVars.length === 0) return null
+
+  return (
+    <div className="flex flex-col">
+      {envVars.map((v) => (
+        <EnvVarRow key={v.name} v={v} />
+      ))}
     </div>
   )
 }
