@@ -1,7 +1,7 @@
 import { getManifest, getManifests } from '@pandora/core/tools'
 import { describe, expect, it } from 'vitest'
 import { currentTime } from './current-time'
-import plugin from './index'
+import { tools } from './index'
 
 describe('current-time tool', () => {
   const tool = currentTime({}, { enabled: true })
@@ -50,19 +50,14 @@ describe('current-time tool', () => {
   })
 })
 
-describe('plugin descriptor', () => {
-  it('has the expected id and schema version', () => {
-    expect(plugin.id).toBe('tools-datetime')
-    expect(plugin.schemaVersion).toBe(1)
-  })
-
+describe('tools export', () => {
   it('tools array contains current-time', () => {
-    expect(plugin.tools.map((t) => t.id)).toEqual(['current-time'])
+    expect(tools.map((t) => t.id)).toEqual(['current-time'])
   })
 
   it('tools produce manifests when instantiated', () => {
-    const record: Record<string, ReturnType<(typeof plugin.tools)[number]>> = {}
-    for (const toolDef of plugin.tools) {
+    const record: Record<string, ReturnType<(typeof tools)[number]>> = {}
+    for (const toolDef of tools) {
       record[toolDef.id] = toolDef({}, { enabled: true })
     }
     const manifests = getManifests(record)

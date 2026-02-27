@@ -1,9 +1,9 @@
 import { PostgresStore } from '@mastra/pg'
-import type { Config, StorageFactory, StoragePlugin } from '@pandora/core/storage'
+import type { Config, StorageFactory } from '@pandora/core/storage'
 import { SQLAuthStore, SQLConfigStore } from '@pandora/core/storage'
 import { Pool } from 'pg'
 
-export const createStorage: StorageFactory = async (env) => {
+export const factory: StorageFactory = async (env) => {
   if (!env.DATABASE_URL) {
     throw new Error('DATABASE_URL is required for PostgreSQL storage')
   }
@@ -28,10 +28,5 @@ export const createStorage: StorageFactory = async (env) => {
   return { mastra, config, auth, close: () => pool.end() }
 }
 
-export default {
-  id: 'storage-postgres',
-  name: 'PostgreSQL',
-  schemaVersion: 1,
-  envVars: [{ name: 'DATABASE_URL' }],
-  factory: createStorage,
-} satisfies StoragePlugin
+/** @deprecated Use `factory` */
+export const createStorage = factory

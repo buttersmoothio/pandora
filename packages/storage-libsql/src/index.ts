@@ -3,7 +3,7 @@ import { dirname, resolve } from 'node:path'
 import type { InArgs } from '@libsql/client'
 import { createClient } from '@libsql/client'
 import { LibSQLStore } from '@mastra/libsql'
-import type { Config, StorageFactory, StoragePlugin } from '@pandora/core/storage'
+import type { Config, StorageFactory } from '@pandora/core/storage'
 import { SQLAuthStore, SQLConfigStore } from '@pandora/core/storage'
 
 // Resolve to monorepo root: packages/storage-libsql/src -> ../../../data
@@ -24,7 +24,7 @@ function createLibSQLConfigStore(client: {
   }, 'sqlite')
 }
 
-export const createStorage: StorageFactory = async (env) => {
+export const factory: StorageFactory = async (env) => {
   const url = env.DATABASE_URL ?? `file:${DEFAULT_DB_PATH}`
 
   if (url.startsWith('file:')) {
@@ -59,10 +59,5 @@ export const createStorage: StorageFactory = async (env) => {
   }
 }
 
-export default {
-  id: 'storage-libsql',
-  name: 'SQLite',
-  schemaVersion: 1,
-  envVars: [],
-  factory: createStorage,
-} satisfies StoragePlugin
+/** @deprecated Use `factory` */
+export const createStorage = factory

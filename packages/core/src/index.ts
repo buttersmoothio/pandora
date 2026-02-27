@@ -1,6 +1,5 @@
 // SES lockdown — must run before any other code
 import './ses-lockdown'
-import './plugins'
 
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
@@ -9,6 +8,7 @@ import { authMiddleware } from './auth/middleware'
 import { createRateLimiter } from './auth/rate-limit'
 import { createAuthRoutes } from './auth/routes'
 import { getLogger } from './logger'
+import { loadAllPlugins } from './manifest'
 import { chatRoutes } from './routes/chat'
 import { configRoutes } from './routes/config'
 import { discoveryRoutes } from './routes/discovery'
@@ -20,8 +20,12 @@ import { webhookRoutes } from './routes/webhooks'
 
 // Re-export registration functions for plugin authors
 export { registerChannel as registerChannelFactory, registerChannelPlugin } from './channels'
+export { loadAllPlugins } from './manifest'
 export { registerStoragePlugin, registerStorageProvider } from './storage'
 export { registerToolPackage, registerToolPlugin } from './tools'
+
+// Discover and register all manifest-based plugins
+await loadAllPlugins()
 
 // Create Hono app
 const app = new Hono<Env>()

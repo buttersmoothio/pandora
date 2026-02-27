@@ -1,0 +1,13 @@
+{
+  "manifestVersion": 1,
+  "id": "agent-research",
+  "name": "Research",
+  "description": "Research agents for web search and deep research",
+  "pandora": ">=0.0.1",
+  "provides": {
+    "agents": [
+      { "entry": "./src/web-search.ts", "sandbox": "host" },
+      { "entry": "./src/research.ts", "sandbox": "host" }
+    ]
+  }
+}

@@ -1,9 +1,16 @@
-import datetime from '@pandora/tools-datetime'
+import { tools as datetimeTools } from '@pandora/tools-datetime'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { DEFAULTS } from '../config'
 import { getManifest } from './define'
 import { clearToolPlugins, getPluginAlerts, loadTools, registerToolPlugin } from './index'
 import type { ToolPlugin } from './types'
+
+const datetime: ToolPlugin = {
+  id: 'tools-datetime',
+  name: 'Date & Time',
+  schemaVersion: 1,
+  tools: datetimeTools,
+}
 
 describe('loadTools', () => {
   beforeEach(() => {

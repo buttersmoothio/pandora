@@ -1,6 +1,15 @@
-import libsql from '@pandora/storage-libsql'
+import { factory as libsqlFactory } from '@pandora/storage-libsql'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import type { StoragePlugin } from './index'
 import { clearStorageCache, clearStoragePlugins, getStorage, registerStoragePlugin } from './index'
+
+const libsql: StoragePlugin = {
+  id: 'storage-libsql',
+  name: 'SQLite',
+  schemaVersion: 1,
+  envVars: [],
+  factory: libsqlFactory,
+}
 
 describe('getStorage', () => {
   beforeEach(() => {

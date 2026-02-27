@@ -1,0 +1,14 @@
+{
+  "manifestVersion": 1,
+  "id": "storage-mongodb",
+  "name": "MongoDB",
+  "description": "MongoDB storage provider",
+  "pandora": ">=0.0.1",
+  "provides": {
+    "storage": {
+      "entry": "./src/index.ts",
+      "sandbox": "host"
+    }
+  },
+  "envVars": [{ "name": "MONGODB_URI" }]
+}

@@ -225,31 +225,15 @@ describe('realtime', () => {
   })
 })
 
-describe('plugin descriptor', () => {
-  it('has correct id and schemaVersion', async () => {
-    const plugin = (await import('./index')).default
-    expect(plugin.id).toBe('channel-telegram')
-    expect(plugin.schemaVersion).toBe(1)
-  })
-
-  it('exports configFields', async () => {
-    const plugin = (await import('./index')).default
-    expect(plugin.configFields).toBeDefined()
-    expect(plugin.configFields?.length).toBeGreaterThan(0)
-    expect(plugin.configFields?.[0].key).toBe('ownerId')
-  })
-
+describe('factory export', () => {
   it('factory returns null when token is missing', async () => {
-    const plugin = (await import('./index')).default
-    expect(plugin.factory({}, { enabled: true, ownerId: '123' })).toBeNull()
+    const { factory } = await import('./index')
+    expect(factory({}, { enabled: true, ownerId: '123' })).toBeNull()
   })
 
   it('factory returns adapter when token is present', async () => {
-    const plugin = (await import('./index')).default
-    const adapter = plugin.factory(
-      { TELEGRAM_BOT_TOKEN: 'test' },
-      { enabled: true, ownerId: '123' },
-    )
+    const { factory } = await import('./index')
+    const adapter = factory({ TELEGRAM_BOT_TOKEN: 'test' }, { enabled: true, ownerId: '123' })
     expect(adapter).not.toBeNull()
     expect(adapter?.id).toBe('telegram')
   })

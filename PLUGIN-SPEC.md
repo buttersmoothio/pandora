@@ -444,7 +444,7 @@ The manifest unifies these. **A single package can provide any combination** —
   "name": "Weather Tools",
   "description": "Current weather and forecasts for any city",
 
-  "pandora": ">=0.5.0",
+  "pandora": ">=0.0.1",
 
   "provides": {
     "tools": {
@@ -504,7 +504,7 @@ A Telegram package that provides a channel adapter (needs host for WebSocket) an
   "id": "pandora-telegram",
   "name": "Telegram",
   "description": "Telegram bot channel and messaging tools",
-  "pandora": ">=0.5.0",
+  "pandora": ">=0.0.1",
   "manifestVersion": 1,
 
   "provides": {
@@ -605,7 +605,8 @@ export function getTools(ctx: GetToolsContext): Promise<ToolRecord | GetToolsRes
 
 **Agents** (`provides.agents.entry`):
 ```typescript
-export const agents: AgentDefinition[]
+// Each entry point exports a single agent definition
+export const agent: AgentDefinition
 ```
 
 **Channels** (`provides.channels.entry`):
@@ -622,6 +623,14 @@ export function factory(env, bindings?): Promise<StorageResult>
 ```typescript
 export function factory(env, bindings?): Promise<VectorResult>
 ```
+
+### Entry point convention
+
+Workspace plugins during development use TypeScript entry points directly (e.g., `"./src/index.ts"`) since Bun handles TypeScript natively. Published npm plugins use compiled JavaScript (e.g., `"./dist/index.js"`). The compartment-mapper also supports TypeScript type erasure for workspace packages via `ts-blank-space`.
+
+### Implementation status
+
+The initial manifest system uses host-mode `import()` for all plugins while compartment-mapper integration is built incrementally. The manifest still declares the intended `sandbox` mode — once compartment loading is wired up, plugins will automatically run in their declared mode without manifest changes.
 
 ### What goes where
 
@@ -738,3 +747,69 @@ All without executing a single line of plugin code.
 ### Validation
 
 The manifest is validated with a Zod schema at discovery time. Invalid manifests are rejected with clear errors. The `$schema` field enables IDE autocompletion and validation for plugin authors.
+
+---
+
+## Implementation Checklist
+
+### Done
+
+- [x] Zod schema for `pandora.manifest.json` (`packages/core/src/manifest/schema.ts`)
+- [x] Workspace plugin discovery — scan `packages/` for manifests (`discover.ts`)
+- [x] Dynamic import loader — host-mode `import()` for all plugins (`loader.ts`)
+- [x] Manifest-to-plugin adapter — convert loaded modules into `ToolPlugin`/`AgentPlugin`/etc. (`adapter.ts`)
+- [x] Orchestrator — discover → load → adapt → register pipeline (`load-all.ts`)
+- [x] Barrel exports (`packages/core/src/manifest/index.ts`)
+- [x] `pandora.manifest.json` in all 11 plugin packages
+- [x] Plugin entry point rewrites — named exports (`tools`, `agents`, `factory`, `getTools`)
+- [x] `plugins.ts` replaced with `loadAllPlugins` re-export
+- [x] `index.ts` wired to `await loadAllPlugins()` at startup
+- [x] Workspace plugin deps removed from `@pandora/core` `package.json`
+- [x] Tests for schema validation, discovery, adapter, and full pipeline
+- [x] Existing tests updated for named export convention
+- [x] Spec updated with entry point convention and implementation status
+
+### Not done — Compartment sandbox
+
+- [ ] `@endo/compartment-mapper` integration for `sandbox: 'compartment'` plugins
+- [ ] `@pandora/core` as exit module for compartmentalized plugins
+- [ ] Scoped endowments from manifest `permissions` (scoped `fetch`, `env.get()`, `Date`, etc.)
+- [ ] Runtime enforcement of `ToolPermissions` via Compartment scope
+- [ ] Test first-party plugin compatibility in Compartments (`ai`, `zod`, `@tavily/ai-sdk`, etc.)
+- [ ] Source map support via `sourceMapHook` for Compartment stack traces
+
+### Not done — Per-dependency policy
+
+- [ ] Per-package authority via compartment-mapper policy system
+- [ ] LavaMoat TOFU (Trust On First Use) auto-generated policy
+- [ ] Policy file format and generation CLI
+
+### Not done — Plugin store & distribution
+
+- [ ] Plugin store API (index, search, metadata, trust levels)
+- [ ] Store UI in `packages/ui` (browse, install, enable/disable)
+- [ ] `pandora build` CLI wrapping `@endo/bundle-source` → `.pandora` bundle
+- [ ] Bundle integrity verification with `@endo/check-bundle`
+- [ ] Runtime bundle loading with `@endo/import-bundle`
+- [ ] npm registry integration for plugin distribution
+- [ ] Curated store layer with review/approval workflow
+
+### Not done — Hot reload
+
+- [ ] Install plugin without server restart
+- [ ] Unload/replace plugin at runtime (clear registration + Compartment)
+- [ ] UI-driven install → enable flow
+
+### Not done — Build-time bundling (Approach B)
+
+- [ ] `@endo/bundle-source` postinstall step for pre-compiled bundles
+- [ ] `endoZipBase64` archive format with SHA-512 per-module hashes
+- [ ] `@endo/import-bundle` runtime loading from bundle
+- [ ] Bundle caching and portability
+
+### Not done — Miscellaneous
+
+- [ ] `$schema` JSON schema generation and hosting for IDE autocompletion
+- [ ] Agent-written code sandbox wiring (`executeInCompartment` called from tool execution path)
+- [ ] UI permission display ("This plugin requests network access to X, Y, Z")
+- [ ] Pin Endo package versions to tested release

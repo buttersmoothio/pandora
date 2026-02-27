@@ -1,0 +1,13 @@
+{
+  "manifestVersion": 1,
+  "id": "vector-libsql",
+  "name": "SQLite Vector",
+  "description": "LibSQL/SQLite vector storage provider",
+  "pandora": ">=0.0.1",
+  "provides": {
+    "vector": {
+      "entry": "./src/index.ts",
+      "sandbox": "host"
+    }
+  }
+}

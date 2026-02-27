@@ -1,7 +1,7 @@
 import { defineAgent } from '@pandora/core/agents'
 import { resolveSearchTools } from '@pandora/tools-websearch'
 
-export const research = defineAgent({
+export const agent = defineAgent({
   id: 'research',
   name: 'Deep Research',
   description:

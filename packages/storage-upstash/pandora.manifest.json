@@ -1,0 +1,14 @@
+{
+  "manifestVersion": 1,
+  "id": "storage-upstash",
+  "name": "Upstash Redis",
+  "description": "Upstash Redis storage provider",
+  "pandora": ">=0.0.1",
+  "provides": {
+    "storage": {
+      "entry": "./src/index.ts",
+      "sandbox": "host"
+    }
+  },
+  "envVars": [{ "name": "UPSTASH_URL" }, { "name": "UPSTASH_TOKEN" }]
+}

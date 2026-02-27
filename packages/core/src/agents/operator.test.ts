@@ -1,9 +1,17 @@
 import type { MastraMemory } from '@mastra/core/memory'
-import datetime from '@pandora/tools-datetime'
+import { tools as datetimeTools } from '@pandora/tools-datetime'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Config } from '../config'
 import { DEFAULTS } from '../config'
+import type { ToolPlugin } from '../tools'
 import { clearToolPlugins, loadTools, registerToolPlugin } from '../tools'
+
+const datetime: ToolPlugin = {
+  id: 'tools-datetime',
+  name: 'Date & Time',
+  schemaVersion: 1,
+  tools: datetimeTools,
+}
 
 // Mock the Agent constructor to capture config
 const mockAgentConstructor = vi.fn()

@@ -1,0 +1,16 @@
+{
+  "manifestVersion": 1,
+  "id": "tools-datetime",
+  "name": "Date & Time",
+  "description": "Current date and time tools",
+  "pandora": ">=0.0.1",
+  "provides": {
+    "tools": {
+      "entry": "./src/index.ts",
+      "sandbox": "compartment",
+      "permissions": {
+        "time": true
+      }
+    }
+  }
+}

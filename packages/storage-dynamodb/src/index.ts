@@ -16,7 +16,6 @@ import type {
   RefreshToken,
   Session,
   StorageFactory,
-  StoragePlugin,
 } from '@pandora/core/storage'
 
 class DynamoDBConfigStore implements ConfigStore<Config> {
@@ -307,7 +306,7 @@ class DynamoDBAuthStore implements AuthStore {
   }
 }
 
-export const createStorage: StorageFactory = async (env) => {
+export const factory: StorageFactory = async (env) => {
   const tableName = env.DYNAMODB_TABLE_NAME ?? 'pandora'
 
   const dynamoClient = new DynamoDBClient({
@@ -347,10 +346,5 @@ export const createStorage: StorageFactory = async (env) => {
   }
 }
 
-export default {
-  id: 'storage-dynamodb',
-  name: 'DynamoDB',
-  schemaVersion: 1,
-  envVars: [{ name: 'AWS_REGION' }],
-  factory: createStorage,
-} satisfies StoragePlugin
+/** @deprecated Use `factory` */
+export const createStorage = factory

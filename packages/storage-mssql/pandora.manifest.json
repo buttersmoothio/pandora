@@ -1,0 +1,14 @@
+{
+  "manifestVersion": 1,
+  "id": "storage-mssql",
+  "name": "MSSQL",
+  "description": "Microsoft SQL Server storage provider",
+  "pandora": ">=0.0.1",
+  "provides": {
+    "storage": {
+      "entry": "./src/index.ts",
+      "sandbox": "host"
+    }
+  },
+  "envVars": [{ "name": "DATABASE_URL" }]
+}

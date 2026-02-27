@@ -1,7 +1,7 @@
 import { defineAgent } from '@pandora/core/agents'
 import { resolveSearchTools } from '@pandora/tools-websearch'
 
-export const webSearch = defineAgent({
+export const agent = defineAgent({
   id: 'web-search',
   name: 'Web Search',
   description:

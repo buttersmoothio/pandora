@@ -1,5 +1,13 @@
-import datetime from '@pandora/tools-datetime'
+import { tools as datetimeTools } from '@pandora/tools-datetime'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { ToolPlugin } from '../tools'
+
+const datetime: ToolPlugin = {
+  id: 'tools-datetime',
+  name: 'Date & Time',
+  schemaVersion: 1,
+  tools: datetimeTools,
+}
 
 // Mock Agent
 vi.mock('@mastra/core/agent', () => ({

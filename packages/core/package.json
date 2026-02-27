@@ -9,7 +9,8 @@
     "./channels": "./src/channels/exports.ts",
     "./vector": "./src/vector/exports.ts",
     "./agents": "./src/agents/exports.ts",
-    "./plugins": "./src/plugins.ts"
+    "./plugins": "./src/plugins.ts",
+    "./manifest": "./src/manifest/index.ts"
   },
   "scripts": {
     "dev": "bun run serve.ts",
@@ -24,12 +25,6 @@
     "@mastra/ai-sdk": "^1.0.4",
     "@mastra/core": "^1.4.0",
     "@mastra/memory": "^1.4.0",
-    "@pandora/agent-research": "workspace:*",
-    "@pandora/channel-telegram": "workspace:*",
-    "@pandora/storage-libsql": "workspace:*",
-    "@pandora/tools-datetime": "workspace:*",
-    "@pandora/tools-websearch": "workspace:*",
-    "@pandora/vector-libsql": "workspace:*",
     "ai": "^6.0.90",
     "hono": "^4.11.9",
     "ses": "^1.14.0",

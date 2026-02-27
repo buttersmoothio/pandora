@@ -1,0 +1,38 @@
+{
+  "manifestVersion": 1,
+  "id": "tools-websearch",
+  "name": "Web Search",
+  "description": "Web search via Tavily, Brave, Exa, or native model search",
+  "pandora": ">=0.0.1",
+  "provides": {
+    "tools": {
+      "entry": "./src/index.ts",
+      "sandbox": "compartment",
+      "permissions": {
+        "network": ["api.search.brave.com", "api.tavily.com", "api.exa.ai"],
+        "env": ["TAVILY_API_KEY", "BRAVE_API_KEY", "EXA_API_KEY", "PERPLEXITY_API_KEY"]
+      }
+    }
+  },
+  "envVars": [
+    { "name": "TAVILY_API_KEY", "required": false },
+    { "name": "BRAVE_API_KEY", "required": false },
+    { "name": "EXA_API_KEY", "required": false },
+    { "name": "PERPLEXITY_API_KEY", "required": false }
+  ],
+  "configFields": [
+    {
+      "key": "searchBackend",
+      "label": "Search Backend",
+      "type": "enum",
+      "description": "Preferred search backend. \"Auto\" detects from model and available API keys.",
+      "options": [
+        { "value": "auto", "label": "Auto-detect" },
+        { "value": "tavily", "label": "Tavily" },
+        { "value": "brave", "label": "Brave Search" },
+        { "value": "exa", "label": "Exa" },
+        { "value": "perplexity", "label": "Perplexity Search" }
+      ]
+    }
+  ]
+}

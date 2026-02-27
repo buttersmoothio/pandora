@@ -1,9 +1,9 @@
 import { MSSQLStore } from '@mastra/mssql'
-import type { Config, StorageFactory, StoragePlugin } from '@pandora/core/storage'
+import type { Config, StorageFactory } from '@pandora/core/storage'
 import { SQLAuthStore, SQLConfigStore } from '@pandora/core/storage'
 import sql from 'mssql'
 
-export const createStorage: StorageFactory = async (env) => {
+export const factory: StorageFactory = async (env) => {
   if (!env.DATABASE_URL) {
     throw new Error('DATABASE_URL is required for MSSQL storage')
   }
@@ -33,10 +33,5 @@ export const createStorage: StorageFactory = async (env) => {
   return { mastra, config, auth, close: () => pool.close() }
 }
 
-export default {
-  id: 'storage-mssql',
-  name: 'MSSQL',
-  schemaVersion: 1,
-  envVars: [{ name: 'DATABASE_URL' }],
-  factory: createStorage,
-} satisfies StoragePlugin
+/** @deprecated Use `factory` */
+export const createStorage = factory

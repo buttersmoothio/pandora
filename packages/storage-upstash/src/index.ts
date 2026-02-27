@@ -1,9 +1,9 @@
 import { UpstashStore } from '@mastra/upstash'
-import type { Config, StorageFactory, StoragePlugin } from '@pandora/core/storage'
+import type { Config, StorageFactory } from '@pandora/core/storage'
 import { RedisAuthStore, RedisConfigStore } from '@pandora/core/storage'
 import { Redis } from '@upstash/redis'
 
-export const createStorage: StorageFactory = async (env) => {
+export const factory: StorageFactory = async (env) => {
   if (!env.UPSTASH_URL) {
     throw new Error('UPSTASH_URL is required for Upstash storage')
   }
@@ -29,10 +29,5 @@ export const createStorage: StorageFactory = async (env) => {
   return { mastra, config, auth }
 }
 
-export default {
-  id: 'storage-upstash',
-  name: 'Upstash Redis',
-  schemaVersion: 1,
-  envVars: [{ name: 'UPSTASH_URL' }, { name: 'UPSTASH_TOKEN' }],
-  factory: createStorage,
-} satisfies StoragePlugin
+/** @deprecated Use `factory` */
+export const createStorage = factory

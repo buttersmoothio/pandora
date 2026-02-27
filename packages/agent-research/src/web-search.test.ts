@@ -9,9 +9,9 @@ vi.mock('@pandora/tools-websearch', () => ({
 const { resolveSearchTools } = await import('@pandora/tools-websearch')
 const mockResolve = vi.mocked(resolveSearchTools)
 
-const { webSearch } = await import('./web-search')
+const { agent } = await import('./web-search')
 // biome-ignore lint/style/noNonNullAssertion: getTools is defined on this agent
-const getTools = webSearch.getTools!
+const getTools = agent.getTools!
 
 function ctx(overrides: Partial<GetToolsContext> = {}): GetToolsContext {
   return {
@@ -28,7 +28,7 @@ describe('web-search getTools', () => {
   })
 
   it('is defined on the agent', () => {
-    expect(webSearch.getTools).toBeTypeOf('function')
+    expect(agent.getTools).toBeTypeOf('function')
   })
 
   it('delegates to resolveSearchTools and passes through tools and alerts', async () => {

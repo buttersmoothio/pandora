@@ -1,0 +1,24 @@
+{
+  "manifestVersion": 1,
+  "id": "channel-telegram",
+  "name": "Telegram",
+  "description": "Telegram bot channel adapter",
+  "pandora": ">=0.0.1",
+  "provides": {
+    "channels": {
+      "entry": "./src/index.ts",
+      "sandbox": "host"
+    }
+  },
+  "envVars": [{ "name": "TELEGRAM_BOT_TOKEN" }],
+  "configFields": [
+    {
+      "key": "ownerId",
+      "label": "Owner ID",
+      "type": "text",
+      "required": true,
+      "placeholder": "123456789",
+      "description": "Your Telegram user ID. Only this user can interact with the bot."
+    }
+  ]
+}

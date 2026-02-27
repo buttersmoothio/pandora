@@ -7,7 +7,6 @@ import type {
   RefreshToken,
   Session,
   StorageFactory,
-  StoragePlugin,
 } from '@pandora/core/storage'
 import type { Collection } from 'mongodb'
 import { MongoClient } from 'mongodb'
@@ -223,7 +222,7 @@ class MongoDBAuthStore implements AuthStore {
   }
 }
 
-export const createStorage: StorageFactory = async (env) => {
+export const factory: StorageFactory = async (env) => {
   if (!env.MONGODB_URI) {
     throw new Error('MONGODB_URI is required for MongoDB storage')
   }
@@ -257,10 +256,5 @@ export const createStorage: StorageFactory = async (env) => {
   return { mastra, config, auth, close: () => client.close() }
 }
 
-export default {
-  id: 'storage-mongodb',
-  name: 'MongoDB',
-  schemaVersion: 1,
-  envVars: [{ name: 'MONGODB_URI' }],
-  factory: createStorage,
-} satisfies StoragePlugin
+/** @deprecated Use `factory` */
+export const createStorage = factory
