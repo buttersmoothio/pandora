@@ -34,7 +34,7 @@ configRoutes.patch('/', async (c) => {
     clearConfigCache()
     clearMastraCache()
     const mastra = await getMastra(c.var.envVars, c.env)
-    await reloadChannels(mastra, c.var.envVars, updated.channels)
+    await reloadChannels(mastra, c.var.envVars, updated.plugins)
     log.info('Config updated', { keys: Object.keys(patch) })
     return c.json(updated)
   } catch (err) {
@@ -58,7 +58,7 @@ configRoutes.delete('/', async (c) => {
     // Rebuild everything with default config
     clearMastraCache()
     const mastra = await getMastra(c.var.envVars, c.env)
-    await reloadChannels(mastra, c.var.envVars, config.channels)
+    await reloadChannels(mastra, c.var.envVars, config.plugins)
     return c.json(config)
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error'

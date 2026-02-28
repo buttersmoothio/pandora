@@ -1,16 +1,15 @@
 import { Agent } from '@mastra/core/agent'
 import type { MastraMemory } from '@mastra/core/memory'
-import { z } from 'zod'
 import type { Config } from '../config'
-import { getLogger } from '../logger'
 import { buildModelString } from '../mastra/models'
 import { type Alert, buildSchemaFromFields, PLUGIN_SCHEMA_VERSION } from '../plugin-types'
+import { registerPluginSchema, removePluginSchema } from '../plugins/schema-registry'
+import { validatePluginConfig } from '../plugins/validate'
 import type { ToolRecord } from '../tools'
 import type { AgentDefinition } from './define'
 import { clearAgentManifestRegistry, getAgentManifest } from './define'
 import type { ModelToolKey } from './model-tools'
 import { resolveModelTools } from './model-tools'
-import { clearAgentSchemaRegistry, getAgentSchema, registerAgentSchema } from './schema-registry'
 import type { AgentPlugin, AgentPluginConfig, AgentRecord } from './types'
 
 export type { AgentDefinition } from './define'
@@ -29,7 +28,6 @@ export type {
 // Plugin registry
 // ---------------------------------------------------------------------------
 
-const basePluginSchema = z.object({ enabled: z.boolean() })
 const pluginRegistry = new Map<string, AgentPlugin>()
 const pluginAgentsMap = new Map<string, string[]>()
 const agentAlertsMap = new Map<string, Alert[]>()
@@ -56,71 +54,38 @@ export function registerAgentPlugin(plugin: AgentPlugin): void {
   )
 
   if (plugin.configFields?.length) {
-    registerAgentSchema(plugin.id, buildSchemaFromFields(plugin.configFields))
+    registerPluginSchema(plugin.id, buildSchemaFromFields(plugin.configFields))
   }
-}
-
-// ---------------------------------------------------------------------------
-// Config validation
-// ---------------------------------------------------------------------------
-
-/** Result of validating an agent plugin's config. */
-export interface AgentPluginValidationResult {
-  config: AgentPluginConfig | null
-  errors: string[]
-}
-
-/** Validate agent plugin config against the plugin's schema. */
-function validatePluginConfig(
-  plugin: AgentPlugin,
-  rawConfig: AgentPluginConfig | undefined,
-): AgentPluginValidationResult {
-  const log = getLogger()
-  const schema = getAgentSchema(plugin.id)
-
-  if (rawConfig?.enabled === false) {
-    log.debug(`Agent plugin ${plugin.id} disabled by config`)
-    return { config: null, errors: [] }
-  }
-
-  if (!rawConfig && schema) {
-    const fallback = basePluginSchema.extend(schema.shape).safeParse({ enabled: true })
-    if (!fallback.success) {
-      log.debug(`Agent plugin ${plugin.id} skipped (not configured)`)
-      return { config: null, errors: [] }
-    }
-    return { config: fallback.data as AgentPluginConfig, errors: [] }
-  }
-
-  if (rawConfig && schema) {
-    const result = basePluginSchema.extend(schema.shape).safeParse(rawConfig)
-    if (!result.success) {
-      const errors = result.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`)
-      log.error(`Agent plugin ${plugin.id} disabled (invalid config)`, { issues: errors })
-      return { config: null, errors }
-    }
-  }
-
-  return { config: rawConfig ?? { enabled: true }, errors: [] }
 }
 
 // ---------------------------------------------------------------------------
 // Loading
 // ---------------------------------------------------------------------------
 
+/** Extract per-agent config from the unified plugin config. */
+function getAgentConfig(
+  pluginConfig: AgentPluginConfig | null,
+  agentId: string,
+):
+  | { model?: { provider: string; model: string }; tools?: Record<string, { enabled: boolean }> }
+  | undefined {
+  if (!pluginConfig) return undefined
+  const agents = pluginConfig.agents as Record<string, unknown> | undefined
+  return agents?.[agentId] as ReturnType<typeof getAgentConfig>
+}
+
 /** Create an Agent from a manifest and resolved config. */
 function createAgentFromManifest(
   agentDef: AgentDefinition,
   config: Config,
+  pluginConfig: AgentPluginConfig | null,
   tools: ToolRecord,
   memory: MastraMemory,
 ): Agent | null {
-  const agentConfig = config.agents[agentDef.id]
-  if (agentConfig?.enabled === false) return null
-
   const manifest = getAgentManifest(agentDef.id)
   if (!manifest) return null
 
+  const agentConfig = getAgentConfig(pluginConfig, agentDef.id)
   const modelConfig = agentConfig?.model ?? config.models.operator
   return new Agent({
     id: manifest.id,
@@ -146,21 +111,22 @@ function resolveInheritedTools(agentDef: AgentDefinition, globalTools: ToolRecor
 async function resolveAgentModelTools(
   agentDef: AgentDefinition,
   config: Config,
+  pluginConfig: AgentPluginConfig | null,
 ): Promise<{ tools: ToolRecord; alerts: Alert[] }> {
   if (!agentDef.modelTools?.length || config.nativeModelTools === false) {
     return { tools: {}, alerts: [] }
   }
-  const agentConfig = config.agents[agentDef.id]
-  const modelConfig = agentConfig?.model ?? config.models.operator
+  const agentCfg = getAgentConfig(pluginConfig, agentDef.id)
+  const modelConfig = agentCfg?.model ?? config.models.operator
   return resolveModelTools(buildModelString(modelConfig), agentDef.modelTools as ModelToolKey[])
 }
 
 /**
  * Load all agents from registered plugins, filtered by config.
  *
- * Plugin-level config (`config.agentPlugins[pluginId]`) controls whether
+ * Plugin-level config (`config.plugins[pluginId]`) controls whether
  * a plugin is active and provides user settings to the factory.
- * Agent-level config (`config.agents[agentId]`) controls individual agents.
+ * Per-agent config (model overrides, tool toggles) nests under `config.plugins[pluginId].agents`.
  *
  * @param globalTools - The tool record loaded by `loadTools()`, used for `useTools` resolution.
  */
@@ -173,16 +139,20 @@ export async function loadAgents(
   agentAlertsMap.clear()
 
   for (const [, plugin] of pluginRegistry) {
-    const { config: pluginConfig } = validatePluginConfig(plugin, config.agentPlugins[plugin.id])
+    const { config: pluginConfig } = validatePluginConfig(plugin.id, config.plugins[plugin.id])
     if (!pluginConfig) continue
 
     for (const agentDef of plugin.agents) {
       const inheritedTools = resolveInheritedTools(agentDef, globalTools)
-      const { tools: modelNativeTools, alerts } = await resolveAgentModelTools(agentDef, config)
+      const { tools: modelNativeTools, alerts } = await resolveAgentModelTools(
+        agentDef,
+        config,
+        pluginConfig,
+      )
       if (alerts.length) agentAlertsMap.set(agentDef.id, alerts)
 
       const allTools = { ...inheritedTools, ...modelNativeTools }
-      const agent = createAgentFromManifest(agentDef, config, allTools, memory)
+      const agent = createAgentFromManifest(agentDef, config, pluginConfig, allTools, memory)
       if (agent) result[agentDef.id] = agent
     }
   }
@@ -218,7 +188,7 @@ export function getAgentAlerts(agentId: string): Alert[] {
 export function getAgentPluginValidationErrors(config: Config): Record<string, string[]> {
   const result: Record<string, string[]> = {}
   for (const [, plugin] of pluginRegistry) {
-    const { errors } = validatePluginConfig(plugin, config.agentPlugins[plugin.id])
+    const { errors } = validatePluginConfig(plugin.id, config.plugins[plugin.id])
     if (errors.length > 0) {
       result[plugin.id] = errors
     }
@@ -230,9 +200,9 @@ export function getAgentPluginValidationErrors(config: Config): Record<string, s
  * Clear the agent plugin registry. Useful for testing.
  */
 export function clearAgentPlugins(): void {
+  for (const id of pluginRegistry.keys()) removePluginSchema(id)
   pluginRegistry.clear()
   pluginAgentsMap.clear()
   agentAlertsMap.clear()
-  clearAgentSchemaRegistry()
   clearAgentManifestRegistry()
 }

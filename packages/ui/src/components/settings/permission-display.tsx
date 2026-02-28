@@ -10,7 +10,7 @@ import {
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
-import type { ToolPermissions } from '@/hooks/use-tools'
+import type { ToolPermissions } from '@/hooks/plugin-types'
 
 // ---------------------------------------------------------------------------
 // Permission metadata

@@ -183,7 +183,7 @@ describe('loadAgents with plain object agents', () => {
     expect(result['agent-b']).toBeDefined()
   })
 
-  it('respects agent disabled config', async () => {
+  it('respects plugin disabled config', async () => {
     const agent = makeAgentDef({
       id: 'disabled-agent',
       name: 'Disabled',
@@ -194,7 +194,7 @@ describe('loadAgents with plain object agents', () => {
 
     const config = {
       ...DEFAULTS,
-      agents: { 'disabled-agent': { enabled: false } },
+      plugins: { 'test-plugin': { enabled: false } },
     }
     const result = await loadAgents(config, mockMemory)
 
@@ -215,10 +215,14 @@ describe('loadAgents with plain object agents', () => {
 
     const config = {
       ...DEFAULTS,
-      agents: {
-        'model-override-agent': {
+      plugins: {
+        'test-plugin': {
           enabled: true,
-          model: { provider: 'openai', model: 'gpt-4o' },
+          agents: {
+            'model-override-agent': {
+              model: { provider: 'openai', model: 'gpt-4o' },
+            },
+          },
         },
       },
     }

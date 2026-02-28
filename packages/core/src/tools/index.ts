@@ -1,9 +1,8 @@
-import { z } from 'zod'
 import type { Config } from '../config'
-import { getLogger } from '../logger'
 import { type Alert, buildSchemaFromFields, PLUGIN_SCHEMA_VERSION } from '../plugin-types'
+import { registerPluginSchema, removePluginSchema } from '../plugins/schema-registry'
+import { validatePluginConfig } from '../plugins/validate'
 import { bindToolExport, buildManifest, clearManifestRegistry, registerManifest } from './define'
-import { clearToolSchemaRegistry, getToolSchema, registerToolSchema } from './schema-registry'
 import type { ToolPlugin, ToolPluginConfig, ToolRecord } from './types'
 
 export {
@@ -37,7 +36,6 @@ export { DEFAULT_TOOL_TIMEOUT } from './types'
 // Plugin registry
 // ---------------------------------------------------------------------------
 
-const basePluginSchema = z.object({ enabled: z.boolean() })
 const pluginRegistry = new Map<string, ToolPlugin>()
 const pluginToolsMap = new Map<string, string[]>()
 const pluginAlertsMap = new Map<string, Alert[]>()
@@ -67,52 +65,8 @@ export function registerToolPlugin(plugin: ToolPlugin): void {
   )
 
   if (plugin.configFields?.length) {
-    registerToolSchema(plugin.id, buildSchemaFromFields(plugin.configFields))
+    registerPluginSchema(plugin.id, buildSchemaFromFields(plugin.configFields))
   }
-}
-
-// ---------------------------------------------------------------------------
-// Config validation
-// ---------------------------------------------------------------------------
-
-/** Result of validating a tool plugin's config. */
-export interface PluginValidationResult {
-  config: ToolPluginConfig | null
-  errors: string[]
-}
-
-/** Validate tool plugin config against the plugin's schema. */
-function validatePluginConfig(
-  plugin: ToolPlugin,
-  rawConfig: ToolPluginConfig | undefined,
-): PluginValidationResult {
-  const log = getLogger()
-  const schema = getToolSchema(plugin.id)
-
-  if (rawConfig?.enabled === false) {
-    log.debug(`Tool plugin ${plugin.id} disabled by config`)
-    return { config: null, errors: [] }
-  }
-
-  if (!rawConfig && schema) {
-    const fallback = basePluginSchema.extend(schema.shape).safeParse({ enabled: true })
-    if (!fallback.success) {
-      log.debug(`Tool plugin ${plugin.id} skipped (not configured)`)
-      return { config: null, errors: [] }
-    }
-    return { config: fallback.data as ToolPluginConfig, errors: [] }
-  }
-
-  if (rawConfig && schema) {
-    const result = basePluginSchema.extend(schema.shape).safeParse(rawConfig)
-    if (!result.success) {
-      const errors = result.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`)
-      log.error(`Tool plugin ${plugin.id} disabled (invalid config)`, { issues: errors })
-      return { config: null, errors }
-    }
-  }
-
-  return { config: rawConfig ?? { enabled: true }, errors: [] }
 }
 
 // ---------------------------------------------------------------------------
@@ -139,7 +93,7 @@ function loadStaticTools(
 /**
  * Load all tools from registered packages, filtered by config.
  *
- * Plugin-level config (`config.toolPlugins[pluginId]`) controls whether
+ * Plugin-level config (`config.plugins[pluginId]`) controls whether
  * a plugin is active and provides user settings to the factory.
  */
 export async function loadTools(
@@ -150,7 +104,7 @@ export async function loadTools(
   pluginAlertsMap.clear()
 
   for (const [, plugin] of pluginRegistry) {
-    const { config: pluginConfig } = validatePluginConfig(plugin, config.toolPlugins[plugin.id])
+    const { config: pluginConfig } = validatePluginConfig(plugin.id, config.plugins[plugin.id])
     if (!pluginConfig) continue
 
     Object.assign(result, loadStaticTools(plugin, envVars, pluginConfig))
@@ -192,7 +146,7 @@ export function getPluginAlerts(pluginId: string): Alert[] {
 export function getPluginValidationErrors(config: Config): Record<string, string[]> {
   const result: Record<string, string[]> = {}
   for (const [, plugin] of pluginRegistry) {
-    const { errors } = validatePluginConfig(plugin, config.toolPlugins[plugin.id])
+    const { errors } = validatePluginConfig(plugin.id, config.plugins[plugin.id])
     if (errors.length > 0) {
       result[plugin.id] = errors
     }
@@ -204,9 +158,9 @@ export function getPluginValidationErrors(config: Config): Record<string, string
  * Clear the tool plugin registry. Useful for testing.
  */
 export function clearToolPlugins(): void {
+  for (const id of pluginRegistry.keys()) removePluginSchema(id)
   pluginRegistry.clear()
   pluginToolsMap.clear()
   pluginAlertsMap.clear()
-  clearToolSchemaRegistry()
   clearManifestRegistry()
 }

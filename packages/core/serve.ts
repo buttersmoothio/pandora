@@ -14,7 +14,7 @@ async function startChannels() {
     const envVars = process.env as Record<string, string | undefined>
     const { config: configStore } = await getStorage(envVars)
     const config = await getConfig(configStore)
-    await loadChannels(envVars, config.channels)
+    await loadChannels(envVars, config.plugins)
     const mastra = await getMastra(envVars)
     await startRealtimeChannels(mastra, envVars)
   } catch (err) {

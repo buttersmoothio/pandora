@@ -1,9 +1,7 @@
 import { z } from 'zod'
-import { getAgentSchema } from './agents/schema-registry'
-import { getChannelSchema } from './channels/schema-registry'
 import { isServerless } from './env'
+import { getPluginSchema } from './plugins/schema-registry'
 import type { ConfigStore } from './storage/config-store'
-import { getToolSchema } from './tools/schema-registry'
 
 /**
  * Model configuration for different use cases
@@ -83,30 +81,13 @@ export const ConfigSchema = z.object({
       },
     })),
 
-  /** Channel configurations — keyed by channel plugin ID */
-  channels: z
-    .record(z.string(), z.looseObject({ enabled: z.boolean() }))
-    .default(() => ({}))
-    .superRefine((channels, ctx) => {
-      for (const [id, raw] of Object.entries(channels)) {
-        const schema = getChannelSchema(id)
-        if (!schema) continue
-        const result = z.object({ enabled: z.boolean() }).extend(schema.shape).safeParse(raw)
-        if (!result.success) {
-          for (const issue of result.error.issues) {
-            ctx.addIssue({ ...issue, path: [id, ...issue.path] })
-          }
-        }
-      }
-    }),
-
-  /** Tool plugin configurations — keyed by tool plugin ID */
-  toolPlugins: z
+  /** Plugin configurations — keyed by plugin (manifest) ID */
+  plugins: z
     .record(z.string(), z.looseObject({ enabled: z.boolean() }))
     .default(() => ({}))
     .superRefine((plugins, ctx) => {
       for (const [id, raw] of Object.entries(plugins)) {
-        const schema = getToolSchema(id)
+        const schema = getPluginSchema(id)
         if (!schema) continue
         const result = z.object({ enabled: z.boolean() }).extend(schema.shape).safeParse(raw)
         if (!result.success) {
@@ -116,35 +97,6 @@ export const ConfigSchema = z.object({
         }
       }
     }),
-
-  /** Agent plugin configurations — keyed by agent plugin ID */
-  agentPlugins: z
-    .record(z.string(), z.looseObject({ enabled: z.boolean() }))
-    .default(() => ({}))
-    .superRefine((plugins, ctx) => {
-      for (const [id, raw] of Object.entries(plugins)) {
-        const schema = getAgentSchema(id)
-        if (!schema) continue
-        const result = z.object({ enabled: z.boolean() }).extend(schema.shape).safeParse(raw)
-        if (!result.success) {
-          for (const issue of result.error.issues) {
-            ctx.addIssue({ ...issue, path: [id, ...issue.path] })
-          }
-        }
-      }
-    }),
-
-  /** Agent configurations — keyed by agent ID */
-  agents: z
-    .record(
-      z.string(),
-      z.object({
-        enabled: z.boolean(),
-        model: ModelConfigSchema.optional(),
-        tools: z.record(z.string(), z.object({ enabled: z.boolean() })).optional(),
-      }),
-    )
-    .default(() => ({})),
 
   /** Whether to inject model-native tools (e.g. provider search) into agents that request them. */
   nativeModelTools: z.boolean().default(true),

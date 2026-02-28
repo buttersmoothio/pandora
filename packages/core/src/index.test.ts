@@ -24,22 +24,23 @@ describe('Config routes', () => {
     const body = (await res.json()) as Record<string, Record<string, unknown>>
     expect(body.identity.name).toBe('Pandora')
     expect(body.models.operator).toHaveProperty('provider')
-    expect(body.toolPlugins).toBeDefined()
+    expect(body.plugins).toBeDefined()
   })
 })
 
-describe('Tools routes', () => {
-  it('GET /api/tools returns tool manifests with config state', async () => {
-    const res = await authRequest('/api/tools')
+describe('Plugins routes', () => {
+  it('GET /api/plugins returns unified plugin list', async () => {
+    const res = await authRequest('/api/plugins')
     expect(res.status).toBe(200)
 
-    const body = (await res.json()) as { tools: Record<string, unknown>[] }
-    expect(Array.isArray(body.tools)).toBe(true)
+    const body = (await res.json()) as {
+      plugins: { id: string; provides: Record<string, unknown> }[]
+    }
+    expect(Array.isArray(body.plugins)).toBe(true)
 
-    const currentTime = body.tools.find((t) => t.id === 'current-time')
-    expect(currentTime).toBeDefined()
-    expect(currentTime?.description).toBe('Get the current date and time in ISO 8601 format')
-    expect(currentTime?.sandbox).toBe('compartment')
+    const datetime = body.plugins.find((p) => p.id === 'tools-datetime')
+    expect(datetime).toBeDefined()
+    expect(datetime?.provides.tools).toBeDefined()
   })
 })
 

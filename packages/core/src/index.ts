@@ -19,9 +19,9 @@ import { threadRoutes } from './routes/threads'
 import { webhookRoutes } from './routes/webhooks'
 
 // Re-export registration functions for plugin authors
-export { registerChannel as registerChannelFactory, registerChannelPlugin } from './channels'
+export { registerChannelPlugin } from './channels'
 export { loadAllPlugins } from './manifest'
-export { registerStoragePlugin, registerStorageProvider } from './storage'
+export { registerStoragePlugin } from './storage'
 export { registerToolPlugin } from './tools'
 
 // Discover and register all manifest-based plugins

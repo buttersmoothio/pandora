@@ -109,7 +109,7 @@ describe('loadTools with resolveTools hook', () => {
 
     const config = {
       ...DEFAULTS,
-      toolPlugins: { 'dynamic-disabled': { enabled: false } },
+      plugins: { 'dynamic-disabled': { enabled: false } },
     }
     await loadTools(config, {})
     expect(resolveToolsFn).not.toHaveBeenCalled()

@@ -82,9 +82,6 @@ export function registerStoragePlugin(plugin: StoragePlugin): void {
   providers.set(plugin.id, plugin)
 }
 
-/** @deprecated Use `registerStoragePlugin` */
-export const registerStorageProvider = registerStoragePlugin
-
 /** Get all registered storage plugins (regardless of load status) */
 export function getAllRegisteredStoragePlugins(): StoragePlugin[] {
   return [...providers.values()]
@@ -170,6 +167,3 @@ export async function clearStorageCache(): Promise<void> {
 export function clearStoragePlugins(): void {
   providers.clear()
 }
-
-/** @deprecated Use `clearStoragePlugins` */
-export const clearStorageProviders = clearStoragePlugins

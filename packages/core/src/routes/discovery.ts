@@ -5,14 +5,13 @@ import {
   getAgentPluginValidationErrors,
   getAgentUseToolIds,
   getAllAgentManifests,
-  getAllRegisteredAgentPlugins,
   getPluginAgentIds,
 } from '../agents'
-import { getAllChannels, getAllRegisteredChannelPlugins } from '../channels'
+import { getAllChannels } from '../channels'
 import { getConfig } from '../config'
+import { getAllPlugins } from '../plugins/registry'
 import { getStorage } from '../storage'
 import {
-  getAllManifests,
   getAllRegisteredToolPlugins,
   getManifest,
   getPluginAlerts,
@@ -24,22 +23,93 @@ import { ensureChannelsLoaded } from './helpers'
 
 const discoveryRoutes = new Hono<Env>()
 
-// Tools endpoint - returns all registered tools with manifests merged with config state
-discoveryRoutes.get('/tools', async (c) => {
+// Unified plugins endpoint — one entry per manifest
+discoveryRoutes.get('/plugins', async (c) => {
+  await ensureChannelsLoaded(c.var.envVars)
+
   const { config: configStore } = await getStorage(c.var.envVars, c.env)
   const config = await getConfig(configStore)
 
-  const manifests = getAllManifests()
-  const plugins = getAllRegisteredToolPlugins()
-  const validationErrors = getPluginValidationErrors(config)
+  const allPlugins = getAllPlugins()
+  const toolValidationErrors = getPluginValidationErrors(config)
+  const agentValidationErrors = getAgentPluginValidationErrors(config)
 
-  const tools = Object.values(manifests).map((manifest) => ({ ...manifest }))
+  // Precompute lookups used inside the loop
+  const toolPluginMap = new Map(getAllRegisteredToolPlugins().map((tp) => [tp.id, tp]))
+  const loadedChannels = getAllChannels()
+  const loadedChannelMap = new Map(loadedChannels.map((ch) => [ch.id, ch]))
+  const agentManifests = getAllAgentManifests()
 
-  const toolPlugins = plugins.map((plugin) => {
-    const pluginConfig = config.toolPlugins[plugin.id]
+  const result = allPlugins.map((plugin) => {
+    const pluginConfig = config.plugins[plugin.id]
     const descriptors = plugin.envVars ?? []
     const envVars = descriptors.map((d) => ({ ...d, configured: !!c.var.envVars[d.name] }))
     const envConfigured = envVars.filter((d) => d.required !== false).every((d) => d.configured)
+
+    const provides: Record<string, unknown> = {}
+
+    if (plugin.provides.includes('tools')) {
+      const tp = toolPluginMap.get(plugin.id)
+      provides.tools = {
+        toolIds: getPluginToolIds(plugin.id),
+        sandbox: tp?.sandbox ?? 'compartment',
+        permissions: tp?.permissions,
+        alerts: getPluginAlerts(plugin.id),
+      }
+    }
+
+    if (plugin.provides.includes('agents')) {
+      const agentIds = getPluginAgentIds(plugin.id)
+      const agentCfg = (pluginConfig as Record<string, unknown> | undefined)?.agents as
+        | Record<string, unknown>
+        | undefined
+      const agents = agentIds
+        .map((id) => agentManifests[id])
+        .filter(Boolean)
+        .map((m) => {
+          const ac = agentCfg?.[m.id] as { model?: unknown } | undefined
+          const tools = getAgentUseToolIds(m.id)
+            .map((id) => getManifest(id))
+            .filter((tm): tm is NonNullable<typeof tm> => !!tm)
+          return { ...m, model: ac?.model, tools, alerts: getAgentAlerts(m.id) }
+        })
+      provides.agents = {
+        agentIds,
+        agents,
+        alerts: agentIds.flatMap((id) => getAgentAlerts(id)),
+      }
+    }
+
+    if (plugin.provides.includes('channels')) {
+      const adapterId = plugin.id.replace(/^channel-/, '')
+      const adapter = loadedChannelMap.get(adapterId)
+      provides.channels = {
+        loaded: !!adapter,
+        webhook: adapter ? !!adapter.webhook : null,
+        realtime: adapter ? !!adapter.realtime : null,
+      }
+    }
+
+    if (plugin.provides.includes('storage')) {
+      const activeId = c.var.envVars.STORAGE_PROVIDER ?? 'storage-libsql'
+      provides.storage = { active: plugin.id === activeId }
+    }
+
+    if (plugin.provides.includes('vector')) {
+      const activeId = c.var.envVars.VECTOR_PROVIDER ?? 'vector-libsql'
+      provides.vector = { active: plugin.id === activeId }
+    }
+
+    // Determine default enabled state
+    const isInfraPlugin = plugin.provides.includes('storage') || plugin.provides.includes('vector')
+    const defaultEnabled = isInfraPlugin ? true : !plugin.provides.includes('channels')
+
+    // Merge validation errors from all capability registries
+    const validationErrors = [
+      ...(toolValidationErrors[plugin.id] ?? []),
+      ...(agentValidationErrors[plugin.id] ?? []),
+    ]
+
     return {
       id: plugin.id,
       name: plugin.name,
@@ -53,17 +123,14 @@ discoveryRoutes.get('/tools', async (c) => {
       envVars,
       envConfigured,
       configFields: plugin.configFields ?? [],
-      enabled: pluginConfig?.enabled ?? true,
+      enabled: pluginConfig?.enabled ?? defaultEnabled,
       config: pluginConfig ?? {},
-      validationErrors: validationErrors[plugin.id] ?? [],
-      alerts: getPluginAlerts(plugin.id),
-      toolIds: getPluginToolIds(plugin.id),
-      sandbox: plugin.sandbox ?? 'compartment',
-      permissions: plugin.permissions,
+      provides,
+      validationErrors,
     }
   })
 
-  return c.json({ tools, plugins: toolPlugins })
+  return c.json({ plugins: result })
 })
 
 // Models endpoint - returns available providers and models
@@ -82,110 +149,6 @@ discoveryRoutes.get('/models', (c) => {
     }
   })
   return c.json({ providers })
-})
-
-// Channels endpoint - returns all registered plugins with metadata, config, and status
-discoveryRoutes.get('/channels', async (c) => {
-  await ensureChannelsLoaded(c.var.envVars)
-
-  const { config: configStore } = await getStorage(c.var.envVars, c.env)
-  const config = await getConfig(configStore)
-  const loadedChannels = getAllChannels()
-  const loadedIds = new Set(loadedChannels.map((ch) => ch.id))
-
-  const channels = getAllRegisteredChannelPlugins().map((plugin) => {
-    const channelConfig = config.channels[plugin.id]
-    const descriptors = plugin.envVars ?? []
-    const envVars = descriptors.map((d) => ({ ...d, configured: !!c.var.envVars[d.name] }))
-    const envConfigured = envVars.filter((d) => d.required !== false).every((d) => d.configured)
-    const adapterId = plugin.id.replace(/^channel-/, '')
-    const loaded = loadedIds.has(adapterId)
-    const adapter = loadedChannels.find((ch) => ch.id === adapterId)
-
-    return {
-      id: plugin.id,
-      name: plugin.name,
-      description: plugin.description,
-      author: plugin.author,
-      icon: plugin.icon,
-      version: plugin.version,
-      homepage: plugin.homepage,
-      repository: plugin.repository,
-      license: plugin.license,
-      envVars,
-      envConfigured,
-      configFields: plugin.configFields ?? [],
-      enabled: channelConfig?.enabled ?? false,
-      config: channelConfig ?? {},
-      loaded,
-      webhook: loaded ? !!adapter?.webhook : null,
-      realtime: loaded ? !!adapter?.realtime : null,
-    }
-  })
-
-  return c.json({ channels })
-})
-
-// Agents endpoint - returns all registered agent plugins with manifests and config state
-discoveryRoutes.get('/agents', async (c) => {
-  const { config: configStore } = await getStorage(c.var.envVars, c.env)
-  const config = await getConfig(configStore)
-
-  const manifests = getAllAgentManifests()
-  const plugins = getAllRegisteredAgentPlugins()
-  const validationErrors = getAgentPluginValidationErrors(config)
-
-  const agents = Object.values(manifests).map((manifest) => {
-    const agentConfig = config.agents[manifest.id]
-    const useToolIds = getAgentUseToolIds(manifest.id)
-    const toolConfigs = agentConfig?.tools
-    const tools = useToolIds
-      .map((id) => getManifest(id))
-      .filter((tm): tm is NonNullable<typeof tm> => !!tm)
-      .map((tm) => ({
-        ...tm,
-        enabled: toolConfigs?.[tm.id]?.enabled !== false,
-      }))
-    return {
-      ...manifest,
-      enabled: agentConfig?.enabled ?? true,
-      model: agentConfig?.model,
-      tools,
-      alerts: getAgentAlerts(manifest.id),
-    }
-  })
-
-  const agentPlugins = plugins.map((plugin) => {
-    const pluginConfig = config.agentPlugins[plugin.id]
-    const descriptors = plugin.envVars ?? []
-    const envVars = descriptors.map((d) => ({ ...d, configured: !!c.var.envVars[d.name] }))
-    const envConfigured = envVars.filter((d) => d.required !== false).every((d) => d.configured)
-
-    // Aggregate alerts from all agents in this plugin
-    const pluginAlerts = getPluginAgentIds(plugin.id).flatMap((id) => getAgentAlerts(id))
-
-    return {
-      id: plugin.id,
-      name: plugin.name,
-      description: plugin.description,
-      author: plugin.author,
-      icon: plugin.icon,
-      version: plugin.version,
-      homepage: plugin.homepage,
-      repository: plugin.repository,
-      license: plugin.license,
-      envVars,
-      envConfigured,
-      configFields: plugin.configFields ?? [],
-      enabled: pluginConfig?.enabled ?? true,
-      config: pluginConfig ?? {},
-      validationErrors: validationErrors[plugin.id] ?? [],
-      alerts: pluginAlerts,
-      agentIds: getPluginAgentIds(plugin.id),
-    }
-  })
-
-  return c.json({ agents, plugins: agentPlugins })
 })
 
 export { discoveryRoutes }

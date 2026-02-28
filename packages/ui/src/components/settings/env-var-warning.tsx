@@ -1,5 +1,5 @@
 import { CheckCircle2Icon, CircleDotIcon, XCircleIcon } from 'lucide-react'
-import type { EnvVarDescriptor } from '@/hooks/use-channels'
+import type { EnvVarDescriptor } from '@/hooks/plugin-types'
 
 function EnvVarRow({ v }: { v: EnvVarDescriptor }) {
   const isOptional = v.required === false

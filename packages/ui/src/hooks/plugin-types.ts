@@ -1,4 +1,12 @@
-/** Shared types used across plugin hooks (tools, channels, agents). */
+/** Shared types used across plugin hooks. */
+
+export interface ToolPermissions {
+  time?: boolean
+  network?: string[]
+  env?: string[]
+  fs?: string[]
+  random?: boolean
+}
 
 export interface ConfigFieldDescriptor {
   key: string

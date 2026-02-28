@@ -1,6 +1,7 @@
 import { registerAgentPlugin } from '../agents'
 import { registerChannelPlugin } from '../channels'
 import { getLogger } from '../logger'
+import { registerPlugin } from '../plugins/registry'
 import { registerStoragePlugin } from '../storage'
 import { registerToolPlugin } from '../tools'
 import { registerVectorPlugin } from '../vector'
@@ -10,6 +11,7 @@ import type { DiscoveredPlugin } from './discover'
 import { discoverPlugins } from './discover'
 import type { LoadedEntry } from './loader'
 import { loadEntry } from './loader'
+import type { PluginManifest } from './schema'
 import { normalizeProvidesEntries, type ProvidesKey } from './schema'
 
 const PROVIDES_KEYS: ProvidesKey[] = ['tools', 'agents', 'channels', 'storage', 'vector']
@@ -41,6 +43,22 @@ function registerAdapted(adapted: AdaptedPlugins): void {
   }
 }
 
+function pluginBaseFields(manifest: PluginManifest) {
+  return {
+    id: manifest.id,
+    name: manifest.name,
+    description: manifest.description,
+    author: manifest.author,
+    icon: manifest.icon,
+    version: manifest.version,
+    homepage: manifest.homepage,
+    repository: manifest.repository,
+    license: manifest.license,
+    envVars: manifest.envVars,
+    configFields: manifest.configFields,
+  }
+}
+
 /**
  * Discover, load, adapt, and register all manifest-based plugins.
  */
@@ -55,6 +73,10 @@ export async function loadAllPlugins(packagesDir?: string): Promise<void> {
       const entries = await loadPluginEntries(plugin)
       const adapted = adaptManifest(plugin.manifest, entries)
       registerAdapted(adapted)
+
+      const provides = PROVIDES_KEYS.filter((k) => adapted[k].length > 0)
+      registerPlugin({ ...pluginBaseFields(plugin.manifest), provides })
+
       log.info(`Plugin loaded: ${plugin.manifest.name} (${plugin.manifest.id})`)
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error'

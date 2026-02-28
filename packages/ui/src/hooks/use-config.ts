@@ -11,12 +11,6 @@ export interface ModelConfig {
   maxTokens?: number
 }
 
-export interface AgentConfig {
-  enabled: boolean
-  model?: ModelConfig
-  tools?: Record<string, { enabled: boolean }>
-}
-
 export interface Config {
   identity: {
     name: string
@@ -27,10 +21,7 @@ export interface Config {
   models: {
     operator: ModelConfig
   }
-  channels: Record<string, { enabled: boolean; [key: string]: unknown }>
-  toolPlugins: Record<string, { enabled: boolean; [key: string]: unknown }>
-  agentPlugins: Record<string, { enabled: boolean; [key: string]: unknown }>
-  agents: Record<string, AgentConfig>
+  plugins: Record<string, { enabled: boolean; [key: string]: unknown }>
   memory: {
     semanticRecall: {
       enabled: boolean
@@ -63,15 +54,11 @@ export function useUpdateConfig() {
       }),
     onSuccess: (data) => {
       queryClient.setQueryData(CONFIG_KEY, data)
-      queryClient.invalidateQueries({ queryKey: ['tools'] })
-      queryClient.invalidateQueries({ queryKey: ['agents'] })
+      queryClient.invalidateQueries({ queryKey: ['plugins'] })
       toast.success('Configuration saved')
     },
     onError: (err: Error) => {
       toast.error(`Failed to save: ${err.message}`)
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['channels'] })
     },
   })
 }
@@ -83,8 +70,7 @@ export function useResetConfig() {
     mutationFn: () => apiFetch<Config>('/api/config', { method: 'DELETE' }),
     onSuccess: (data) => {
       queryClient.setQueryData(CONFIG_KEY, data)
-      queryClient.invalidateQueries({ queryKey: ['tools'] })
-      queryClient.invalidateQueries({ queryKey: ['agents'] })
+      queryClient.invalidateQueries({ queryKey: ['plugins'] })
       toast.success('Configuration reset to defaults')
     },
     onError: (err: Error) => {

@@ -11,10 +11,9 @@ import {
 import Image from 'next/image'
 import type React from 'react'
 import { useEffect, useState } from 'react'
-import type { ConfigFieldDescriptor, EnvVarDescriptor } from '@/hooks/use-channels'
+import type { Alert, ConfigFieldDescriptor, EnvVarDescriptor } from '@/hooks/plugin-types'
 import type { Config } from '@/hooks/use-config'
 import { useUpdateConfig } from '@/hooks/use-config'
-import type { Alert } from '@/hooks/use-tools'
 import { Badge } from '../ui/badge'
 import { Button } from '../ui/button'
 import {
@@ -302,12 +301,16 @@ function HeaderActionButton({
   configured,
   onToggle,
   isPending,
+  readonly: isReadonly,
 }: {
   plugin: PluginBase
   configured: boolean
   onToggle: (enabled: boolean) => void
   isPending: boolean
+  readonly?: boolean
 }) {
+  if (isReadonly) return null
+
   if (plugin.enabled) {
     return (
       <Button
@@ -364,12 +367,14 @@ function DialogHeaderContent({
   configured,
   onToggle,
   isPending,
+  readonly: isReadonly,
 }: {
   plugin: PluginBase & { enabled: boolean }
   hasSidebar: boolean
   configured: boolean
   onToggle: (enabled: boolean) => void
   isPending: boolean
+  readonly?: boolean
 }) {
   return (
     <DialogHeader className="px-6 pt-6 pb-4">
@@ -401,6 +406,7 @@ function DialogHeaderContent({
           configured={configured}
           onToggle={onToggle}
           isPending={isPending}
+          readonly={isReadonly}
         />
       </div>
     </DialogHeader>
@@ -413,8 +419,10 @@ function DialogHeaderContent({
 
 export interface PluginInfoDialogProps {
   plugin: PluginBase
-  /** Config key for the PATCH /api/config request (e.g. 'channels', 'toolPlugins', 'agentPlugins') */
+  /** Config key for the PATCH /api/config request */
   configKey: keyof Config
+  /** Whether the plugin is read-only (e.g. storage/vector — not togglable) */
+  readonly?: boolean
   /** Permissions to display in the dialog */
   permissions?: PermissionDisplayProps
   /** Extra content rendered inside the dialog (e.g. capability badges, require approval toggle) */
@@ -426,6 +434,7 @@ export interface PluginInfoDialogProps {
 export function PluginInfoDialog({
   plugin,
   configKey,
+  readonly: isReadonly,
   permissions,
   children,
   trigger,
@@ -481,6 +490,7 @@ export function PluginInfoDialog({
           configured={configured}
           onToggle={handleToggle}
           isPending={updateConfig.isPending}
+          readonly={isReadonly}
         />
 
         {/* Body — two-panel on md+, stacked on mobile */}
@@ -553,6 +563,8 @@ export interface PluginCardProps {
   plugin: PluginBase
   /** Config key for the PATCH /api/config request */
   configKey: keyof Config
+  /** Whether the plugin is read-only (e.g. storage/vector — not togglable) */
+  readonly?: boolean
   /** Permissions to display in the dialog */
   permissions?: PermissionDisplayProps
   /** Compact permission badges shown on the card */
@@ -566,6 +578,7 @@ export interface PluginCardProps {
 export function PluginCard({
   plugin,
   configKey,
+  readonly: isReadonly,
   permissions,
   compactPermissions,
   badges,
@@ -614,7 +627,21 @@ export function PluginCard({
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {canEnable ? (
+          {isReadonly ? (
+            <PluginInfoDialog
+              plugin={plugin}
+              configKey={configKey}
+              readonly
+              permissions={permissions}
+              trigger={
+                <Button variant="ghost" size="icon" className="size-7" aria-label="Plugin settings">
+                  <SettingsIcon className="size-4" />
+                </Button>
+              }
+            >
+              {dialogContent}
+            </PluginInfoDialog>
+          ) : canEnable ? (
             <>
               <PluginInfoDialog
                 plugin={plugin}

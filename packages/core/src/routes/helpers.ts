@@ -62,7 +62,7 @@ export async function ensureChannelsLoaded(envVars: Record<string, string | unde
   if (_channelsLoaded) return
   const { config: configStore } = await getStorage(envVars)
   const config = await getConfig(configStore)
-  await loadChannels(envVars, config.channels)
+  await loadChannels(envVars, config.plugins)
   _channelsLoaded = true
 }
 

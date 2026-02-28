@@ -32,10 +32,7 @@ describe('LibSQL storage', () => {
         identity: { name: 'Test' },
         personality: { systemPrompt: 'You are a test agent.' },
         models: { operator: { provider: 'test', model: 'test' } },
-        channels: { web: { enabled: true } },
-        toolPlugins: {},
-        agentPlugins: {},
-        agents: {},
+        plugins: { web: { enabled: true } },
         nativeModelTools: true,
         memory: { semanticRecall: { enabled: false } },
       }
@@ -55,10 +52,7 @@ describe('LibSQL storage', () => {
         identity: { name: 'ToDelete' },
         personality: { systemPrompt: 'Delete me.' },
         models: { operator: { provider: 'test', model: 'test' } },
-        channels: {},
-        toolPlugins: {},
-        agentPlugins: {},
-        agents: {},
+        plugins: {},
         nativeModelTools: true,
         memory: { semanticRecall: { enabled: false } },
       }

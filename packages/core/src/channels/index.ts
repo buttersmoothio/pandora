@@ -1,17 +1,11 @@
 import type { Mastra } from '@mastra/core'
-import { z } from 'zod'
 import type { Config } from '../config'
 import { getLogger } from '../logger'
 import { buildSchemaFromFields, PLUGIN_SCHEMA_VERSION } from '../plugin-types'
+import { registerPluginSchema, removePluginSchema } from '../plugins/schema-registry'
+import { validatePluginConfig } from '../plugins/validate'
 import { createChannelRuntime } from './runtime'
-import {
-  clearChannelSchemaRegistry,
-  getChannelSchema,
-  registerChannelSchema,
-} from './schema-registry'
-import type { ChannelAdapter, ChannelConfig, ChannelPlugin, ChannelRuntime } from './types'
-
-const baseChannelSchema = z.object({ enabled: z.boolean() })
+import type { ChannelAdapter, ChannelPlugin, ChannelRuntime } from './types'
 
 // ---------------------------------------------------------------------------
 // Plugin registry
@@ -34,12 +28,9 @@ export function registerChannelPlugin(plugin: ChannelPlugin): void {
   }
   factoryRegistry.set(plugin.id, plugin)
   if (plugin.configFields?.length) {
-    registerChannelSchema(plugin.id, buildSchemaFromFields(plugin.configFields))
+    registerPluginSchema(plugin.id, buildSchemaFromFields(plugin.configFields))
   }
 }
-
-/** @deprecated Use `registerChannelPlugin` */
-export const registerChannel = registerChannelPlugin
 
 // ---------------------------------------------------------------------------
 // Adapter registry (instantiated channels)
@@ -51,36 +42,6 @@ const registry = new Map<string, ChannelAdapter>()
 /** Track which realtime channels are running */
 const realtimeRunning = new Set<string>()
 
-/** Validate channel config against the plugin's schema. Returns null if invalid. */
-function validateChannelConfig(
-  plugin: ChannelPlugin,
-  rawConfig: ChannelConfig | undefined,
-): ChannelConfig | null {
-  const log = getLogger()
-  const schema = getChannelSchema(plugin.id)
-
-  if (rawConfig?.enabled === false) {
-    log.debug(`Channel ${plugin.id} disabled by config`)
-    return null
-  }
-
-  if (!rawConfig && schema) {
-    log.debug(`Channel ${plugin.id} skipped (not configured)`)
-    return null
-  }
-
-  if (rawConfig && schema) {
-    const result = baseChannelSchema.extend(schema.shape).safeParse(rawConfig)
-    if (!result.success) {
-      const issues = result.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`)
-      log.error(`Channel ${plugin.id} disabled (invalid config)`, { issues })
-      return null
-    }
-  }
-
-  return rawConfig ?? { enabled: true }
-}
-
 /**
  * Load all registered channel plugins.
  *
@@ -90,12 +51,12 @@ function validateChannelConfig(
  */
 export async function loadChannels(
   env: Record<string, string | undefined>,
-  channelConfig: Config['channels'],
+  pluginConfig: Config['plugins'],
 ): Promise<void> {
   const log = getLogger()
 
   for (const [, plugin] of factoryRegistry) {
-    const config = validateChannelConfig(plugin, channelConfig[plugin.id])
+    const { config } = validatePluginConfig(plugin.id, pluginConfig[plugin.id])
     if (!config) continue
 
     try {
@@ -128,9 +89,6 @@ export function getAllChannels(): ChannelAdapter[] {
 export function getAllRegisteredChannelPlugins(): ChannelPlugin[] {
   return [...factoryRegistry.values()]
 }
-
-/** @deprecated Use `getAllRegisteredChannelPlugins` */
-export const getAllRegisteredPlugins = getAllRegisteredChannelPlugins
 
 /** Start all realtime channels */
 export async function startRealtimeChannels(
@@ -181,11 +139,11 @@ export async function stopRealtimeChannels(): Promise<void> {
 export async function reloadChannels(
   mastra: Mastra,
   env: Record<string, string | undefined>,
-  channelConfig: Config['channels'],
+  pluginConfig: Config['plugins'],
 ): Promise<void> {
   await stopRealtimeChannels()
   registry.clear()
-  await loadChannels(env, channelConfig)
+  await loadChannels(env, pluginConfig)
   await startRealtimeChannels(mastra, env)
 }
 
@@ -213,11 +171,8 @@ export function handleWebhook(
 
 /** Clear the registries. Useful for testing. */
 export function clearChannelPlugins(): void {
+  for (const id of factoryRegistry.keys()) removePluginSchema(id)
   factoryRegistry.clear()
   registry.clear()
   realtimeRunning.clear()
-  clearChannelSchemaRegistry()
 }
-
-/** @deprecated Use `clearChannelPlugins` */
-export const clearChannelRegistry = clearChannelPlugins

@@ -1,15 +1,13 @@
 'use client'
 
 import {
-  BotIcon,
+  BlocksIcon,
   LogOutIcon,
   MoonIcon,
   PlusIcon,
-  RadioIcon,
   SettingsIcon,
   ShieldIcon,
   SunIcon,
-  WrenchIcon,
 } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -32,9 +30,7 @@ import { useAuth } from '@/providers/auth-provider'
 
 const NAV_ITEMS = [
   { title: 'Configuration', href: '/config', icon: SettingsIcon },
-  { title: 'Channels', href: '/channels', icon: RadioIcon },
-  { title: 'Tools', href: '/tools', icon: WrenchIcon },
-  { title: 'Agents', href: '/agents', icon: BotIcon },
+  { title: 'Plugins', href: '/plugins', icon: BlocksIcon },
   { title: 'Security', href: '/security', icon: ShieldIcon },
 ]
 
