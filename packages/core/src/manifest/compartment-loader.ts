@@ -1,8 +1,9 @@
 import '../ses-lockdown'
 
 import { pathToFileURL } from 'node:url'
-import { importLocation } from '@endo/compartment-mapper/import.js'
+import { loadFromMap } from '@endo/compartment-mapper/import-lite.js'
 import { defaultParserForLanguage } from '@endo/compartment-mapper/import-parsers.js'
+import { mapNodeModules } from '@endo/compartment-mapper/node-modules.js'
 import tsBlankSpace from 'ts-blank-space'
 import type { ToolPermissions } from '../tools/types'
 import { buildPluginEndowments } from './plugin-endowments'
@@ -13,13 +14,14 @@ const HAS_EXT = /\.\w+$/
 /**
  * Rewrite bare relative imports so the compartment-mapper can resolve them.
  * `from './foo'` → `from './foo.ts'` (skips paths that already have an extension).
+ * Also handles dynamic `import('./foo')` → `import('./foo.ts')`.
  *
  * Known limitation: doesn't handle directory imports (e.g. `from './utils'` where
  * `utils/index.ts` exists). Not needed for current plugins.
  */
 export function addTsExtensions(source: string): string {
   return source.replace(
-    /((?:from|import)\s+['"])(\.\.?\/[^'"]*?)(['"])/g,
+    /((?:from|import)\s*\(?\s*['"])(\.\.?\/[^'"]*?)(['"])/g,
     (_, before: string, path: string, after: string) => {
       if (HAS_EXT.test(path)) return `${before}${path}${after}`
       return `${before}${path}.ts${after}`
@@ -78,15 +80,22 @@ export async function loadInCompartment(
   // Build hardened globals from declared permissions
   const globals = buildPluginEndowments(opts.permissions ?? {}, opts.envVars)
 
-  const result = await importLocation(readPowers, entryUrl, {
+  const mapOptions = {
+    parserForLanguage,
+    workspaceModuleLanguageForExtension: { ts: 'ts' } as Record<string, string>,
+    languages: Object.keys(parserForLanguage),
+  }
+
+  const compartmentMap = await mapNodeModules(readPowers, entryUrl, mapOptions)
+
+  const app = await loadFromMap(readPowers, compartmentMap, {
     globals,
     parserForLanguage,
-    // Map .ts files to our TypeScript transform
-    workspaceModuleLanguageForExtension: { ts: 'ts' },
     syncModuleTransforms: { ts: tsTransform },
   })
 
-  // importLocation returns { namespace: { ...exports } }
+  const result = await (app as { import: (o?: object) => Promise<unknown> }).import({ globals })
+
   const ns = (result as { namespace: Record<string, unknown> }).namespace ?? result
   return ns as Record<string, unknown>
 }

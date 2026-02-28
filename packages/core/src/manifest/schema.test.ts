@@ -41,7 +41,7 @@ describe('pluginManifestSchema', () => {
             time: true,
           },
         },
-        agents: { entry: './src/agents.ts', sandbox: 'host' },
+        agents: { entry: './src/agents.ts' },
       },
       envVars: [{ name: 'API_KEY', required: true }],
       configFields: [

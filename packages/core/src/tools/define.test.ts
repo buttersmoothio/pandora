@@ -23,7 +23,7 @@ function makeTestExport(overrides?: Partial<ToolExport>): ToolExport {
       type: 'object',
       properties: { value: { type: 'string' } },
     },
-    execute: async (input: { value: string }) => ({ echo: input.value }),
+    execute: async (input) => ({ echo: (input as { value: string }).value }),
     ...overrides,
   }
 }

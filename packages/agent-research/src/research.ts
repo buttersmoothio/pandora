@@ -1,7 +1,4 @@
-import { defineAgent } from '@pandora/core/agents'
-import { resolveSearchTools } from '@pandora/tools-websearch'
-
-export const agent = defineAgent({
+export const agent = {
   id: 'research',
   name: 'Deep Research',
   description: 'Thorough, multi-step research on complex topics',
@@ -20,10 +17,4 @@ When answering:
 - Note any conflicting information you found and explain the discrepancies
 - Organize your answer with clear structure (sections, bullet points) for readability
 - Include a brief summary at the top for complex answers`,
-
-  async getTools({ model, pluginConfig, env }) {
-    const preferred = pluginConfig?.searchBackend as string | undefined
-    const result = await resolveSearchTools({ model, preferred, env })
-    return { tools: result.tools, alerts: result.alerts }
-  },
-})
+}

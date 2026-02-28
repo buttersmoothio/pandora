@@ -218,8 +218,18 @@ describe('addTsExtensions', () => {
     expect(addTsExtensions(`from '@pandora/core'`)).toBe(`from '@pandora/core'`)
   })
 
-  it('does not rewrite dynamic import() (handled by compartment-mapper)', () => {
-    expect(addTsExtensions(`import('./foo')`)).toBe(`import('./foo')`)
+  it('rewrites dynamic import() with relative paths', () => {
+    expect(addTsExtensions(`import('./foo')`)).toBe(`import('./foo.ts')`)
+    expect(addTsExtensions(`import('../utils/bar')`)).toBe(`import('../utils/bar.ts')`)
+  })
+
+  it('does not rewrite dynamic import() with package specifiers', () => {
+    expect(addTsExtensions(`import('zod')`)).toBe(`import('zod')`)
+    expect(addTsExtensions(`import('@tavily/ai-sdk')`)).toBe(`import('@tavily/ai-sdk')`)
+  })
+
+  it('skips dynamic import() when path has extension', () => {
+    expect(addTsExtensions(`import('./foo.js')`)).toBe(`import('./foo.js')`)
   })
 
   it('handles multiple imports in one source', () => {

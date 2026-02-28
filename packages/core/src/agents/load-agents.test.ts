@@ -17,14 +17,41 @@ vi.mock('@mastra/core/agent', () => ({
   },
 }))
 
-const { defineAgent } = await import('./define')
+// Mock model-tools to avoid dynamic imports of provider SDKs
+vi.mock('./model-tools', () => ({
+  resolveModelTools: vi.fn(async () => ({ tools: {}, alerts: [] })),
+}))
+
+const { registerAgentManifest } = await import('./define')
 const { registerAgentPlugin, loadAgents, clearAgentPlugins, getAgentAlerts } = await import(
   './index'
 )
+const { resolveModelTools } = await import('./model-tools')
+const mockResolveModelTools = vi.mocked(resolveModelTools)
 
 const mockMemory = {} as MastraMemory
 
-function makePlugin(agents: ReturnType<typeof defineAgent>[]): AgentPlugin {
+function makeAgentDef(overrides: Record<string, unknown> = {}) {
+  const id = (overrides.id as string) ?? 'test-agent'
+  const def = {
+    id,
+    name: (overrides.name as string) ?? 'Test Agent',
+    description: (overrides.description as string) ?? 'A test agent',
+    instructions: (overrides.instructions as string) ?? 'Do things',
+    useTools: (overrides.useTools as string[]) ?? [],
+    modelTools: (overrides.modelTools as string[]) ?? [],
+  }
+  // Register the manifest (normally done by the adapter)
+  registerAgentManifest({
+    id: def.id,
+    name: def.name,
+    description: def.description,
+    instructions: def.instructions,
+  })
+  return def
+}
+
+function makePlugin(agents: ReturnType<typeof makeAgentDef>[]): AgentPlugin {
   return {
     id: 'test-plugin',
     name: 'Test',
@@ -33,14 +60,15 @@ function makePlugin(agents: ReturnType<typeof defineAgent>[]): AgentPlugin {
   }
 }
 
-describe('loadAgents with getTools', () => {
+describe('loadAgents with plain object agents', () => {
   afterEach(() => {
     clearAgentPlugins()
     mockAgentConstructor.mockClear()
+    mockResolveModelTools.mockClear()
   })
 
-  it('loads agent without getTools (static tools only)', async () => {
-    const agent = defineAgent({
+  it('loads agent from plain object definition', async () => {
+    const agent = makeAgentDef({
       id: 'static-agent',
       name: 'Static',
       description: 'A static agent',
@@ -48,200 +76,155 @@ describe('loadAgents with getTools', () => {
     })
     registerAgentPlugin(makePlugin([agent]))
 
-    const result = await loadAgents(DEFAULTS, {}, mockMemory)
+    const result = await loadAgents(DEFAULTS, mockMemory)
 
     expect(result['static-agent']).toBeDefined()
     expect(result['static-agent'].id).toBe('static-agent')
   })
 
-  it('merges dynamic tools from getTools into agent', async () => {
-    const dynamicTool = { fake: 'tool' }
-    const agent = defineAgent({
-      id: 'dynamic-agent',
-      name: 'Dynamic',
-      description: 'An agent with dynamic tools',
-      instructions: 'Search things',
-      async getTools() {
-        return { myTool: dynamicTool }
-      },
+  it('inherits tools from global tool registry via useTools', async () => {
+    const globalTools = { web_search: { type: 'tool' } as never }
+    const agent = makeAgentDef({
+      id: 'search-agent',
+      name: 'Search',
+      description: 'Agent with useTools',
+      instructions: 'Search',
+      useTools: ['web_search'],
     })
     registerAgentPlugin(makePlugin([agent]))
 
-    await loadAgents(DEFAULTS, {}, mockMemory)
+    await loadAgents(DEFAULTS, mockMemory, globalTools)
 
     const config = mockAgentConstructor.mock.calls.at(-1)?.[0]
-    expect(config.tools).toHaveProperty('myTool', dynamicTool)
+    expect(config.tools).toHaveProperty('web_search')
   })
 
-  it('skips agent when getTools returns null', async () => {
-    const agent = defineAgent({
-      id: 'opt-out-agent',
-      name: 'OptOut',
-      description: 'An agent that opts out',
+  it('skips unavailable useTools gracefully', async () => {
+    const globalTools = {}
+    const agent = makeAgentDef({
+      id: 'missing-tool-agent',
+      name: 'Missing',
+      description: 'Agent with missing useTools',
+      instructions: 'Search',
+      useTools: ['nonexistent_tool'],
+    })
+    registerAgentPlugin(makePlugin([agent]))
+
+    const result = await loadAgents(DEFAULTS, mockMemory, globalTools)
+
+    expect(result['missing-tool-agent']).toBeDefined()
+    const config = mockAgentConstructor.mock.calls.at(-1)?.[0]
+    expect(config.tools).not.toHaveProperty('nonexistent_tool')
+  })
+
+  it('resolves modelTools when nativeModelTools is enabled', async () => {
+    mockResolveModelTools.mockResolvedValue({
+      tools: { web_search: { type: 'native-search' } as never },
+      alerts: [{ level: 'info', message: 'Using Anthropic native search' }],
+    })
+
+    const agent = makeAgentDef({
+      id: 'model-tool-agent',
+      name: 'ModelTool',
+      description: 'Agent with modelTools',
+      instructions: 'Search',
+      modelTools: ['search'],
+    })
+    registerAgentPlugin(makePlugin([agent]))
+
+    await loadAgents(DEFAULTS, mockMemory)
+
+    expect(mockResolveModelTools).toHaveBeenCalledOnce()
+    expect(mockResolveModelTools).toHaveBeenCalledWith('anthropic/claude-sonnet-4-20250514', [
+      'search',
+    ])
+
+    const config = mockAgentConstructor.mock.calls.at(-1)?.[0]
+    expect(config.tools).toHaveProperty('web_search')
+    expect(getAgentAlerts('model-tool-agent')).toEqual([
+      { level: 'info', message: 'Using Anthropic native search' },
+    ])
+  })
+
+  it('skips modelTools when nativeModelTools is false', async () => {
+    const agent = makeAgentDef({
+      id: 'no-native-agent',
+      name: 'NoNative',
+      description: 'Agent with modelTools but disabled',
+      instructions: 'Search',
+      modelTools: ['search'],
+    })
+    registerAgentPlugin(makePlugin([agent]))
+
+    const config = { ...DEFAULTS, nativeModelTools: false }
+    await loadAgents(config, mockMemory)
+
+    expect(mockResolveModelTools).not.toHaveBeenCalled()
+  })
+
+  it('loads multiple agents from the same plugin', async () => {
+    const agentA = makeAgentDef({
+      id: 'agent-a',
+      name: 'A',
+      description: 'First',
+      instructions: 'A',
+    })
+    const agentB = makeAgentDef({
+      id: 'agent-b',
+      name: 'B',
+      description: 'Second',
+      instructions: 'B',
+    })
+    registerAgentPlugin(makePlugin([agentA, agentB]))
+
+    const result = await loadAgents(DEFAULTS, mockMemory)
+
+    expect(result['agent-a']).toBeDefined()
+    expect(result['agent-b']).toBeDefined()
+  })
+
+  it('respects agent disabled config', async () => {
+    const agent = makeAgentDef({
+      id: 'disabled-agent',
+      name: 'Disabled',
+      description: 'Disabled',
       instructions: 'Nothing',
-      async getTools() {
-        return null
-      },
     })
     registerAgentPlugin(makePlugin([agent]))
 
-    const result = await loadAgents(DEFAULTS, {}, mockMemory)
+    const config = {
+      ...DEFAULTS,
+      agents: { 'disabled-agent': { enabled: false } },
+    }
+    const result = await loadAgents(config, mockMemory)
 
-    expect(result['opt-out-agent']).toBeUndefined()
-    expect(Object.keys(result)).toHaveLength(0)
+    expect(result['disabled-agent']).toBeUndefined()
   })
 
-  it('passes correct context to getTools', async () => {
-    const getToolsSpy = vi.fn().mockResolvedValue({})
-    const agent = defineAgent({
-      id: 'ctx-agent',
-      name: 'Ctx',
-      description: 'Tests context',
-      instructions: 'Check context',
-      getTools: getToolsSpy,
-    })
-    registerAgentPlugin(makePlugin([agent]))
+  it('uses agent-specific model override for modelTools resolution', async () => {
+    mockResolveModelTools.mockResolvedValue({ tools: {}, alerts: [] })
 
-    const env = { MY_KEY: 'my-value' }
-    await loadAgents(DEFAULTS, env, mockMemory)
-
-    expect(getToolsSpy).toHaveBeenCalledOnce()
-    const ctx = getToolsSpy.mock.calls[0][0]
-    expect(ctx.model).toBe('anthropic/claude-sonnet-4-20250514')
-    expect(ctx.env).toBe(env)
-    expect(ctx.pluginConfig).toEqual({ enabled: true })
-  })
-
-  it('uses agent-specific model override in getTools context', async () => {
-    const getToolsSpy = vi.fn().mockResolvedValue({})
-    const agent = defineAgent({
-      id: 'model-agent',
-      name: 'Model',
-      description: 'Tests model override',
-      instructions: 'Check model',
-      getTools: getToolsSpy,
+    const agent = makeAgentDef({
+      id: 'model-override-agent',
+      name: 'ModelOverride',
+      description: 'Agent with model override',
+      instructions: 'Search',
+      modelTools: ['search'],
     })
     registerAgentPlugin(makePlugin([agent]))
 
     const config = {
       ...DEFAULTS,
       agents: {
-        'model-agent': {
+        'model-override-agent': {
           enabled: true,
           model: { provider: 'openai', model: 'gpt-4o' },
         },
       },
     }
 
-    await loadAgents(config, {}, mockMemory)
+    await loadAgents(config, mockMemory)
 
-    const ctx = getToolsSpy.mock.calls[0][0]
-    expect(ctx.model).toBe('openai/gpt-4o')
-  })
-
-  it('loads other agents even when one opts out', async () => {
-    const agentA = defineAgent({
-      id: 'agent-a',
-      name: 'A',
-      description: 'First',
-      instructions: 'A',
-      async getTools() {
-        return null
-      },
-    })
-    const agentB = defineAgent({
-      id: 'agent-b',
-      name: 'B',
-      description: 'Second',
-      instructions: 'B',
-      async getTools() {
-        return { someTool: {} }
-      },
-    })
-    registerAgentPlugin(makePlugin([agentA, agentB]))
-
-    const result = await loadAgents(DEFAULTS, {}, mockMemory)
-
-    expect(result['agent-a']).toBeUndefined()
-    expect(result['agent-b']).toBeDefined()
-  })
-
-  it('getTools empty object results in agent loaded with no extra tools', async () => {
-    const agent = defineAgent({
-      id: 'empty-tools-agent',
-      name: 'Empty',
-      description: 'Returns empty tools',
-      instructions: 'Do things',
-      async getTools() {
-        return {}
-      },
-    })
-    registerAgentPlugin(makePlugin([agent]))
-
-    const result = await loadAgents(DEFAULTS, {}, mockMemory)
-
-    expect(result['empty-tools-agent']).toBeDefined()
-    const config = mockAgentConstructor.mock.calls.at(-1)?.[0]
-    expect(config.tools).toEqual({})
-  })
-
-  it('stores alerts from getTools returning { tools, alerts }', async () => {
-    const agent = defineAgent({
-      id: 'alert-agent',
-      name: 'AlertAgent',
-      description: 'Agent with alerts',
-      instructions: 'Do things',
-      async getTools() {
-        return {
-          tools: { myTool: { type: 'test' } },
-          alerts: [{ level: 'info' as const, message: 'Using test search' }],
-        }
-      },
-    })
-    registerAgentPlugin(makePlugin([agent]))
-
-    await loadAgents(DEFAULTS, {}, mockMemory)
-
-    expect(getAgentAlerts('alert-agent')).toEqual([{ level: 'info', message: 'Using test search' }])
-  })
-
-  it('stores alerts even when agent opts out (null tools)', async () => {
-    const agent = defineAgent({
-      id: 'optout-alert-agent',
-      name: 'OptOutAlert',
-      description: 'Opts out but has warnings',
-      instructions: 'Nothing',
-      async getTools() {
-        return {
-          tools: null,
-          alerts: [{ level: 'warning' as const, message: 'No search backend available' }],
-        }
-      },
-    })
-    registerAgentPlugin(makePlugin([agent]))
-
-    const result = await loadAgents(DEFAULTS, {}, mockMemory)
-
-    expect(result['optout-alert-agent']).toBeUndefined()
-    expect(getAgentAlerts('optout-alert-agent')).toEqual([
-      { level: 'warning', message: 'No search backend available' },
-    ])
-  })
-
-  it('returns no alerts for plain ToolRecord return', async () => {
-    const agent = defineAgent({
-      id: 'no-alert-agent',
-      name: 'NoAlert',
-      description: 'No alerts',
-      instructions: 'Do things',
-      async getTools() {
-        return { myTool: {} }
-      },
-    })
-    registerAgentPlugin(makePlugin([agent]))
-
-    await loadAgents(DEFAULTS, {}, mockMemory)
-
-    expect(getAgentAlerts('no-alert-agent')).toEqual([])
+    expect(mockResolveModelTools).toHaveBeenCalledWith('openai/gpt-4o', ['search'])
   })
 })

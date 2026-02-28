@@ -46,8 +46,20 @@ const providesEntrySchema = z.object({
   permissions: toolPermissionsSchema.optional(),
 })
 
+const agentProvidesEntrySchema = z.object({
+  entry: z.string(),
+  useTools: z.array(z.string()).optional(),
+  modelTools: z.array(z.string()).optional(),
+})
+
 /** A single provides entry or an array of entries. */
 const providesValueSchema = z.union([providesEntrySchema, z.array(providesEntrySchema)])
+
+/** A single agent provides entry or an array of them. */
+const agentProvidesValueSchema = z.union([
+  agentProvidesEntrySchema,
+  z.array(agentProvidesEntrySchema),
+])
 
 // ---------------------------------------------------------------------------
 // Full manifest schema
@@ -69,7 +81,7 @@ export const pluginManifestSchema = z
     pandora: z.string().regex(/^[><=~^]/, 'Must be a semver range (e.g., ">=0.0.1")'),
     provides: z.object({
       tools: providesValueSchema.optional(),
-      agents: providesValueSchema.optional(),
+      agents: agentProvidesValueSchema.optional(),
       channels: providesValueSchema.optional(),
       storage: providesValueSchema.optional(),
       vector: providesValueSchema.optional(),
@@ -85,13 +97,14 @@ export const pluginManifestSchema = z
 
 export type PluginManifest = z.infer<typeof pluginManifestSchema>
 export type ProvidesEntry = z.infer<typeof providesEntrySchema>
+export type AgentProvidesEntry = z.infer<typeof agentProvidesEntrySchema>
 
 /** The capability keys a manifest can provide. */
 export type ProvidesKey = keyof PluginManifest['provides']
 
 /** Normalize a provides value (single or array) into an array. */
 export function normalizeProvidesEntries(
-  value: z.infer<typeof providesValueSchema> | undefined,
+  value: z.infer<typeof providesValueSchema> | z.infer<typeof agentProvidesValueSchema> | undefined,
 ): ProvidesEntry[] {
   if (!value) return []
   return Array.isArray(value) ? value : [value]

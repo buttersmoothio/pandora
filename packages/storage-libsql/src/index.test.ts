@@ -33,7 +33,11 @@ describe('LibSQL storage', () => {
         personality: { systemPrompt: 'You are a test agent.' },
         models: { operator: { provider: 'test', model: 'test' } },
         channels: { web: { enabled: true } },
-        tools: { 'current-time': { enabled: true } },
+        toolPlugins: {},
+        agentPlugins: {},
+        agents: {},
+        nativeModelTools: true,
+        memory: { semanticRecall: { enabled: false } },
       }
       await config.set(testConfig)
 
@@ -52,7 +56,11 @@ describe('LibSQL storage', () => {
         personality: { systemPrompt: 'Delete me.' },
         models: { operator: { provider: 'test', model: 'test' } },
         channels: {},
-        tools: {},
+        toolPlugins: {},
+        agentPlugins: {},
+        agents: {},
+        nativeModelTools: true,
+        memory: { semanticRecall: { enabled: false } },
       }
       await config.set(testConfig)
       await config.delete()

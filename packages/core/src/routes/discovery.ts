@@ -3,10 +3,10 @@ import { Hono } from 'hono'
 import {
   getAgentAlerts,
   getAgentPluginValidationErrors,
+  getAgentUseToolIds,
   getAllAgentManifests,
   getAllRegisteredAgentPlugins,
   getPluginAgentIds,
-  getScopedToolManifests,
 } from '../agents'
 import { getAllChannels, getAllRegisteredChannelPlugins } from '../channels'
 import { getConfig } from '../config'
@@ -14,6 +14,7 @@ import { getStorage } from '../storage'
 import {
   getAllManifests,
   getAllRegisteredToolPlugins,
+  getManifest,
   getPluginAlerts,
   getPluginToolIds,
   getPluginValidationErrors,
@@ -136,12 +137,15 @@ discoveryRoutes.get('/agents', async (c) => {
 
   const agents = Object.values(manifests).map((manifest) => {
     const agentConfig = config.agents[manifest.id]
-    const toolManifests = getScopedToolManifests(manifest.id)
+    const useToolIds = getAgentUseToolIds(manifest.id)
     const toolConfigs = agentConfig?.tools
-    const tools = toolManifests.map((tm) => ({
-      ...tm,
-      enabled: toolConfigs?.[tm.id]?.enabled !== false,
-    }))
+    const tools = useToolIds
+      .map((id) => getManifest(id))
+      .filter((tm): tm is NonNullable<typeof tm> => !!tm)
+      .map((tm) => ({
+        ...tm,
+        enabled: toolConfigs?.[tm.id]?.enabled !== false,
+      }))
     return {
       ...manifest,
       enabled: agentConfig?.enabled ?? true,

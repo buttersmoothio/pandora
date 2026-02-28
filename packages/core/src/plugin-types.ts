@@ -12,37 +12,18 @@ export interface Alert {
   message: string
 }
 
-/** Result shape when `getTools` returns tools together with alerts. */
-export interface GetToolsResultWithAlerts {
-  tools: import('./tools/types').ToolRecord | null
-  alerts?: Alert[]
-}
-
-/**
- * Normalize a `getTools` return value into `{ tools, alerts }`.
- *
- * Accepts either:
- * - a plain `ToolRecord | null`
- * - `{ tools, alerts? }`
- */
-export function unwrapGetToolsResult(
-  result: import('./tools/types').ToolRecord | null | GetToolsResultWithAlerts,
-): { tools: import('./tools/types').ToolRecord | null; alerts: Alert[] } {
-  if (result !== null && typeof result === 'object' && 'tools' in result) {
-    const r = result as GetToolsResultWithAlerts
-    return { tools: r.tools, alerts: r.alerts ?? [] }
-  }
-  return { tools: result as import('./tools/types').ToolRecord | null, alerts: [] }
-}
-
-/** Context passed to a plugin's getTools hook — shared by agent and tool plugins. */
-export interface GetToolsContext {
-  /** The resolved model string (e.g. 'openai/gpt-4o'). */
-  model: string
+/** Context passed to a plugin's resolveTools hook. */
+export interface ResolveToolsContext {
   /** The plugin's own validated config. */
   pluginConfig: Record<string, unknown>
   /** Environment variables. */
   env: Record<string, string | undefined>
+}
+
+/** Result from a plugin's resolveTools hook. */
+export interface ResolveToolsResult {
+  tools: import('./tools/types').ToolExport[]
+  alerts?: Alert[]
 }
 
 /** Describes a config field for UI rendering */

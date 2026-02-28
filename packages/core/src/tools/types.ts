@@ -1,18 +1,19 @@
 import type { ToolsInput } from '@mastra/core/agent'
 import type {
-  Alert,
   ConfigFieldDescriptor,
   EnvVarDescriptor,
-  GetToolsContext,
   PluginConfig,
+  ResolveToolsContext,
+  ResolveToolsResult,
 } from '../plugin-types'
 
 export type {
   Alert,
   ConfigFieldDescriptor,
   EnvVarDescriptor,
-  GetToolsContext,
   PluginConfig,
+  ResolveToolsContext,
+  ResolveToolsResult,
 } from '../plugin-types'
 
 /** Per-plugin user configuration for tool plugins */
@@ -127,8 +128,8 @@ export interface ToolPlugin {
   /** Tool exports provided by this plugin */
   // biome-ignore lint/suspicious/noExplicitAny: variance — ToolExport<T> must be assignable here for any T
   tools: ToolExport<any, any>[]
-  /** Async hook for dynamic tool resolution based on model/env. Return `{}` if nothing available. Can return `{ tools, alerts }` to surface diagnostics. */
-  getTools?: (ctx: GetToolsContext) => Promise<ToolRecord | { tools: ToolRecord; alerts?: Alert[] }>
+  /** Async hook for dynamic tool resolution based on env/config. Returns ToolExport objects that go through bindToolExport() + registerManifest(). */
+  resolveTools?: (ctx: ResolveToolsContext) => Promise<ResolveToolsResult>
 }
 
 /**

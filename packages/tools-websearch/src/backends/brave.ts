@@ -1,20 +1,29 @@
-import { tool } from 'ai'
-import { z } from 'zod'
-
 const BRAVE_API_URL = 'https://api.search.brave.com/res/v1/web/search'
 
 export function braveSearch({ apiKey }: { apiKey: string }) {
-  return tool({
+  return {
+    id: 'web_search' as const,
+    name: 'Web Search',
     description: 'Search the web using Brave Search for current information, news, and facts.',
-    inputSchema: z.object({
-      query: z.string().describe('The search query'),
-      count: z.number().int().min(1).max(20).optional().describe('Number of results (max 20)'),
-      freshness: z
-        .enum(['pd', 'pw', 'pm', 'py'])
-        .optional()
-        .describe('Time filter: pd=24h, pw=7d, pm=31d, py=1yr'),
-    }),
-    execute: async (input) => {
+    parameters: {
+      type: 'object' as const,
+      properties: {
+        query: { type: 'string', description: 'The search query' },
+        count: {
+          type: 'integer',
+          minimum: 1,
+          maximum: 20,
+          description: 'Number of results (max 20)',
+        },
+        freshness: {
+          type: 'string',
+          enum: ['pd', 'pw', 'pm', 'py'],
+          description: 'Time filter: pd=24h, pw=7d, pm=31d, py=1yr',
+        },
+      },
+      required: ['query'],
+    },
+    execute: async (input: { query: string; count?: number; freshness?: string }) => {
       const params = new URLSearchParams({ q: input.query })
       if (input.count) params.set('count', String(input.count))
       if (input.freshness) params.set('freshness', input.freshness)
@@ -40,5 +49,5 @@ export function braveSearch({ apiKey }: { apiKey: string }) {
         description: r.description,
       }))
     },
-  })
+  }
 }

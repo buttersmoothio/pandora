@@ -13,6 +13,7 @@ A tool package follows this structure:
 <FileTree>
   <FileTree.Folder name="pandora-tools-weather" defaultOpen>
     <FileTree.File name="package.json" />
+    <FileTree.File name="pandora.manifest.json" />
     <FileTree.Folder name="src" defaultOpen>
       <FileTree.File name="index.ts" />
       <FileTree.File name="weather.ts" />
@@ -133,68 +134,59 @@ A plugin with required `configFields` is skipped until the user configures them.
 
 </Steps>
 
-## Dynamic Tools
+## Dynamic Tool Resolution
 
-Some tools can't be defined statically — they depend on which model the user selected or which API keys are available. For these cases, `ToolPlugin` supports an async `getTools` hook that runs at load time and returns tools dynamically.
+Some tools can't be defined statically — they depend on which API keys are available or user configuration. For these cases, `ToolPlugin` supports an async `resolveTools` hook that runs at load time and returns `ToolExport` objects dynamically.
 
-This is the mechanism behind `@pandora/tools-websearch`: it detects the operator's model and returns the appropriate provider tool (OpenAI's `webSearch()`, Google's `googleSearch()`, or a third-party search API like Tavily).
+This is the mechanism behind `@pandora/tools-websearch`: it checks which search API keys are available and returns the appropriate backend as a `ToolExport`.
 
 ```ts
-import type { ToolPlugin } from '@pandora/core/tools'
-import { resolveSearchTools } from './resolve'
+// src/index.ts
+import { resolveSearchTool } from './resolve'
 
-export default {
-  id: 'tools-websearch',
-  name: 'Web Search',
-  schemaVersion: 1,
-  configFields: [
-    {
-      key: 'searchBackend',
-      label: 'Search Backend',
-      type: 'enum',
-      options: [
-        { value: 'auto', label: 'Auto-detect' },
-        { value: 'tavily', label: 'Tavily' },
-        { value: 'exa', label: 'Exa' },
-      ],
-    },
-  ],
-  tools: [],
-  async getTools({ model, pluginConfig, env }) {
-    const preferred = pluginConfig?.searchBackend as string | undefined
-    return (await resolveSearchTools({ model, preferred, env })) ?? {}
-  },
-} satisfies ToolPlugin
+export const tools: [] = []
+
+export async function resolveTools({ pluginConfig, env }) {
+  const preferred = pluginConfig?.searchBackend as string | undefined
+  const result = resolveSearchTool({ preferred, env })
+  return { tools: result.tool ? [result.tool] : [], alerts: result.alerts }
+}
 ```
 
-A plugin can have both static `tools` and a `getTools` hook. All tools — static and dynamic — are loaded when the plugin is active.
+A plugin can have both static `tools` and a `resolveTools` hook. All tools — static and dynamically resolved — are loaded when the plugin is active. Resolved tools go through `bindToolExport()` + `registerManifest()`, so they get manifests, timeouts, and Zod schema wrapping just like static tools.
 
-The `getTools` hook receives a `GetToolsContext`:
+The `resolveTools` hook receives a `ResolveToolsContext`:
 
 ```ts
-interface GetToolsContext {
-  model: string                          // e.g. 'openai/gpt-4o'
+interface ResolveToolsContext {
   pluginConfig: Record<string, unknown>  // validated plugin config
   env: Record<string, string | undefined>
 }
 ```
 
-Return a `ToolRecord` — a record of tool instances keyed by ID. This can include Mastra tools, Vercel AI SDK tools, or provider-defined tools (like `openai.tools.webSearch()`). Return `{}` if no tools are available.
+Return a `ResolveToolsResult` — an object with `tools` (array of `ToolExport`) and optional `alerts`:
+
+```ts
+interface ResolveToolsResult {
+  tools: ToolExport[]
+  alerts?: Alert[]
+}
+```
 
 ### Alerts
 
-`getTools` can also return diagnostic alerts alongside tools by returning `{ tools, alerts }` instead of a plain `ToolRecord`:
+`resolveTools` can return diagnostic alerts alongside tools:
 
 ```ts
-async getTools({ model, env }) {
+async resolveTools({ env }) {
   if (!env.MY_API_KEY) {
     return {
-      tools: {},
+      tools: [],
       alerts: [{ level: 'warning', message: 'API key not set' }],
     }
   }
   return {
-    tools: { myTool: createTool(env.MY_API_KEY) },
+    tools: [myToolExport],
     alerts: [{ level: 'info', message: 'Using MyService' }],
   }
 }
@@ -210,6 +202,8 @@ All types are exported from `@pandora/core/tools`:
 import type {
   ConfigFieldDescriptor,
   EnvVarDescriptor,
+  ResolveToolsContext,
+  ResolveToolsResult,
   ToolAnnotations,
   ToolExport,
   ToolPlugin,
@@ -264,7 +258,7 @@ The descriptor your package default-exports:
 | `envVars` | `EnvVarDescriptor[]` | No | Environment variable descriptors |
 | `configFields` | `ConfigFieldDescriptor[]` | No | UI config field descriptors |
 | `tools` | `ToolExport[]` | Yes | Tool exports — plain objects with metadata and execute function |
-| `getTools` | `(ctx: GetToolsContext) => Promise<ToolRecord \| { tools: ToolRecord; alerts?: Alert[] }>` | No | Async hook for dynamic tool resolution. Can return alerts. See [Dynamic Tools](#dynamic-tools). |
+| `resolveTools` | `(ctx: ResolveToolsContext) => Promise<ResolveToolsResult>` | No | Async hook for dynamic tool resolution. Returns `ToolExport[]` and optional alerts. See [Dynamic Tool Resolution](#dynamic-tool-resolution). |
 
 ### `EnvVarDescriptor`
 

@@ -14,7 +14,7 @@ The routing decision is made by the LLM, not by rules. The operator sees what ea
 
 ## Scoped Tools
 
-Scoped tools belong to individual agents, not to the global tool registry. Each `defineAgent()` call declares its own `tools` array. When `registerAgentPlugin()` runs, it collects all tools from its agents and removes them from the global manifest registry. This means:
+Scoped tools belong to individual agents, not to the global tool registry. Agent entry points can declare a `tools` array of `ToolExport` objects. When `registerAgentPlugin()` runs, it removes scoped tools from the global manifest registry. This means:
 
 - Scoped tools don't appear in `/api/tools` or the Tools settings page
 - The operator never sees them — only the owning agent can use them
@@ -23,21 +23,23 @@ Scoped tools belong to individual agents, not to the global tool registry. Each 
 
 This per-agent scoping matters because different specialists need different capabilities. A researcher agent needs search tools; an analyst agent in the same plugin might only need a subset. The plugin author decides what each agent needs, and operators can fine-tune per-agent tool access through config.
 
-## Dynamic Tools
+## Declarative Tool Dependencies
 
-Beyond static scoped tools, agents support a `getTools` hook for dynamic tool resolution. This is essential for tools that depend on runtime context — which model is configured, which API keys are available, or which provider SDKs are installed.
+Agents declare their tool dependencies in the manifest rather than resolving them at runtime:
 
-The research agent uses this to resolve search capabilities: it checks for native model search (Perplexity, OpenAI, Google), then falls back to third-party search APIs (Tavily, Exa). If nothing is available, `getTools` returns `null` and the agent is not loaded — the operator handles requests directly instead of routing to a broken specialist.
+- **`useTools`** — tool IDs to inherit from the global tool registry (e.g. `["web_search"]`). These are tools loaded by tool plugins like `@pandora/tools-websearch`.
+- **`modelTools`** — model-native capability keys (e.g. `["search"]`). Core resolves these to provider SDK tools based on the configured model.
 
-Static tools and dynamic tools are merged at load time. Static tools go through the manifest registry and appear in per-agent tool toggles. Dynamic tools (often provider-defined) bypass the manifest system — they're opaque to the UI but fully functional at runtime.
+This replaces the old `getTools` hook. Agent entry points are now pure data objects with no imports from `@pandora/core` — they just export `{ id, name, description, instructions }`. The adapter stamps `useTools` and `modelTools` from the manifest onto the agent definition at load time.
 
 ## Plugin Model
 
-Agent plugins follow the same define-plugin-register pattern as tools and channels:
+Agent plugins follow the manifest-driven pattern:
 
-1. `defineAgent()` registers a manifest at import time
-2. An `AgentPlugin` descriptor bundles agents, env vars, and config fields
-3. `registerAgentPlugin()` adds it to the registry
+1. Agent entry points export plain objects with agent metadata
+2. The manifest adapter registers manifests and stamps tool dependencies
+3. `registerAgentPlugin()` adds the plugin to the registry
+4. `loadAgents()` wires tools and creates Agent instances
 
 This consistency means the same UI patterns (env var cards, config fields, enable toggles) work across all plugin types without special-casing.
 

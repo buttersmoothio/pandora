@@ -13,112 +13,79 @@ An agent package follows this structure:
 <FileTree>
   <FileTree.Folder name="pandora-agent-researcher" defaultOpen>
     <FileTree.File name="package.json" />
+    <FileTree.File name="pandora.manifest.json" />
     <FileTree.Folder name="src" defaultOpen>
-      <FileTree.File name="index.ts" />
-      <FileTree.File name="researcher.ts" />
+      <FileTree.File name="web-search.ts" />
+      <FileTree.File name="research.ts" />
     </FileTree.Folder>
     <FileTree.File name="tsconfig.json" />
   </FileTree.Folder>
 </FileTree>
 
-The `package.json` declares `@pandora/core` as a peer dependency:
+The `package.json` declares `@pandora/core` as a dev dependency (only type-only imports, if any, are used at runtime):
 
 ```json
 {
   "name": "pandora-agent-researcher",
   "type": "module",
   "exports": { ".": "./src/index.ts" },
-  "peerDependencies": {
+  "devDependencies": {
     "@pandora/core": "*"
   }
 }
 ```
 
-### Define scoped tools (optional)
-
-Agents can have their own tools that are scoped to them (not added to the global tool list). Define them as `ToolExport` objects:
-
-```ts
-// src/summarize.ts
-import type { ToolExport } from '@pandora/core/tools'
-
-export const summarize: ToolExport = {
-  id: 'summarize',
-  name: 'Summarize',
-  description: 'Summarize a block of text',
-  parameters: {
-    type: 'object',
-    properties: {
-      text: { type: 'string', description: 'Text to summarize' },
-      maxLength: { type: 'number', description: 'Max summary length' },
-    },
-    required: ['text'],
-  },
-  execute: async (input: { text: string; maxLength?: number }, { env }) => {
-    return { summary: input.text.slice(0, input.maxLength ?? 500) }
-  },
-}
-```
-
 ### Define the agent
 
-Use `defineAgent()` to create an agent with its identity, instructions, and tools:
+Agent entry points export plain objects with identity, instructions, and optionally scoped tools:
 
 ```ts
-// src/researcher.ts
-import { defineAgent } from '@pandora/core/agents'
-import { resolveSearchTools } from '@pandora/tools-websearch'
-
-export const researcher = defineAgent({
+// src/web-search.ts
+export const agent = {
   id: 'web-search',
   name: 'Web Search',
   description: 'Search the web for current information, recent news, and fact-checking.',
   instructions: `You are a web search specialist with access to current web information.
 Search for the most recent and relevant information, cite sources with URLs,
 and synthesize results into clear, concise answers.`,
-
-  async getTools({ model, pluginConfig, env }) {
-    const preferred = pluginConfig?.searchBackend as string | undefined
-    return resolveSearchTools({ model, preferred, env })
-  },
-})
+}
 ```
 
-The `getTools` hook is an async function that resolves tools at load time. It receives the agent's model string, plugin config, and environment variables. Return `null` to skip loading the agent entirely (useful when required capabilities are missing — e.g. no search API key and no native model search).
+No imports from `@pandora/core` needed. Agent entry points are pure data — the system reads identity and instructions from the exported object.
 
-Agents can combine static `tools` with a `getTools` hook. Static tools are scoped to the agent; dynamic tools from `getTools` are merged in at load time.
+### Declare tool dependencies in the manifest
 
-### Export the plugin
+The `pandora.manifest.json` declares which tools each agent needs:
 
-The default export is an `AgentPlugin` descriptor:
-
-```ts
-// src/index.ts
-import type { AgentPlugin } from '@pandora/core/agents'
-import { researcher } from './researcher'
-
-export default {
-  id: 'agent-research',
-  name: 'Research',
-  schemaVersion: 1,
-  agents: [researcher],
-} satisfies AgentPlugin
+```json
+{
+  "manifestVersion": 1,
+  "id": "agent-research",
+  "name": "Research",
+  "pandora": ">=0.0.1",
+  "provides": {
+    "agents": [
+      {
+        "entry": "./src/web-search.ts",
+        "sandbox": "host",
+        "useTools": ["web_search"],
+        "modelTools": ["search"]
+      },
+      {
+        "entry": "./src/research.ts",
+        "sandbox": "host"
+      }
+    ]
+  }
+}
 ```
 
-### Register it
-
-Install your package in the Pandora instance and register it in `plugins.ts`:
-
-```ts
-import researcher from 'pandora-agent-researcher'
-import { registerAgentPlugin } from './agents'
-
-registerAgentPlugin(researcher)
-```
+- **`useTools`** — tool IDs from the global tool registry (loaded by tool plugins like `@pandora/tools-websearch`)
+- **`modelTools`** — model-native capabilities. `"search"` maps to OpenAI's `webSearch()`, Google's `googleSearch()`, or Anthropic's `webSearch_20250305()` depending on the configured model.
 
 ### Enable it
 
-Once registered, users control your plugin at two levels in **Settings → Agents**:
+Once the manifest is discovered, users control your plugin at two levels in **Settings → Agents**:
 
 - **Plugin level** — toggles the plugin on/off and stores settings from your `configFields`. A plugin with required `configFields` is skipped until the user configures them.
 - **Agent level** — toggles individual agents within the plugin and configures per-agent model overrides and scoped tool access.
@@ -131,21 +98,51 @@ Pandora reads each agent's `description` and decides whether to handle a request
 
 With zero agents registered, Pandora handles all requests directly — behavior is unchanged from a standard setup.
 
+## Scoped tools (optional)
+
+Agents can have their own tools that are scoped to them (not added to the global tool list). Define them as `ToolExport` objects and include them in the agent's `tools` array:
+
+```ts
+// src/my-agent.ts
+export const agent = {
+  id: 'my-agent',
+  name: 'My Agent',
+  description: 'An agent with scoped tools',
+  instructions: 'Use your tools wisely.',
+  tools: [
+    {
+      id: 'summarize',
+      name: 'Summarize',
+      description: 'Summarize a block of text',
+      parameters: {
+        type: 'object',
+        properties: {
+          text: { type: 'string', description: 'Text to summarize' },
+        },
+        required: ['text'],
+      },
+      execute: async (input: { text: string }) => {
+        return { summary: input.text.slice(0, 500) }
+      },
+    },
+  ],
+}
+```
+
 ## Reference
 
 All types are exported from `@pandora/core/agents`:
 
 ```ts
-import { defineAgent } from '@pandora/core/agents'
-
 import type {
+  AgentDefinition,
   AgentPlugin,
   ConfigFieldDescriptor,
   EnvVarDescriptor,
 } from '@pandora/core/agents'
 ```
 
-### `DefineAgentOptions`
+### `AgentDefinition`
 
 | Field | Type | Required | Description |
 |---|---|---|---|
@@ -154,17 +151,18 @@ import type {
 | `description` | `string` | Yes | What the agent does (used for routing decisions) |
 | `instructions` | `string` | Yes | System instructions for the agent |
 | `tools` | `ToolExport[]` | No | Static scoped tools available to this agent |
-| `getTools` | `(ctx: GetToolsContext) => Promise<ToolRecord \| null>` | No | Async hook for dynamic tool resolution. Return `null` to skip loading the agent. |
+
+Tool dependencies (`useTools`, `modelTools`) are declared in the manifest `provides.agents` entries, not in the agent code.
 
 ### `AgentPlugin`
 
-The descriptor your package default-exports:
+The descriptor created by the manifest adapter:
 
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `id` | `string` | Yes | Plugin identifier, e.g. `'agent-researcher'` |
 | `name` | `string` | Yes | Human-readable display name |
 | `schemaVersion` | `number` | Yes | Must be `1` |
-| `agents` | `AgentDefinition[]` | Yes | Agent definitions from `defineAgent()` |
+| `agents` | `AgentDefinition[]` | Yes | Agent definitions from entry points |
 | `envVars` | `EnvVarDescriptor[]` | No | Environment variable descriptors |
 | `configFields` | `ConfigFieldDescriptor[]` | No | UI config field descriptors |

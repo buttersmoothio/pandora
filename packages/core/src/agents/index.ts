@@ -4,23 +4,17 @@ import { z } from 'zod'
 import type { Config } from '../config'
 import { getLogger } from '../logger'
 import { buildModelString } from '../mastra/models'
-import {
-  type Alert,
-  buildSchemaFromFields,
-  PLUGIN_SCHEMA_VERSION,
-  unwrapGetToolsResult,
-} from '../plugin-types'
+import { type Alert, buildSchemaFromFields, PLUGIN_SCHEMA_VERSION } from '../plugin-types'
 import type { ToolRecord } from '../tools'
-import { removeManifest } from '../tools'
-import { bindToolExport, buildManifest } from '../tools/define'
-import type { ToolManifest } from '../tools/types'
 import type { AgentDefinition } from './define'
 import { clearAgentManifestRegistry, getAgentManifest } from './define'
+import type { ModelToolKey } from './model-tools'
+import { resolveModelTools } from './model-tools'
 import { clearAgentSchemaRegistry, getAgentSchema, registerAgentSchema } from './schema-registry'
 import type { AgentPlugin, AgentPluginConfig, AgentRecord } from './types'
 
-export type { AgentDefinition, DefineAgentOptions, GetToolsContext } from './define'
-export { defineAgent, getAgentManifest, getAllAgentManifests } from './define'
+export type { AgentDefinition } from './define'
+export { getAgentManifest, getAllAgentManifests, registerAgentManifest } from './define'
 export type {
   AgentManifest,
   AgentPlugin,
@@ -43,9 +37,8 @@ const agentAlertsMap = new Map<string, Alert[]>()
 /**
  * Register an agent plugin.
  *
- * Must be called before agents are loaded. Importing the package
- * triggers its `defineAgent` calls, so manifests are registered as
- * a side effect of importing the definition module.
+ * Must be called before agents are loaded. Agent manifests are registered
+ * by the manifest adapter when processing agent entries.
  *
  * Validates schema version compatibility on registration.
  */
@@ -61,18 +54,6 @@ export function registerAgentPlugin(plugin: AgentPlugin): void {
     plugin.id,
     plugin.agents.map((a) => a.id),
   )
-
-  // Remove scoped tool manifests from the global tool registry.
-  // Scoped tools are agent-namespaced and should not appear in /api/tools.
-  const seen = new Set<string>()
-  for (const agentDef of plugin.agents) {
-    for (const toolDef of agentDef.tools) {
-      if (!seen.has(toolDef.id)) {
-        seen.add(toolDef.id)
-        removeManifest(toolDef.id)
-      }
-    }
-  }
 
   if (plugin.configFields?.length) {
     registerAgentSchema(plugin.id, buildSchemaFromFields(plugin.configFields))
@@ -127,22 +108,6 @@ function validatePluginConfig(
 // Loading
 // ---------------------------------------------------------------------------
 
-/** Load scoped tools from an agent's ToolExport entries, filtered by config. */
-function loadScopedTools(
-  agentDef: AgentDefinition,
-  config: Config,
-  envVars: Record<string, string | undefined>,
-  pluginConfig: AgentPluginConfig,
-): ToolRecord {
-  const tools: ToolRecord = {}
-  const agentConfig = config.agents[agentDef.id]
-  for (const exp of agentDef.tools) {
-    if (agentConfig?.tools?.[exp.id]?.enabled === false) continue
-    tools[exp.id] = bindToolExport(exp, envVars, pluginConfig)
-  }
-  return tools
-}
-
 /** Create an Agent from a manifest and resolved config. */
 function createAgentFromManifest(
   agentDef: AgentDefinition,
@@ -168,22 +133,26 @@ function createAgentFromManifest(
   })
 }
 
-/** Resolve dynamic tools from an agent's getTools hook. Returns null tools if the agent opts out. */
-async function resolveDynamicTools(
+/** Resolve global tool dependencies from manifest useTools. */
+function resolveInheritedTools(agentDef: AgentDefinition, globalTools: ToolRecord): ToolRecord {
+  const tools: ToolRecord = {}
+  for (const id of agentDef.useTools ?? []) {
+    if (globalTools[id]) tools[id] = globalTools[id]
+  }
+  return tools
+}
+
+/** Resolve model-native tools from manifest modelTools. */
+async function resolveAgentModelTools(
   agentDef: AgentDefinition,
   config: Config,
-  envVars: Record<string, string | undefined>,
-  pluginConfig: AgentPluginConfig,
-): Promise<{ tools: ToolRecord | null; alerts: Alert[] }> {
-  if (!agentDef.getTools) return { tools: {}, alerts: [] }
+): Promise<{ tools: ToolRecord; alerts: Alert[] }> {
+  if (!agentDef.modelTools?.length || config.nativeModelTools === false) {
+    return { tools: {}, alerts: [] }
+  }
   const agentConfig = config.agents[agentDef.id]
   const modelConfig = agentConfig?.model ?? config.models.operator
-  const raw = await agentDef.getTools({
-    model: buildModelString(modelConfig),
-    pluginConfig,
-    env: envVars,
-  })
-  return unwrapGetToolsResult(raw)
+  return resolveModelTools(buildModelString(modelConfig), agentDef.modelTools as ModelToolKey[])
 }
 
 /**
@@ -192,11 +161,13 @@ async function resolveDynamicTools(
  * Plugin-level config (`config.agentPlugins[pluginId]`) controls whether
  * a plugin is active and provides user settings to the factory.
  * Agent-level config (`config.agents[agentId]`) controls individual agents.
+ *
+ * @param globalTools - The tool record loaded by `loadTools()`, used for `useTools` resolution.
  */
 export async function loadAgents(
   config: Config,
-  envVars: Record<string, string | undefined>,
   memory: MastraMemory,
+  globalTools: ToolRecord = {},
 ): Promise<AgentRecord> {
   const result: AgentRecord = {}
   agentAlertsMap.clear()
@@ -206,20 +177,11 @@ export async function loadAgents(
     if (!pluginConfig) continue
 
     for (const agentDef of plugin.agents) {
-      const { tools: dynamicTools, alerts } = await resolveDynamicTools(
-        agentDef,
-        config,
-        envVars,
-        pluginConfig,
-      )
+      const inheritedTools = resolveInheritedTools(agentDef, globalTools)
+      const { tools: modelNativeTools, alerts } = await resolveAgentModelTools(agentDef, config)
+      if (alerts.length) agentAlertsMap.set(agentDef.id, alerts)
 
-      // Store alerts before the null-tools skip so warnings show even when agent opts out
-      if (alerts.length > 0) agentAlertsMap.set(agentDef.id, alerts)
-
-      if (dynamicTools === null) continue // Agent opted out of loading
-
-      const scopedTools = loadScopedTools(agentDef, config, envVars, pluginConfig)
-      const allTools = { ...scopedTools, ...dynamicTools }
+      const allTools = { ...inheritedTools, ...modelNativeTools }
       const agent = createAgentFromManifest(agentDef, config, allTools, memory)
       if (agent) result[agentDef.id] = agent
     }
@@ -238,11 +200,11 @@ export function getPluginAgentIds(pluginId: string): string[] {
   return pluginAgentsMap.get(pluginId) ?? []
 }
 
-/** Get scoped tool manifests for an agent by ID. */
-export function getScopedToolManifests(agentId: string): ToolManifest[] {
+/** Get useTools IDs for an agent by ID. */
+export function getAgentUseToolIds(agentId: string): string[] {
   for (const plugin of pluginRegistry.values()) {
     const agentDef = plugin.agents.find((a) => a.id === agentId)
-    if (agentDef) return agentDef.tools.map(buildManifest)
+    if (agentDef) return agentDef.useTools ?? []
   }
   return []
 }

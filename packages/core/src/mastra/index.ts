@@ -52,7 +52,7 @@ export async function getMastra(
   const memory = createMemory({ config, vector: vectorResult })
 
   // 6. Subagents (from agent plugins)
-  const subagents = await loadAgents(config, env, memory)
+  const subagents = await loadAgents(config, memory, tools)
   if (Object.keys(subagents).length > 0) {
     log.info('[getMastra] loaded subagents', { agentIds: Object.keys(subagents) })
   }

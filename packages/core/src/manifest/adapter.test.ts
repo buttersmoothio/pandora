@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { clearAgentManifestRegistry, getAgentManifest } from '../agents/define'
 import { adaptManifest } from './adapter'
 import type { LoadedEntry } from './loader'
 import type { PluginManifest } from './schema'
@@ -24,7 +25,7 @@ describe('adaptManifest', () => {
       {
         key: 'tools',
         entry: { entry: './src/index.ts', sandbox: 'compartment' },
-        namespace: { tools: [toolExport], getTools: async () => ({}) },
+        namespace: { tools: [toolExport], resolveTools: async () => ({ tools: [] }) },
       },
     ]
 
@@ -33,7 +34,7 @@ describe('adaptManifest', () => {
     expect(result.tools[0].id).toBe('test-plugin')
     expect(result.tools[0].tools).toHaveLength(1)
     expect(result.tools[0].tools[0]).toBe(toolExport)
-    expect(result.tools[0].getTools).toBeTypeOf('function')
+    expect(result.tools[0].resolveTools).toBeTypeOf('function')
   })
 
   it('stamps tool exports with sandbox and permissions from provides entry', () => {
@@ -60,23 +61,72 @@ describe('adaptManifest', () => {
     expect(plugin.tools[0].permissions).toEqual(permissions)
   })
 
-  it('adapts agent entries (one per entry point)', () => {
+  it('adapts agent entries and registers manifests', () => {
+    clearAgentManifestRegistry()
     const entries: LoadedEntry[] = [
       {
         key: 'agents',
         entry: { entry: './src/agent-a.ts' },
-        namespace: { agent: { id: 'agent-a' } },
+        namespace: {
+          agent: {
+            id: 'agent-a',
+            name: 'Agent A',
+            description: 'First agent',
+            instructions: 'Do A',
+          },
+        },
       },
       {
         key: 'agents',
         entry: { entry: './src/agent-b.ts' },
-        namespace: { agent: { id: 'agent-b' } },
+        namespace: {
+          agent: {
+            id: 'agent-b',
+            name: 'Agent B',
+            description: 'Second agent',
+            instructions: 'Do B',
+          },
+        },
       },
     ]
 
     const result = adaptManifest(baseManifest, entries)
     expect(result.agents).toHaveLength(1)
     expect(result.agents[0].agents).toHaveLength(2)
+
+    // Manifests are registered by the adapter
+    expect(getAgentManifest('agent-a')).toBeDefined()
+    expect(getAgentManifest('agent-b')).toBeDefined()
+    clearAgentManifestRegistry()
+  })
+
+  it('stamps useTools and modelTools from provides entry onto AgentDefinition', () => {
+    clearAgentManifestRegistry()
+    const entries: LoadedEntry[] = [
+      {
+        key: 'agents',
+        // The adapter casts agent entries to AgentProvidesEntry which has useTools/modelTools
+        entry: {
+          entry: './src/web-search.ts',
+          useTools: ['web_search'],
+          modelTools: ['search'],
+        } as LoadedEntry['entry'],
+        namespace: {
+          agent: {
+            id: 'web-search',
+            name: 'Web Search',
+            description: 'Search agent',
+            instructions: 'Search the web',
+          },
+        },
+      },
+    ]
+
+    const result = adaptManifest(baseManifest, entries)
+    const agentDef = result.agents[0].agents[0]
+    expect(agentDef.useTools).toEqual(['web_search'])
+    expect(agentDef.modelTools).toEqual(['search'])
+    clearAgentManifestRegistry()
   })
 
   it('skips agent entries without an agent export', () => {
@@ -141,6 +191,7 @@ describe('adaptManifest', () => {
   })
 
   it('handles mixed capabilities from one manifest', () => {
+    clearAgentManifestRegistry()
     const entries: LoadedEntry[] = [
       {
         key: 'tools',
@@ -150,7 +201,14 @@ describe('adaptManifest', () => {
       {
         key: 'agents',
         entry: { entry: './src/my-agent.ts' },
-        namespace: { agent: { id: 'my-agent' } },
+        namespace: {
+          agent: {
+            id: 'my-agent',
+            name: 'My Agent',
+            description: 'Test agent',
+            instructions: 'Do things',
+          },
+        },
       },
     ]
 
@@ -158,6 +216,7 @@ describe('adaptManifest', () => {
     expect(result.tools).toHaveLength(1)
     expect(result.agents).toHaveLength(1)
     expect(result.channels).toHaveLength(0)
+    clearAgentManifestRegistry()
   })
 
   it('returns empty arrays when no entries', () => {
@@ -192,6 +251,7 @@ describe('adaptManifest', () => {
   })
 
   it('propagates all metadata fields to every plugin type', () => {
+    clearAgentManifestRegistry()
     const manifest: PluginManifest = {
       ...baseManifest,
       description: 'A test plugin',
@@ -214,7 +274,14 @@ describe('adaptManifest', () => {
       {
         key: 'agents',
         entry: { entry: './src/agent.ts' },
-        namespace: { agent: { id: 'test-agent' } },
+        namespace: {
+          agent: {
+            id: 'test-agent',
+            name: 'Test Agent',
+            description: 'A test agent',
+            instructions: 'Do things',
+          },
+        },
       },
       {
         key: 'channels',
@@ -268,5 +335,6 @@ describe('adaptManifest', () => {
       expect(plugin.envVars).toEqual(expected.envVars)
       expect(plugin.configFields).toEqual(expected.configFields)
     }
+    clearAgentManifestRegistry()
   })
 })

@@ -11,9 +11,9 @@
   "provides": {
     "tools": {
       "entry": "./src/index.ts",
-      "sandbox": "host",
+      "sandbox": "compartment",
       "permissions": {
-        "network": ["api.search.brave.com", "api.tavily.com", "api.exa.ai"],
+        "network": ["api.search.brave.com", "api.tavily.com", "api.exa.ai", "api.perplexity.ai"],
         "env": ["TAVILY_API_KEY", "BRAVE_API_KEY", "EXA_API_KEY", "PERPLEXITY_API_KEY"]
       }
     }

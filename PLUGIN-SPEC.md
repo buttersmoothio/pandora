@@ -30,7 +30,7 @@ All tool, agent, and channel plugins — whether first-party (`@pandora/tools-we
 
 **What the plugin gets:**
 - Its declared `dependencies` from `package.json`, each in their own Compartment
-- Its declared `peerDependencies` (e.g., `@pandora/core`), provided by the host
+- Its declared `peerDependencies` (e.g., `zod`), provided by the host
 - Scoped endowments based on declared `permissions` (fetch, env, fs, time, random)
 
 **What the plugin cannot do:**
@@ -93,8 +93,8 @@ Every npm package already declares its dependencies. This is the natural, existi
 package.json
 ├── dependencies          → each gets its own Compartment, linked to the plugin
 ├── optionalDependencies  → same, but graceful failure if not installed
-├── peerDependencies      → provided by the host (@pandora/core, zod, etc.)
-└── devDependencies       → NOT included (build/test only)
+├── peerDependencies      → provided by the host (zod, etc.)
+└── devDependencies       → NOT included (build/test only, e.g. @pandora/core for types)
 ```
 
 ### How it works (with Endo tooling)
@@ -114,7 +114,7 @@ The `@endo/compartment-mapper` already solves this. It:
 {
   "dependencies": { "ai": "^6.0.0", "zod": "^3.0.0" },
   "optionalDependencies": { "@tavily/ai-sdk": "*", "@exalabs/ai-sdk": "*" },
-  "peerDependencies": { "@pandora/core": "workspace:*" }
+  "devDependencies": { "@pandora/core": "workspace:*" }
 }
 ```
 
@@ -127,6 +127,8 @@ The compartment mapper creates:
 - Module links between them based on declared dependencies
 
 `import { tool } from 'ai'` inside the plugin resolves to the `ai` Compartment's exports. `import fs from 'fs'` throws — `fs` is not a declared dependency.
+
+Note: `@pandora/core` is a `devDependency` — used only for TypeScript types during development. Plugins don't import anything from core at runtime; they simply export the right shapes (plain objects and functions) that core consumes.
 
 ### Dynamic imports
 
@@ -158,9 +160,8 @@ const { namespace } = await importLocation(
   readPowers,
   pluginEntryUrl,
   {
-    globals: { console },             // what the root compartment sees
-    modules: { '@pandora/core': ... }, // "exit modules" — host-provided
-    policy: { ... },                   // per-package authority
+    globals: { console, fetch },  // what the root compartment sees
+    policy: { ... },              // per-package authority (optional)
   },
 )
 ```
@@ -169,10 +170,9 @@ const { namespace } = await importLocation(
 ```typescript
 const application = await loadLocation(readPowers, pluginEntryUrl, options)
 
-// Later, with specific globals/modules:
+// Later, with specific globals:
 const { namespace } = await application.import({
   globals: scopedEndowments,
-  modules: { '@pandora/core': coreNamespace },
 })
 ```
 
@@ -303,8 +303,6 @@ Changes to load plugins into Compartments:
 // New: plugin code runs in Compartment
 const websearch = await loadPlugin('@pandora/tools-websearch', {
   globals: scopedEndowments,
-  modules: exitModules,
-  policy: pluginPolicy,
 })
 registerToolPlugin(websearch.default)
 ```
@@ -313,9 +311,9 @@ registerToolPlugin(websearch.default)
 
 All plugins (host and compartment mode) export `ToolExport` objects — plain objects with JSON Schema parameters, no framework dependencies. The core wraps these into Mastra tools at load time via `bindToolExport()`. When a tool runs inside a Compartment, its `execute` closure only has access to what the Compartment provides.
 
-### `getTools()` hook — No change needed
+### `resolveTools()` hook — Returns `ToolExport[]`
 
-Dynamic imports go through the Compartment's `importHook`, which the compartment mapper controls. The hook interface is unchanged.
+The `resolveTools` hook replaces the old `getTools` hook. It returns `ToolExport` objects instead of raw `ToolRecord`, meaning resolved tools go through `bindToolExport()` + `registerManifest()` and get full manifest support. Dynamic imports go through the Compartment's `importHook`, which the compartment mapper controls.
 
 ### Tool Permission Enforcement
 
@@ -425,7 +423,7 @@ Currently Pandora has five separate plugin types (`ToolPlugin`, `AgentPlugin`, `
 
 | Plugin Type | Provides |
 |---|---|
-| Tool | `tools[]`, `getTools()` |
+| Tool | `tools[]`, `resolveTools()` |
 | Agent | `agents[]` |
 | Channel | `factory()` → `ChannelAdapter` |
 | Storage | `factory()` → `StorageResult` |
@@ -605,15 +603,17 @@ Each capability type has a defined set of exports the system looks for in its en
 ```typescript
 // Both host and compartment mode: plain objects with JSON Schema parameters
 export const tools: ToolExport[]
-// Optional dynamic tool resolution (host mode only — uses provider SDK tools)
-export function getTools(ctx: GetToolsContext): Promise<ToolRecord | GetToolsResult>
+// Optional dynamic tool resolution — returns ToolExport objects (not raw ToolRecord)
+export function resolveTools(ctx: ResolveToolsContext): Promise<ResolveToolsResult>
 ```
 
 **Agents** (`provides.agents.entry`):
 ```typescript
-// Each entry point exports a single agent definition
-export const agent: AgentDefinition
+// Each entry point exports a plain agent definition object
+export const agent: AgentDefinition  // { id, name, description, instructions, tools? }
 ```
+
+Agent tool dependencies (`useTools`, `modelTools`) are declared in the manifest `provides.agents` entries, not in agent code.
 
 **Channels** (`provides.channels.entry`):
 ```typescript
@@ -675,10 +675,10 @@ export default {
   ],
   // Runtime code (executed during tool resolution) ──────────
   tools: [],
-  async getTools({ model, pluginConfig, env }) {
+  async resolveTools({ pluginConfig, env }) {
     const preferred = pluginConfig?.searchBackend as string | undefined
-    const result = await resolveSearchTools({ model, preferred, env })
-    return { tools: result.tools ?? {}, alerts: result.alerts }
+    const result = resolveSearchTool({ preferred, env })
+    return { tools: result.tool ? [result.tool] : [], alerts: result.alerts }
   },
 } satisfies ToolPlugin
 ```
@@ -739,10 +739,10 @@ export default {
 // tools-websearch/src/index.ts — just the runtime code
 export const tools = []
 
-export async function getTools({ model, pluginConfig, env }) {
+export async function resolveTools({ pluginConfig, env }) {
   const preferred = pluginConfig?.searchBackend as string | undefined
-  const result = await resolveSearchTools({ model, preferred, env })
-  return { tools: result.tools ?? {}, alerts: result.alerts }
+  const result = resolveSearchTool({ preferred, env })
+  return { tools: result.tool ? [result.tool] : [], alerts: result.alerts }
 }
 ```
 
@@ -771,7 +771,7 @@ The manifest is validated with a Zod schema at discovery time. Invalid manifests
 - [x] Orchestrator — discover → load → adapt → register pipeline (`load-all.ts`)
 - [x] Barrel exports (`packages/core/src/manifest/index.ts`)
 - [x] `pandora.manifest.json` in all 11 plugin packages
-- [x] Plugin entry point rewrites — named exports (`tools`, `agents`, `factory`, `getTools`)
+- [x] Plugin entry point rewrites — named exports (`tools`, `agents`, `factory`, `resolveTools`)
 - [x] `plugins.ts` replaced with `loadAllPlugins` re-export
 - [x] `index.ts` wired to `await loadAllPlugins()` at startup
 - [x] Workspace plugin deps removed from `@pandora/core` `package.json`
@@ -805,7 +805,6 @@ The manifest is validated with a Zod schema at discovery time. Invalid manifests
 
 ### Not done — Compartment sandbox (remaining)
 
-- [ ] `@pandora/core` as exit module for plugins that need framework imports at runtime
 - [ ] Test third-party plugin compatibility in Compartments (`ai`, `zod`, `@tavily/ai-sdk`, etc.)
 - [ ] Source map support via `sourceMapHook` for Compartment stack traces
 

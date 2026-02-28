@@ -1,13 +1,7 @@
 import { z } from 'zod'
 import type { Config } from '../config'
 import { getLogger } from '../logger'
-import { buildModelString } from '../mastra/models'
-import {
-  type Alert,
-  buildSchemaFromFields,
-  PLUGIN_SCHEMA_VERSION,
-  unwrapGetToolsResult,
-} from '../plugin-types'
+import { type Alert, buildSchemaFromFields, PLUGIN_SCHEMA_VERSION } from '../plugin-types'
 import { bindToolExport, buildManifest, clearManifestRegistry, registerManifest } from './define'
 import { clearToolSchemaRegistry, getToolSchema, registerToolSchema } from './schema-registry'
 import type { ToolPlugin, ToolPluginConfig, ToolRecord } from './types'
@@ -25,8 +19,9 @@ export type {
   Alert,
   ConfigFieldDescriptor,
   EnvVarDescriptor,
-  GetToolsContext,
   PluginConfig,
+  ResolveToolsContext,
+  ResolveToolsResult,
   SandboxMode,
   ToolAnnotations,
   ToolExport,
@@ -160,16 +155,18 @@ export async function loadTools(
 
     Object.assign(result, loadStaticTools(plugin, envVars, pluginConfig))
 
-    // Dynamic tools from getTools hook (provider-defined tools, etc.)
-    if (plugin.getTools) {
-      const raw = await plugin.getTools({
-        model: buildModelString(config.models.operator),
+    // Dynamic tools from resolveTools hook — returns ToolExport objects
+    // that go through bindToolExport() + registerManifest()
+    if (plugin.resolveTools) {
+      const { tools: resolved, alerts } = await plugin.resolveTools({
         pluginConfig,
         env: envVars,
       })
-      const { tools: dynamicTools, alerts } = unwrapGetToolsResult(raw)
-      if (dynamicTools) Object.assign(result, dynamicTools)
-      if (alerts.length > 0) pluginAlertsMap.set(plugin.id, alerts)
+      for (const exp of resolved) {
+        registerManifest(buildManifest(exp))
+        result[exp.id] = bindToolExport(exp, envVars, pluginConfig)
+      }
+      if (alerts?.length) pluginAlertsMap.set(plugin.id, alerts)
     }
   }
 

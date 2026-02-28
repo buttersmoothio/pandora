@@ -20,16 +20,18 @@ Built-in tools live in separate `@pandora/tools-*` packages rather than inside c
 
 Tools are explicit opt-in: only enabled tools are loaded. The default configuration enables the standard set so the experience is seamless out of the box, but operators have full control over which tools are active.
 
-## Provider-Defined Tools
+## Dynamic Tool Resolution
 
-Not all tools are Pandora-defined. Some models have native tool support — OpenAI has `webSearch()`, Google has `googleSearch()`, Perplexity has built-in search. These are provider-defined tools from the Vercel AI SDK that don't go through `ToolExport` and have no Pandora manifest.
+The `resolveTools` hook on `ToolPlugin` enables dynamic tool resolution. Unlike static `tools` (which are registered at startup), `resolveTools` runs at load time and returns `ToolExport` objects based on environment variables and config. This is how `@pandora/tools-websearch` works: it checks which search API keys are available and returns the appropriate backend as a `ToolExport`.
 
-To accommodate this, `ToolRecord` is typed as Mastra's `ToolsInput` — a union that accepts Mastra tools, Vercel AI SDK tools, and provider-defined tools. This means a tool plugin can return any tool type the AI SDK understands, not just Pandora tools.
+Resolved tools go through the same `bindToolExport()` + `registerManifest()` pipeline as static tools — they get manifests, timeouts, Zod schema wrapping, and appear in the UI. This means all tools, whether static or dynamically resolved, are first-class citizens with full manifest support.
 
-The `getTools` hook on `ToolPlugin` is the entry point for dynamic tools. It receives the operator's model string and returns the appropriate tools at load time. This is how `@pandora/tools-websearch` works: it checks the model, tries native search, then falls back to third-party search APIs.
+## Model-Native Tools
 
-Static tools (from `ToolExport` objects) and dynamic tools (from `getTools`) are complementary. Static tools have manifests, go through per-tool enable/disable, and show in the UI. Dynamic tools are added unconditionally when the plugin is active — they're opaque to the manifest system.
+Some models have built-in tool support — OpenAI has `webSearch()`, Google has `googleSearch()`, Anthropic has `webSearch_20250305()`. These are provider-defined tools that don't go through `ToolExport` and have no Pandora manifest.
+
+Model-native tools are resolved in core via `resolveModelTools()`, not in plugins. Agents declare which model capabilities they need via `modelTools` in their manifest (e.g. `"modelTools": ["search"]`). Core maps these capability keys to the appropriate provider SDK tools based on the configured model.
 
 ## Manifest Registry
 
-Every tool has a manifest that keeps Pandora-specific metadata (permissions, sandbox mode, annotations) separate from the underlying Mastra tool object. This lets the UI display permission badges, sandbox mode, and approval prompts without coupling to the tool execution layer. Provider-defined tools bypass the manifest registry entirely — they have no Pandora metadata and are invisible to the `/api/tools` endpoint.
+Every tool has a manifest that keeps Pandora-specific metadata (permissions, sandbox mode, annotations) separate from the underlying Mastra tool object. This lets the UI display permission badges, sandbox mode, and approval prompts without coupling to the tool execution layer.

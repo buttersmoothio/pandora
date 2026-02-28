@@ -1,3 +1,5 @@
+import type { AgentDefinition } from '../agents/define'
+import { registerAgentManifest } from '../agents/define'
 import type { AgentPlugin } from '../agents/types'
 import type { ChannelPlugin } from '../channels/types'
 import { PLUGIN_SCHEMA_VERSION } from '../plugin-types'
@@ -5,7 +7,7 @@ import type { StoragePlugin } from '../storage'
 import type { ToolExport, ToolPlugin } from '../tools/types'
 import type { VectorPlugin } from '../vector'
 import type { LoadedEntry } from './loader'
-import type { PluginManifest } from './schema'
+import type { AgentProvidesEntry, PluginManifest } from './schema'
 
 export interface AdaptedPlugins {
   tools: ToolPlugin[]
@@ -36,7 +38,7 @@ function baseFields(manifest: PluginManifest) {
  * Convert loaded manifest entries into plugin interface objects.
  *
  * Export contracts per capability:
- * - tools: `export const tools`, `export function getTools`
+ * - tools: `export const tools`, `export function resolveTools`
  * - agents: `export const agent` — each entry is one agent, collected into one AgentPlugin
  * - channels: `export const factory`
  * - storage: `export const factory`
@@ -70,14 +72,25 @@ export function adaptManifest(manifest: PluginManifest, entries: LoadedEntry[]):
           sandbox: entry.sandbox,
           permissions: entry.permissions,
           tools,
-          getTools: ns.getTools as ToolPlugin['getTools'],
+          resolveTools: ns.resolveTools as ToolPlugin['resolveTools'],
         })
         break
       }
 
       case 'agents':
         if (ns.agent) {
-          agentDefs.push(ns.agent as AgentPlugin['agents'][number])
+          const agentDef = ns.agent as AgentDefinition
+          // Register manifest (agent entry points are plain objects now)
+          registerAgentManifest({
+            id: agentDef.id,
+            name: agentDef.name,
+            description: agentDef.description,
+            instructions: agentDef.instructions,
+          })
+          // Stamp manifest-declared deps from the provides entry
+          agentDef.useTools = (entry as AgentProvidesEntry).useTools ?? []
+          agentDef.modelTools = (entry as AgentProvidesEntry).modelTools ?? []
+          agentDefs.push(agentDef)
         }
         break
 

@@ -146,6 +146,9 @@ export const ConfigSchema = z.object({
     )
     .default(() => ({})),
 
+  /** Whether to inject model-native tools (e.g. provider search) into agents that request them. */
+  nativeModelTools: z.boolean().default(true),
+
   /** Memory configuration */
   memory: z
     .object({

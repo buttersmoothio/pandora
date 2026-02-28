@@ -10,8 +10,12 @@
   "pandora": ">=0.0.1",
   "provides": {
     "agents": [
-      { "entry": "./src/web-search.ts", "sandbox": "host" },
-      { "entry": "./src/research.ts", "sandbox": "host" }
+      {
+        "entry": "./src/web-search.ts",
+        "useTools": ["web_search"],
+        "modelTools": ["search"]
+      },
+      { "entry": "./src/research.ts", "modelTools": ["search"] }
     ]
   }
 }
