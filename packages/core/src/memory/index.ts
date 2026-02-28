@@ -21,12 +21,13 @@ export function createMemory(options?: CreateMemoryOptions) {
 
   return new Memory({
     vector: sr?.enabled && options?.vector ? options.vector.vector : false,
-    embedder: sr?.embedder
-      ? new ModelRouterEmbeddingModel({
-          providerId: sr.embedder.slice(0, sr.embedder.indexOf('/')),
-          modelId: sr.embedder.slice(sr.embedder.indexOf('/') + 1),
-        })
-      : undefined,
+    embedder:
+      sr?.enabled && sr?.embedder
+        ? new ModelRouterEmbeddingModel({
+            providerId: sr.embedder.slice(0, sr.embedder.indexOf('/')),
+            modelId: sr.embedder.slice(sr.embedder.indexOf('/') + 1),
+          })
+        : undefined,
     options: {
       lastMessages: 20,
       generateTitle: true,

@@ -1,1 +1,0 @@
-export { loadAllPlugins } from './manifest'

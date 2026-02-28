@@ -83,8 +83,6 @@ export const pluginManifestSchema = z
       tools: providesValueSchema.optional(),
       agents: agentProvidesValueSchema.optional(),
       channels: providesValueSchema.optional(),
-      storage: providesValueSchema.optional(),
-      vector: providesValueSchema.optional(),
     }),
     envVars: z.array(envVarDescriptorSchema).optional(),
     configFields: z.array(configFieldDescriptorSchema).optional(),

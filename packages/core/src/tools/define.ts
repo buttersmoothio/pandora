@@ -5,59 +5,15 @@ import {
   type ToolExport,
   type ToolManifest,
   type ToolPluginConfig,
-  type ToolRecord,
 } from './types'
-
-// --- Manifest registry ---
 
 // biome-ignore lint/suspicious/noExplicitAny: Tool generics require `any` for covariant assignment
 type AnyTool = Tool<any, any, any, any, any, any>
-
-const manifestRegistry = new Map<string, ToolManifest>()
-
-/** Retrieve the Pandora manifest for a tool by ID, tool instance, or tool definition. */
-export function getManifest(toolOrId: string | { id: string }): ToolManifest | undefined {
-  const id = typeof toolOrId === 'string' ? toolOrId : toolOrId.id
-  return manifestRegistry.get(id)
-}
-
-/** Retrieve all manifests for a ToolRecord. */
-export function getManifests(tools: ToolRecord): Record<string, ToolManifest> {
-  const result: Record<string, ToolManifest> = {}
-  for (const id of Object.keys(tools)) {
-    const manifest = manifestRegistry.get(id)
-    if (manifest) result[id] = manifest
-  }
-  return result
-}
-
-/** Return all registered manifests keyed by tool ID. */
-export function getAllManifests(): Record<string, ToolManifest> {
-  return Object.fromEntries(manifestRegistry)
-}
-
-/** Register a pre-built manifest (e.g. from a ToolExport). */
-export function registerManifest(manifest: ToolManifest): void {
-  manifestRegistry.set(manifest.id, manifest)
-}
-
-/** Remove a single manifest from the registry. */
-export function removeManifest(id: string): void {
-  manifestRegistry.delete(id)
-}
-
-/** Clear the manifest registry. Useful for testing. */
-export function clearManifestRegistry(): void {
-  manifestRegistry.clear()
-}
 
 // --- buildManifest ---
 
 /**
  * Build a ToolManifest from a ToolExport.
- *
- * Note: `sandbox` defaults to `'compartment'`. When host-mode plugins
- * adopt ToolExport, add an optional sandbox override parameter.
  */
 export function buildManifest(exp: ToolExport): ToolManifest {
   return {

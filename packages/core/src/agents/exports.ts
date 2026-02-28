@@ -5,10 +5,8 @@
  */
 
 export type { AgentDefinition } from './define'
-export { getAgentManifest, getAllAgentManifests } from './define'
 export type {
   AgentManifest,
-  AgentPlugin,
   AgentPluginConfig,
   AgentRecord,
   ConfigFieldDescriptor,

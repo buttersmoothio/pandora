@@ -14,25 +14,22 @@ import { configRoutes } from './routes/config'
 import { discoveryRoutes } from './routes/discovery'
 import { healthRoutes } from './routes/health'
 import type { Env } from './routes/helpers'
-import { envMiddleware, getAuthStore } from './routes/helpers'
+import { createRuntimeMiddleware, getAuthStore } from './routes/helpers'
 import { threadRoutes } from './routes/threads'
 import { webhookRoutes } from './routes/webhooks'
 
-// Re-export registration functions for plugin authors
-export { registerChannelPlugin } from './channels'
+// Re-export for plugin authors
 export { loadAllPlugins } from './manifest'
-export { registerStoragePlugin } from './storage'
-export { registerToolPlugin } from './tools'
 
 // Discover and register all manifest-based plugins
-await loadAllPlugins()
+const registry = await loadAllPlugins()
 
 // Create Hono app
 const app = new Hono<Env>()
 
 // Middleware
 app.use('*', logger())
-app.use('*', envMiddleware)
+app.use('*', createRuntimeMiddleware(registry))
 app.use(
   '*',
   cors({

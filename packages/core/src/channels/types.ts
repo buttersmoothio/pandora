@@ -1,4 +1,3 @@
-import type { Mastra } from '@mastra/core'
 import type { MastraMessagePart } from '@mastra/core/agent/message-list'
 import type {
   FileChunk,
@@ -8,7 +7,6 @@ import type {
   ToolCallChunk,
   ToolResultChunk,
 } from '@mastra/core/stream'
-import type { ConfigFieldDescriptor, EnvVarDescriptor } from '../plugin-types'
 
 export type { ConfigFieldDescriptor, EnvVarDescriptor } from '../plugin-types'
 
@@ -37,12 +35,12 @@ export type MessagePart = MastraMessagePart
 export interface ChannelWebhook {
   /** Verify request signature. Called before handle(). Return false to reject with 401. */
   verify(request: Request, env: Record<string, string | undefined>): Promise<boolean>
-  handle(request: Request, runtime: ChannelRuntime): Promise<Response>
+  handle(request: Request, runtime: ChannelGateway): Promise<Response>
 }
 
 /** Realtime integration — Pandora maintains persistent connection */
 export interface ChannelRealtime {
-  start(runtime: ChannelRuntime): Promise<void>
+  start(runtime: ChannelGateway): Promise<void>
   stop(): Promise<void>
 }
 
@@ -68,38 +66,8 @@ export type ChannelFactory = (
   config: ChannelConfig,
 ) => ChannelAdapter | null
 
-/** Plugin descriptor for channel packages */
-export interface ChannelPlugin {
-  /** Unique plugin identifier, e.g. 'channel-telegram' */
-  id: string
-  /** Human-readable display name, e.g. 'Telegram' */
-  name: string
-  /** Human-readable description from the manifest. */
-  description?: string
-  /** Author of the plugin. */
-  author?: string
-  /** Icon URL or path. */
-  icon?: string
-  /** Semver version string. */
-  version?: string
-  /** Homepage URL. */
-  homepage?: string
-  /** Source repository URL. */
-  repository?: string
-  /** SPDX license identifier. */
-  license?: string
-  /** Schema version — must match core's expected version */
-  schemaVersion: number
-  /** Environment variables this plugin depends on */
-  envVars?: EnvVarDescriptor[]
-  /** Config field descriptors for the UI (beyond `enabled`). Also used to generate Zod validation. */
-  configFields?: ConfigFieldDescriptor[]
-  /** Factory that creates a channel adapter from env vars and config */
-  factory: ChannelFactory
-}
-
 // ---------------------------------------------------------------------------
-// Channel runtime (the gateway — what core provides to channels)
+// Channel gateway (the interface core provides to channel adapters)
 // ---------------------------------------------------------------------------
 
 /** Pending tool approval info returned when finishReason is 'suspended' */
@@ -136,24 +104,8 @@ export interface StreamResult {
   usage: Promise<LanguageModelUsage>
 }
 
-/** Options for AI SDK streaming methods */
-export interface StreamAISdkOpts {
-  threadId: string
-  parts: MessagePart[]
-  /** Pass true if threadId is newly created (e.g., via crypto.randomUUID()) */
-  isNewThread?: boolean
-}
-
-/** Options for AI SDK tool approval methods */
-export interface ApproveToolCallAISdkOpts {
-  runId: string
-  toolCallId?: string
-  threadId: string
-  messageId?: string
-}
-
 /** The gateway — what core provides to channel adapters */
-export interface ChannelRuntime {
+export interface ChannelGateway {
   /** Send message and get full response (non-streaming) */
   generate(opts: {
     threadId: string
@@ -178,20 +130,11 @@ export interface ChannelRuntime {
   /** Decline a pending tool call and resume generation */
   declineToolCall(opts: { runId: string; toolCallId?: string }): Promise<GenerateResult>
 
-  /** Stream with AI SDK-compatible output (for web UI) */
-  streamAISdk(opts: StreamAISdkOpts): Promise<ReadableStream>
-
-  /** Approve tool call with AI SDK streaming output */
-  approveToolCallAISdk(opts: ApproveToolCallAISdkOpts): Promise<ReadableStream>
-
-  /** Decline tool call with AI SDK streaming output */
-  declineToolCallAISdk(opts: ApproveToolCallAISdkOpts): Promise<ReadableStream>
-
   /** Get or create an active thread for a channel+externalId pair */
   resolveThread(channelId: string, externalId: string): Promise<string>
 
   /** Start a new conversation for a channel+externalId pair */
-  newThread(channelId: string, externalId: string): Promise<string>
+  newThread(channelId: string, externalId: string): string
 
   /** Environment variables */
   env: Record<string, string | undefined>
@@ -205,16 +148,4 @@ export interface ChannelRuntime {
 export interface ChannelConfig {
   enabled: boolean
   [key: string]: unknown
-}
-
-/** Internal: loaded channel with its adapter */
-export interface LoadedChannel {
-  adapter: ChannelAdapter
-  config: ChannelConfig | undefined
-}
-
-/** Internal: dependencies for creating a channel runtime */
-export interface ChannelRuntimeDeps {
-  mastra: Mastra
-  env: Record<string, string | undefined>
 }

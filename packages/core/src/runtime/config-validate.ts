@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { getLogger } from '../logger'
 import type { PluginConfig } from '../plugin-types'
-import { getPluginSchema } from './schema-registry'
+import type { RegisteredPlugin } from './plugin-registry'
 
 const basePluginSchema = z.object({ enabled: z.boolean() })
 
@@ -11,30 +11,27 @@ export interface PluginValidationResult {
 }
 
 /**
- * Validate a plugin's config against its registered schema.
+ * Validate a plugin's config against its schema.
  *
- * Shared by tools, agents, and channels — the logic is identical:
- * 1. If `enabled === false`, return null (disabled).
- * 2. If no raw config but schema exists, try defaults; skip if defaults fail.
- * 3. If raw config + schema, validate; disable on failure.
- * 4. Otherwise, return `{ enabled: true }` as the default.
+ * Takes the schema from the RegisteredPlugin directly instead of
+ * looking it up in a global registry.
  */
 export function validatePluginConfig(
-  pluginId: string,
+  plugin: RegisteredPlugin,
   rawConfig: PluginConfig | undefined,
 ): PluginValidationResult {
   const log = getLogger()
-  const schema = getPluginSchema(pluginId)
+  const schema = plugin.schema
 
   if (rawConfig?.enabled === false) {
-    log.debug(`Plugin ${pluginId} disabled by config`)
+    log.debug(`Plugin ${plugin.id} disabled by config`)
     return { config: null, errors: [] }
   }
 
   if (!rawConfig && schema) {
     const fallback = basePluginSchema.extend(schema.shape).safeParse({ enabled: true })
     if (!fallback.success) {
-      log.debug(`Plugin ${pluginId} skipped (not configured)`)
+      log.debug(`Plugin ${plugin.id} skipped (not configured)`)
       return { config: null, errors: [] }
     }
     return { config: fallback.data as PluginConfig, errors: [] }
@@ -44,7 +41,7 @@ export function validatePluginConfig(
     const result = basePluginSchema.extend(schema.shape).safeParse(rawConfig)
     if (!result.success) {
       const errors = result.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`)
-      log.error(`Plugin ${pluginId} disabled (invalid config)`, { issues: errors })
+      log.error(`Plugin ${plugin.id} disabled (invalid config)`, { issues: errors })
       return { config: null, errors }
     }
   }

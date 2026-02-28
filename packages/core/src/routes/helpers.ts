@@ -3,12 +3,10 @@ import type { Context } from 'hono'
 import { env } from 'hono/adapter'
 import { createMiddleware } from 'hono/factory'
 import { HTTPException } from 'hono/http-exception'
-import { loadChannels } from '../channels'
-import { createChannelRuntime } from '../channels/runtime'
-import type { ChannelRuntime } from '../channels/types'
-import { getConfig } from '../config'
-import { getMastra } from '../mastra'
-import { getStorage } from '../storage'
+import { isServerless } from '../env'
+import type { PandoraRuntime } from '../runtime/pandora-runtime'
+import { createRuntime } from '../runtime/pandora-runtime'
+import type { PluginRegistry } from '../runtime/plugin-registry'
 
 // Bindings type for Cloudflare Workers
 export type Bindings = {
@@ -18,6 +16,7 @@ export type Bindings = {
 
 export type Variables = {
   envVars: Record<string, string | undefined>
+  runtime: PandoraRuntime
 }
 
 export type Env = { Bindings: Bindings; Variables: Variables }
@@ -35,39 +34,39 @@ export function extractStringEnv(raw: Record<string, unknown>): Record<string, s
   return result
 }
 
-/** Middleware that extracts string env vars and stores them on c.var.envVars */
-export const envMiddleware = createMiddleware<Env>(async (c, next) => {
-  c.set('envVars', extractStringEnv(env(c)))
-  return next()
-})
+/** Cached runtime for server mode */
+let _runtime: PandoraRuntime | null = null
+
+/**
+ * Create middleware that initializes PandoraRuntime on every request.
+ * In server mode, the runtime is cached for the process lifetime.
+ * In serverless mode, a fresh runtime is created per request.
+ */
+export function createRuntimeMiddleware(registry: PluginRegistry) {
+  return createMiddleware<Env>(async (c, next) => {
+    const envVars = extractStringEnv(env(c))
+    c.set('envVars', envVars)
+
+    if (isServerless()) {
+      c.set('runtime', await createRuntime(registry, envVars))
+    } else {
+      _runtime ??= await createRuntime(registry, envVars)
+      c.set('runtime', _runtime)
+    }
+
+    return next()
+  })
+}
 
 /** Helper to get auth store from request context */
 export async function getAuthStore(c: Context<Env>) {
-  const { auth } = await getStorage(c.var.envVars, c.env)
-  return auth
+  return c.var.runtime.storage.auth
 }
 
 /** Get memory from the operator agent, or throw 500 */
 export async function getMemoryOrFail(c: Context<Env>) {
-  const mastra = await getMastra(c.var.envVars, c.env)
+  const { mastra } = c.var.runtime
   const memory = await mastra.getAgent('operator').getMemory()
   if (!memory) throw new HTTPException(500, { message: 'Memory not configured' })
   return { mastra, memory: memory as Memory }
-}
-
-let _channelsLoaded = false
-
-/** Ensure channels are loaded once */
-export async function ensureChannelsLoaded(envVars: Record<string, string | undefined>) {
-  if (_channelsLoaded) return
-  const { config: configStore } = await getStorage(envVars)
-  const config = await getConfig(configStore)
-  await loadChannels(envVars, config.plugins)
-  _channelsLoaded = true
-}
-
-/** Get a ChannelRuntime for web UI routes to use the same abstraction as channels */
-export async function getChannelRuntime(c: Context<Env>): Promise<ChannelRuntime> {
-  const mastra = await getMastra(c.var.envVars, c.env)
-  return createChannelRuntime({ mastra, env: c.var.envVars })
 }

@@ -1,4 +1,4 @@
-import type { ChannelRuntime } from '@pandora/core/channels'
+import type { ChannelGateway } from '@pandora/core/channels'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createTelegramAdapter } from './adapter'
 
@@ -58,18 +58,15 @@ import { markdownToHtml } from './format'
 
 const OWNER_ID = '42'
 
-function createMockRuntime(): ChannelRuntime {
+function createMockRuntime(): ChannelGateway {
   return {
     env: { TELEGRAM_BOT_TOKEN: 'test-token' },
     generate: vi.fn().mockResolvedValue({ text: 'AI response' }),
     stream: vi.fn(),
     approveToolCall: vi.fn().mockResolvedValue({ text: 'Approved result' }),
     declineToolCall: vi.fn().mockResolvedValue({ text: 'Declined result' }),
-    streamAISdk: vi.fn(),
-    approveToolCallAISdk: vi.fn(),
-    declineToolCallAISdk: vi.fn(),
     resolveThread: vi.fn().mockResolvedValue('thread-123'),
-    newThread: vi.fn().mockResolvedValue('new-thread-456'),
+    newThread: vi.fn().mockReturnValue('new-thread-456'),
   }
 }
 
@@ -99,7 +96,7 @@ describe('createTelegramAdapter', () => {
 })
 
 describe('realtime', () => {
-  let runtime: ChannelRuntime
+  let runtime: ChannelGateway
   // biome-ignore lint/suspicious/noExplicitAny: mock instance with private test properties
   let botInstance: any
 

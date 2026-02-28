@@ -1,6 +1,5 @@
 import { z } from 'zod'
-import { isServerless } from './env'
-import { getPluginSchema } from './plugins/schema-registry'
+import type { PluginRegistry } from './runtime/plugin-registry'
 import type { ConfigStore } from './storage/config-store'
 
 /**
@@ -48,74 +47,84 @@ You're the friend who somehow has their life together — sharp, organized, alwa
 That friend who'll proofread your resignation letter at midnight, roast your dating profile, and remind you about the thing you forgot — all in the same conversation.`
 
 /**
- * Main Pandora configuration schema
+ * Create the ConfigSchema with plugin schemas from the registry.
  */
-export const ConfigSchema = z.object({
-  /** Agent identity */
-  identity: z
-    .object({
-      name: z.string().min(1, 'Name is required'),
-    })
-    .default(() => ({
-      name: 'Pandora',
-    })),
+function createConfigSchema(registry?: PluginRegistry) {
+  return z.object({
+    /** Agent identity */
+    identity: z
+      .object({
+        name: z.string().min(1, 'Name is required'),
+      })
+      .default(() => ({
+        name: 'Pandora',
+      })),
 
-  /** Agent personality */
-  personality: z
-    .object({
-      systemPrompt: z.string().min(1, 'System prompt is required'),
-    })
-    .default(() => ({
-      systemPrompt: DEFAULT_SYSTEM_PROMPT,
-    })),
+    /** Agent personality */
+    personality: z
+      .object({
+        systemPrompt: z.string().min(1, 'System prompt is required'),
+      })
+      .default(() => ({
+        systemPrompt: DEFAULT_SYSTEM_PROMPT,
+      })),
 
-  /** Model configurations */
-  models: z
-    .object({
-      operator: ModelConfigSchema,
-    })
-    .default(() => ({
-      operator: {
-        provider: 'anthropic',
-        model: 'claude-sonnet-4-20250514',
-      },
-    })),
+    /** Model configurations */
+    models: z
+      .object({
+        operator: ModelConfigSchema,
+      })
+      .default(() => ({
+        operator: {
+          provider: 'anthropic',
+          model: 'claude-sonnet-4-20250514',
+        },
+      })),
 
-  /** Plugin configurations — keyed by plugin (manifest) ID */
-  plugins: z
-    .record(z.string(), z.looseObject({ enabled: z.boolean() }))
-    .default(() => ({}))
-    .superRefine((plugins, ctx) => {
-      for (const [id, raw] of Object.entries(plugins)) {
-        const schema = getPluginSchema(id)
-        if (!schema) continue
-        const result = z.object({ enabled: z.boolean() }).extend(schema.shape).safeParse(raw)
-        if (!result.success) {
-          for (const issue of result.error.issues) {
-            ctx.addIssue({ ...issue, path: [id, ...issue.path] })
+    /** Plugin configurations — keyed by plugin (manifest) ID */
+    plugins: z
+      .record(z.string(), z.looseObject({ enabled: z.boolean() }))
+      .default(() => ({}))
+      .superRefine((plugins, ctx) => {
+        if (!registry) return
+        for (const [id, raw] of Object.entries(plugins)) {
+          const plugin = registry.plugins.get(id)
+          const schema = plugin?.schema
+          if (!schema) continue
+          const result = z.object({ enabled: z.boolean() }).extend(schema.shape).safeParse(raw)
+          if (!result.success) {
+            for (const issue of result.error.issues) {
+              ctx.addIssue({ ...issue, path: [id, ...issue.path] })
+            }
           }
         }
-      }
-    }),
-
-  /** Whether to inject model-native tools (e.g. provider search) into agents that request them. */
-  nativeModelTools: z.boolean().default(true),
-
-  /** Memory configuration */
-  memory: z
-    .object({
-      semanticRecall: z.object({
-        enabled: z.boolean(),
-        embedder: z.string().optional(),
       }),
-    })
-    .default(() => ({
-      semanticRecall: {
-        enabled: false,
-        embedder: 'openai/text-embedding-3-small',
-      },
-    })),
-})
+
+    /** Whether to inject model-native tools (e.g. provider search) into agents that request them. */
+    nativeModelTools: z.boolean().default(true),
+
+    /** Memory configuration */
+    memory: z
+      .object({
+        semanticRecall: z.object({
+          enabled: z.boolean(),
+          embedder: z.string().optional(),
+        }),
+      })
+      .default(() => ({
+        semanticRecall: {
+          enabled: false,
+          embedder: 'openai/text-embedding-3-small',
+        },
+      })),
+  })
+}
+
+/**
+ * Static ConfigSchema for use in exports and type inference.
+ * Plugin validation uses the registry-aware version internally.
+ */
+export const ConfigSchema = createConfigSchema()
 
 export type Config = z.infer<typeof ConfigSchema>
 
@@ -123,11 +132,6 @@ export type Config = z.infer<typeof ConfigSchema>
  * Default configuration values
  */
 export const DEFAULTS: Config = ConfigSchema.parse({})
-
-/**
- * In-memory config cache (server mode only)
- */
-let _configCache: Config | null = null
 
 /**
  * Deep merge two config objects
@@ -164,14 +168,12 @@ function deepMerge<T extends Record<string, unknown>>(base: T, override: Partial
 
 /**
  * Get the current configuration.
- * Loads from storage + env vars, with caching in server mode.
+ * Loads from storage, validates with plugin schemas from registry.
  */
-export async function getConfig(configStore: ConfigStore<Config>): Promise<Config> {
-  // Return cached config in server mode
-  if (!isServerless() && _configCache) {
-    return _configCache
-  }
-
+export async function getConfig(
+  configStore: ConfigStore<Config>,
+  registry?: PluginRegistry,
+): Promise<Config> {
   // Start with defaults
   let config = { ...DEFAULTS }
 
@@ -181,13 +183,9 @@ export async function getConfig(configStore: ConfigStore<Config>): Promise<Confi
     config = deepMerge(config, storedConfig as Partial<Config>)
   }
 
-  // Validate
-  config = ConfigSchema.parse(config)
-
-  // Cache in server mode
-  if (!isServerless()) {
-    _configCache = config
-  }
+  // Validate with registry-aware schema
+  const schema = createConfigSchema(registry)
+  config = schema.parse(config)
 
   return config
 }
@@ -207,9 +205,6 @@ export async function updateConfig(
   // Save to storage
   await configStore.set(validated)
 
-  // Update cache
-  _configCache = validated
-
   return validated
 }
 
@@ -218,14 +213,6 @@ export async function updateConfig(
  * Deletes from storage.
  */
 export async function resetConfig(configStore: ConfigStore<Config>): Promise<Config> {
-  _configCache = null
   await configStore.delete()
   return DEFAULTS
-}
-
-/**
- * Clear the config cache. Useful for testing.
- */
-export function clearConfigCache(): void {
-  _configCache = null
 }

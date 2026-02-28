@@ -2,9 +2,7 @@ import { createUIMessageStreamResponse, UI_MESSAGE_STREAM_HEADERS } from 'ai'
 import { Hono } from 'hono'
 import { isServerless } from '../env'
 import { getLogger } from '../logger'
-import { getResumeStream, storeStream } from '../stream-store'
 import type { Env } from './helpers'
-import { getChannelRuntime } from './helpers'
 
 const chatRoutes = new Hono<Env>()
 
@@ -25,8 +23,8 @@ chatRoutes.post('/', async (c) => {
 
     log.info('Chat request received', { threadId, partsCount: parts.length })
 
-    const runtime = await getChannelRuntime(c)
-    const stream = await runtime.streamAISdk({
+    const runtime = c.var.runtime
+    const stream = await runtime.web.stream({
       threadId,
       parts,
       isNewThread,
@@ -37,7 +35,7 @@ chatRoutes.post('/', async (c) => {
       stream,
       ...(!isServerless() && {
         consumeSseStream: ({ stream: sseStream }) => {
-          storeStream(threadId, sseStream)
+          runtime.streams.store(threadId, sseStream)
         },
       }),
     })
@@ -61,16 +59,16 @@ chatRoutes.post('/approve', async (c) => {
 
     log.info('Tool approval', { threadId, runId, toolCallId, approved })
 
-    const runtime = await getChannelRuntime(c)
+    const runtime = c.var.runtime
     const stream = approved
-      ? await runtime.approveToolCallAISdk({ runId, toolCallId, threadId, messageId })
-      : await runtime.declineToolCallAISdk({ runId, toolCallId, threadId, messageId })
+      ? await runtime.web.approveToolCall({ runId, toolCallId, threadId, messageId })
+      : await runtime.web.declineToolCall({ runId, toolCallId, threadId, messageId })
 
     const res = createUIMessageStreamResponse({
       stream,
       ...(!isServerless() && {
         consumeSseStream: ({ stream: sseStream }) => {
-          storeStream(threadId, sseStream)
+          runtime.streams.store(threadId, sseStream)
         },
       }),
     })
@@ -85,7 +83,7 @@ chatRoutes.post('/approve', async (c) => {
 // Resume stream endpoint — AI SDK sends GET /api/chat/{threadId}/stream when resume: true
 chatRoutes.get('/:threadId/stream', (c) => {
   if (isServerless()) return c.body(null, 204)
-  const stream = getResumeStream(c.req.param('threadId'))
+  const stream = c.var.runtime.streams.getResume(c.req.param('threadId'))
   if (!stream) return c.body(null, 204)
   return new Response(stream.pipeThrough(new TextEncoderStream()), {
     status: 200,

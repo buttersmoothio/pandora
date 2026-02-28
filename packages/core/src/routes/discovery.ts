@@ -1,46 +1,15 @@
 import { PROVIDER_REGISTRY } from '@mastra/core/llm'
 import { Hono } from 'hono'
-import {
-  getAgentAlerts,
-  getAgentPluginValidationErrors,
-  getAgentUseToolIds,
-  getAllAgentManifests,
-  getPluginAgentIds,
-} from '../agents'
-import { getAllChannels } from '../channels'
-import { getConfig } from '../config'
-import { getAllPlugins } from '../plugins/registry'
-import { getStorage } from '../storage'
-import {
-  getAllRegisteredToolPlugins,
-  getManifest,
-  getPluginAlerts,
-  getPluginToolIds,
-  getPluginValidationErrors,
-} from '../tools'
+import { validatePluginConfig } from '../runtime/config-validate'
 import type { Env } from './helpers'
-import { ensureChannelsLoaded } from './helpers'
 
 const discoveryRoutes = new Hono<Env>()
 
 // Unified plugins endpoint — one entry per manifest
-discoveryRoutes.get('/plugins', async (c) => {
-  await ensureChannelsLoaded(c.var.envVars)
+discoveryRoutes.get('/plugins', (c) => {
+  const { registry, config, channels } = c.var.runtime
 
-  const { config: configStore } = await getStorage(c.var.envVars, c.env)
-  const config = await getConfig(configStore)
-
-  const allPlugins = getAllPlugins()
-  const toolValidationErrors = getPluginValidationErrors(config)
-  const agentValidationErrors = getAgentPluginValidationErrors(config)
-
-  // Precompute lookups used inside the loop
-  const toolPluginMap = new Map(getAllRegisteredToolPlugins().map((tp) => [tp.id, tp]))
-  const loadedChannels = getAllChannels()
-  const loadedChannelMap = new Map(loadedChannels.map((ch) => [ch.id, ch]))
-  const agentManifests = getAllAgentManifests()
-
-  const result = allPlugins.map((plugin) => {
+  const result = [...registry.plugins.values()].map((plugin) => {
     const pluginConfig = config.plugins[plugin.id]
     const descriptors = plugin.envVars ?? []
     const envVars = descriptors.map((d) => ({ ...d, configured: !!c.var.envVars[d.name] }))
@@ -48,41 +17,44 @@ discoveryRoutes.get('/plugins', async (c) => {
 
     const provides: Record<string, unknown> = {}
 
-    if (plugin.provides.includes('tools')) {
-      const tp = toolPluginMap.get(plugin.id)
+    if (plugin.tools) {
       provides.tools = {
-        toolIds: getPluginToolIds(plugin.id),
-        sandbox: tp?.sandbox ?? 'compartment',
-        permissions: tp?.permissions,
-        alerts: getPluginAlerts(plugin.id),
+        toolIds: plugin.tools.entries.map((t) => t.id),
+        sandbox: plugin.tools.sandbox ?? 'compartment',
+        permissions: plugin.tools.permissions,
+        alerts: [],
       }
     }
 
-    if (plugin.provides.includes('agents')) {
-      const agentIds = getPluginAgentIds(plugin.id)
-      const agentCfg = (pluginConfig as Record<string, unknown> | undefined)?.agents as
-        | Record<string, unknown>
-        | undefined
-      const agents = agentIds
-        .map((id) => agentManifests[id])
-        .filter(Boolean)
-        .map((m) => {
-          const ac = agentCfg?.[m.id] as { model?: unknown } | undefined
-          const tools = getAgentUseToolIds(m.id)
-            .map((id) => getManifest(id))
-            .filter((tm): tm is NonNullable<typeof tm> => !!tm)
-          return { ...m, model: ac?.model, tools, alerts: getAgentAlerts(m.id) }
-        })
+    if (plugin.agents) {
+      const agents = plugin.agents.definitions.map((def) => {
+        const manifest = plugin.agents!.manifests.get(def.id)
+        const agentCfg = (pluginConfig as Record<string, unknown> | undefined)?.agents as
+          | Record<string, unknown>
+          | undefined
+        const ac = agentCfg?.[def.id] as { model?: unknown } | undefined
+        const tools = (def.useTools ?? [])
+          .map((id) => {
+            // Look up tool manifest across all plugins
+            for (const p of registry.plugins.values()) {
+              const tm = p.tools?.manifests.get(id)
+              if (tm) return tm
+            }
+            return undefined
+          })
+          .filter((tm): tm is NonNullable<typeof tm> => !!tm)
+        return { ...manifest, model: ac?.model, tools, alerts: [] }
+      })
       provides.agents = {
-        agentIds,
+        agentIds: plugin.agents.definitions.map((d) => d.id),
         agents,
-        alerts: agentIds.flatMap((id) => getAgentAlerts(id)),
+        alerts: [],
       }
     }
 
-    if (plugin.provides.includes('channels')) {
+    if (plugin.channels) {
       const adapterId = plugin.id.replace(/^channel-/, '')
-      const adapter = loadedChannelMap.get(adapterId)
+      const adapter = channels.get(adapterId)
       provides.channels = {
         loaded: !!adapter,
         webhook: adapter ? !!adapter.webhook : null,
@@ -90,25 +62,11 @@ discoveryRoutes.get('/plugins', async (c) => {
       }
     }
 
-    if (plugin.provides.includes('storage')) {
-      const activeId = c.var.envVars.STORAGE_PROVIDER ?? 'storage-libsql'
-      provides.storage = { active: plugin.id === activeId }
-    }
-
-    if (plugin.provides.includes('vector')) {
-      const activeId = c.var.envVars.VECTOR_PROVIDER ?? 'vector-libsql'
-      provides.vector = { active: plugin.id === activeId }
-    }
-
     // Determine default enabled state
-    const isInfraPlugin = plugin.provides.includes('storage') || plugin.provides.includes('vector')
-    const defaultEnabled = isInfraPlugin ? true : !plugin.provides.includes('channels')
+    const defaultEnabled = !plugin.channels
 
-    // Merge validation errors from all capability registries
-    const validationErrors = [
-      ...(toolValidationErrors[plugin.id] ?? []),
-      ...(agentValidationErrors[plugin.id] ?? []),
-    ]
+    // Validation errors
+    const { errors: validationErrors } = validatePluginConfig(plugin, pluginConfig)
 
     return {
       id: plugin.id,
@@ -126,7 +84,7 @@ discoveryRoutes.get('/plugins', async (c) => {
       enabled: pluginConfig?.enabled ?? defaultEnabled,
       config: pluginConfig ?? {},
       provides,
-      validationErrors,
+      validationErrors: validationErrors.length > 0 ? validationErrors : [],
     }
   })
 

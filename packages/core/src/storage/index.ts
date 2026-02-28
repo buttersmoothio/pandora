@@ -1,14 +1,15 @@
+import { mkdirSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
+import type { InArgs } from '@libsql/client'
 import type { MastraCompositeStore } from '@mastra/core/storage'
 import type { AuthStore } from '../auth/auth-store'
+import { SQLAuthStore } from '../auth/auth-stores/sql'
 import type { Config } from '../config'
-import { isServerless } from '../env'
-import type { ConfigFieldDescriptor, EnvVarDescriptor } from '../plugin-types'
-import { PLUGIN_SCHEMA_VERSION } from '../plugin-types'
 import type { ConfigStore } from './config-store'
+import { SQLConfigStore } from './config-stores/sql'
 
 export type { MastraCompositeStore, StorageDomains } from '@mastra/core/storage'
 export type { AuthStore } from '../auth/auth-store'
-export type { ConfigFieldDescriptor, EnvVarDescriptor } from '../plugin-types'
 export type { ConfigStore } from './config-store'
 
 /**
@@ -25,145 +26,71 @@ export interface StorageResult {
   close?(): Promise<void>
 }
 
-export type StorageFactory = (
-  env: Record<string, string | undefined>,
-  bindings?: unknown,
-) => Promise<StorageResult>
+const DEFAULT_DB_PATH = resolve(process.cwd(), 'data', 'pandora.db')
 
-/** Plugin descriptor for storage providers */
-export interface StoragePlugin {
-  /** Unique plugin identifier, e.g. 'storage-libsql' */
-  id: string
-  /** Human-readable display name, e.g. 'SQLite' */
-  name: string
-  /** Short description */
-  description?: string
-  /** Plugin author name */
-  author?: string
-  /** URL to an icon image */
-  icon?: string
-  /** Plugin version string */
-  version?: string
-  /** Project homepage URL */
-  homepage?: string
-  /** Source code repository URL */
-  repository?: string
-  /** License identifier */
-  license?: string
-  /** Schema version — must match core's expected version */
-  schemaVersion: number
-  /** Environment variables this plugin depends on */
-  envVars?: EnvVarDescriptor[]
-  /** Config field descriptors for the UI */
-  configFields?: ConfigFieldDescriptor[]
-  /** Factory that creates storage instances */
-  factory: StorageFactory
+function ensureDir(filePath: string): void {
+  mkdirSync(dirname(filePath), { recursive: true })
 }
 
-// ---------------------------------------------------------------------------
-// Plugin registry
-// ---------------------------------------------------------------------------
-
-const providers = new Map<string, StoragePlugin>()
+function createLibSQLConfigStore(client: {
+  execute: (arg: string | { sql: string; args: InArgs }) => Promise<{ rows: unknown[] }>
+}): SQLConfigStore<Config> {
+  return new SQLConfigStore<Config>(async (sql, params) => {
+    const result = await client.execute(params ? { sql, args: params as InArgs } : sql)
+    return result.rows as unknown[]
+  }, 'sqlite')
+}
 
 /**
- * Register a storage plugin.
+ * Create storage instances using inline libsql.
  *
- * Must be called before any request that uses storage.
- * Validates schema version compatibility on registration.
+ * Uses `DATABASE_URL` env var if set, otherwise defaults to a local file database.
  */
-export function registerStoragePlugin(plugin: StoragePlugin): void {
-  if (plugin.schemaVersion !== PLUGIN_SCHEMA_VERSION) {
-    throw new Error(
-      `Storage plugin '${plugin.id}' uses schema v${plugin.schemaVersion}, ` +
-        `but core expects v${PLUGIN_SCHEMA_VERSION}. Update the package.`,
-    )
-  }
-  providers.set(plugin.id, plugin)
-}
-
-/** Get all registered storage plugins (regardless of load status) */
-export function getAllRegisteredStoragePlugins(): StoragePlugin[] {
-  return [...providers.values()]
-}
-
-// ---------------------------------------------------------------------------
-// Instance cache & creation
-// ---------------------------------------------------------------------------
-
-/** Cached storage instance for server mode */
-let _cached: StorageResult | null = null
-
-/**
- * Get storage instances. In server mode, caches for process lifetime.
- * In serverless mode, creates fresh instances per request.
- *
- * @param env - Environment variables (use `env(c)` from Hono adapter)
- * @param bindings - Cloudflare bindings (use `c.env` in Workers)
- * @returns Both Mastra storage and Pandora config store
- */
-export async function getStorage(
+export async function createStorage(
   env: Record<string, string | undefined>,
-  bindings?: unknown,
 ): Promise<StorageResult> {
-  const serverless = isServerless()
+  const url = env.DATABASE_URL ?? `file:${DEFAULT_DB_PATH}`
 
-  // Serverless: fresh instance per request
-  if (serverless) {
-    return createStorage(env, bindings)
+  if (url.startsWith('file:')) {
+    const filePath = url.slice(5)
+    ensureDir(filePath)
   }
 
-  // Server: cache instance for process lifetime
-  if (!_cached) {
-    _cached = await createStorage(env, bindings)
+  // Dynamic imports to avoid SES lockdown conflicts —
+  // @libsql/client touches EventEmitter prototypes at module level
+  const { createClient } = await import('@libsql/client')
+  const { LibSQLStore } = await import('@mastra/libsql')
+
+  const client = createClient({
+    url,
+    authToken: env.DATABASE_AUTH_TOKEN,
+  })
+
+  const mastra = new LibSQLStore({
+    id: 'pandora-libsql',
+    client,
+  })
+
+  const config = createLibSQLConfigStore(client)
+
+  const auth = new SQLAuthStore(async (sql, params) => {
+    const result = await client.execute(params ? { sql, args: params as InArgs } : sql)
+    return result.rows as unknown[]
+  }, 'sqlite')
+
+  // Initialize stores
+  await mastra.init()
+  if (config.init) {
+    await config.init()
   }
-  return _cached
-}
+  await auth.init()
 
-/**
- * Create new storage instances from the registered provider.
- *
- * Selects the provider by `STORAGE_PROVIDER` env var (default: `'storage-libsql'`).
- * The provider must have been registered via `registerStoragePlugin()`.
- */
-async function createStorage(
-  env: Record<string, string | undefined>,
-  bindings?: unknown,
-): Promise<StorageResult> {
-  const id = env.STORAGE_PROVIDER ?? 'storage-libsql'
-  const plugin = providers.get(id)
-
-  if (!plugin) {
-    const registered = [...providers.keys()]
-    throw new Error(
-      `Storage provider '${id}' is not registered.\n` +
-        `Register it with registerStoragePlugin() before starting the server.\n` +
-        (registered.length > 0
-          ? `Registered providers: ${registered.join(', ')}`
-          : 'No providers registered.'),
-    )
+  return {
+    mastra,
+    config,
+    auth,
+    close: async () => {
+      client.close()
+    },
   }
-
-  const result = await plugin.factory(env, bindings)
-  await result.mastra.init()
-  if (result.config.init) {
-    await result.config.init()
-  }
-  await result.auth.init()
-  return result
-}
-
-/**
- * Clear the cached storage instance. Useful for testing or reconnecting.
- */
-export async function clearStorageCache(): Promise<void> {
-  await _cached?.close?.()
-  _cached = null
-}
-
-/**
- * Clear the plugin registry. Useful for testing.
- */
-export function clearStoragePlugins(): void {
-  providers.clear()
 }

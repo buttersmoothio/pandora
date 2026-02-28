@@ -2,33 +2,21 @@ import { toAISdkStream } from '@mastra/ai-sdk'
 import type { Mastra } from '@mastra/core'
 import type { FullOutput } from '@mastra/core/stream'
 import type { Memory } from '@mastra/memory'
+import type { ChannelGateway, GenerateResult, MessagePart, StreamResult } from '../channels/types'
 import { getLogger } from '../logger'
-import type {
-  ChannelRuntime,
-  ChannelRuntimeDeps,
-  GenerateResult,
-  MessagePart,
-  StreamResult,
-} from './types'
 
 const RESOURCE_ID = 'default'
 
-/**
- * Build the message array that Mastra's agent.generate/stream expects.
- * Uses the UIMessage format (same as POST /api/chat).
- */
 function buildMessages(parts: MessagePart[]) {
   return [{ id: crypto.randomUUID(), role: 'user' as const, parts }]
 }
 
-/** Get Memory instance from agent, throw if not configured */
 async function getMemory(mastra: Mastra): Promise<Memory> {
   const memory = await mastra.getAgent('operator').getMemory()
   if (!memory) throw new Error('Memory not configured')
   return memory as Memory
 }
 
-/** Map a Mastra FullOutput to a GenerateResult */
 function buildResult(result: FullOutput): GenerateResult {
   return {
     text: result.text,
@@ -51,12 +39,7 @@ function buildResult(result: FullOutput): GenerateResult {
   }
 }
 
-/**
- * Convert Mastra approval chunks to AI SDK tool-approval-request format.
- * This transform bridges Mastra's `data-tool-call-approval` events to
- * the AI SDK's `tool-approval-request` format expected by the web UI.
- */
-export function createApprovalTransform(): TransformStream {
+function createApprovalTransform(): TransformStream {
   const log = getLogger()
   return new TransformStream({
     // biome-ignore lint/suspicious/noExplicitAny: stream chunks are untyped
@@ -90,24 +73,53 @@ export function createApprovalTransform(): TransformStream {
   })
 }
 
+// -- Web Gateway --
+
+export interface WebGateway {
+  stream(opts: {
+    threadId: string
+    parts: MessagePart[]
+    isNewThread?: boolean
+  }): Promise<ReadableStream>
+
+  approveToolCall(opts: {
+    runId: string
+    toolCallId?: string
+    threadId: string
+    messageId?: string
+  }): Promise<ReadableStream>
+
+  declineToolCall(opts: {
+    runId: string
+    toolCallId?: string
+    threadId: string
+    messageId?: string
+  }): Promise<ReadableStream>
+}
+
+// -- Channel Gateway --
+
+// Re-exported from types — ChannelGateway is the public interface for channel adapters
+
+interface GatewayDeps {
+  mastra: Mastra
+  env: Record<string, string | undefined>
+}
+
 interface PendingThread {
   threadId: string
   metadata: Record<string, unknown>
 }
 
-/**
- * Create a ChannelRuntime — the gateway that channels use to
- * send messages to the LLM and manage threads.
- */
-export function createChannelRuntime(deps: ChannelRuntimeDeps): ChannelRuntime {
+export function createGateways(deps: GatewayDeps): {
+  channel: (channelId?: string) => ChannelGateway
+  web: WebGateway
+} {
   const { mastra, env } = deps
 
-  // Pending threads not yet created in the DB. Keyed by "channelId:externalId".
-  // When newThread is called we stash here instead of pre-creating the thread,
-  // so Mastra can create it during generate/stream and fire generateTitle.
+  // Shared pending threads state
   const pendingThreads = new Map<string, PendingThread>()
 
-  /** Build memory option, consuming pending thread metadata if present. */
   function memoryOption(threadId: string, channelId?: string, externalId?: string) {
     if (channelId && externalId) {
       const key = `${channelId}:${externalId}`
@@ -120,21 +132,21 @@ export function createChannelRuntime(deps: ChannelRuntimeDeps): ChannelRuntime {
     return { thread: threadId, resource: RESOURCE_ID }
   }
 
-  return {
+  const channel = (channelId?: string): ChannelGateway => ({
     env,
 
-    async generate({ threadId, parts, channelId, externalId }) {
+    async generate({ threadId, parts, channelId: chId, externalId }) {
       const agent = mastra.getAgent('operator')
       const result = await agent.generate(buildMessages(parts), {
-        memory: memoryOption(threadId, channelId, externalId),
+        memory: memoryOption(threadId, chId, externalId),
       })
       return buildResult(result)
     },
 
-    async stream({ threadId, parts, channelId, externalId }) {
+    async stream({ threadId, parts, channelId: chId, externalId }) {
       const agent = mastra.getAgent('operator')
       const output = await agent.stream(buildMessages(parts), {
-        memory: memoryOption(threadId, channelId, externalId),
+        memory: memoryOption(threadId, chId, externalId),
       })
 
       return {
@@ -162,8 +174,39 @@ export function createChannelRuntime(deps: ChannelRuntimeDeps): ChannelRuntime {
       return buildResult(result)
     },
 
-    async streamAISdk({ threadId, parts, isNewThread }) {
-      // Build memory option: for new threads pass metadata so Mastra creates with root: true
+    async resolveThread(chId, externalId) {
+      const key = `${chId}:${externalId}`
+      const pending = pendingThreads.get(key)
+      if (pending) return pending.threadId
+
+      const memory = await getMemory(mastra)
+      const result = await memory.listThreads({
+        filter: {
+          resourceId: RESOURCE_ID,
+          metadata: { channel: chId, externalId },
+        },
+        orderBy: { field: 'updatedAt', direction: 'DESC' },
+        perPage: 1,
+      })
+
+      if (result.threads.length > 0) return result.threads[0].id
+
+      return this.newThread(chId, externalId)
+    },
+
+    newThread(chId, externalId) {
+      const threadId = crypto.randomUUID()
+      const key = `${chId}:${externalId}`
+      pendingThreads.set(key, {
+        threadId,
+        metadata: { channel: chId, externalId, root: true },
+      })
+      return threadId
+    },
+  })
+
+  const web: WebGateway = {
+    async stream({ threadId, parts, isNewThread }) {
       const memory = isNewThread
         ? { thread: { id: threadId, metadata: { root: true } }, resource: RESOURCE_ID }
         : { thread: threadId, resource: RESOURCE_ID }
@@ -178,7 +221,7 @@ export function createChannelRuntime(deps: ChannelRuntimeDeps): ChannelRuntime {
       }).pipeThrough(createApprovalTransform())
     },
 
-    async approveToolCallAISdk({ runId, toolCallId, threadId, messageId }) {
+    async approveToolCall({ runId, toolCallId, threadId, messageId }) {
       const agent = mastra.getAgent('operator')
       const result = await agent.approveToolCall({
         runId,
@@ -194,7 +237,7 @@ export function createChannelRuntime(deps: ChannelRuntimeDeps): ChannelRuntime {
       }).pipeThrough(createApprovalTransform())
     },
 
-    async declineToolCallAISdk({ runId, toolCallId, threadId, messageId }) {
+    async declineToolCall({ runId, toolCallId, threadId, messageId }) {
       const agent = mastra.getAgent('operator')
       const result = await agent.declineToolCall({
         runId,
@@ -209,47 +252,7 @@ export function createChannelRuntime(deps: ChannelRuntimeDeps): ChannelRuntime {
         sendSources: true,
       }).pipeThrough(createApprovalTransform())
     },
-
-    async resolveThread(channelId, externalId) {
-      const key = `${channelId}:${externalId}`
-
-      // Check if there's a pending thread (created via newThread but not yet
-      // persisted via generate/stream).
-      const pending = pendingThreads.get(key)
-      if (pending) {
-        return pending.threadId
-      }
-
-      const memory = await getMemory(mastra)
-
-      // Look for existing thread with matching channel+externalId metadata
-      const result = await memory.listThreads({
-        filter: {
-          resourceId: RESOURCE_ID,
-          metadata: { channel: channelId, externalId },
-        },
-        orderBy: { field: 'updatedAt', direction: 'DESC' },
-        perPage: 1,
-      })
-
-      if (result.threads.length > 0) {
-        return result.threads[0].id
-      }
-
-      // No existing thread — create one
-      return this.newThread(channelId, externalId)
-    },
-
-    async newThread(channelId, externalId) {
-      const threadId = crypto.randomUUID()
-      const key = `${channelId}:${externalId}`
-      // Don't create the thread in the DB yet — stash metadata so Mastra
-      // creates it (with generateTitle) when generate/stream is called.
-      pendingThreads.set(key, {
-        threadId,
-        metadata: { channel: channelId, externalId, root: true },
-      })
-      return threadId
-    },
   }
+
+  return { channel, web }
 }

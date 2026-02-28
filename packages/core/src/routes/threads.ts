@@ -3,7 +3,6 @@ import type { Memory } from '@mastra/memory'
 import { Hono } from 'hono'
 import { isServerless } from '../env'
 import { getLogger } from '../logger'
-import { getActiveStreamIds } from '../stream-store'
 import type { Env } from './helpers'
 import { getMemoryOrFail } from './helpers'
 
@@ -94,7 +93,7 @@ threadRoutes.get('/', async (c) => {
     return c.json({
       ...result,
       threads: enriched,
-      activeStreamIds: isServerless() ? [] : getActiveStreamIds(),
+      activeStreamIds: isServerless() ? [] : c.var.runtime.streams.getActiveIds(),
     })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error'

@@ -1,15 +1,8 @@
 import type { InArgs } from '@libsql/client'
 import { createClient } from '@libsql/client'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import type { Config } from './config'
-import {
-  ConfigSchema,
-  clearConfigCache,
-  DEFAULTS,
-  getConfig,
-  resetConfig,
-  updateConfig,
-} from './config'
+import { ConfigSchema, DEFAULTS, getConfig, resetConfig, updateConfig } from './config'
 import type { ConfigStore } from './storage/config-store'
 import { SQLConfigStore } from './storage/config-stores/sql'
 
@@ -17,18 +10,12 @@ describe('Config', () => {
   let configStore: ConfigStore<Config>
 
   beforeEach(async () => {
-    // Create in-memory LibSQL client for each test
     const client = createClient({ url: ':memory:' })
     configStore = new SQLConfigStore(async (sql, params) => {
       const result = await client.execute(params ? { sql, args: params as InArgs } : sql)
       return result.rows as unknown[]
     }, 'sqlite')
     await configStore.init?.()
-  })
-
-  afterEach(async () => {
-    clearConfigCache()
-    await resetConfig(configStore)
   })
 
   describe('ConfigSchema', () => {
@@ -77,11 +64,9 @@ describe('Config', () => {
     })
 
     it('persists updates in subsequent getConfig calls', async () => {
-      clearConfigCache() // Clear to test persistence
       await updateConfig(configStore, {
         identity: { name: 'PersistentBot' },
       })
-      clearConfigCache() // Clear cache to force reload from storage
       const config = await getConfig(configStore)
       expect(config.identity.name).toBe('PersistentBot')
     })
@@ -96,7 +81,7 @@ describe('Config', () => {
       expect(reset).toEqual(DEFAULTS)
     })
 
-    it('clears cache', async () => {
+    it('returns defaults after reset', async () => {
       await updateConfig(configStore, {
         identity: { name: 'TempBot' },
       })

@@ -1,28 +1,15 @@
-import { registerAgentPlugin } from '../agents'
-import { registerChannelPlugin } from '../channels'
 import { getLogger } from '../logger'
-import { registerPlugin } from '../plugins/registry'
-import { registerStoragePlugin } from '../storage'
-import { registerToolPlugin } from '../tools'
-import { registerVectorPlugin } from '../vector'
-import type { AdaptedPlugins } from './adapter'
+import type { PluginRegistry } from '../runtime/plugin-registry'
+import { createPluginRegistry } from '../runtime/plugin-registry'
 import { adaptManifest } from './adapter'
 import type { DiscoveredPlugin } from './discover'
 import { discoverPlugins } from './discover'
 import type { LoadedEntry } from './loader'
 import { loadEntry } from './loader'
-import type { PluginManifest } from './schema'
-import { normalizeProvidesEntries, type ProvidesKey } from './schema'
+import type { ProvidesKey } from './schema'
+import { normalizeProvidesEntries } from './schema'
 
-const PROVIDES_KEYS: ProvidesKey[] = ['tools', 'agents', 'channels', 'storage', 'vector']
-
-const registrars = {
-  tools: registerToolPlugin,
-  agents: registerAgentPlugin,
-  channels: registerChannelPlugin,
-  storage: registerStoragePlugin,
-  vector: registerVectorPlugin,
-} as const
+const PROVIDES_KEYS: ProvidesKey[] = ['tools', 'agents', 'channels']
 
 async function loadPluginEntries(plugin: DiscoveredPlugin): Promise<LoadedEntry[]> {
   const entries: LoadedEntry[] = []
@@ -34,48 +21,22 @@ async function loadPluginEntries(plugin: DiscoveredPlugin): Promise<LoadedEntry[
   return entries
 }
 
-function registerAdapted(adapted: AdaptedPlugins): void {
-  for (const key of PROVIDES_KEYS) {
-    const register = registrars[key]
-    for (const p of adapted[key]) {
-      ;(register as (p: unknown) => void)(p)
-    }
-  }
-}
-
-function pluginBaseFields(manifest: PluginManifest) {
-  return {
-    id: manifest.id,
-    name: manifest.name,
-    description: manifest.description,
-    author: manifest.author,
-    icon: manifest.icon,
-    version: manifest.version,
-    homepage: manifest.homepage,
-    repository: manifest.repository,
-    license: manifest.license,
-    envVars: manifest.envVars,
-    configFields: manifest.configFields,
-  }
-}
-
 /**
  * Discover, load, adapt, and register all manifest-based plugins.
+ * Returns an immutable PluginRegistry.
  */
-export async function loadAllPlugins(packagesDir?: string): Promise<void> {
+export async function loadAllPlugins(packagesDir?: string): Promise<PluginRegistry> {
   const log = getLogger()
   const discovered = await discoverPlugins(packagesDir)
+  const registry = createPluginRegistry()
 
   log.info(`Plugin discovery: found ${discovered.length} plugin(s)`)
 
   for (const plugin of discovered) {
     try {
       const entries = await loadPluginEntries(plugin)
-      const adapted = adaptManifest(plugin.manifest, entries)
-      registerAdapted(adapted)
-
-      const provides = PROVIDES_KEYS.filter((k) => adapted[k].length > 0)
-      registerPlugin({ ...pluginBaseFields(plugin.manifest), provides })
+      const registered = adaptManifest(plugin.manifest, entries)
+      registry.plugins.set(registered.id, registered)
 
       log.info(`Plugin loaded: ${plugin.manifest.name} (${plugin.manifest.id})`)
     } catch (err) {
@@ -83,4 +44,6 @@ export async function loadAllPlugins(packagesDir?: string): Promise<void> {
       log.error(`Failed to load plugin ${plugin.manifest.id}`, { error: message })
     }
   }
+
+  return registry
 }

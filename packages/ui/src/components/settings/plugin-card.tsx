@@ -627,58 +627,25 @@ export function PluginCard({
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {isReadonly ? (
-            <PluginInfoDialog
-              plugin={plugin}
-              configKey={configKey}
-              readonly
-              permissions={permissions}
-              trigger={
-                <Button variant="ghost" size="icon" className="size-7" aria-label="Plugin settings">
-                  <SettingsIcon className="size-4" />
-                </Button>
-              }
-            >
-              {dialogContent}
-            </PluginInfoDialog>
-          ) : canEnable ? (
-            <>
-              <PluginInfoDialog
-                plugin={plugin}
-                configKey={configKey}
-                permissions={permissions}
-                trigger={
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="size-7"
-                    aria-label="Plugin settings"
-                  >
-                    <SettingsIcon className="size-4" />
-                  </Button>
-                }
-              >
-                {dialogContent}
-              </PluginInfoDialog>
-              <Switch
-                checked={enabled}
-                onCheckedChange={handleToggle}
-                disabled={updateConfig.isPending}
-              />
-            </>
-          ) : (
-            <PluginInfoDialog
-              plugin={plugin}
-              configKey={configKey}
-              permissions={permissions}
-              trigger={
-                <Button variant="outline" size="sm">
-                  Configure
-                </Button>
-              }
-            >
-              {dialogContent}
-            </PluginInfoDialog>
+          <PluginInfoDialog
+            plugin={plugin}
+            configKey={configKey}
+            readonly={isReadonly}
+            permissions={permissions}
+            trigger={
+              <Button variant="ghost" size="icon" className="size-7" aria-label="Plugin settings">
+                <SettingsIcon className="size-4" />
+              </Button>
+            }
+          >
+            {dialogContent}
+          </PluginInfoDialog>
+          {!isReadonly && canEnable && (
+            <Switch
+              checked={enabled}
+              onCheckedChange={handleToggle}
+              disabled={updateConfig.isPending}
+            />
           )}
         </div>
       </div>

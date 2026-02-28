@@ -9,7 +9,3 @@ export function getLogger(env?: Record<string, string | undefined>) {
   _cached = new ConsoleLogger({ name: 'pandora', level })
   return _cached
 }
-
-export function clearLoggerCache() {
-  _cached = null
-}

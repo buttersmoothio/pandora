@@ -1,10 +1,7 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
-import { reloadChannels } from '../channels'
-import { clearConfigCache, getConfig, resetConfig, updateConfig } from '../config'
+import { resetConfig, updateConfig } from '../config'
 import { getLogger } from '../logger'
-import { clearMastraCache, getMastra } from '../mastra'
-import { getStorage } from '../storage'
 import type { Env } from './helpers'
 
 const configRoutes = new Hono<Env>()
@@ -13,9 +10,7 @@ const configRoutes = new Hono<Env>()
 configRoutes.get('/', async (c) => {
   const log = getLogger()
   try {
-    const { config: configStore } = await getStorage(c.var.envVars, c.env)
-    const config = await getConfig(configStore)
-    return c.json(config)
+    return c.json(c.var.runtime.config)
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error'
     log.error('Config fetch failed', { error: message })
@@ -27,16 +22,12 @@ configRoutes.get('/', async (c) => {
 configRoutes.patch('/', async (c) => {
   const log = getLogger()
   try {
-    const { config: configStore } = await getStorage(c.var.envVars, c.env)
+    const runtime = c.var.runtime
     const patch = await c.req.json()
-    const updated = await updateConfig(configStore, patch)
-    // Invalidate caches and rebuild everything — many subsystems depend on each other
-    clearConfigCache()
-    clearMastraCache()
-    const mastra = await getMastra(c.var.envVars, c.env)
-    await reloadChannels(mastra, c.var.envVars, updated.plugins)
+    await updateConfig(runtime.storage.config, patch)
+    await runtime.reload()
     log.info('Config updated', { keys: Object.keys(patch) })
-    return c.json(updated)
+    return c.json(runtime.config)
   } catch (err) {
     if (err instanceof z.ZodError) {
       const messages = err.issues.map((i) => `${i.path.join('.')}: ${i.message}`)
@@ -53,13 +44,10 @@ configRoutes.patch('/', async (c) => {
 configRoutes.delete('/', async (c) => {
   const log = getLogger()
   try {
-    const { config: configStore } = await getStorage(c.var.envVars, c.env)
-    const config = await resetConfig(configStore)
-    // Rebuild everything with default config
-    clearMastraCache()
-    const mastra = await getMastra(c.var.envVars, c.env)
-    await reloadChannels(mastra, c.var.envVars, config.plugins)
-    return c.json(config)
+    const runtime = c.var.runtime
+    await resetConfig(runtime.storage.config)
+    await runtime.reload()
+    return c.json(runtime.config)
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error'
     log.error('Config reset failed', { error: message })

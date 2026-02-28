@@ -2,7 +2,6 @@ import { Hono } from 'hono'
 import pkg from '../../package.json'
 import { extractBearerToken } from '../auth/routes'
 import { getRuntimeKey, isServerless } from '../env'
-import { getStorage } from '../storage'
 import type { Env } from './helpers'
 
 const healthRoutes = new Hono<Env>()
@@ -11,7 +10,7 @@ const healthRoutes = new Hono<Env>()
 healthRoutes.get('/', async (c) => {
   let authState = { setup: false, authenticated: false }
   try {
-    const { auth: authStore } = await getStorage(c.var.envVars, c.env)
+    const authStore = c.var.runtime.storage.auth
     const credential = await authStore.getCredential()
     const isSetup = !!credential
 

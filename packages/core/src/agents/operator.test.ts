@@ -1,17 +1,7 @@
 import type { MastraMemory } from '@mastra/core/memory'
-import { tools as datetimeTools } from '@pandora/tools-datetime'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import type { Config } from '../config'
 import { DEFAULTS } from '../config'
-import type { ToolPlugin } from '../tools'
-import { clearToolPlugins, loadTools, registerToolPlugin } from '../tools'
-
-const datetime: ToolPlugin = {
-  id: 'tools-datetime',
-  name: 'Date & Time',
-  schemaVersion: 1,
-  tools: datetimeTools,
-}
 
 // Mock the Agent constructor to capture config
 const mockAgentConstructor = vi.fn()
@@ -31,77 +21,64 @@ vi.mock('@mastra/core/agent', () => ({
 const { createOperator } = await import('./operator')
 
 const mockMemory = {} as MastraMemory
+const emptyTools = {}
 
 describe('createOperator', () => {
-  beforeEach(() => {
-    registerToolPlugin(datetime)
-  })
-
-  afterEach(() => {
-    clearToolPlugins()
-  })
-
-  it('creates agent with correct id', async () => {
-    const tools = await loadTools(DEFAULTS, {})
-    const agent = createOperator(DEFAULTS, tools, mockMemory)
+  it('creates agent with correct id', () => {
+    const agent = createOperator(DEFAULTS, emptyTools, mockMemory)
     expect(agent.id).toBe('operator')
   })
 
-  it('uses identity name as agent name', async () => {
-    const tools = await loadTools(DEFAULTS, {})
-    const agent = createOperator(DEFAULTS, tools, mockMemory)
+  it('uses identity name as agent name', () => {
+    const agent = createOperator(DEFAULTS, emptyTools, mockMemory)
     expect(agent.name).toBe('Pandora')
   })
 
-  it('builds instructions from identity name and system prompt', async () => {
-    const tools = await loadTools(DEFAULTS, {})
-    createOperator(DEFAULTS, tools, mockMemory)
+  it('builds instructions from identity name and system prompt', () => {
+    createOperator(DEFAULTS, emptyTools, mockMemory)
 
     const config = mockAgentConstructor.mock.calls.at(-1)?.[0]
     expect(config.instructions).toContain('You are Pandora.')
     expect(config.instructions).toContain('# Who You Are')
   })
 
-  it('includes custom system prompt in instructions', async () => {
+  it('includes custom system prompt in instructions', () => {
     const config: Config = {
       ...DEFAULTS,
       personality: {
         systemPrompt: 'Always respond in haiku.',
       },
     }
-    const tools = await loadTools(DEFAULTS, {})
-    createOperator(config, tools, mockMemory)
+    createOperator(config, emptyTools, mockMemory)
 
     const agentConfig = mockAgentConstructor.mock.calls.at(-1)?.[0]
     expect(agentConfig.instructions).toContain('You are Pandora.')
     expect(agentConfig.instructions).toContain('Always respond in haiku.')
   })
 
-  it('passes tools to agent', async () => {
-    const tools = await loadTools(DEFAULTS, {})
+  it('passes tools to agent', () => {
+    const tools = { 'my-tool': {} as never }
     createOperator(DEFAULTS, tools, mockMemory)
 
     const config = mockAgentConstructor.mock.calls.at(-1)?.[0]
     expect(config.tools).toBe(tools)
   })
 
-  it('passes memory to agent', async () => {
-    const tools = await loadTools(DEFAULTS, {})
-    createOperator(DEFAULTS, tools, mockMemory)
+  it('passes memory to agent', () => {
+    createOperator(DEFAULTS, emptyTools, mockMemory)
 
     const config = mockAgentConstructor.mock.calls.at(-1)?.[0]
     expect(config.memory).toBe(mockMemory)
   })
 
-  it('uses default model string', async () => {
-    const tools = await loadTools(DEFAULTS, {})
-    createOperator(DEFAULTS, tools, mockMemory)
+  it('uses default model string', () => {
+    createOperator(DEFAULTS, emptyTools, mockMemory)
 
     const config = mockAgentConstructor.mock.calls.at(-1)?.[0]
     expect(config.model).toBe('anthropic/claude-sonnet-4-20250514')
   })
 
-  it('uses custom model when configured', async () => {
+  it('uses custom model when configured', () => {
     const customConfig: Config = {
       ...DEFAULTS,
       models: {
@@ -109,8 +86,7 @@ describe('createOperator', () => {
         operator: { provider: 'openai', model: 'gpt-4o' },
       },
     }
-    const tools = await loadTools(DEFAULTS, {})
-    createOperator(customConfig, tools, mockMemory)
+    createOperator(customConfig, emptyTools, mockMemory)
 
     const config = mockAgentConstructor.mock.calls.at(-1)?.[0]
     expect(config.model).toBe('openai/gpt-4o')

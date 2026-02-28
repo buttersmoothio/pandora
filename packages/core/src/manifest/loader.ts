@@ -23,7 +23,7 @@ export async function loadEntry(
 ): Promise<LoadedEntry> {
   const log = getLogger()
   const entryPath = resolve(plugin.packageDir, entry.entry)
-  const sandbox = key === 'agents' ? 'host' : (entry.sandbox ?? 'compartment')
+  const sandbox = key === 'agents' || key === 'channels' ? 'host' : (entry.sandbox ?? 'compartment')
 
   let namespace: Record<string, unknown>
 

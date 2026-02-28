@@ -1,5 +1,5 @@
 import type { Agent } from '@mastra/core/agent'
-import type { ConfigFieldDescriptor, EnvVarDescriptor, PluginConfig } from '../plugin-types'
+import type { PluginConfig } from '../plugin-types'
 
 export type { ConfigFieldDescriptor, EnvVarDescriptor, PluginConfig } from '../plugin-types'
 
@@ -19,34 +19,4 @@ export interface AgentManifest {
   description: string
   /** System instructions for the agent. */
   instructions: string
-}
-
-/** Plugin descriptor for agent packages */
-export interface AgentPlugin {
-  /** Unique plugin identifier, e.g. 'agent-researcher' */
-  id: string
-  /** Human-readable display name, e.g. 'Researcher' */
-  name: string
-  /** Human-readable description from the manifest. */
-  description?: string
-  /** Author of the plugin. */
-  author?: string
-  /** Icon URL or path. */
-  icon?: string
-  /** Semver version string. */
-  version?: string
-  /** Homepage URL. */
-  homepage?: string
-  /** Source repository URL. */
-  repository?: string
-  /** SPDX license identifier. */
-  license?: string
-  /** Schema version — must match core's expected version */
-  schemaVersion: number
-  /** Environment variables this plugin depends on */
-  envVars?: EnvVarDescriptor[]
-  /** Config field descriptors for the UI */
-  configFields?: ConfigFieldDescriptor[]
-  /** Agent definitions provided by this plugin */
-  agents: import('./define').AgentDefinition[]
 }

@@ -1,13 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import {
-  bindToolExport,
-  buildManifest,
-  clearManifestRegistry,
-  getAllManifests,
-  getManifest,
-  getManifests,
-  registerManifest,
-} from './define'
+import { bindToolExport, buildManifest } from './define'
 import type { ToolExport } from './types'
 import { DEFAULT_TOOL_TIMEOUT } from './types'
 
@@ -144,77 +136,5 @@ describe('buildManifest', () => {
     const exp = makeTestExport({ sandbox: 'host' })
     const manifest = buildManifest(exp)
     expect(manifest.sandbox).toBe('host')
-  })
-})
-
-describe('getManifest', () => {
-  it('returns manifest by tool ID string', () => {
-    clearManifestRegistry()
-    const exp = makeTestExport()
-    registerManifest(buildManifest(exp))
-    const manifest = getManifest('test-tool')
-    expect(manifest).toBeDefined()
-    expect(manifest?.id).toBe('test-tool')
-  })
-
-  it('returns manifest by object with id', () => {
-    clearManifestRegistry()
-    const exp = makeTestExport()
-    registerManifest(buildManifest(exp))
-    const manifest = getManifest({ id: 'test-tool' })
-    expect(manifest?.id).toBe('test-tool')
-  })
-
-  it('returns undefined for unregistered tools', () => {
-    expect(getManifest('nonexistent')).toBeUndefined()
-  })
-})
-
-describe('getManifests', () => {
-  it('returns all manifests for a ToolRecord', () => {
-    clearManifestRegistry()
-    const expA = makeTestExport({ id: 'tool-a', name: 'Tool A', description: 'Tool A' })
-    const expB = makeTestExport({ id: 'tool-b', name: 'Tool B', description: 'Tool B' })
-    registerManifest(buildManifest(expA))
-    registerManifest(buildManifest(expB))
-
-    const toolA = bindToolExport(expA, defaultEnv, defaultConfig)
-    const toolB = bindToolExport(expB, defaultEnv, defaultConfig)
-
-    const manifests = getManifests({ 'tool-a': toolA, 'tool-b': toolB })
-    expect(Object.keys(manifests)).toEqual(['tool-a', 'tool-b'])
-  })
-
-  it('skips tools without manifests', () => {
-    clearManifestRegistry()
-    const exp = makeTestExport()
-    registerManifest(buildManifest(exp))
-    const tool = bindToolExport(exp, defaultEnv, defaultConfig)
-
-    const { createTool } = require('@mastra/core/tools')
-    const rawTool = createTool({
-      id: 'raw',
-      description: 'Raw',
-      inputSchema: require('zod').z.object({}),
-      execute: async () => ({}),
-    })
-
-    const manifests = getManifests({ raw: rawTool, 'test-tool': tool })
-    expect(Object.keys(manifests)).toEqual(['test-tool'])
-  })
-})
-
-describe('getAllManifests', () => {
-  it('returns all registered manifests keyed by id', () => {
-    clearManifestRegistry()
-    const expA = makeTestExport({ id: 'all-a', name: 'A', description: 'A' })
-    const expB = makeTestExport({ id: 'all-b', name: 'B', description: 'B' })
-    registerManifest(buildManifest(expA))
-    registerManifest(buildManifest(expB))
-
-    const all = getAllManifests()
-    expect(all['all-a']).toBeDefined()
-    expect(all['all-a'].description).toBe('A')
-    expect(all['all-b']).toBeDefined()
   })
 })

@@ -52,7 +52,7 @@ async function resolveNativeSearch(
       // @ts-expect-error — optional peer dependency
       const { openai } = await import('@ai-sdk/openai')
       return {
-        tools: { web_search: openai.tools.webSearch({}) },
+        tools: { native_search: openai.tools.webSearch({}) },
         message: 'Using OpenAI native search',
       }
     } catch {
@@ -78,7 +78,7 @@ async function resolveNativeSearch(
       // @ts-expect-error — optional peer dependency
       const { anthropic } = await import('@ai-sdk/anthropic')
       return {
-        tools: { web_search: anthropic.tools.webSearch_20250305() },
+        tools: { native_search: anthropic.tools.webSearch_20250305() },
         message: 'Using Anthropic native search',
       }
     } catch {

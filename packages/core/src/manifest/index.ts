@@ -1,4 +1,4 @@
-export { type AdaptedPlugins, adaptManifest } from './adapter'
+export { adaptManifest } from './adapter'
 export { type LoadInCompartmentOptions, loadInCompartment } from './compartment-loader'
 export { type DiscoveredPlugin, discoverPlugins } from './discover'
 export { loadAllPlugins } from './load-all'
