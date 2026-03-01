@@ -46,8 +46,8 @@ function CapabilitySummary({ provides }: { provides: UnifiedPluginInfo['provides
   const parts: string[] = []
   for (const key of Object.keys(provides)) {
     const count = capabilityCount(provides, key)
-    const singular = key.charAt(0).toUpperCase() + key.slice(1, -1)
-    const plural = key.charAt(0).toUpperCase() + key.slice(1)
+    const singular = key.slice(0, -1)
+    const plural = key
     parts.push(count > 0 ? `${count} ${count === 1 ? singular : plural}` : plural)
   }
   if (parts.length === 0) return null
@@ -364,9 +364,9 @@ function PluginDialogContent({ plugin }: { plugin: UnifiedPluginInfo }) {
 function UnifiedPluginCard({ plugin }: { plugin: UnifiedPluginInfo }) {
   const permissions = plugin.provides.tools
     ? {
-        permissions: plugin.provides.tools.permissions as Record<string, boolean | string[]>,
-        sandbox: (plugin.provides.tools.sandbox ?? 'compartment') as 'compartment' | 'host',
-      }
+      permissions: plugin.provides.tools.permissions as Record<string, boolean | string[]>,
+      sandbox: (plugin.provides.tools.sandbox ?? 'compartment') as 'compartment' | 'host',
+    }
     : undefined
 
   return (
@@ -410,6 +410,24 @@ export default function PluginsPage() {
     if (filter === 'all') return plugins
     return plugins.filter((p) => p.provides[filter])
   }, [plugins, filter])
+
+  const enabled = useMemo(
+    () =>
+      filtered.filter(
+        (p) =>
+          p.enabled &&
+          p.envConfigured &&
+          p.validationErrors.length === 0 &&
+          p.configFields
+            .filter((f) => f.required)
+            .every((f) => {
+              const val = p.config[f.key]
+              return typeof val === 'string' ? val.trim() !== '' : val != null
+            }),
+      ),
+    [filtered],
+  )
+  const disabled = useMemo(() => filtered.filter((p) => !enabled.includes(p)), [filtered, enabled])
 
   // Count how many plugins match each filter
   const counts = useMemo(() => {
@@ -476,10 +494,21 @@ export default function PluginsPage() {
       </div>
 
       <section className="flex flex-col gap-4">
-        {filtered.map((plugin) => (
+        {enabled.map((plugin) => (
           <UnifiedPluginCard key={plugin.id} plugin={plugin} />
         ))}
       </section>
+
+      {disabled.length > 0 && (
+        <>
+          <p className="text-muted-foreground text-xs uppercase tracking-wider">Disabled</p>
+          <section className="flex flex-col gap-4 opacity-75">
+            {disabled.map((plugin) => (
+              <UnifiedPluginCard key={plugin.id} plugin={plugin} />
+            ))}
+          </section>
+        </>
+      )}
     </div>
   )
 }
