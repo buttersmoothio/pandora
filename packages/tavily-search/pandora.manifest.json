@@ -1,0 +1,23 @@
+{
+  "manifestVersion": 1,
+  "id": "@pandorakit/tavily-search",
+  "name": "Tavily Search",
+  "description": "Search the web using the Tavily API",
+  "author": "Pandora",
+  "version": "0.1.0",
+  "license": "MIT",
+  "homepage": "https://tavily.com",
+  "repository": "https://github.com/mprasanjith/pandora/tree/master/packages/tavily-search",
+  "pandora": ">=0.0.1",
+  "provides": {
+    "tools": {
+      "entry": "./src/index.ts",
+      "sandbox": "compartment",
+      "permissions": {
+        "network": ["api.tavily.com"],
+        "env": ["TAVILY_API_KEY"]
+      }
+    }
+  },
+  "envVars": [{ "name": "TAVILY_API_KEY" }]
+}

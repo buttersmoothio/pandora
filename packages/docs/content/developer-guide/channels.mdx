@@ -27,7 +27,7 @@ This tutorial walks through building a hypothetical Discord channel to illustrat
   "type": "module",
   "exports": { ".": "./src/index.ts" },
   "peerDependencies": {
-    "@pandora/core": "*"
+    "@pandorakit/core": "*"
   },
   "dependencies": {
     "discord.js": "^14.0.0"
@@ -41,7 +41,7 @@ The adapter implements `ChannelAdapter` with either `webhook`, `realtime`, or bo
 
 ```ts
 // src/adapter.ts
-import type { ChannelAdapter, ChannelRealtime } from '@pandora/core/channels'
+import type { ChannelAdapter, ChannelRealtime } from '@pandorakit/core/channels'
 import { Client, GatewayIntentBits } from 'discord.js'
 
 export function createDiscordAdapter(
@@ -106,7 +106,7 @@ The entry point exports a `ChannelPlugin` — metadata about your channel plus a
 
 ```ts
 // src/index.ts
-import type { ChannelPlugin } from '@pandora/core/channels'
+import type { ChannelPlugin } from '@pandorakit/core/channels'
 import { createDiscordAdapter } from './adapter'
 
 export default {
@@ -196,7 +196,7 @@ Then enable the channel in **Settings → Channels** in the web UI.
 If your platform pushes events via HTTP (e.g. Slack Events API), implement `ChannelWebhook` instead of or in addition to `ChannelRealtime`:
 
 ```ts
-import type { ChannelWebhook } from '@pandora/core/channels'
+import type { ChannelWebhook } from '@pandorakit/core/channels'
 
 const webhook: ChannelWebhook = {
   async verify(request, env) {
@@ -250,7 +250,7 @@ async function handleResult(ctx: PlatformContext, runtime: ChannelRuntime, resul
 
 ## Reference
 
-All types are exported from `@pandora/core/channels`:
+All types are exported from `@pandorakit/core/channels`:
 
 ```ts
 import type {
@@ -263,7 +263,7 @@ import type {
   ConfigFieldDescriptor,
   GenerateResult,
   StreamResult,
-} from '@pandora/core/channels'
+} from '@pandorakit/core/channels'
 ```
 
 ### `ChannelPlugin`

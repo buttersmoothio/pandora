@@ -17,7 +17,7 @@ Most providers don't need to implement `ConfigStore` or `AuthStore` from scratch
     For SQL databases (SQLite/LibSQL, PostgreSQL, MSSQL). You provide an `execute` function wrapping your driver:
 
     ```ts
-    import { SQLConfigStore, SQLAuthStore } from '@pandora/core/storage'
+    import { SQLConfigStore, SQLAuthStore } from '@pandorakit/core/storage'
 
     const execute = async (sql: string, params?: unknown[]) => {
       const result = await myDriver.query(sql, params)
@@ -34,7 +34,7 @@ Most providers don't need to implement `ConfigStore` or `AuthStore` from scratch
     For Redis-like key-value stores. You provide an object with `get`, `set`, and `del` methods:
 
     ```ts
-    import { RedisConfigStore, RedisAuthStore } from '@pandora/core/storage'
+    import { RedisConfigStore, RedisAuthStore } from '@pandorakit/core/storage'
 
     const ops = {
       get: (key) => myRedis.get(key),
@@ -86,13 +86,13 @@ Let's build a PostgreSQL plugin as an example.
     "pg": "^8.16.0"
   },
   "peerDependencies": {
-    "@pandora/core": "*"
+    "@pandorakit/core": "*"
   }
 }
 ```
 
 Key conventions:
-- `@pandora/core` is a peer dependency
+- `@pandorakit/core` is a peer dependency
 - Include the `@mastra/*` adapter for your database
 - Default-export a `StoragePlugin` descriptor from the package entry point
 
@@ -104,8 +104,8 @@ Your entry point default-exports a `StoragePlugin` with metadata and a factory t
 // src/index.ts
 import { Pool } from 'pg'
 import { PostgresStore } from '@mastra/pg'
-import type { Config, StorageFactory, StoragePlugin } from '@pandora/core/storage'
-import { SQLAuthStore, SQLConfigStore } from '@pandora/core/storage'
+import type { Config, StorageFactory, StoragePlugin } from '@pandorakit/core/storage'
+import { SQLAuthStore, SQLConfigStore } from '@pandorakit/core/storage'
 
 const createStorage: StorageFactory = async (env) => {
   const pool = new Pool({
@@ -167,7 +167,7 @@ STORAGE_PROVIDER=storage-postgres DATABASE_URL=postgres://localhost/pandora bun 
 
 ## Reference
 
-All types are exported from `@pandora/core/storage`:
+All types are exported from `@pandorakit/core/storage`:
 
 ```ts
 import type {
@@ -178,14 +178,14 @@ import type {
   StorageFactory,
   StoragePlugin,
   StorageResult,
-} from '@pandora/core/storage'
+} from '@pandorakit/core/storage'
 
 import {
   SQLConfigStore,
   SQLAuthStore,
   RedisConfigStore,
   RedisAuthStore,
-} from '@pandora/core/storage'
+} from '@pandorakit/core/storage'
 ```
 
 ### `StoragePlugin`

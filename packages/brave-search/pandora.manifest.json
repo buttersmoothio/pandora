@@ -1,0 +1,23 @@
+{
+  "manifestVersion": 1,
+  "id": "@pandorakit/brave-search",
+  "name": "Brave Search",
+  "description": "Search the web using the Brave Search API",
+  "author": "Pandora",
+  "version": "0.1.0",
+  "license": "MIT",
+  "homepage": "https://brave.com/search/api",
+  "repository": "https://github.com/mprasanjith/pandora/tree/master/packages/brave-search",
+  "pandora": ">=0.0.1",
+  "provides": {
+    "tools": {
+      "entry": "./src/index.ts",
+      "sandbox": "compartment",
+      "permissions": {
+        "network": ["api.search.brave.com"],
+        "env": ["BRAVE_API_KEY"]
+      }
+    }
+  },
+  "envVars": [{ "name": "BRAVE_API_KEY" }]
+}

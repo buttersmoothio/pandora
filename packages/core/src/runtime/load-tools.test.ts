@@ -31,7 +31,7 @@ describe('loadTools', () => {
     registry.plugins.set('test-tools', makeToolPlugin())
 
     const tools = await loadTools(registry, DEFAULTS, {})
-    expect(tools.greet).toBeDefined()
+    expect(tools['test-tools:greet']).toBeDefined()
   })
 
   it('skips disabled plugins', async () => {
@@ -66,7 +66,7 @@ describe('loadTools', () => {
     )
 
     const tools = await loadTools(registry, DEFAULTS, {})
-    expect(tools['dynamic-tool']).toBeDefined()
+    expect(tools['test-tools:dynamic-tool']).toBeDefined()
   })
 
   it('skips plugins without tools capability', async () => {
@@ -107,7 +107,7 @@ describe('loadTools', () => {
     )
 
     const tools = await loadTools(registry, DEFAULTS, {})
-    expect(tools['tool-a']).toBeDefined()
-    expect(tools['tool-b']).toBeDefined()
+    expect(tools['plugin-a:tool-a']).toBeDefined()
+    expect(tools['plugin-b:tool-b']).toBeDefined()
   })
 })

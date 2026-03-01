@@ -5,6 +5,11 @@ import type { ToolPluginConfig, ToolRecord } from '../tools/types'
 import { validatePluginConfig } from './config-validate'
 import type { PluginRegistry, RegisteredPlugin } from './plugin-registry'
 
+/** Build a namespaced tool key: `pluginId:toolId` */
+function namespacedKey(pluginId: string, toolId: string): string {
+  return `${pluginId}:${toolId}`
+}
+
 function loadStaticTools(
   plugin: RegisteredPlugin,
   envVars: Record<string, string | undefined>,
@@ -15,11 +20,12 @@ function loadStaticTools(
   const manifestDefault = plugin.tools.requireApproval ?? false
   const perTool = (pluginConfig.requireApproval ?? {}) as Record<string, boolean>
   for (const exp of plugin.tools.entries) {
-    const tool = bindToolExport(exp, envVars, pluginConfig)
+    const nsKey = namespacedKey(plugin.id, exp.id)
+    const tool = bindToolExport(exp, envVars, pluginConfig, nsKey)
     if (perTool[exp.id] ?? manifestDefault) {
       tool.requireApproval = true
     }
-    tools[exp.id] = tool
+    tools[nsKey] = tool
   }
   return tools
 }
@@ -45,8 +51,9 @@ export async function loadTools(
         env: envVars,
       })
       for (const exp of resolved) {
+        const nsKey = namespacedKey(plugin.id, exp.id)
         plugin.tools.manifests.set(exp.id, buildManifest(exp))
-        result[exp.id] = bindToolExport(exp, envVars, pluginConfig)
+        result[nsKey] = bindToolExport(exp, envVars, pluginConfig, nsKey)
       }
     }
   }

@@ -97,7 +97,7 @@ export interface ToolAnnotations {
 
 /** Plugin descriptor for tool packages */
 export interface ToolPlugin {
-  /** Unique plugin identifier, e.g. 'tools-datetime' */
+  /** Unique plugin identifier, e.g. '@pandorakit/datetime' */
   id: string
   /** Human-readable display name, e.g. 'Date & Time' */
   name: string
@@ -135,7 +135,7 @@ export interface ToolPlugin {
 /**
  * The standard tool export interface for all plugins.
  *
- * No framework dependencies — only type-only imports from `@pandora/core`.
+ * No framework dependencies — only type-only imports from `@pandorakit/core`.
  * The core wraps these into Mastra tools at load time.
  */
 export interface ToolExport<TIn = unknown, TOut = unknown> {

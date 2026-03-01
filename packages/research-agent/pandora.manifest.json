@@ -1,0 +1,25 @@
+{
+  "manifestVersion": 1,
+  "id": "@pandorakit/research-agent",
+  "name": "Research",
+  "description": "Search the web and conduct in-depth research on any topic",
+  "author": "Pandora",
+  "version": "0.1.0",
+  "license": "MIT",
+  "repository": "https://github.com/mprasanjith/pandora/tree/master/packages/research-agent",
+  "pandora": ">=0.0.1",
+  "provides": {
+    "agents": [
+      {
+        "entry": "./src/research.ts",
+        "useTools": [
+          "@pandorakit/tavily-search:tavily_search",
+          "@pandorakit/brave-search:brave_search",
+          "@pandorakit/exa-search:exa_search",
+          "@pandorakit/perplexity-search:perplexity_search"
+        ],
+        "modelTools": ["search"]
+      }
+    ]
+  }
+}

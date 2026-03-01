@@ -38,7 +38,7 @@ describe('Plugins routes', () => {
     }
     expect(Array.isArray(body.plugins)).toBe(true)
 
-    const datetime = body.plugins.find((p) => p.id === 'tools-datetime')
+    const datetime = body.plugins.find((p) => p.id === '@pandorakit/datetime')
     expect(datetime).toBeDefined()
     expect(datetime?.provides.tools).toBeDefined()
   })

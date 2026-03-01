@@ -22,7 +22,7 @@ An agent package follows this structure:
   </FileTree.Folder>
 </FileTree>
 
-The `package.json` declares `@pandora/core` as a dev dependency (only type-only imports, if any, are used at runtime):
+The `package.json` declares `@pandorakit/core` as a dev dependency (only type-only imports, if any, are used at runtime):
 
 ```json
 {
@@ -30,7 +30,7 @@ The `package.json` declares `@pandora/core` as a dev dependency (only type-only 
   "type": "module",
   "exports": { ".": "./src/index.ts" },
   "devDependencies": {
-    "@pandora/core": "*"
+    "@pandorakit/core": "*"
   }
 }
 ```
@@ -51,7 +51,7 @@ and synthesize results into clear, concise answers.`,
 }
 ```
 
-No imports from `@pandora/core` needed. Agent entry points are pure data — the system reads identity and instructions from the exported object.
+No imports from `@pandorakit/core` needed. Agent entry points are pure data — the system reads identity and instructions from the exported object.
 
 ### Declare tool dependencies in the manifest
 
@@ -80,7 +80,7 @@ The `pandora.manifest.json` declares which tools each agent needs:
 }
 ```
 
-- **`useTools`** — tool IDs from the global tool registry (loaded by tool plugins like `@pandora/tools-websearch`)
+- **`useTools`** — tool IDs from the global tool registry (loaded by tool plugins like `@pandorakit/tavily-search`)
 - **`modelTools`** — model-native capabilities. `"search"` maps to OpenAI's `webSearch()`, Google's `googleSearch()`, or Anthropic's `webSearch_20250305()` depending on the configured model.
 
 ### Enable it
@@ -131,7 +131,7 @@ export const agent = {
 
 ## Reference
 
-All types are exported from `@pandora/core/agents`:
+All types are exported from `@pandorakit/core/agents`:
 
 ```ts
 import type {
@@ -139,7 +139,7 @@ import type {
   AgentPlugin,
   ConfigFieldDescriptor,
   EnvVarDescriptor,
-} from '@pandora/core/agents'
+} from '@pandorakit/core/agents'
 ```
 
 ### `AgentDefinition`

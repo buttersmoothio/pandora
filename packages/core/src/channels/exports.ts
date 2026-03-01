@@ -1,7 +1,7 @@
 /**
  * Public API for channel authors.
  *
- * Import from `@pandora/core/channels` to build channel adapter packages.
+ * Import from `@pandorakit/core/channels` to build channel adapter packages.
  */
 
 export type {

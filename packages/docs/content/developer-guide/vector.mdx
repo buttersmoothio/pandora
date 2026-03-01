@@ -40,13 +40,13 @@ Let's build a hypothetical Qdrant plugin as an example.
     "@mastra/qdrant": "latest"
   },
   "peerDependencies": {
-    "@pandora/core": "*"
+    "@pandorakit/core": "*"
   }
 }
 ```
 
 Key conventions:
-- `@pandora/core` is a peer dependency
+- `@pandorakit/core` is a peer dependency
 - Include the `@mastra/*` adapter for your database
 - Default-export a `VectorPlugin` descriptor from the package entry point
 
@@ -57,7 +57,7 @@ Your entry point default-exports a `VectorPlugin` with metadata and a factory th
 ```ts
 // src/index.ts
 import { QdrantVector } from '@mastra/qdrant'
-import type { VectorPlugin } from '@pandora/core/vector'
+import type { VectorPlugin } from '@pandorakit/core/vector'
 
 export default {
   id: 'vector-qdrant',
@@ -102,7 +102,7 @@ VECTOR_PROVIDER=vector-qdrant QDRANT_URL=http://localhost:6333 QDRANT_API_KEY=se
 
 ## Reference
 
-All types are exported from `@pandora/core/vector`:
+All types are exported from `@pandorakit/core/vector`:
 
 ```ts
 import type {
@@ -112,7 +112,7 @@ import type {
   VectorFactory,
   VectorPlugin,
   VectorResult,
-} from '@pandora/core/vector'
+} from '@pandorakit/core/vector'
 ```
 
 ### `VectorPlugin`

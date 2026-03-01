@@ -23,7 +23,7 @@ A tool package follows this structure:
   </FileTree.Folder>
 </FileTree>
 
-The `package.json` declares `@pandora/core` as a dev dependency (only type-only imports are used at runtime):
+The `package.json` declares `@pandorakit/core` as a dev dependency (only type-only imports are used at runtime):
 
 ```json
 {
@@ -31,7 +31,7 @@ The `package.json` declares `@pandora/core` as a dev dependency (only type-only 
   "type": "module",
   "exports": { ".": "./src/index.ts" },
   "devDependencies": {
-    "@pandora/core": "*"
+    "@pandorakit/core": "*"
   }
 }
 ```
@@ -42,7 +42,7 @@ Export a `ToolExport` object — a plain object with metadata, JSON Schema param
 
 ```ts
 // src/weather.ts
-import type { ToolExport } from '@pandora/core/tools'
+import type { ToolExport } from '@pandorakit/core/tools'
 
 export const weatherTool: ToolExport = {
   id: 'weather',
@@ -70,7 +70,7 @@ export const weatherTool: ToolExport = {
 }
 ```
 
-- `ToolExport` is a plain object — no framework dependencies at runtime. Only type-only imports from `@pandora/core` (erased by the TypeScript compiler).
+- `ToolExport` is a plain object — no framework dependencies at runtime. Only type-only imports from `@pandorakit/core` (erased by the TypeScript compiler).
 - The `execute` function receives `{ env }` as its second argument, giving tools access to environment variables.
 - **`annotations`** are MCP-compatible hints that help the UI decide whether to auto-approve or prompt for confirmation. A tool marked `readOnlyHint: true` and `destructiveHint: false` can be auto-approved.
 
@@ -80,7 +80,7 @@ Each package default-exports a `ToolPlugin` descriptor with metadata and a `tool
 
 ```ts
 // src/index.ts
-import type { ToolPlugin } from '@pandora/core/tools'
+import type { ToolPlugin } from '@pandorakit/core/tools'
 import { weatherTool } from './weather'
 
 export default {
@@ -138,7 +138,7 @@ A plugin with required `configFields` is skipped until the user configures them.
 
 Some tools can't be defined statically — they depend on which API keys are available or user configuration. For these cases, `ToolPlugin` supports an async `resolveTools` hook that runs at load time and returns `ToolExport` objects dynamically.
 
-This is the mechanism behind `@pandora/tools-websearch`: it checks which search API keys are available and returns the appropriate backend as a `ToolExport`.
+This is the mechanism behind the search plugins (e.g. `@pandorakit/tavily-search`, `@pandorakit/brave-search`): each checks whether its API key is available and returns the appropriate backend as a `ToolExport`.
 
 ```ts
 // src/index.ts
@@ -196,7 +196,7 @@ Alerts are stored at load time and surfaced in the settings UI and the `/api/too
 
 ## Reference
 
-All types are exported from `@pandora/core/tools`:
+All types are exported from `@pandorakit/core/tools`:
 
 ```ts
 import type {
@@ -207,7 +207,7 @@ import type {
   ToolAnnotations,
   ToolExport,
   ToolPlugin,
-} from '@pandora/core/tools'
+} from '@pandorakit/core/tools'
 ```
 
 ### `ToolExport`
@@ -252,7 +252,7 @@ The descriptor your package default-exports:
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `id` | `string` | Yes | Plugin identifier, e.g. `'tools-datetime'` |
+| `id` | `string` | Yes | Plugin identifier, e.g. `'datetime'` |
 | `name` | `string` | Yes | Human-readable display name, e.g. `'Date & Time'` |
 | `schemaVersion` | `number` | Yes | Must be `1` |
 | `envVars` | `EnvVarDescriptor[]` | No | Environment variable descriptors |

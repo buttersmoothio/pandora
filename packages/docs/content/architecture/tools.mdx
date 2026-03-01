@@ -10,19 +10,19 @@ This design means a tool can never silently escalate its capabilities. The permi
 
 Sandbox mode is not a per-tool option — it's determined by the tool's origin:
 
-**Standard library tools** (`@pandora/tools-*` packages) always run in **host mode**. They execute directly in the Node.js process with full runtime access. Permissions are declared for auditing and UI display but are not enforced at runtime. These tools ship with the framework and are audited at development time.
+**Standard library tools** (e.g. `@pandorakit/datetime`, `@pandorakit/tavily-search`) always run in **host mode**. They execute directly in the Node.js process with full runtime access. Permissions are declared for auditing and UI display but are not enforced at runtime. These tools ship with the framework and are audited at development time.
 
 **LLM-generated tools** (not yet implemented) will run in **compartment mode** — an SES Compartment with a blank global scope where only declared permissions are injected as endowments. Input and output cross the boundary via JSON serialization, stripping prototypes. This tier is designed for user-created tools where the host must not be trusted.
 
 ## Standard Library Packages
 
-Built-in tools live in separate `@pandora/tools-*` packages rather than inside core. This keeps core's dependency surface small and lets each tool package be tested, versioned, and tree-shaken independently — the same pattern used by `@pandora/storage-*` and `@pandora/channel-*`.
+Built-in tools live in separate packages (e.g. `@pandorakit/datetime`, `@pandorakit/tavily-search`) rather than inside core. This keeps core's dependency surface small and lets each tool package be tested, versioned, and tree-shaken independently — the same pattern used by `@pandorakit/storage-*` and `@pandorakit/telegram`.
 
 Tools are explicit opt-in: only enabled tools are loaded. The default configuration enables the standard set so the experience is seamless out of the box, but operators have full control over which tools are active.
 
 ## Dynamic Tool Resolution
 
-The `resolveTools` hook on `ToolPlugin` enables dynamic tool resolution. Unlike static `tools` (which are registered at startup), `resolveTools` runs at load time and returns `ToolExport` objects based on environment variables and config. This is how `@pandora/tools-websearch` works: it checks which search API keys are available and returns the appropriate backend as a `ToolExport`.
+The `resolveTools` hook on `ToolPlugin` enables dynamic tool resolution. Unlike static `tools` (which are registered at startup), `resolveTools` runs at load time and returns `ToolExport` objects based on environment variables and config. This is how the search plugins (e.g. `@pandorakit/tavily-search`, `@pandorakit/brave-search`) work: each checks whether its API key is available and returns the appropriate backend as a `ToolExport`.
 
 Resolved tools go through the same `bindToolExport()` + `registerManifest()` pipeline as static tools — they get manifests, timeouts, Zod schema wrapping, and appear in the UI. This means all tools, whether static or dynamically resolved, are first-class citizens with full manifest support.
 

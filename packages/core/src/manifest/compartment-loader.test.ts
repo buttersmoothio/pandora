@@ -215,7 +215,7 @@ describe('addTsExtensions', () => {
 
   it('does not rewrite non-relative imports', () => {
     expect(addTsExtensions(`from 'zod'`)).toBe(`from 'zod'`)
-    expect(addTsExtensions(`from '@pandora/core'`)).toBe(`from '@pandora/core'`)
+    expect(addTsExtensions(`from '@pandorakit/core'`)).toBe(`from '@pandorakit/core'`)
   })
 
   it('rewrites dynamic import() with relative paths', () => {

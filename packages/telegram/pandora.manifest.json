@@ -1,0 +1,29 @@
+{
+  "manifestVersion": 1,
+  "id": "@pandorakit/telegram",
+  "name": "Telegram",
+  "description": "Chat with your assistant through Telegram",
+  "author": "Pandora",
+  "version": "0.1.0",
+  "license": "MIT",
+  "homepage": "https://core.telegram.org/bots/api",
+  "repository": "https://github.com/mprasanjith/pandora/tree/master/packages/telegram",
+  "pandora": ">=0.0.1",
+  "provides": {
+    "channels": {
+      "entry": "./src/index.ts",
+      "sandbox": "host"
+    }
+  },
+  "envVars": [{ "name": "TELEGRAM_BOT_TOKEN" }],
+  "configFields": [
+    {
+      "key": "ownerId",
+      "label": "Owner ID",
+      "type": "text",
+      "required": true,
+      "placeholder": "123456789",
+      "description": "Your Telegram user ID. Only this user can interact with the bot."
+    }
+  ]
+}

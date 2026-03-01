@@ -34,11 +34,13 @@ export function bindToolExport(
   exp: ToolExport,
   envVars: Record<string, string | undefined>,
   _pluginConfig: ToolPluginConfig,
+  namespacedId: string,
 ): AnyTool {
+  const toolId = namespacedId
   const timeout = exp.timeout ?? DEFAULT_TOOL_TIMEOUT
   const inputSchema = exp.parameters ? z.fromJSONSchema(exp.parameters) : z.object({})
   return createTool({
-    id: exp.id,
+    id: toolId,
     description: exp.description,
     inputSchema,
     execute: (input) => {
@@ -47,7 +49,7 @@ export function bindToolExport(
         result,
         new Promise<never>((_, reject) =>
           setTimeout(
-            () => reject(new Error(`Tool '${exp.id}' timed out after ${timeout}ms`)),
+            () => reject(new Error(`Tool '${toolId}' timed out after ${timeout}ms`)),
             timeout,
           ),
         ),

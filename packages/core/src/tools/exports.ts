@@ -1,7 +1,7 @@
 /**
  * Public API for tool authors.
  *
- * Import from `@pandora/core/tools` to define tools in external packages.
+ * Import from `@pandorakit/core/tools` to define tools in external packages.
  */
 
 export type {

@@ -10,7 +10,7 @@ import type {
 
 export type { ConfigFieldDescriptor, EnvVarDescriptor } from '../plugin-types'
 
-// Re-export Mastra types so channel packages only import from @pandora/core/channels
+// Re-export Mastra types so channel packages only import from @pandorakit/core/channels
 export type {
   FileChunk,
   LanguageModelUsage,
@@ -57,7 +57,7 @@ export interface ChannelAdapter {
 }
 
 /**
- * Factory function exported by `@pandora/channel-*` packages.
+ * Factory function exported by channel packages.
  * Receives env vars and validated channel config.
  * Returns `null` when required env vars (e.g. bot token) are missing.
  */

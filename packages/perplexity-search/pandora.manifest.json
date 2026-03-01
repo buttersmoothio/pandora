@@ -1,0 +1,23 @@
+{
+  "manifestVersion": 1,
+  "id": "@pandorakit/perplexity-search",
+  "name": "Perplexity Search",
+  "description": "Search the web using the Perplexity Sonar API",
+  "author": "Pandora",
+  "version": "0.1.0",
+  "license": "MIT",
+  "homepage": "https://docs.perplexity.ai",
+  "repository": "https://github.com/mprasanjith/pandora/tree/master/packages/perplexity-search",
+  "pandora": ">=0.0.1",
+  "provides": {
+    "tools": {
+      "entry": "./src/index.ts",
+      "sandbox": "compartment",
+      "permissions": {
+        "network": ["api.perplexity.ai"],
+        "env": ["PERPLEXITY_API_KEY"]
+      }
+    }
+  },
+  "envVars": [{ "name": "PERPLEXITY_API_KEY" }]
+}

@@ -27,10 +27,10 @@ This per-agent scoping matters because different specialists need different capa
 
 Agents declare their tool dependencies in the manifest rather than resolving them at runtime:
 
-- **`useTools`** — tool IDs to inherit from the global tool registry (e.g. `["web_search"]`). These are tools loaded by tool plugins like `@pandora/tools-websearch`.
+- **`useTools`** — tool IDs to inherit from the global tool registry (e.g. `["web_search"]`). These are tools loaded by tool plugins like `@pandorakit/tavily-search`.
 - **`modelTools`** — model-native capability keys (e.g. `["search"]`). Core resolves these to provider SDK tools based on the configured model.
 
-This replaces the old `getTools` hook. Agent entry points are now pure data objects with no imports from `@pandora/core` — they just export `{ id, name, description, instructions }`. The adapter stamps `useTools` and `modelTools` from the manifest onto the agent definition at load time.
+This replaces the old `getTools` hook. Agent entry points are now pure data objects with no imports from `@pandorakit/core` — they just export `{ id, name, description, instructions }`. The adapter stamps `useTools` and `modelTools` from the manifest onto the agent definition at load time.
 
 ## Plugin Model
 

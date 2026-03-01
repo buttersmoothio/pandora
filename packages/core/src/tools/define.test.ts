@@ -23,14 +23,14 @@ function makeTestExport(overrides?: Partial<ToolExport>): ToolExport {
 describe('bindToolExport', () => {
   it('returns a Mastra Tool with correct id and description', () => {
     const exp = makeTestExport()
-    const tool = bindToolExport(exp, defaultEnv, defaultConfig)
-    expect(tool.id).toBe('test-tool')
+    const tool = bindToolExport(exp, defaultEnv, defaultConfig, `test-plugin:${exp.id}`)
+    expect(tool.id).toBe('test-plugin:test-tool')
     expect(tool.description).toBe('A test tool')
   })
 
   it('execute function works', async () => {
     const exp = makeTestExport()
-    const tool = bindToolExport(exp, defaultEnv, defaultConfig)
+    const tool = bindToolExport(exp, defaultEnv, defaultConfig, `test-plugin:${exp.id}`)
     const result = await tool.execute?.({ value: 'hello' }, {} as never)
     expect(result).toEqual({ echo: 'hello' })
   })
@@ -41,7 +41,7 @@ describe('bindToolExport', () => {
         gotEnv: ctx.env.MY_KEY,
       }),
     })
-    const tool = bindToolExport(exp, { MY_KEY: 'secret' }, defaultConfig)
+    const tool = bindToolExport(exp, { MY_KEY: 'secret' }, defaultConfig, `test-plugin:${exp.id}`)
     const result = await tool.execute?.({ value: '' }, {} as never)
     expect(result).toEqual({ gotEnv: 'secret' })
   })
@@ -49,13 +49,13 @@ describe('bindToolExport', () => {
   it('passes annotations through to Mastra mcp', () => {
     const annotations = { readOnlyHint: true, destructiveHint: false }
     const exp = makeTestExport({ annotations })
-    const tool = bindToolExport(exp, defaultEnv, defaultConfig)
+    const tool = bindToolExport(exp, defaultEnv, defaultConfig, `test-plugin:${exp.id}`)
     expect(tool.mcp?.annotations).toEqual(annotations)
   })
 
   it('omits mcp when no annotations', () => {
     const exp = makeTestExport()
-    const tool = bindToolExport(exp, defaultEnv, defaultConfig)
+    const tool = bindToolExport(exp, defaultEnv, defaultConfig, `test-plugin:${exp.id}`)
     expect(tool.mcp).toBeUndefined()
   })
 
@@ -68,9 +68,9 @@ describe('bindToolExport', () => {
         return { echo: 'done' }
       },
     })
-    const tool = bindToolExport(exp, defaultEnv, defaultConfig)
+    const tool = bindToolExport(exp, defaultEnv, defaultConfig, `test-plugin:${exp.id}`)
     await expect(tool.execute?.({ value: 'hi' }, {} as never)).rejects.toThrow(
-      "Tool 'slow-tool' timed out after 50ms",
+      "Tool 'test-plugin:slow-tool' timed out after 50ms",
     )
   })
 
@@ -79,15 +79,15 @@ describe('bindToolExport', () => {
       id: 'fast-tool',
       timeout: 1_000,
     })
-    const tool = bindToolExport(exp, defaultEnv, defaultConfig)
+    const tool = bindToolExport(exp, defaultEnv, defaultConfig, `test-plugin:${exp.id}`)
     const result = await tool.execute?.({ value: 'hi' }, {} as never)
     expect(result).toEqual({ echo: 'hi' })
   })
 
   it('handles ToolExport with no parameters (empty schema)', async () => {
     const exp = makeTestExport({ parameters: undefined })
-    const tool = bindToolExport(exp, defaultEnv, defaultConfig)
-    expect(tool.id).toBe('test-tool')
+    const tool = bindToolExport(exp, defaultEnv, defaultConfig, `test-plugin:${exp.id}`)
+    expect(tool.id).toBe('test-plugin:test-tool')
   })
 })
 

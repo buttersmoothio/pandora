@@ -26,7 +26,7 @@ A Compartment is a **browser-like JavaScript environment**. It has pure ECMAScri
 
 ### Tier 1: Plugin Packages (default)
 
-All tool, agent, and channel plugins — whether first-party (`@pandora/tools-websearch`) or third-party (`some-community-plugin`) — run inside a Compartment with controlled module access.
+All tool, agent, and channel plugins — whether first-party (`@pandorakit/tavily-search`) or third-party (`some-community-plugin`) — run inside a Compartment with controlled module access.
 
 **What the plugin gets:**
 - Its declared `dependencies` from `package.json`, each in their own Compartment
@@ -94,7 +94,7 @@ package.json
 ├── dependencies          → each gets its own Compartment, linked to the plugin
 ├── optionalDependencies  → same, but graceful failure if not installed
 ├── peerDependencies      → provided by the host (zod, etc.)
-└── devDependencies       → NOT included (build/test only, e.g. @pandora/core for types)
+└── devDependencies       → NOT included (build/test only, e.g. @pandorakit/core for types)
 ```
 
 ### How it works (with Endo tooling)
@@ -108,18 +108,18 @@ The `@endo/compartment-mapper` already solves this. It:
 5. Supports `exports` and `main` fields, subpath exports, conditions
 6. Supports **policy** for per-package authority (globals, built-in modules)
 
-### Example: `@pandora/tools-websearch`
+### Example: `@pandorakit/tavily-search`
 
 ```json
 {
   "dependencies": { "ai": "^6.0.0", "zod": "^3.0.0" },
   "optionalDependencies": { "@tavily/ai-sdk": "*", "@exalabs/ai-sdk": "*" },
-  "devDependencies": { "@pandora/core": "workspace:*" }
+  "devDependencies": { "@pandorakit/core": "workspace:*" }
 }
 ```
 
 The compartment mapper creates:
-- A Compartment for `@pandora/tools-websearch` — the plugin's own code
+- A Compartment for `@pandorakit/tavily-search` — the plugin's own code
 - A Compartment for `ai` — the AI SDK
 - A Compartment for `zod` — schema validation
 - A Compartment for `@tavily/ai-sdk` (if installed)
@@ -128,11 +128,11 @@ The compartment mapper creates:
 
 `import { tool } from 'ai'` inside the plugin resolves to the `ai` Compartment's exports. `import fs from 'fs'` throws — `fs` is not a declared dependency.
 
-Note: `@pandora/core` is a `devDependency` — used only for TypeScript types during development. Plugins don't import anything from core at runtime; they simply export the right shapes (plain objects and functions) that core consumes.
+Note: `@pandorakit/core` is a `devDependency` — used only for TypeScript types during development. Plugins don't import anything from core at runtime; they simply export the right shapes (plain objects and functions) that core consumes.
 
 ### Dynamic imports
 
-Plugins like `tools-websearch` use `await import()` for optional backends. Inside a Compartment, dynamic imports go through the Compartment's `importHook`. The compartment mapper handles this — optional dependencies are resolved if present, missing ones throw as expected.
+Plugins can use `await import()` for optional backends. Inside a Compartment, dynamic imports go through the Compartment's `importHook`. The compartment mapper handles this — optional dependencies are resolved if present, missing ones throw as expected.
 
 ### Node.js built-ins as "exit modules"
 
@@ -293,7 +293,7 @@ Currently plugins are statically imported in the host:
 
 ```typescript
 // Current: runs entirely in host
-import websearch from '@pandora/tools-websearch'
+import websearch from '@pandorakit/tavily-search'
 registerToolPlugin(websearch)
 ```
 
@@ -301,7 +301,7 @@ Changes to load plugins into Compartments:
 
 ```typescript
 // New: plugin code runs in Compartment
-const websearch = await loadPlugin('@pandora/tools-websearch', {
+const websearch = await loadPlugin('@pandorakit/tavily-search', {
   globals: scopedEndowments,
 })
 registerToolPlugin(websearch.default)
@@ -333,7 +333,7 @@ For plugin tools, permissions can also be enforced through the compartment mappe
 
 The plugin's `ToolPermissions` propagate to its **entire dependency tree**. Every Compartment in the tree gets the same scoped endowments. There is no per-dependency policy — a plugin is one trust unit.
 
-If `@pandora/tools-websearch` declares `permissions.network: ['api.tavily.com']`, then `@tavily/ai-sdk` (its dependency) also gets `fetch` scoped to `api.tavily.com`. There's no reason a dependency should reach hosts the plugin didn't declare.
+If `@pandorakit/tavily-search` declares `permissions.network: ['api.tavily.com']`, then `@tavily/ai-sdk` (its dependency) also gets `fetch` scoped to `api.tavily.com`. There's no reason a dependency should reach hosts the plugin didn't declare.
 
 ```typescript
 // The plugin declares:
@@ -774,7 +774,7 @@ The manifest is validated with a Zod schema at discovery time. Invalid manifests
 - [x] Plugin entry point rewrites — named exports (`tools`, `agents`, `factory`, `resolveTools`)
 - [x] `plugins.ts` replaced with `loadAllPlugins` re-export
 - [x] `index.ts` wired to `await loadAllPlugins()` at startup
-- [x] Workspace plugin deps removed from `@pandora/core` `package.json`
+- [x] Workspace plugin deps removed from `@pandorakit/core` `package.json`
 - [x] Tests for schema validation, discovery, adapter, and full pipeline
 - [x] Existing tests updated for named export convention
 - [x] Spec updated with entry point convention and implementation status
