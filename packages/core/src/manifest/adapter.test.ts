@@ -116,8 +116,8 @@ describe('adaptManifest', () => {
     const result = adaptManifest(baseManifest, entries)
     const agentDef = result.agents?.definitions[0]
     expect(agentDef).toBeDefined()
-    expect(agentDef!.useTools).toEqual(['web_search'])
-    expect(agentDef!.modelTools).toEqual(['search'])
+    expect(agentDef?.useTools).toEqual(['web_search'])
+    expect(agentDef?.modelTools).toEqual(['search'])
   })
 
   it('skips agent entries without an agent export', () => {

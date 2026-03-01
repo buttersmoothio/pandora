@@ -2,10 +2,18 @@ import { useQuery } from '@tanstack/react-query'
 import { apiFetch } from '@/lib/api'
 import type { Alert, ConfigFieldDescriptor, EnvVarDescriptor } from './plugin-types'
 
+export interface ToolOverview {
+  id: string
+  name: string
+  description: string
+}
+
 export interface ToolsProvides {
   toolIds: string[]
+  tools: ToolOverview[]
   sandbox?: string
   permissions?: Record<string, unknown>
+  requireApproval?: boolean
   alerts: Alert[]
 }
 
@@ -30,20 +38,10 @@ export interface ChannelsProvides {
   realtime: boolean | null
 }
 
-export interface StorageProvides {
-  active: boolean
-}
-
-export interface VectorProvides {
-  active: boolean
-}
-
 export interface PluginProvides {
   tools?: ToolsProvides
   agents?: AgentsProvides
   channels?: ChannelsProvides
-  storage?: StorageProvides
-  vector?: VectorProvides
 }
 
 export interface UnifiedPluginInfo {

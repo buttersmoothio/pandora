@@ -132,7 +132,7 @@ export function createGateways(deps: GatewayDeps): {
     return { thread: threadId, resource: RESOURCE_ID }
   }
 
-  const channel = (channelId?: string): ChannelGateway => ({
+  const channel = (_channelId?: string): ChannelGateway => ({
     env,
 
     async generate({ threadId, parts, channelId: chId, externalId }) {

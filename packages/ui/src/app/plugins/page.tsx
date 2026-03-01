@@ -4,15 +4,14 @@ import {
   BotIcon,
   CheckIcon,
   ChevronsUpDownIcon,
-  DatabaseIcon,
   Loader2Icon,
   PlugIcon,
   RadioIcon,
   WrenchIcon,
 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { ProviderLogo } from '@/components/provider-logo'
-import { PluginCard } from '@/components/settings/plugin-card'
+import { PluginCard, usePluginConfigDraft } from '@/components/settings/plugin-card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -26,40 +25,33 @@ import { Label } from '@/components/ui/label'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Switch } from '@/components/ui/switch'
 import type { ModelConfig } from '@/hooks/use-config'
-import { useUpdateConfig } from '@/hooks/use-config'
 import { useModels } from '@/hooks/use-models'
 import type { UnifiedPluginInfo } from '@/hooks/use-plugins'
 import { usePlugins } from '@/hooks/use-plugins'
 import { cn } from '@/lib/utils'
 
 // ---------------------------------------------------------------------------
-// Capability badges
+// Capability summary
 // ---------------------------------------------------------------------------
 
-const CAPABILITY_ICONS: Record<string, React.ElementType> = {
-  tools: WrenchIcon,
-  agents: BotIcon,
-  channels: RadioIcon,
-  storage: DatabaseIcon,
-  vector: DatabaseIcon,
+function capabilityCount(provides: UnifiedPluginInfo['provides'], key: string): number {
+  if (key === 'tools') return provides.tools?.tools.length ?? 0
+  if (key === 'agents') return provides.agents?.agents.length ?? 0
+  if (key === 'channels')
+    return (provides.channels?.webhook ? 1 : 0) + (provides.channels?.realtime ? 1 : 0)
+  return 0
 }
 
-function CapabilityBadges({ provides }: { provides: UnifiedPluginInfo['provides'] }) {
-  const keys = Object.keys(provides)
-  if (keys.length === 0) return null
-  return (
-    <>
-      {keys.map((key) => {
-        const Icon = CAPABILITY_ICONS[key] ?? PlugIcon
-        return (
-          <Badge key={key} variant="outline">
-            <Icon className="size-3" />
-            {key.charAt(0).toUpperCase() + key.slice(1)}
-          </Badge>
-        )
-      })}
-    </>
-  )
+function CapabilitySummary({ provides }: { provides: UnifiedPluginInfo['provides'] }) {
+  const parts: string[] = []
+  for (const key of Object.keys(provides)) {
+    const count = capabilityCount(provides, key)
+    const singular = key.charAt(0).toUpperCase() + key.slice(1, -1)
+    const plural = key.charAt(0).toUpperCase() + key.slice(1)
+    parts.push(count > 0 ? `${count} ${count === 1 ? singular : plural}` : plural)
+  }
+  if (parts.length === 0) return null
+  return <p className="text-muted-foreground text-xs">Provides {parts.join(' · ')}</p>
 }
 
 // ---------------------------------------------------------------------------
@@ -69,17 +61,15 @@ function CapabilityBadges({ provides }: { provides: UnifiedPluginInfo['provides'
 function AgentModelOverride({
   agentId,
   agentName,
-  pluginId,
+  agentDescription,
   currentModel,
-  pluginConfig,
 }: {
   agentId: string
   agentName: string
-  pluginId: string
+  agentDescription?: string
   currentModel?: { provider: string; model: string }
-  pluginConfig: Record<string, unknown>
 }) {
-  const updateConfig = useUpdateConfig()
+  const { setConfig: setDraft } = usePluginConfigDraft()
   const { data: modelsData } = useModels()
   const [customModel, setCustomModel] = useState(!!currentModel)
   const [provider, setProvider] = useState(currentModel?.provider ?? '')
@@ -101,28 +91,19 @@ function AgentModelOverride({
   const selectedProvider = allProviders.find((p) => p.id === provider)
   const models = selectedProvider?.models ?? []
 
-  function save(overrides?: { model?: ModelConfig | null }) {
-    const modelValue =
-      overrides?.model !== undefined
-        ? (overrides.model ?? undefined)
-        : customModel
-          ? { provider, model }
-          : undefined
-    const agents = (pluginConfig.agents ?? {}) as Record<string, unknown>
-    updateConfig.mutate({
-      plugins: {
-        [pluginId]: {
-          ...pluginConfig,
-          enabled: (pluginConfig.enabled as boolean | undefined) ?? true,
-          agents: {
-            ...agents,
-            [agentId]: {
-              ...((agents[agentId] as Record<string, unknown>) ?? {}),
-              ...(modelValue !== undefined ? { model: modelValue } : {}),
-            },
+  function updateAgentModel(modelValue: ModelConfig | null | undefined) {
+    setDraft((prev) => {
+      const agents = (prev.agents ?? {}) as Record<string, unknown>
+      return {
+        ...prev,
+        agents: {
+          ...agents,
+          [agentId]: {
+            ...((agents[agentId] as Record<string, unknown>) ?? {}),
+            ...(modelValue !== undefined ? { model: modelValue } : {}),
           },
         },
-      },
+      }
     })
   }
 
@@ -131,13 +112,16 @@ function AgentModelOverride({
     if (!checked) {
       setProvider('')
       setModel('')
-      save({ model: null })
+      updateAgentModel(null)
     }
   }
 
   return (
     <div className="flex flex-col gap-2 rounded-lg border p-3">
-      <p className="font-medium text-sm">{agentName}</p>
+      <div>
+        <p className="font-medium text-sm">{agentName}</p>
+        {agentDescription && <p className="text-muted-foreground text-xs">{agentDescription}</p>}
+      </div>
       <div className="flex items-center gap-3">
         <Switch
           id={`${agentId}-custom-model`}
@@ -222,7 +206,7 @@ function AgentModelOverride({
                         onSelect={() => {
                           setModel(m)
                           setModelOpen(false)
-                          if (provider) save({ model: { provider, model: m } })
+                          if (provider) updateAgentModel({ provider, model: m })
                         }}
                       >
                         <CheckIcon
@@ -247,17 +231,25 @@ function AgentModelOverride({
 // ---------------------------------------------------------------------------
 
 function PluginDialogContent({ plugin }: { plugin: UnifiedPluginInfo }) {
-  const updateConfig = useUpdateConfig()
+  const { config: draft, setConfig: setDraft } = usePluginConfigDraft()
   const provides = plugin.provides
 
   return (
     <div className="flex flex-col gap-4">
       {/* Tools section */}
-      {provides.tools && (
+      {provides.tools && provides.tools.tools.length > 0 && (
         <div className="flex flex-col gap-2">
           <p className="font-medium text-muted-foreground text-xs uppercase tracking-wider">
-            Tools ({provides.tools.toolIds.length})
+            Tools ({provides.tools.tools.length})
           </p>
+          <div className="flex flex-col gap-1.5">
+            {provides.tools.tools.map((tool) => (
+              <div key={tool.id} className="rounded-lg border px-3 py-2">
+                <p className="font-medium text-sm">{tool.name}</p>
+                <p className="text-muted-foreground text-xs">{tool.description}</p>
+              </div>
+            ))}
+          </div>
           {provides.tools.alerts.length > 0 && (
             <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-3 text-sm">
               {provides.tools.alerts.map((a, i) => (
@@ -271,21 +263,17 @@ function PluginDialogContent({ plugin }: { plugin: UnifiedPluginInfo }) {
             <div className="flex items-center gap-3">
               <Switch
                 id={`${plugin.id}-approval`}
-                checked={!!plugin.config.requireApproval}
+                checked={
+                  draft.requireApproval != null
+                    ? !!draft.requireApproval
+                    : !!provides.tools.requireApproval
+                }
                 onCheckedChange={(checked) => {
-                  updateConfig.mutate({
-                    plugins: {
-                      [plugin.id]: {
-                        ...plugin.config,
-                        requireApproval: checked,
-                        enabled: plugin.enabled,
-                      },
-                    },
-                  })
+                  setDraft((prev) => ({ ...prev, requireApproval: checked }))
                 }}
                 size="sm"
               />
-              <Label htmlFor={`${plugin.id}-approval`}>Require Approval</Label>
+              <Label htmlFor={`${plugin.id}-approval`}>Require approval</Label>
             </div>
           )}
         </div>
@@ -295,16 +283,15 @@ function PluginDialogContent({ plugin }: { plugin: UnifiedPluginInfo }) {
       {provides.agents && provides.agents.agents.length > 0 && (
         <div className="flex flex-col gap-2">
           <p className="font-medium text-muted-foreground text-xs uppercase tracking-wider">
-            Agents
+            Agents ({provides.agents.agents.length})
           </p>
           {provides.agents.agents.map((agent) => (
             <AgentModelOverride
               key={agent.id}
               agentId={agent.id}
               agentName={agent.name}
-              pluginId={plugin.id}
+              agentDescription={agent.description}
               currentModel={agent.model}
-              pluginConfig={plugin.config}
             />
           ))}
         </div>
@@ -312,43 +299,27 @@ function PluginDialogContent({ plugin }: { plugin: UnifiedPluginInfo }) {
 
       {/* Channels section */}
       {provides.channels && (
-        <div className="flex flex-wrap gap-1.5">
-          {provides.channels.webhook && (
-            <Badge variant="outline">
-              <RadioIcon className="size-3" />
-              Webhook
-            </Badge>
-          )}
-          {provides.channels.realtime && (
-            <Badge variant="outline">
-              <RadioIcon className="size-3" />
-              Realtime
-            </Badge>
-          )}
-        </div>
-      )}
-
-      {/* Storage / Vector info */}
-      {provides.storage && (
-        <div className="flex items-center gap-2">
-          <Badge variant={provides.storage.active ? 'default' : 'secondary'}>
-            <DatabaseIcon className="size-3" />
-            {provides.storage.active ? 'Active' : 'Installed'}
-          </Badge>
-          <span className="text-muted-foreground text-xs">
-            Set via <code>STORAGE_PROVIDER</code> env var
-          </span>
-        </div>
-      )}
-      {provides.vector && (
-        <div className="flex items-center gap-2">
-          <Badge variant={provides.vector.active ? 'default' : 'secondary'}>
-            <DatabaseIcon className="size-3" />
-            {provides.vector.active ? 'Active' : 'Installed'}
-          </Badge>
-          <span className="text-muted-foreground text-xs">
-            Set via <code>VECTOR_PROVIDER</code> env var
-          </span>
+        <div className="flex flex-col gap-2">
+          <p className="font-medium text-muted-foreground text-xs uppercase tracking-wider">
+            Channels
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {provides.channels.webhook && (
+              <Badge variant="outline">
+                <RadioIcon className="size-3" />
+                Webhook
+              </Badge>
+            )}
+            {provides.channels.realtime && (
+              <Badge variant="outline">
+                <RadioIcon className="size-3" />
+                Realtime
+              </Badge>
+            )}
+            {!provides.channels.loaded && (
+              <span className="text-muted-foreground text-xs">Not configured</span>
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -360,22 +331,19 @@ function PluginDialogContent({ plugin }: { plugin: UnifiedPluginInfo }) {
 // ---------------------------------------------------------------------------
 
 function UnifiedPluginCard({ plugin }: { plugin: UnifiedPluginInfo }) {
-  const isInfra = !!plugin.provides.storage || !!plugin.provides.vector
   const permissions = plugin.provides.tools
     ? {
-        permissions: plugin.provides.tools.permissions as Record<string, boolean | string[]>,
-        sandbox: (plugin.provides.tools.sandbox ?? 'compartment') as 'compartment' | 'host',
-      }
+      permissions: plugin.provides.tools.permissions as Record<string, boolean | string[]>,
+      sandbox: (plugin.provides.tools.sandbox ?? 'compartment') as 'compartment' | 'host',
+    }
     : undefined
 
   return (
     <PluginCard
       plugin={plugin}
       configKey="plugins"
-      readonly={isInfra}
       permissions={permissions}
-      compactPermissions={permissions}
-      badges={<CapabilityBadges provides={plugin.provides} />}
+      summary={<CapabilitySummary provides={plugin.provides} />}
       dialogContent={<PluginDialogContent plugin={plugin} />}
     />
   )
@@ -385,8 +353,43 @@ function UnifiedPluginCard({ plugin }: { plugin: UnifiedPluginInfo }) {
 // Page
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Filter pills
+// ---------------------------------------------------------------------------
+
+type FilterKey = 'all' | 'tools' | 'agents' | 'channels'
+
+const FILTERS: { key: FilterKey; label: string; icon: React.ElementType }[] = [
+  { key: 'all', label: 'All', icon: PlugIcon },
+  { key: 'tools', label: 'Tools', icon: WrenchIcon },
+  { key: 'agents', label: 'Agents', icon: BotIcon },
+  { key: 'channels', label: 'Channels', icon: RadioIcon },
+]
+
+// ---------------------------------------------------------------------------
+// Page
+// ---------------------------------------------------------------------------
+
 export default function PluginsPage() {
   const { plugins, isLoading, error } = usePlugins()
+  const [filter, setFilter] = useState<FilterKey>('all')
+
+  const filtered = useMemo(() => {
+    if (!plugins) return []
+    if (filter === 'all') return plugins
+    return plugins.filter((p) => p.provides[filter])
+  }, [plugins, filter])
+
+  // Count how many plugins match each filter
+  const counts = useMemo(() => {
+    if (!plugins) return { all: 0, tools: 0, agents: 0, channels: 0 }
+    return {
+      all: plugins.length,
+      tools: plugins.filter((p) => p.provides.tools).length,
+      agents: plugins.filter((p) => p.provides.agents).length,
+      channels: plugins.filter((p) => p.provides.channels).length,
+    }
+  }, [plugins])
 
   if (isLoading) {
     return (
@@ -417,8 +420,32 @@ export default function PluginsPage() {
     <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 p-6">
       <h1 className="font-semibold text-2xl">Plugins</h1>
 
+      <div className="flex gap-2">
+        {FILTERS.map(({ key, label, icon: Icon }) => {
+          const count = counts[key]
+          if (key !== 'all' && count === 0) return null
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setFilter(key)}
+              className={cn(
+                'inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm transition-colors',
+                filter === key
+                  ? 'border-primary bg-primary text-primary-foreground'
+                  : 'border-border bg-background text-muted-foreground hover:bg-muted',
+              )}
+            >
+              <Icon className="size-3.5" />
+              {label}
+              <span className="text-xs opacity-70">{count}</span>
+            </button>
+          )
+        })}
+      </div>
+
       <section className="flex flex-col gap-4">
-        {plugins.map((plugin) => (
+        {filtered.map((plugin) => (
           <UnifiedPluginCard key={plugin.id} plugin={plugin} />
         ))}
       </section>

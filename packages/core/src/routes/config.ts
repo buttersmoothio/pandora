@@ -24,7 +24,7 @@ configRoutes.patch('/', async (c) => {
   try {
     const runtime = c.var.runtime
     const patch = await c.req.json()
-    await updateConfig(runtime.storage.config, patch)
+    await updateConfig(runtime.storage.config, patch, runtime.registry)
     await runtime.reload()
     log.info('Config updated', { keys: Object.keys(patch) })
     return c.json(runtime.config)

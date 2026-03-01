@@ -27,7 +27,7 @@ describe('loadChannels', () => {
 
     const channels = await loadChannels(registry, DEFAULTS, { TEST_TOKEN: 'abc' })
     expect(channels.get('test')).toBeDefined()
-    expect(channels.get('test')!.name).toBe('Test')
+    expect(channels.get('test')?.name).toBe('Test')
   })
 
   it('skips channels when factory returns null', async () => {

@@ -12,9 +12,11 @@ function loadStaticTools(
 ): ToolRecord {
   if (!plugin.tools) return {}
   const tools: ToolRecord = {}
+  // User config overrides manifest default
+  const requireApproval = pluginConfig.requireApproval ?? plugin.tools.requireApproval ?? false
   for (const exp of plugin.tools.entries) {
     const tool = bindToolExport(exp, envVars, pluginConfig)
-    if (plugin.tools.requireApproval) {
+    if (requireApproval) {
       tool.requireApproval = true
     }
     tools[exp.id] = tool
@@ -52,7 +54,7 @@ export async function loadTools(
   return result
 }
 
-export function getPluginAlerts(registry: PluginRegistry, config: Config): Map<string, Alert[]> {
+export function getPluginAlerts(_registry: PluginRegistry, _config: Config): Map<string, Alert[]> {
   // Alerts are populated per-load, stored externally if needed
   return new Map()
 }

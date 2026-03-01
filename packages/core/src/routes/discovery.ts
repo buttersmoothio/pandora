@@ -1,7 +1,66 @@
 import { PROVIDER_REGISTRY } from '@mastra/core/llm'
 import { Hono } from 'hono'
+import type { ChannelAdapter } from '../channels/types'
 import { validatePluginConfig } from '../runtime/config-validate'
+import type { PluginRegistry, RegisteredPlugin } from '../runtime/plugin-registry'
 import type { Env } from './helpers'
+
+function buildToolsProvides(plugin: RegisteredPlugin) {
+  if (!plugin.tools) return undefined
+  return {
+    toolIds: plugin.tools.entries.map((t) => t.id),
+    tools: plugin.tools.entries.map((t) => ({
+      id: t.id,
+      name: t.name,
+      description: t.description,
+    })),
+    sandbox: plugin.tools.sandbox ?? 'compartment',
+    permissions: plugin.tools.permissions,
+    requireApproval: plugin.tools.requireApproval ?? false,
+    alerts: [],
+  }
+}
+
+function buildAgentsProvides(
+  plugin: RegisteredPlugin,
+  registry: PluginRegistry,
+  pluginConfig: unknown,
+) {
+  if (!plugin.agents) return undefined
+  const agents = plugin.agents.definitions.map((def) => {
+    const manifest = plugin.agents?.manifests.get(def.id)
+    const agentCfg = (pluginConfig as Record<string, unknown> | undefined)?.agents as
+      | Record<string, unknown>
+      | undefined
+    const ac = agentCfg?.[def.id] as { model?: unknown } | undefined
+    const tools = (def.useTools ?? [])
+      .map((id) => {
+        for (const p of registry.plugins.values()) {
+          const tm = p.tools?.manifests.get(id)
+          if (tm) return tm
+        }
+        return undefined
+      })
+      .filter((tm): tm is NonNullable<typeof tm> => !!tm)
+    return { ...manifest, model: ac?.model, tools, alerts: [] }
+  })
+  return {
+    agentIds: plugin.agents.definitions.map((d) => d.id),
+    agents,
+    alerts: [],
+  }
+}
+
+function buildChannelsProvides(plugin: RegisteredPlugin, channels: Map<string, ChannelAdapter>) {
+  if (!plugin.channels) return undefined
+  const adapterId = plugin.id.replace(/^channel-/, '')
+  const adapter = channels.get(adapterId)
+  return {
+    loaded: !!adapter,
+    webhook: adapter ? !!adapter.webhook : null,
+    realtime: adapter ? !!adapter.realtime : null,
+  }
+}
 
 const discoveryRoutes = new Hono<Env>()
 
@@ -16,56 +75,14 @@ discoveryRoutes.get('/plugins', (c) => {
     const envConfigured = envVars.filter((d) => d.required !== false).every((d) => d.configured)
 
     const provides: Record<string, unknown> = {}
+    const tools = buildToolsProvides(plugin)
+    if (tools) provides.tools = tools
+    const agents = buildAgentsProvides(plugin, registry, pluginConfig)
+    if (agents) provides.agents = agents
+    const ch = buildChannelsProvides(plugin, channels)
+    if (ch) provides.channels = ch
 
-    if (plugin.tools) {
-      provides.tools = {
-        toolIds: plugin.tools.entries.map((t) => t.id),
-        sandbox: plugin.tools.sandbox ?? 'compartment',
-        permissions: plugin.tools.permissions,
-        alerts: [],
-      }
-    }
-
-    if (plugin.agents) {
-      const agents = plugin.agents.definitions.map((def) => {
-        const manifest = plugin.agents!.manifests.get(def.id)
-        const agentCfg = (pluginConfig as Record<string, unknown> | undefined)?.agents as
-          | Record<string, unknown>
-          | undefined
-        const ac = agentCfg?.[def.id] as { model?: unknown } | undefined
-        const tools = (def.useTools ?? [])
-          .map((id) => {
-            // Look up tool manifest across all plugins
-            for (const p of registry.plugins.values()) {
-              const tm = p.tools?.manifests.get(id)
-              if (tm) return tm
-            }
-            return undefined
-          })
-          .filter((tm): tm is NonNullable<typeof tm> => !!tm)
-        return { ...manifest, model: ac?.model, tools, alerts: [] }
-      })
-      provides.agents = {
-        agentIds: plugin.agents.definitions.map((d) => d.id),
-        agents,
-        alerts: [],
-      }
-    }
-
-    if (plugin.channels) {
-      const adapterId = plugin.id.replace(/^channel-/, '')
-      const adapter = channels.get(adapterId)
-      provides.channels = {
-        loaded: !!adapter,
-        webhook: adapter ? !!adapter.webhook : null,
-        realtime: adapter ? !!adapter.realtime : null,
-      }
-    }
-
-    // Determine default enabled state
     const defaultEnabled = !plugin.channels
-
-    // Validation errors
     const { errors: validationErrors } = validatePluginConfig(plugin, pluginConfig)
 
     return {

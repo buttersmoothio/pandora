@@ -10,7 +10,7 @@ import {
 } from 'lucide-react'
 import Image from 'next/image'
 import type React from 'react'
-import { useEffect, useState } from 'react'
+import { createContext, useContext, useEffect, useState } from 'react'
 import type { Alert, ConfigFieldDescriptor, EnvVarDescriptor } from '@/hooks/plugin-types'
 import type { Config } from '@/hooks/use-config'
 import { useUpdateConfig } from '@/hooks/use-config'
@@ -32,6 +32,25 @@ import { ConfigField } from './config-field'
 import { EnvVarOverview } from './env-var-warning'
 import type { PermissionDisplayProps } from './permission-display'
 import { PermissionDisplay, SandboxBadge } from './permission-display'
+
+// ---------------------------------------------------------------------------
+// Draft config context — lets dialog children read/write config without
+// directly calling updateConfig.mutate(). Changes are committed via Save.
+// ---------------------------------------------------------------------------
+
+interface PluginConfigDraftCtx {
+  config: Record<string, unknown>
+  setConfig: React.Dispatch<React.SetStateAction<Record<string, unknown>>>
+}
+
+const PluginConfigDraftContext = createContext<PluginConfigDraftCtx | null>(null)
+
+/** Read/write the draft plugin config inside a PluginInfoDialog. */
+export function usePluginConfigDraft() {
+  const ctx = useContext(PluginConfigDraftContext)
+  if (!ctx) throw new Error('usePluginConfigDraft must be used within a PluginInfoDialog')
+  return ctx
+}
 
 // ---------------------------------------------------------------------------
 // Shared plugin base type
@@ -225,29 +244,29 @@ export function PluginStatusBadge({
 }) {
   if (plugin.validationErrors && plugin.validationErrors.length > 0) {
     return (
-      <Badge variant="destructive">
-        <AlertTriangleIcon className="size-3.5" />
+      <span className="inline-flex items-center gap-1 text-destructive text-xs">
+        <AlertTriangleIcon className="size-3" />
         Invalid config
-      </Badge>
+      </span>
     )
   }
   if (!plugin.envConfigured) {
     return (
-      <Badge variant="destructive">
-        <XCircleIcon className="size-3.5" />
+      <span className="inline-flex items-center gap-1 text-destructive text-xs">
+        <XCircleIcon className="size-3" />
         Missing env vars
-      </Badge>
+      </span>
     )
   }
   if (configured) {
     return (
-      <Badge variant="secondary">
-        <CheckCircle2Icon className="size-3.5" />
+      <span className="inline-flex items-center gap-1 text-emerald-600 text-xs dark:text-emerald-400">
+        <CheckCircle2Icon className="size-3" />
         Configured
-      </Badge>
+      </span>
     )
   }
-  return <Badge variant="outline">Not configured</Badge>
+  return <span className="text-muted-foreground text-xs">Not configured</span>
 }
 
 // ---------------------------------------------------------------------------
@@ -441,28 +460,27 @@ export function PluginInfoDialog({
 }: PluginInfoDialogProps) {
   const updateConfig = useUpdateConfig()
   const [open, setOpen] = useState(false)
-  const [fields, setFields] = useState<Record<string, unknown>>(plugin.config)
-  const [enabled, setEnabled] = useState(plugin.enabled)
+  const [draft, setDraft] = useState<Record<string, unknown>>(plugin.config)
 
-  // Reset local state when server data changes
+  // Reset draft when server data changes
   useEffect(() => {
-    setFields(plugin.config)
-    setEnabled(plugin.enabled)
+    setDraft(plugin.config)
   }, [plugin])
 
-  const isDirty =
-    JSON.stringify(fields) !== JSON.stringify(plugin.config) || enabled !== plugin.enabled
+  const isDirty = JSON.stringify(draft) !== JSON.stringify(plugin.config)
 
   const configured =
     plugin.envConfigured && requiredFieldsFilled(plugin.configFields, plugin.config)
 
   function handleToggle(next: boolean) {
-    setEnabled(next)
+    updateConfig.mutate({
+      [configKey]: { [plugin.id]: { ...plugin.config, enabled: next } },
+    })
   }
 
   function save() {
     updateConfig.mutate(
-      { [configKey]: { [plugin.id]: { ...fields, enabled } } },
+      { [configKey]: { [plugin.id]: { ...draft, enabled: plugin.enabled } } },
       { onSuccess: () => setOpen(false) },
     )
   }
@@ -485,7 +503,7 @@ export function PluginInfoDialog({
         showCloseButton={false}
       >
         <DialogHeaderContent
-          plugin={{ ...plugin, enabled }}
+          plugin={plugin}
           hasSidebar={!!hasSidebar}
           configured={configured}
           onToggle={handleToggle}
@@ -494,49 +512,51 @@ export function PluginInfoDialog({
         />
 
         {/* Body — two-panel on md+, stacked on mobile */}
-        <div className="flex min-h-0 flex-1 flex-col border-t md:flex-row">
-          {/* Left panel — main content, scrollable */}
-          <div className="flex-1 space-y-5 overflow-y-auto px-6 py-5">
-            <PluginAlerts plugin={plugin} />
+        <PluginConfigDraftContext.Provider value={{ config: draft, setConfig: setDraft }}>
+          <div className="flex min-h-0 flex-1 flex-col border-t md:flex-row">
+            {/* Left panel — main content, scrollable */}
+            <div className="flex-1 space-y-5 overflow-y-auto px-6 py-5">
+              <PluginAlerts plugin={plugin} />
 
-            {hasConfigFields && (
-              <Section label="Configuration">
-                <div className="flex flex-col gap-4">
-                  {plugin.configFields.map((field) => (
-                    <ConfigField
-                      key={field.key}
-                      field={field}
-                      scopeId={plugin.id}
-                      value={fields[field.key]}
-                      onChange={(v) => setFields({ ...fields, [field.key]: v })}
-                    />
-                  ))}
-                </div>
-              </Section>
-            )}
+              {hasConfigFields && (
+                <Section label="Configuration">
+                  <div className="flex flex-col gap-4">
+                    {plugin.configFields.map((field) => (
+                      <ConfigField
+                        key={field.key}
+                        field={field}
+                        scopeId={plugin.id}
+                        value={draft[field.key]}
+                        onChange={(v) => setDraft((prev) => ({ ...prev, [field.key]: v }))}
+                      />
+                    ))}
+                  </div>
+                </Section>
+              )}
 
-            {children}
+              {children}
 
-            {hasEnvVars && (
-              <Section label="Environment">
-                <EnvVarOverview envVars={plugin.envVars} />
-              </Section>
-            )}
+              {hasEnvVars && (
+                <Section label="Environment">
+                  <EnvVarOverview envVars={plugin.envVars} />
+                </Section>
+              )}
 
-            {permissions && (
-              <Section label="Permissions">
-                <PermissionDisplay {...permissions} />
-              </Section>
+              {permissions && (
+                <Section label="Permissions">
+                  <PermissionDisplay {...permissions} />
+                </Section>
+              )}
+            </div>
+
+            {/* Right panel — metadata sidebar */}
+            {hasSidebar && (
+              <div className="w-full shrink-0 overflow-y-auto border-t bg-muted/30 px-6 py-5 md:w-60 md:border-t-0 md:border-l">
+                <PluginMetadataSidebar plugin={plugin} permissions={permissions} />
+              </div>
             )}
           </div>
-
-          {/* Right panel — metadata sidebar */}
-          {hasSidebar && (
-            <div className="w-full shrink-0 overflow-y-auto border-t bg-muted/30 px-6 py-5 md:w-60 md:border-t-0 md:border-l">
-              <PluginMetadataSidebar plugin={plugin} permissions={permissions} />
-            </div>
-          )}
-        </div>
+        </PluginConfigDraftContext.Provider>
 
         {/* Footer */}
         <DialogFooter className="border-t px-6 py-4">
@@ -567,10 +587,8 @@ export interface PluginCardProps {
   readonly?: boolean
   /** Permissions to display in the dialog */
   permissions?: PermissionDisplayProps
-  /** Compact permission badges shown on the card */
-  compactPermissions?: PermissionDisplayProps
-  /** Extra badges shown on the card (e.g. webhook, realtime) */
-  badges?: React.ReactNode
+  /** Summary line shown below the description (e.g. capability counts) */
+  summary?: React.ReactNode
   /** Extra content rendered inside the dialog (e.g. capability badges, require approval) */
   dialogContent?: React.ReactNode
 }
@@ -580,8 +598,7 @@ export function PluginCard({
   configKey,
   readonly: isReadonly,
   permissions,
-  compactPermissions,
-  badges,
+  summary,
   dialogContent,
 }: PluginCardProps) {
   const updateConfig = useUpdateConfig()
@@ -605,49 +622,51 @@ export function PluginCard({
   }
 
   return (
-    <div className="flex flex-col rounded-xl border bg-card p-6 text-card-foreground shadow-sm">
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <div className="flex items-center gap-2">
-            <PluginIcon plugin={plugin} size="sm" />
-            <p className="font-semibold text-sm">{plugin.name}</p>
-            {infos.map((info, i) => (
-              <Badge key={`${i}-${info.message}`} variant="outline">
-                {info.message}
-              </Badge>
-            ))}
-          </div>
-          {plugin.description && (
-            <p className="text-muted-foreground text-sm">{plugin.description}</p>
-          )}
-          <div className="mt-1 flex flex-wrap gap-1.5">
-            {compactPermissions && <PermissionDisplay {...compactPermissions} compact />}
-            <PluginStatusBadge plugin={plugin} configured={configured} />
-            {badges}
-          </div>
-        </div>
+    <div className="flex items-center gap-4 rounded-xl border bg-card px-5 py-4 text-card-foreground shadow-sm">
+      <PluginIcon plugin={plugin} size="sm" />
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
         <div className="flex items-center gap-2">
-          <PluginInfoDialog
-            plugin={plugin}
-            configKey={configKey}
-            readonly={isReadonly}
-            permissions={permissions}
-            trigger={
-              <Button variant="ghost" size="icon" className="size-7" aria-label="Plugin settings">
-                <SettingsIcon className="size-4" />
-              </Button>
-            }
-          >
-            {dialogContent}
-          </PluginInfoDialog>
-          {!isReadonly && canEnable && (
-            <Switch
-              checked={enabled}
-              onCheckedChange={handleToggle}
-              disabled={updateConfig.isPending}
-            />
+          <p className="font-semibold text-sm">{plugin.name}</p>
+          {infos.map((info, i) => (
+            <Badge key={`${i}-${info.message}`} variant="outline">
+              {info.message}
+            </Badge>
+          ))}
+        </div>
+        {plugin.description && (
+          <p className="text-muted-foreground text-sm">{plugin.description}</p>
+        )}
+        <div className="mt-2 flex items-center gap-1.5 text-muted-foreground text-xs">
+          <PluginStatusBadge plugin={plugin} configured={configured} />
+          {summary && (
+            <>
+              <span>&middot;</span>
+              {summary}
+            </>
           )}
         </div>
+      </div>
+      <div className="flex shrink-0 items-center gap-2">
+        <PluginInfoDialog
+          plugin={plugin}
+          configKey={configKey}
+          readonly={isReadonly}
+          permissions={permissions}
+          trigger={
+            <Button variant="ghost" size="icon" className="size-7" aria-label="Plugin settings">
+              <SettingsIcon className="size-4" />
+            </Button>
+          }
+        >
+          {dialogContent}
+        </PluginInfoDialog>
+        {!isReadonly && canEnable && (
+          <Switch
+            checked={enabled}
+            onCheckedChange={handleToggle}
+            disabled={updateConfig.isPending}
+          />
+        )}
       </div>
     </div>
   )

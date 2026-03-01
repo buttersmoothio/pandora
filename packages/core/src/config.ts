@@ -197,12 +197,14 @@ export async function getConfig(
 export async function updateConfig(
   configStore: ConfigStore<Config>,
   patch: Partial<Config>,
+  registry?: PluginRegistry,
 ): Promise<Config> {
   const storedConfig = (await configStore.get()) ?? DEFAULTS
   const updated = deepMerge(storedConfig, patch)
-  const validated = ConfigSchema.parse(updated)
 
-  // Save to storage
+  const schema = createConfigSchema(registry)
+  const validated = schema.parse(updated)
+
   await configStore.set(validated)
 
   return validated

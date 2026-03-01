@@ -44,6 +44,7 @@ const providesEntrySchema = z.object({
   entry: z.string(),
   sandbox: z.enum(['compartment', 'host']).optional(),
   permissions: toolPermissionsSchema.optional(),
+  requireApproval: z.boolean().optional(),
 })
 
 const agentProvidesEntrySchema = z.object({

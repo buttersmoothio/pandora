@@ -5,7 +5,60 @@ import type { RegisteredPlugin } from '../runtime/plugin-registry'
 import { buildManifest } from '../tools/define'
 import type { ToolExport, ToolManifest } from '../tools/types'
 import type { LoadedEntry } from './loader'
-import type { AgentProvidesEntry, PluginManifest } from './schema'
+import type { AgentProvidesEntry, PluginManifest, ProvidesEntry } from './schema'
+
+function adaptTools(entry: ProvidesEntry, ns: Record<string, unknown>): RegisteredPlugin['tools'] {
+  const tools = (ns.tools ?? []) as ToolExport[]
+  for (const t of tools) {
+    t.sandbox = entry.sandbox
+    t.permissions = entry.permissions
+  }
+  const manifests = new Map<string, ToolManifest>()
+  for (const t of tools) {
+    manifests.set(t.id, buildManifest(t))
+  }
+  return {
+    entries: tools,
+    resolveTools: ns.resolveTools as RegisteredPlugin['tools'] extends infer T
+      ? T extends { resolveTools?: infer R }
+        ? R
+        : never
+      : never,
+    manifests,
+    sandbox: entry.sandbox,
+    permissions: entry.permissions,
+    requireApproval: entry.requireApproval,
+  }
+}
+
+function adaptAgent(
+  entry: AgentProvidesEntry,
+  ns: Record<string, unknown>,
+): { def: AgentDefinition; manifest: AgentManifest } | null {
+  if (!ns.agent) return null
+  const agentDef = ns.agent as AgentDefinition
+  agentDef.useTools = entry.useTools ?? []
+  agentDef.modelTools = entry.modelTools ?? []
+  return {
+    def: agentDef,
+    manifest: {
+      id: agentDef.id,
+      name: agentDef.name,
+      description: agentDef.description,
+      instructions: agentDef.instructions,
+    },
+  }
+}
+
+function adaptChannels(ns: Record<string, unknown>): RegisteredPlugin['channels'] {
+  return {
+    factory: ns.factory as RegisteredPlugin['channels'] extends infer T
+      ? T extends { factory: infer F }
+        ? F
+        : never
+      : never,
+  }
+}
 
 /**
  * Convert loaded manifest entries into a single RegisteredPlugin.
@@ -38,55 +91,19 @@ export function adaptManifest(manifest: PluginManifest, entries: LoadedEntry[]):
 
   for (const { key, entry, namespace: ns } of entries) {
     switch (key) {
-      case 'tools': {
-        const tools = (ns.tools ?? []) as ToolExport[]
-        for (const t of tools) {
-          t.sandbox = entry.sandbox
-          t.permissions = entry.permissions
-        }
-        const manifests = new Map<string, ToolManifest>()
-        for (const t of tools) {
-          manifests.set(t.id, buildManifest(t))
-        }
-        plugin.tools = {
-          entries: tools,
-          resolveTools: ns.resolveTools as RegisteredPlugin['tools'] extends infer T
-            ? T extends { resolveTools?: infer R }
-              ? R
-              : never
-            : never,
-          manifests,
-          sandbox: entry.sandbox,
-          permissions: entry.permissions,
+      case 'tools':
+        plugin.tools = adaptTools(entry, ns)
+        break
+      case 'agents': {
+        const result = adaptAgent(entry as AgentProvidesEntry, ns)
+        if (result) {
+          agentManifests.set(result.def.id, result.manifest)
+          agentDefs.push(result.def)
         }
         break
       }
-
-      case 'agents':
-        if (ns.agent) {
-          const agentDef = ns.agent as AgentDefinition
-          const agentManifest: AgentManifest = {
-            id: agentDef.id,
-            name: agentDef.name,
-            description: agentDef.description,
-            instructions: agentDef.instructions,
-          }
-          agentManifests.set(agentDef.id, agentManifest)
-          // Stamp manifest-declared deps from the provides entry
-          agentDef.useTools = (entry as AgentProvidesEntry).useTools ?? []
-          agentDef.modelTools = (entry as AgentProvidesEntry).modelTools ?? []
-          agentDefs.push(agentDef)
-        }
-        break
-
       case 'channels':
-        plugin.channels = {
-          factory: ns.factory as RegisteredPlugin['channels'] extends infer T
-            ? T extends { factory: infer F }
-              ? F
-              : never
-            : never,
-        }
+        plugin.channels = adaptChannels(ns)
         break
     }
   }
