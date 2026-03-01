@@ -12,7 +12,6 @@ import {
 import { useEffect, useMemo, useState } from 'react'
 import { ProviderLogo } from '@/components/provider-logo'
 import { PluginCard, usePluginConfigDraft } from '@/components/settings/plugin-card'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   Command,
@@ -327,32 +326,6 @@ function PluginDialogContent({ plugin }: { plugin: UnifiedPluginInfo }) {
           ))}
         </div>
       )}
-
-      {/* Channels section */}
-      {provides.channels && (
-        <div className="flex flex-col gap-2">
-          <p className="font-medium text-muted-foreground text-xs uppercase tracking-wider">
-            Channels
-          </p>
-          <div className="flex flex-wrap gap-1.5">
-            {provides.channels.webhook && (
-              <Badge variant="outline">
-                <RadioIcon className="size-3" />
-                Webhook
-              </Badge>
-            )}
-            {provides.channels.realtime && (
-              <Badge variant="outline">
-                <RadioIcon className="size-3" />
-                Realtime
-              </Badge>
-            )}
-            {!provides.channels.loaded && (
-              <span className="text-muted-foreground text-xs">Not configured</span>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   )
 }
@@ -364,9 +337,9 @@ function PluginDialogContent({ plugin }: { plugin: UnifiedPluginInfo }) {
 function UnifiedPluginCard({ plugin }: { plugin: UnifiedPluginInfo }) {
   const permissions = plugin.provides.tools
     ? {
-      permissions: plugin.provides.tools.permissions as Record<string, boolean | string[]>,
-      sandbox: (plugin.provides.tools.sandbox ?? 'compartment') as 'compartment' | 'host',
-    }
+        permissions: plugin.provides.tools.permissions as Record<string, boolean | string[]>,
+        sandbox: (plugin.provides.tools.sandbox ?? 'compartment') as 'compartment' | 'host',
+      }
     : undefined
 
   return (

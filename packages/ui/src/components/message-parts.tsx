@@ -9,6 +9,7 @@ import { Shimmer } from '@/components/ai-elements/shimmer'
 import { Source, Sources, SourcesContent, SourcesTrigger } from '@/components/ai-elements/sources'
 import { Tool, ToolContent, ToolHeader, ToolInput, ToolOutput } from '@/components/ai-elements/tool'
 import { Button } from '@/components/ui/button'
+import { useToolNames } from '@/hooks/use-plugins'
 
 type ToolPart = Extract<UIMessage['parts'][number], { type: `tool-${string}` | 'dynamic-tool' }>
 type TextPart = Extract<UIMessage['parts'][number], { type: 'text' }>
@@ -42,6 +43,7 @@ export function MessageParts({
   isStreaming: boolean
   onToolApproval?: ChatAddToolApproveResponseFunction
 }) {
+  const toolNames = useToolNames()
   const reasoningParts = message.parts.filter((p) => p.type === 'reasoning')
   const reasoningText = reasoningParts.map((p) => p.text).join('\n\n')
   const hasReasoning = reasoningParts.length > 0
@@ -100,6 +102,10 @@ export function MessageParts({
               {group.parts.map((part, ti) => {
                 const state = part.state
                 const isAwaitingApproval = state === 'approval-requested'
+                const resolvedName =
+                  part.type !== 'dynamic-tool'
+                    ? toolNames.get(part.type.replace(/^tool-/, ''))
+                    : undefined
 
                 return (
                   <Tool
@@ -110,7 +116,7 @@ export function MessageParts({
                     {part.type === 'dynamic-tool' ? (
                       <ToolHeader type={part.type} state={state} toolName={part.toolName} />
                     ) : (
-                      <ToolHeader type={part.type} state={state} />
+                      <ToolHeader type={part.type} state={state} title={resolvedName} />
                     )}
                     <ToolContent>
                       <ToolInput input={part.input} />

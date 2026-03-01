@@ -83,6 +83,45 @@ describe('loadTools', () => {
     expect(Object.keys(tools)).toHaveLength(0)
   })
 
+  it('skips plugins with missing required env vars', async () => {
+    const registry = createPluginRegistry()
+    registry.plugins.set(
+      'test-tools',
+      makeToolPlugin({
+        envVars: [{ name: 'MY_API_KEY', required: true }],
+      }),
+    )
+
+    const tools = await loadTools(registry, DEFAULTS, {})
+    expect(Object.keys(tools)).toHaveLength(0)
+  })
+
+  it('loads tools when required env vars are present', async () => {
+    const registry = createPluginRegistry()
+    registry.plugins.set(
+      'test-tools',
+      makeToolPlugin({
+        envVars: [{ name: 'MY_API_KEY', required: true }],
+      }),
+    )
+
+    const tools = await loadTools(registry, DEFAULTS, { MY_API_KEY: 'secret' })
+    expect(tools['test-tools:greet']).toBeDefined()
+  })
+
+  it('loads tools when env var is optional and missing', async () => {
+    const registry = createPluginRegistry()
+    registry.plugins.set(
+      'test-tools',
+      makeToolPlugin({
+        envVars: [{ name: 'OPTIONAL_KEY', required: false }],
+      }),
+    )
+
+    const tools = await loadTools(registry, DEFAULTS, {})
+    expect(tools['test-tools:greet']).toBeDefined()
+  })
+
   it('loads tools from multiple plugins', async () => {
     const registry = createPluginRegistry()
     registry.plugins.set(

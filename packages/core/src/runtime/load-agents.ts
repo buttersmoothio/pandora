@@ -5,6 +5,7 @@ import type { ModelToolKey } from '../agents/model-tools'
 import { resolveModelTools } from '../agents/model-tools'
 import type { AgentPluginConfig, AgentRecord } from '../agents/types'
 import type { Config } from '../config'
+import { getLogger } from '../logger'
 import { buildModelString } from '../mastra/models'
 import type { Alert } from '../plugin-types'
 import type { ToolRecord } from '../tools/types'
@@ -47,8 +48,10 @@ export async function loadAgents(
   registry: PluginRegistry,
   config: Config,
   memory: MastraMemory,
+  envVars: Record<string, string | undefined>,
   globalTools: ToolRecord = {},
 ): Promise<AgentRecord> {
+  const log = getLogger()
   const result: AgentRecord = {}
 
   for (const [, plugin] of registry.plugins) {
@@ -56,6 +59,16 @@ export async function loadAgents(
 
     const { config: pluginConfig } = validatePluginConfig(plugin, config.plugins[plugin.id])
     if (!pluginConfig) continue
+
+    const missingEnv = (plugin.envVars ?? []).filter(
+      (v) => v.required !== false && !envVars[v.name],
+    )
+    if (missingEnv.length > 0) {
+      log.debug(
+        `Plugin ${plugin.id} agents skipped (missing env: ${missingEnv.map((v) => v.name).join(', ')})`,
+      )
+      continue
+    }
 
     for (const agentDef of plugin.agents.definitions) {
       const manifest = plugin.agents.manifests.get(agentDef.id)

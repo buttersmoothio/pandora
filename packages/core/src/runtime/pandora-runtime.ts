@@ -113,7 +113,7 @@ async function buildState(
   const memory = createMemory({ config, vector: vectorResult })
 
   // 6. Subagents
-  const subagents = await loadAgents(registry, config, memory, tools)
+  const subagents = await loadAgents(registry, config, memory, env, tools)
   if (Object.keys(subagents).length > 0) {
     log.info('[runtime] loaded subagents', { agentIds: Object.keys(subagents) })
   }

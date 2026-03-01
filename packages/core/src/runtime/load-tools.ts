@@ -1,4 +1,5 @@
 import type { Config } from '../config'
+import { getLogger } from '../logger'
 import type { Alert } from '../plugin-types'
 import { bindToolExport, buildManifest } from '../tools/define'
 import type { ToolPluginConfig, ToolRecord } from '../tools/types'
@@ -37,11 +38,23 @@ export async function loadTools(
 ): Promise<ToolRecord> {
   const result: ToolRecord = {}
 
+  const log = getLogger()
+
   for (const [, plugin] of registry.plugins) {
     if (!plugin.tools) continue
 
     const { config: pluginConfig } = validatePluginConfig(plugin, config.plugins[plugin.id])
     if (!pluginConfig) continue
+
+    const missingEnv = (plugin.envVars ?? []).filter(
+      (v) => v.required !== false && !envVars[v.name],
+    )
+    if (missingEnv.length > 0) {
+      log.debug(
+        `Plugin ${plugin.id} tools skipped (missing env: ${missingEnv.map((v) => v.name).join(', ')})`,
+      )
+      continue
+    }
 
     Object.assign(result, loadStaticTools(plugin, envVars, pluginConfig))
 

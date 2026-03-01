@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { useMemo } from 'react'
 import { apiFetch } from '@/lib/api'
 import type { Alert, ConfigFieldDescriptor, EnvVarDescriptor } from './plugin-types'
 
@@ -83,4 +84,38 @@ export function usePlugins() {
     ...query,
     plugins: query.data?.plugins,
   }
+}
+
+/**
+ * Sanitise a namespaced tool key the same way the AI SDK does
+ * (`@pandorakit/brave-search:brave_search` → `_pandorakit_brave-search_brave_search`).
+ */
+function sanitiseToolId(id: string): string {
+  return id.replace(/[^a-zA-Z0-9_-]/g, '_')
+}
+
+/**
+ * Build a lookup map from sanitised tool key → human-readable name.
+ * Also maps agent IDs to their display names.
+ */
+export function useToolNames(): Map<string, string> {
+  const { plugins } = usePlugins()
+  return useMemo(() => {
+    const map = new Map<string, string>()
+    if (!plugins) return map
+    for (const plugin of plugins) {
+      if (plugin.provides.tools) {
+        for (const tool of plugin.provides.tools.tools) {
+          const nsKey = `${plugin.id}:${tool.id}`
+          map.set(sanitiseToolId(nsKey), tool.name)
+        }
+      }
+      if (plugin.provides.agents) {
+        for (const agent of plugin.provides.agents.agents) {
+          map.set(sanitiseToolId(agent.id), agent.name)
+        }
+      }
+    }
+    return map
+  }, [plugins])
 }

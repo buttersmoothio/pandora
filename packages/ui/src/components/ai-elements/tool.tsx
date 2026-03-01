@@ -67,6 +67,26 @@ export const getStatusBadge = (status: ToolPart['state']) => (
   </Badge>
 )
 
+/**
+ * Turn a raw tool type string into a human-friendly label.
+ *
+ * Inputs look like:
+ *   `tool-@pandorakit/brave-search:brave_search`  → "Brave Search"
+ *   `tool-_pandorakit_brave-search_brave_search`   → "Brave Search"  (SDK-sanitised)
+ *   `tool-agent-research`                          → "Agent Research"
+ */
+function formatToolName(type: string): string {
+  // Strip `tool-` prefix
+  const raw = type.replace(/^tool-/, '')
+
+  // Namespaced: `@scope/pkg:toolId` or `_scope_pkg_toolId` (sanitised by SDK)
+  const colonIdx = raw.lastIndexOf(':')
+  const toolId = colonIdx >= 0 ? raw.slice(colonIdx + 1) : raw
+
+  // Convert snake_case / kebab-case to Title Case
+  return toolId.replace(/[_-]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+}
+
 export const ToolHeader = ({
   className,
   title,
@@ -75,7 +95,7 @@ export const ToolHeader = ({
   toolName,
   ...props
 }: ToolHeaderProps) => {
-  const derivedName = type === 'dynamic-tool' ? toolName : type.split('-').slice(1).join('-')
+  const derivedName = type === 'dynamic-tool' ? toolName : formatToolName(type)
 
   return (
     <CollapsibleTrigger
