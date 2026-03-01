@@ -479,10 +479,9 @@ export function PluginInfoDialog({
   }
 
   function save() {
-    updateConfig.mutate(
-      { [configKey]: { [plugin.id]: { ...draft, enabled: plugin.enabled } } },
-      { onSuccess: () => setOpen(false) },
-    )
+    updateConfig.mutate({
+      [configKey]: { [plugin.id]: { ...draft, enabled: plugin.enabled } },
+    })
   }
 
   const hasEnvVars = plugin.envVars.length > 0

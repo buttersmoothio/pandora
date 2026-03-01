@@ -12,11 +12,11 @@ function loadStaticTools(
 ): ToolRecord {
   if (!plugin.tools) return {}
   const tools: ToolRecord = {}
-  // User config overrides manifest default
-  const requireApproval = pluginConfig.requireApproval ?? plugin.tools.requireApproval ?? false
+  const manifestDefault = plugin.tools.requireApproval ?? false
+  const perTool = (pluginConfig.requireApproval ?? {}) as Record<string, boolean>
   for (const exp of plugin.tools.entries) {
     const tool = bindToolExport(exp, envVars, pluginConfig)
-    if (requireApproval) {
+    if (perTool[exp.id] ?? manifestDefault) {
       tool.requireApproval = true
     }
     tools[exp.id] = tool

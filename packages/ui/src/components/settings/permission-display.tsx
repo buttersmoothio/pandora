@@ -94,12 +94,12 @@ function PermissionRow({ permKey, value }: { permKey: string; value: boolean | s
   }
 
   return (
-    <Collapsible>
+    <Collapsible className="group">
       <CollapsibleTrigger className="flex w-full items-center gap-2 py-0.5 text-left">
         <Icon className="size-4 shrink-0 text-muted-foreground" />
         <span className="text-sm">{meta.label}</span>
         {detailText && <span className="text-muted-foreground text-sm">&middot; {detailText}</span>}
-        <ChevronDownIcon className="ml-auto size-4 shrink-0 text-muted-foreground transition-transform [[data-state=open]_&]:rotate-180" />
+        <ChevronDownIcon className="ml-auto size-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
       </CollapsibleTrigger>
       <CollapsibleContent>
         <div className="mt-1 ml-6 flex flex-wrap gap-1 pb-1">

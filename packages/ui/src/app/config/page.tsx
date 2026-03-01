@@ -540,7 +540,7 @@ export default function ConfigPage() {
   if (!config) return null
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 p-6">
+    <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 p-6">
       <div className="flex items-center justify-between">
         <h1 className="font-semibold text-2xl">Configuration</h1>
         <Button

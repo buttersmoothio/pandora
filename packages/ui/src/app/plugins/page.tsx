@@ -227,11 +227,75 @@ function AgentModelOverride({
 }
 
 // ---------------------------------------------------------------------------
+// Per-tool list with approval toggles
+// ---------------------------------------------------------------------------
+
+function ToolList({
+  plugin,
+  provides,
+}: {
+  plugin: UnifiedPluginInfo
+  provides: UnifiedPluginInfo['provides']
+}) {
+  const { config: draft, setConfig: setDraft } = usePluginConfigDraft()
+  if (!provides.tools) return null
+
+  const manifestDefault = provides.tools.requireApproval ?? false
+  const perTool = (draft.requireApproval ?? {}) as Record<string, boolean>
+
+  function toggleApproval(toolId: string, checked: boolean) {
+    setDraft((prev) => ({
+      ...prev,
+      requireApproval: {
+        ...((prev.requireApproval ?? {}) as Record<string, boolean>),
+        [toolId]: checked,
+      },
+    }))
+  }
+
+  return (
+    <>
+      <div className="flex flex-col gap-1.5">
+        {provides.tools.tools.map((tool) => (
+          <div key={tool.id} className="flex items-center gap-3 rounded-lg border px-3 py-2">
+            <div className="min-w-0 flex-1">
+              <p className="font-medium text-sm">{tool.name}</p>
+              <p className="text-muted-foreground text-xs">{tool.description}</p>
+            </div>
+            {plugin.enabled && (
+              <div className="flex shrink-0 items-center gap-2">
+                <Label htmlFor={`${tool.id}-approval`} className="text-muted-foreground text-xs">
+                  Approval
+                </Label>
+                <Switch
+                  id={`${tool.id}-approval`}
+                  checked={perTool[tool.id] ?? manifestDefault}
+                  onCheckedChange={(checked) => toggleApproval(tool.id, checked)}
+                  size="sm"
+                />
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+      {provides.tools.alerts.length > 0 && (
+        <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-3 text-sm">
+          {provides.tools.alerts.map((a, i) => (
+            <p key={`${i}-${a.message}`} className="text-muted-foreground text-xs">
+              {a.message}
+            </p>
+          ))}
+        </div>
+      )}
+    </>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Plugin dialog content
 // ---------------------------------------------------------------------------
 
 function PluginDialogContent({ plugin }: { plugin: UnifiedPluginInfo }) {
-  const { config: draft, setConfig: setDraft } = usePluginConfigDraft()
   const provides = plugin.provides
 
   return (
@@ -242,40 +306,7 @@ function PluginDialogContent({ plugin }: { plugin: UnifiedPluginInfo }) {
           <p className="font-medium text-muted-foreground text-xs uppercase tracking-wider">
             Tools ({provides.tools.tools.length})
           </p>
-          <div className="flex flex-col gap-1.5">
-            {provides.tools.tools.map((tool) => (
-              <div key={tool.id} className="rounded-lg border px-3 py-2">
-                <p className="font-medium text-sm">{tool.name}</p>
-                <p className="text-muted-foreground text-xs">{tool.description}</p>
-              </div>
-            ))}
-          </div>
-          {provides.tools.alerts.length > 0 && (
-            <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-3 text-sm">
-              {provides.tools.alerts.map((a, i) => (
-                <p key={`${i}-${a.message}`} className="text-muted-foreground text-xs">
-                  {a.message}
-                </p>
-              ))}
-            </div>
-          )}
-          {plugin.enabled && (
-            <div className="flex items-center gap-3">
-              <Switch
-                id={`${plugin.id}-approval`}
-                checked={
-                  draft.requireApproval != null
-                    ? !!draft.requireApproval
-                    : !!provides.tools.requireApproval
-                }
-                onCheckedChange={(checked) => {
-                  setDraft((prev) => ({ ...prev, requireApproval: checked }))
-                }}
-                size="sm"
-              />
-              <Label htmlFor={`${plugin.id}-approval`}>Require approval</Label>
-            </div>
-          )}
+          <ToolList plugin={plugin} provides={provides} />
         </div>
       )}
 
@@ -333,9 +364,9 @@ function PluginDialogContent({ plugin }: { plugin: UnifiedPluginInfo }) {
 function UnifiedPluginCard({ plugin }: { plugin: UnifiedPluginInfo }) {
   const permissions = plugin.provides.tools
     ? {
-      permissions: plugin.provides.tools.permissions as Record<string, boolean | string[]>,
-      sandbox: (plugin.provides.tools.sandbox ?? 'compartment') as 'compartment' | 'host',
-    }
+        permissions: plugin.provides.tools.permissions as Record<string, boolean | string[]>,
+        sandbox: (plugin.provides.tools.sandbox ?? 'compartment') as 'compartment' | 'host',
+      }
     : undefined
 
   return (
@@ -417,7 +448,7 @@ export default function PluginsPage() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 p-6">
+    <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 p-6">
       <h1 className="font-semibold text-2xl">Plugins</h1>
 
       <div className="flex gap-2">
