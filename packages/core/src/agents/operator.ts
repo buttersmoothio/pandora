@@ -2,9 +2,10 @@ import { Agent as MastraAgent } from '@mastra/core/agent'
 import type { MastraMemory } from '@mastra/core/memory'
 import type { Config } from '../config'
 import { getLogger } from '../logger'
-import { resolveModel } from '../mastra/models'
-import type { ToolRecord } from '../tools'
-import type { AgentRecord } from './types'
+import { resolveModel } from '../models'
+import type { ToolRecord } from '../tools/types'
+
+type AgentRecord = Record<string, MastraAgent>
 
 /**
  * Build the system instructions from identity + personality config.

@@ -1,4 +1,4 @@
-import type { ToolPermissions } from '../types'
+import type { ToolPermissions } from '@pandorakit/sdk/tools'
 import { buildEndowments, MAX_OUTPUT_BYTES } from './endowments'
 
 export interface CompartmentExecuteOptions {

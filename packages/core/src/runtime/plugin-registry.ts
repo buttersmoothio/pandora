@@ -1,14 +1,14 @@
-import type { z } from 'zod'
-import type { Agent } from '../agents/define'
-import type { AgentManifest } from '../agents/types'
-import type { ChannelFactory } from '../channels/types'
+import type { ConfigFieldDescriptor, EnvVarDescriptor, ResolveToolsContext } from '@pandorakit/sdk'
+import type { Agent, AgentManifest } from '@pandorakit/sdk/agents'
+import type { ChannelFactory } from '@pandorakit/sdk/channels'
 import type {
-  ConfigFieldDescriptor,
-  EnvVarDescriptor,
-  ResolveToolsContext,
   ResolveToolsResult,
-} from '../plugin-types'
-import type { SandboxMode, Tool, ToolManifest, ToolPermissions } from '../tools/types'
+  SandboxMode,
+  Tool,
+  ToolManifest,
+  ToolPermissions,
+} from '@pandorakit/sdk/tools'
+import type { z } from 'zod'
 
 export interface RegisteredPlugin {
   id: string

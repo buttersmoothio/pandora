@@ -1,12 +1,11 @@
 import type { Mastra } from '@mastra/core'
-import type { Channel } from '../channels/types'
+import type { Channel } from '@pandorakit/sdk/channels'
 import type { Config } from '../config'
 import { getConfig } from '../config'
 import { getLogger } from '../logger'
 import { createMemory } from '../memory'
 import type { StorageResult } from '../storage'
 import { createStorage } from '../storage'
-import { getActiveStreamIds, getResumeStream, storeStream } from '../stream-store'
 import { createVector } from '../vector'
 import type { WebGateway } from './gateways'
 import { createGateways } from './gateways'
@@ -14,6 +13,7 @@ import { loadAgents } from './load-agents'
 import { loadChannels } from './load-channels'
 import { loadTools } from './load-tools'
 import type { PluginRegistry } from './plugin-registry'
+import { getActiveStreamIds, getResumeStream, storeStream } from './stream-store'
 
 export interface PandoraRuntime {
   readonly registry: PluginRegistry

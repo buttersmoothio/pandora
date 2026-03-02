@@ -3,13 +3,7 @@
   "version": "0.0.1",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts",
-    "./storage": "./src/storage/exports.ts",
-    "./tools": "./src/tools/exports.ts",
-    "./channels": "./src/channels/exports.ts",
-    "./agents": "./src/agents/exports.ts",
-    "./manifest": "./src/manifest/index.ts",
-    "./logger": "./src/logger.ts"
+    ".": "./src/index.ts"
   },
   "scripts": {
     "dev": "bun run serve.ts",

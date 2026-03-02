@@ -1,10 +1,9 @@
 import { AIV5Adapter } from '@mastra/core/agent/message-list'
 import type { Memory } from '@mastra/memory'
 import { Hono } from 'hono'
-import { isServerless } from '../env'
 import { getLogger } from '../logger'
 import type { Env } from './helpers'
-import { getMemoryOrFail } from './helpers'
+import { getMemoryOrFail, isServerless } from './helpers'
 
 /** Compute fork/branch info for a thread */
 type BranchRef = { id: string; title?: string }

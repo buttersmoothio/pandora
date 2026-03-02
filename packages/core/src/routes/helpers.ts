@@ -1,10 +1,20 @@
 import type { Memory } from '@mastra/memory'
 import type { Context } from 'hono'
-import { env } from 'hono/adapter'
+import { env, getRuntimeKey } from 'hono/adapter'
 import { createMiddleware } from 'hono/factory'
 import { HTTPException } from 'hono/http-exception'
-import { isServerless } from '../env'
 import { getLogger } from '../logger'
+
+type Runtime = ReturnType<typeof getRuntimeKey>
+
+const SERVERLESS_RUNTIMES: Runtime[] = ['workerd', 'edge-light', 'fastly']
+
+export function isServerless(): boolean {
+  return SERVERLESS_RUNTIMES.includes(getRuntimeKey())
+}
+
+export { getRuntimeKey }
+
 import type { PandoraRuntime } from '../runtime/pandora-runtime'
 import { createRuntime } from '../runtime/pandora-runtime'
 import type { PluginRegistry } from '../runtime/plugin-registry'

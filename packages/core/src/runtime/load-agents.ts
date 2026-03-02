@@ -1,16 +1,17 @@
 import { Agent as MastraAgent } from '@mastra/core/agent'
 import type { MastraMemory } from '@mastra/core/memory'
-import type { Agent } from '../agents/define'
+import type { Alert, PluginConfig } from '@pandorakit/sdk'
+import type { Agent } from '@pandorakit/sdk/agents'
 import type { ModelToolKey } from '../agents/model-tools'
 import { resolveModelTools } from '../agents/model-tools'
-import type { AgentRecord, PluginConfig } from '../agents/types'
 import type { Config } from '../config'
 import { getLogger } from '../logger'
-import { buildModelString } from '../mastra/models'
-import type { Alert } from '../plugin-types'
+import { buildModelString } from '../models'
 import type { ToolRecord } from '../tools/types'
 import { validatePluginConfig } from './config-validate'
 import type { PluginRegistry } from './plugin-registry'
+
+type AgentRecord = Record<string, MastraAgent>
 
 function getAgentConfig(
   pluginConfig: PluginConfig | null,

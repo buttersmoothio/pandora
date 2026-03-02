@@ -1,4 +1,4 @@
-import type { Channel } from '../channels/types'
+import type { Channel } from '@pandorakit/sdk/channels'
 import type { Config } from '../config'
 import { getLogger } from '../logger'
 import { validatePluginConfig } from './config-validate'

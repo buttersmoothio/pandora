@@ -21,7 +21,7 @@ import type {
   ToolCall,
   ToolResult,
   Usage,
-} from '../channels/types'
+} from '@pandorakit/sdk/channels'
 import { getLogger } from '../logger'
 
 const RESOURCE_ID = 'default'

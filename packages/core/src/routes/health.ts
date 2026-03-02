@@ -1,8 +1,8 @@
 import { Hono } from 'hono'
 import pkg from '../../package.json'
 import { extractBearerToken } from '../auth/routes'
-import { getRuntimeKey, isServerless } from '../env'
 import type { Env } from './helpers'
+import { getRuntimeKey, isServerless } from './helpers'
 
 const healthRoutes = new Hono<Env>()
 

@@ -1,16 +1,6 @@
 import type { ConfigFieldDescriptor } from '@pandorakit/sdk'
 import { z } from 'zod'
 
-export type {
-  Alert,
-  ConfigFieldDescriptor,
-  EnvVarDescriptor,
-  Logger,
-  PluginConfig,
-  ResolveToolsContext,
-} from '@pandorakit/sdk'
-export type { ResolveToolsResult } from '@pandorakit/sdk/tools'
-
 /**
  * Schema version for all plugin descriptors (tools, storage, channels).
  * Bump this when the plugin interface changes in a breaking way.

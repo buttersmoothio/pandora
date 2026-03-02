@@ -1,6 +1,6 @@
+import type { PluginConfig } from '@pandorakit/sdk'
 import { z } from 'zod'
 import { getLogger } from '../logger'
-import type { PluginConfig } from '../plugin-types'
 import type { RegisteredPlugin } from './plugin-registry'
 
 const basePluginSchema = z.object({ enabled: z.boolean() })

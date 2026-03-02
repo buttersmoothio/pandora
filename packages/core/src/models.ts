@@ -1,4 +1,4 @@
-import type { Config } from '../config'
+import type { Config } from './config'
 
 /**
  * Convert a model config object to Mastra's 'provider/model' string format.

@@ -1,6 +1,6 @@
 import { PROVIDER_REGISTRY } from '@mastra/core/llm'
+import type { Channel } from '@pandorakit/sdk/channels'
 import { Hono } from 'hono'
-import type { Channel } from '../channels/types'
 import { validatePluginConfig } from '../runtime/config-validate'
 import type { PluginRegistry, RegisteredPlugin } from '../runtime/plugin-registry'
 import type { Env } from './helpers'

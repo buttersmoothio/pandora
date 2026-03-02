@@ -8,22 +8,6 @@ import type {
   ToolPermissions,
 } from '@pandorakit/sdk/tools'
 
-/** Per-plugin user configuration for tool plugins */
-export type {
-  Alert,
-  ConfigFieldDescriptor,
-  EnvVarDescriptor,
-  Logger,
-  PluginConfig,
-  ResolveToolsContext,
-  ResolveToolsResult,
-  SandboxMode,
-  Tool,
-  ToolAnnotations,
-  ToolManifest,
-  ToolPermissions,
-} from '@pandorakit/sdk/tools'
-
 /** A record of tool instances keyed by tool ID. Accepts Mastra tools, Vercel AI SDK tools, and provider-defined tools. */
 export type ToolRecord = ToolsInput
 

@@ -1,9 +1,8 @@
-import type { Agent } from '../agents/define'
-import type { AgentManifest } from '../agents/types'
-import { buildSchemaFromFields } from '../plugin-types'
+import type { Agent, AgentManifest } from '@pandorakit/sdk/agents'
+import type { Tool, ToolManifest } from '@pandorakit/sdk/tools'
 import type { RegisteredPlugin } from '../runtime/plugin-registry'
+import { buildSchemaFromFields } from '../runtime/plugin-types'
 import { buildManifest } from '../tools/define'
-import type { Tool, ToolManifest } from '../tools/types'
 import type { LoadedEntry } from './loader'
 import type { AgentProvidesEntry, PluginManifest, ProvidesEntry } from './schema'
 

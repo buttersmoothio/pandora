@@ -1,7 +1,7 @@
 import '../ses-lockdown'
 
+import type { ToolPermissions } from '@pandorakit/sdk/tools'
 import { buildEndowments, createPluginConsole } from '../tools/sandbox/endowments'
-import type { ToolPermissions } from '../tools/types'
 
 /**
  * Build Compartment globals for a plugin package.

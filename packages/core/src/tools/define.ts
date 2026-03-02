@@ -1,7 +1,8 @@
 import { createTool, type Tool as MastraTool } from '@mastra/core/tools'
+import type { PluginConfig, Tool, ToolManifest } from '@pandorakit/sdk/tools'
 import { z } from 'zod'
 import { createPluginConsole } from './sandbox/endowments'
-import { DEFAULT_TOOL_TIMEOUT, type PluginConfig, type Tool, type ToolManifest } from './types'
+import { DEFAULT_TOOL_TIMEOUT } from './types'
 
 // biome-ignore lint/suspicious/noExplicitAny: Tool generics require `any` for covariant assignment
 type AnyTool = MastraTool<any, any, any, any, any, any>

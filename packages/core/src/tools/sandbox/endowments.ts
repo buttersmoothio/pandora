@@ -2,8 +2,8 @@
 import '../../ses-lockdown'
 
 import path from 'node:path'
+import type { ToolPermissions } from '@pandorakit/sdk/tools'
 import { getLogger } from '../../logger'
-import type { ToolPermissions } from '../types'
 
 /** Logger interface provided to plugins via console (compartment) or context (host). */
 export type PluginLogger = Pick<Console, 'log' | 'warn' | 'error'>

@@ -4,31 +4,7 @@ This document tracks features from the original design that have **not yet been 
 
 ---
 
-## 1. Plugin Architecture & SES Sandbox
-
-**Fully specced in [PLUGIN-SPEC.md](./PLUGIN-SPEC.md).** Covers sandboxed execution, unified plugin manifest, plugin store, and distribution model.
-
-### Summary
-
-- All plugins run in SES Compartments by default (browser-like JS, no Node.js builtins)
-- `@endo/compartment-mapper` loads plugin packages with one Compartment per npm package
-- `pandora.manifest.json` replaces per-type plugin descriptors — declares entry points, sandbox mode, permissions, config fields, store metadata
-- A single package can provide multiple capabilities (tools + agents + channels) with separate entry points and sandbox modes
-- Agent-written code always runs in Compartments with no opt-out
-- Plugins that need Node.js builtins (e.g., channel adapters using WebSocket) declare `sandbox: 'host'`
-- Plugin store: npm registry + curated API, UI-driven install, precompiled bundles (`endoZipBase64`) for future distribution
-
-### What's Needed
-
-- Implement `importLocation`-based plugin loading in `packages/core`
-- Manifest schema (Zod) + discovery (scan for `pandora.manifest.json`)
-- Migrate first-party plugins to manifest format
-- Hot reload support for store install flow
-- Store API + UI
-
----
-
-## 2. Scheduling System
+## 1. Scheduling System
 
 Agents should be able to run tasks on a schedule — daily summaries, periodic checks, etc.
 
@@ -92,7 +68,7 @@ app.post('/api/cron/:taskId', authMiddleware, async (c) => {
 
 ---
 
-## 3. Security Processors
+## 2. Security Processors
 
 AI-based input/output processing to guard against prompt injection, PII leakage, content moderation failures, and system prompt extraction.
 
@@ -153,9 +129,9 @@ security: {
 
 ---
 
-## 4. MCP Tool Support
+## 3. MCP Tool Support
 
-Tier 3 of the tool trust model — external tools via Model Context Protocol.
+External tools via Model Context Protocol.
 
 ### Design
 
@@ -167,18 +143,17 @@ const mcpTools = await new MCPClient({
 }).getTools()
 ```
 
-MCP tools are treated as untrusted: description validation, user approval for new servers, all communication logged.
+MCP tools are treated as untrusted: description validation, user approval for new servers, all communication logged. Tool annotations already support MCP-compatible metadata (`readOnlyHint`, `destructiveHint`, etc.).
 
 ### What's Needed
 
 - `@mastra/mcp` integration (check current Mastra support)
 - Config: MCP server list (name, command/URL, args)
 - UI: MCP server management in Tools page (add/remove servers, view available tools)
-- Tool annotations already support MCP-compatible metadata (`readOnlyHint`, `destructiveHint`, etc.)
 
 ---
 
-## 5. Tool Generation Flow
+## 4. Tool Generation Flow
 
 Users describe what they want in natural language; an LLM generates the tool; the SES Compartment sandboxes it.
 
@@ -220,27 +195,25 @@ async function(input) {
 - API endpoint for tool generation (accepts natural language, returns code + schema + permissions for review)
 - API endpoint for tool CRUD (create/enable/disable/delete generated tools)
 - UI: Tool creation wizard (describe -> review generated code + permissions -> approve)
-- Wire generated tools through `executeInCompartment()` — see Tier 2 (Agent-Written Code) in [PLUGIN-SPEC.md](./PLUGIN-SPEC.md)
+- Wire generated tools through `executeInCompartment()` (function exists in `packages/core/src/tools/sandbox/compartment.ts`, just needs to be called from the tool execution path)
 
 ---
 
-## 6. Working Memory
+## 5. Working Memory
 
 Per-resource persistent preferences and context. Preferences set via Telegram are available in web chat.
-
-### Design
 
 Mastra Memory supports `workingMemory: { enabled: true }` — structured data that persists across conversations for a given resource (user).
 
 ### What's Needed
 
+- Verify Mastra's current working memory API
 - Config schema: add `memory.workingMemory: { enabled: boolean }` (or similar)
 - Wire through in `packages/core/src/memory/index.ts` when creating the Memory instance
-- Verify Mastra's current working memory API
 
 ---
 
-## 7. Observational Memory
+## 6. Observational Memory
 
 Background compression of conversation history for 60-80% context reduction.
 
@@ -252,7 +225,7 @@ Background compression of conversation history for 60-80% context reduction.
 
 ---
 
-## 8. Dockerfile
+## 7. Dockerfile
 
 Docker containerization for self-hosted deployment.
 
@@ -265,7 +238,7 @@ Docker containerization for self-hosted deployment.
 
 ---
 
-## 9. Environment Status Page
+## 8. Environment Status Page
 
 A unified view of the deployment environment. Low priority — health endpoint + discovery endpoints already cover most of this per-plugin.
 

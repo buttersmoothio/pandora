@@ -1,6 +1,6 @@
 import type { ToolsInput } from '@mastra/core/agent'
+import type { Alert } from '@pandorakit/sdk'
 import { getLogger } from '../logger'
-import type { Alert } from '../plugin-types'
 
 /** Supported model-native tool capability keys. */
 export type ModelToolKey = 'search'

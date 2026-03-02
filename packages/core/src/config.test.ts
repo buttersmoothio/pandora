@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import type { Config } from './config'
 import { ConfigSchema, DEFAULTS, getConfig, resetConfig, updateConfig } from './config'
 import type { ConfigStore } from './storage/config-store'
-import { SQLConfigStore } from './storage/config-stores/sql'
+import { SQLConfigStore } from './storage/providers/sql'
 
 describe('Config', () => {
   let configStore: ConfigStore<Config>

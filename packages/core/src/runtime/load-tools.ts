@@ -1,8 +1,8 @@
+import type { Alert, PluginConfig } from '@pandorakit/sdk'
 import type { Config } from '../config'
 import { getLogger } from '../logger'
-import type { Alert } from '../plugin-types'
 import { bindTool, buildManifest } from '../tools/define'
-import type { PluginConfig, ToolRecord } from '../tools/types'
+import type { ToolRecord } from '../tools/types'
 import { validatePluginConfig } from './config-validate'
 import type { PluginRegistry, RegisteredPlugin } from './plugin-registry'
 

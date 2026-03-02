@@ -1,8 +1,8 @@
 import { createUIMessageStreamResponse, UI_MESSAGE_STREAM_HEADERS } from 'ai'
 import { Hono } from 'hono'
-import { isServerless } from '../env'
 import { getLogger } from '../logger'
 import type { Env } from './helpers'
+import { isServerless } from './helpers'
 
 const chatRoutes = new Hono<Env>()
 

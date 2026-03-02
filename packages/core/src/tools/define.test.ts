@@ -1,6 +1,6 @@
+import type { Tool } from '@pandorakit/sdk/tools'
 import { describe, expect, it } from 'vitest'
 import { bindTool, buildManifest } from './define'
-import type { Tool } from './types'
 import { DEFAULT_TOOL_TIMEOUT } from './types'
 
 const defaultEnv = {}
