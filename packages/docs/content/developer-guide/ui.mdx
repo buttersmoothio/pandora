@@ -2,7 +2,7 @@
 
 This guide walks through building a custom chat frontend against Pandora's streaming API. Pandora uses the [AI SDK](https://ai-sdk.dev) wire format, so you can use the official AI SDK client libraries or consume the stream manually with plain `fetch`.
 
-For the full endpoint reference (request/response shapes, status codes, all fields), see the [Chat API](/reference/chat) and [Thread API](/reference/threads) references.
+For the full endpoint reference (request/response shapes, status codes, all fields), see the [Chat API](/developer-guide/reference/chat) and [Thread API](/developer-guide/reference/threads) references.
 
 ## Prerequisites
 
@@ -99,7 +99,7 @@ async function attemptRefresh(): Promise<boolean> {
 }
 ```
 
-See the [Authentication API reference](/reference/auth) for the full endpoint details.
+See the [Authentication API reference](/developer-guide/reference/auth) for the full endpoint details.
 
 ## Sending Messages
 
@@ -359,7 +359,7 @@ function MessageParts({ message }: { message: UIMessage }) {
 }
 ```
 
-See the [Message Part Types reference](/reference/message-parts) for the full list of part types and their fields.
+See the [Message Part Types reference](/developer-guide/reference/message-parts) for the full list of part types and their fields.
 
 ### Loading Existing Threads
 

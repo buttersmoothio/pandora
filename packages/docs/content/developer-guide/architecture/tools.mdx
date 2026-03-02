@@ -1,0 +1,48 @@
+# Tools
+
+## Capability-Based Permissions
+
+Tools follow an Android-style permission model: every tool starts with zero authority and must declare exactly what it needs. There is no "admin" role or blanket access — a tool that needs network access declares which hostnames, a tool that needs time declares `time: true`.
+
+This design means a tool can never silently escalate its capabilities. The permission declaration is part of the plugin's manifest, visible to both the runtime and the UI before execution begins.
+
+## Execution Tiers
+
+Sandbox mode is determined by the `sandbox` field in the plugin manifest:
+
+**Compartment mode** (default) runs tools in an SES Compartment — a locked-down JavaScript environment with a blank global scope. Only capabilities declared in the manifest's `permissions` are injected as endowments:
+
+- `fetch` is restricted to declared hostnames (with SSRF protection blocking private/loopback ranges)
+- `env.get()` is scoped to declared environment variable names
+- `Date`, `Intl`, and `Math.random()` require explicit `time` and `random` permissions
+- `console` is prefixed with `[sandbox]`
+
+TypeScript is compiled to JavaScript via `ts-blank-space` (type erasure only), and the compartment-mapper resolves relative imports within the plugin's source tree.
+
+**Host mode** (`sandbox: "host"`) runs tools directly in the Node.js process with full runtime access. This is the escape hatch for plugins that need native addons, dynamic imports, or capabilities that can't be provided through compartment endowments. The UI shows a prominent indicator when a plugin runs in host mode. Permissions are declared for auditing and UI display but are not enforced at runtime.
+
+Channels and agents always run in host mode because they need closures, persistent connections, and full module system access.
+
+## Plugin Packages
+
+Tools live in separate packages (e.g. `@pandorakit/datetime`, `@pandorakit/tavily-search`) rather than inside core. This keeps core's dependency surface small and lets each tool package be tested, versioned, and tree-shaken independently.
+
+Plugins are discovered automatically — Pandora scans for `pandora.manifest.json` files in the packages directory at startup. No manual registration is needed.
+
+Tools are explicit opt-in: only enabled plugins have their tools loaded. The default configuration enables tool plugins so the experience is seamless out of the box, but users have full control over which plugins are active from the Plugins page.
+
+## Dynamic Tool Resolution
+
+The `resolveTools` named export enables dynamic tool resolution. Unlike the static `tools` array (which is registered at startup), `resolveTools` runs at load time and returns `ToolExport` objects based on environment variables and config. This is how the search plugins (e.g. `@pandorakit/tavily-search`, `@pandorakit/brave-search`) work: each checks whether its API key is available and returns the appropriate backend.
+
+Resolved tools go through the same binding pipeline as static tools — they get manifests, timeouts, Zod schema wrapping, and appear in the UI. All tools, whether static or dynamically resolved, are first-class citizens with full manifest support.
+
+## Model-Native Tools
+
+Some models have built-in tool support — OpenAI has `webSearch()`, Google has `googleSearch()`, Anthropic has `webSearch_20250305()`. These are provider-defined tools that don't go through `ToolExport` and have no Pandora manifest.
+
+Model-native tools are resolved in core via `resolveModelTools()`, not in plugins. Agents declare which model capabilities they need via `modelTools` in their manifest (e.g. `"modelTools": ["search"]`). Core maps these capability keys to the appropriate provider SDK tools based on the configured model.
+
+## Manifest Registry
+
+Every tool has a manifest that keeps Pandora-specific metadata (permissions, sandbox mode, annotations) separate from the underlying Mastra tool object. This lets the UI display permission badges, sandbox mode, and approval prompts without coupling to the tool execution layer.

@@ -2,7 +2,7 @@ import { Steps, FileTree } from 'nextra/components'
 
 # Build a Tool
 
-Tools are standalone npm packages that run in Node.js with full runtime access.
+Tool plugins are standalone packages that provide tools Pandora can use. Each plugin is automatically discovered via its `pandora.manifest.json` — no manual registration needed.
 
 <Steps>
 
@@ -11,13 +11,12 @@ Tools are standalone npm packages that run in Node.js with full runtime access.
 A tool package follows this structure:
 
 <FileTree>
-  <FileTree.Folder name="pandora-tools-weather" defaultOpen>
+  <FileTree.Folder name="weather" defaultOpen>
     <FileTree.File name="package.json" />
     <FileTree.File name="pandora.manifest.json" />
     <FileTree.Folder name="src" defaultOpen>
       <FileTree.File name="index.ts" />
       <FileTree.File name="weather.ts" />
-      <FileTree.File name="weather.test.ts" />
     </FileTree.Folder>
     <FileTree.File name="tsconfig.json" />
   </FileTree.Folder>
@@ -27,7 +26,7 @@ The `package.json` declares `@pandorakit/core` as a dev dependency (only type-on
 
 ```json
 {
-  "name": "pandora-tools-weather",
+  "name": "@pandorakit/weather",
   "type": "module",
   "exports": { ".": "./src/index.ts" },
   "devDependencies": {
@@ -35,6 +34,59 @@ The `package.json` declares `@pandorakit/core` as a dev dependency (only type-on
   }
 }
 ```
+
+### Write the manifest
+
+The `pandora.manifest.json` declares your plugin's identity, capabilities, and requirements:
+
+```json
+{
+  "manifestVersion": 1,
+  "id": "@pandorakit/weather",
+  "name": "Weather",
+  "description": "Get current weather for any city",
+  "author": "You",
+  "version": "0.1.0",
+  "license": "MIT",
+  "pandora": ">=0.0.1",
+  "provides": {
+    "tools": {
+      "entry": "./src/index.ts",
+      "sandbox": "compartment",
+      "permissions": {
+        "network": ["api.openweathermap.org"],
+        "env": ["OPENWEATHER_API_KEY"]
+      }
+    }
+  },
+  "envVars": [{ "name": "OPENWEATHER_API_KEY" }],
+  "configFields": [
+    {
+      "key": "units",
+      "label": "Units",
+      "type": "enum",
+      "description": "Temperature units",
+      "options": [
+        { "value": "metric", "label": "Metric" },
+        { "value": "imperial", "label": "Imperial" }
+      ]
+    }
+  ]
+}
+```
+
+Key manifest fields:
+
+| Field | Description |
+|---|---|
+| `manifestVersion` | Must be `1` |
+| `id` | Plugin identifier — matches the npm package name |
+| `pandora` | Semver range for core compatibility (e.g. `">=0.0.1"`) |
+| `provides.tools.entry` | Path to the entry point that exports the tools |
+| `provides.tools.sandbox` | `"compartment"` (default, sandboxed) or `"host"` (full access) |
+| `provides.tools.permissions` | Capabilities the tools need: `time`, `network`, `env`, `fs`, `random` |
+| `envVars` | Environment variables the plugin needs — shown in the UI with configured/missing status |
+| `configFields` | User-configurable settings beyond `enabled` — rendered as form fields in the UI |
 
 ### Define the tool
 
@@ -72,63 +124,28 @@ export const weatherTool: ToolExport = {
 
 - `ToolExport` is a plain object — no framework dependencies at runtime. Only type-only imports from `@pandorakit/core` (erased by the TypeScript compiler).
 - The `execute` function receives `{ env }` as its second argument, giving tools access to environment variables.
-- **`annotations`** are MCP-compatible hints that help the UI decide whether to auto-approve or prompt for confirmation. A tool marked `readOnlyHint: true` and `destructiveHint: false` can be auto-approved.
+- **`annotations`** are MCP-compatible hints that help the UI decide whether to auto-approve or prompt for confirmation.
 
-### Export the plugin descriptor
+### Export the tools array
 
-Each package default-exports a `ToolPlugin` descriptor with metadata and a `tools` array listing the tool definitions:
+The entry point (declared in the manifest's `provides.tools.entry`) exports a named `tools` array:
 
 ```ts
 // src/index.ts
-import type { ToolPlugin } from '@pandorakit/core/tools'
 import { weatherTool } from './weather'
 
-export default {
-  id: 'tools-weather',
-  name: 'Weather',
-  schemaVersion: 1,
-  envVars: [{ name: 'OPENWEATHER_API_KEY' }],
-  configFields: [
-    {
-      key: 'units',
-      label: 'Units',
-      type: 'enum',
-      description: 'Temperature units',
-      options: [
-        { value: 'metric', label: 'Metric (°C)' },
-        { value: 'imperial', label: 'Imperial (°F)' },
-        { value: 'standard', label: 'Standard (K)' },
-      ],
-    },
-  ],
-  tools: [weatherTool],
-} satisfies ToolPlugin
+export const tools = [weatherTool]
 ```
 
-- **`name`** — human-readable display name for the UI.
-- **`tools`** — array of `ToolExport` objects. Pandora wraps them into Mastra tools automatically when loading plugins.
-- **`envVars`** — environment variables the plugin needs, as `{ name, required? }` descriptors. Variables default to required; set `required: false` for optional ones. The settings UI shows whether they're configured.
-- **`configFields`** — describes user-configurable settings beyond `enabled`. Pandora validates input and renders fields in the settings UI from these descriptors.
-- If `configFields` includes required fields and the user hasn't configured them, the plugin is skipped. Plugins with only optional config fields load with defaults automatically.
-
-### Register it
-
-Install your package in the Pandora instance and register it in `plugins.ts`:
-
-```ts
-import weather from 'pandora-tools-weather'
-import { registerToolPlugin } from './tools'
-
-registerToolPlugin(weather)
-```
+Tools are registered with namespaced IDs: `pluginId:toolId` (e.g. `@pandorakit/weather:weather`).
 
 ### Enable it
 
-Once registered, users control your plugin in **Settings → Tools**:
+Pandora automatically discovers your plugin via its `pandora.manifest.json`. Users control it from the **Plugins** page:
 
 - Toggle the plugin on/off
 - Configure settings from your `configFields`
-- Optionally enable **Require Approval** to prompt before any of the plugin's tools run
+- Optionally enable **Require Approval** on individual tools
 
 A plugin with required `configFields` is skipped until the user configures them. Plugins with only optional config fields load with defaults automatically.
 
@@ -136,26 +153,27 @@ A plugin with required `configFields` is skipped until the user configures them.
 
 ## Dynamic Tool Resolution
 
-Some tools can't be defined statically — they depend on which API keys are available or user configuration. For these cases, `ToolPlugin` supports an async `resolveTools` hook that runs at load time and returns `ToolExport` objects dynamically.
+Some tools can't be defined statically — they depend on which API keys are available or user configuration. For these cases, your entry point can export an async `resolveTools` function that runs at load time and returns `ToolExport` objects dynamically.
 
-This is the mechanism behind the search plugins (e.g. `@pandorakit/tavily-search`, `@pandorakit/brave-search`): each checks whether its API key is available and returns the appropriate backend as a `ToolExport`.
+This is the mechanism behind the search plugins (e.g. `@pandorakit/tavily-search`, `@pandorakit/brave-search`): each checks whether its API key is available and returns the appropriate tool.
 
 ```ts
 // src/index.ts
+import type { ResolveToolsContext, ResolveToolsResult } from '@pandorakit/core/tools'
 import { resolveSearchTool } from './resolve'
 
-export const tools: [] = []
+export const tools = []
 
-export async function resolveTools({ pluginConfig, env }) {
-  const preferred = pluginConfig?.searchBackend as string | undefined
-  const result = resolveSearchTool({ preferred, env })
+export async function resolveTools(ctx: ResolveToolsContext): Promise<ResolveToolsResult> {
+  const preferred = ctx.pluginConfig?.searchBackend as string | undefined
+  const result = resolveSearchTool({ preferred, env: ctx.env })
   return { tools: result.tool ? [result.tool] : [], alerts: result.alerts }
 }
 ```
 
-A plugin can have both static `tools` and a `resolveTools` hook. All tools — static and dynamically resolved — are loaded when the plugin is active. Resolved tools go through `bindToolExport()` + `registerManifest()`, so they get manifests, timeouts, and Zod schema wrapping just like static tools.
+A plugin can have both a static `tools` array and a `resolveTools` function. All tools — static and dynamically resolved — are loaded when the plugin is active.
 
-The `resolveTools` hook receives a `ResolveToolsContext`:
+The `resolveTools` function receives a `ResolveToolsContext`:
 
 ```ts
 interface ResolveToolsContext {
@@ -178,7 +196,7 @@ interface ResolveToolsResult {
 `resolveTools` can return diagnostic alerts alongside tools:
 
 ```ts
-async resolveTools({ env }) {
+export async function resolveTools({ env }: ResolveToolsContext): Promise<ResolveToolsResult> {
   if (!env.MY_API_KEY) {
     return {
       tools: [],
@@ -192,7 +210,7 @@ async resolveTools({ env }) {
 }
 ```
 
-Alerts are stored at load time and surfaced in the settings UI and the `/api/tools` endpoint. Levels are `'info'` (informational) and `'warning'` (actionable).
+Alerts are stored at load time and surfaced in the Plugins page and the `/api/plugins` endpoint. Levels are `'info'` (informational) and `'warning'` (actionable).
 
 ## Reference
 
@@ -200,13 +218,10 @@ All types are exported from `@pandorakit/core/tools`:
 
 ```ts
 import type {
-  ConfigFieldDescriptor,
-  EnvVarDescriptor,
   ResolveToolsContext,
   ResolveToolsResult,
   ToolAnnotations,
   ToolExport,
-  ToolPlugin,
 } from '@pandorakit/core/tools'
 ```
 
@@ -216,7 +231,7 @@ The standard tool export interface. All plugins use this — no framework depend
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `id` | `string` | Yes | Unique tool identifier |
+| `id` | `string` | Yes | Unique tool identifier (within the plugin) |
 | `name` | `string` | Yes | Human-readable display name |
 | `description` | `string` | Yes | What the tool does (shown to the LLM) |
 | `parameters` | `Record<string, unknown>` | No | JSON Schema for input validation |
@@ -235,36 +250,25 @@ interface ToolAnnotations {
 }
 ```
 
-### `ToolPluginConfig`
-
-The validated user configuration passed to tool definitions:
-
-```ts
-interface ToolPluginConfig {
-  enabled: boolean
-  [key: string]: unknown // custom fields from configFields
-}
-```
-
-### `ToolPlugin`
-
-The descriptor your package default-exports:
-
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `id` | `string` | Yes | Plugin identifier, e.g. `'datetime'` |
-| `name` | `string` | Yes | Human-readable display name, e.g. `'Date & Time'` |
-| `schemaVersion` | `number` | Yes | Must be `1` |
-| `envVars` | `EnvVarDescriptor[]` | No | Environment variable descriptors |
-| `configFields` | `ConfigFieldDescriptor[]` | No | UI config field descriptors |
-| `tools` | `ToolExport[]` | Yes | Tool exports — plain objects with metadata and execute function |
-| `resolveTools` | `(ctx: ResolveToolsContext) => Promise<ResolveToolsResult>` | No | Async hook for dynamic tool resolution. Returns `ToolExport[]` and optional alerts. See [Dynamic Tool Resolution](#dynamic-tool-resolution). |
-
 ### `EnvVarDescriptor`
 
-Describes an environment variable a plugin depends on:
+Describes an environment variable a plugin depends on (declared in the manifest's `envVars`):
 
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `name` | `string` | Yes | Environment variable name |
 | `required` | `boolean` | No | Whether this variable is required. Defaults to `true` |
+
+### `ConfigFieldDescriptor`
+
+Describes a config field for UI rendering (declared in the manifest's `configFields`):
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `key` | `string` | Yes | Field key in config object |
+| `label` | `string` | Yes | Human-readable label |
+| `type` | `'text' \| 'number' \| 'password' \| 'enum'` | Yes | Input type. `'enum'` renders a dropdown. |
+| `required` | `boolean` | No | Whether this field is required |
+| `placeholder` | `string` | No | Placeholder text |
+| `description` | `string` | No | Help text shown below the input |
+| `options` | `{ value: string; label: string }[]` | No | Allowed values for `type: 'enum'` |

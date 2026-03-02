@@ -1,0 +1,31 @@
+# API Conventions
+
+Common patterns that apply to all Pandora API endpoints.
+
+## Authentication
+
+All `/api/*` routes require an `Authorization: Bearer <token>` header, except for the public auth endpoints (`/api/auth/setup`, `/api/auth/login`, `/api/auth/refresh`). See the [Authentication API](/developer-guide/reference/auth) for how to obtain tokens.
+
+## Error Format
+
+All error responses return JSON with an `error` field:
+
+```json
+{ "error": "description of what went wrong" }
+```
+
+Unhandled server errors include a `message` field:
+
+```json
+{ "error": "Internal Server Error", "message": "detailed error message" }
+```
+
+## Status Codes
+
+| Status | Meaning |
+|---|---|
+| `400` | Bad request — missing or invalid fields |
+| `401` | Unauthorized — missing or invalid token |
+| `403` | Forbidden — auth not set up yet |
+| `404` | Not found — resource does not exist |
+| `500` | Internal server error |

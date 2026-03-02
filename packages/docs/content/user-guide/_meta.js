@@ -1,11 +1,9 @@
 export default {
   auth: 'Authentication',
   configuration: 'Configuration',
+  models: 'Models',
   memory: 'Memory',
-  tools: 'Tools',
-  agents: 'Agents',
+  plugins: 'Plugins',
   ui: 'Chat UI',
-  channels: 'Channels',
-  storage: 'Storage',
   deployment: 'Deployment',
 }

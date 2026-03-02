@@ -1,0 +1,64 @@
+# Chat API
+
+Endpoints for sending messages and receiving streaming responses. See [API Conventions](/developer-guide/reference/conventions) for authentication and error format.
+
+## POST /api/chat
+
+Send a message and receive a streaming response.
+
+### Request
+
+```
+POST /api/chat
+Content-Type: application/json
+Authorization: Bearer <token>
+```
+
+```json
+{
+  "parts": [{ "type": "text", "text": "Hello" }],
+  "threadId": "abc123"
+}
+```
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `parts` | `ContentPart[]` | Yes | User message parts — see [request parts](/developer-guide/reference/message-parts#request-parts). At minimum one text part. |
+| `threadId` | `string` | No | Thread to continue. Omit to start a new conversation (server generates a UUID). |
+
+### Response
+
+**Status `200`** — Server-Sent Events (SSE) stream.
+
+**Headers:**
+
+| Header | Description |
+|---|---|
+| `Content-Type` | `text/event-stream` |
+| `X-Thread-Id` | The thread ID. Always present — read this when creating new threads. |
+
+The stream body is a [`UIMessageStream`](https://ai-sdk.dev/docs/ai-sdk-ui/reading-ui-message-streams) delivering [response parts](/developer-guide/reference/message-parts#response-parts) (text, tool calls, reasoning, citations, etc.). AI SDK client libraries can consume it directly.
+
+### Errors
+
+| Status | Error | Cause |
+|---|---|---|
+| `400` | `parts must be a non-empty array` | `parts` is missing, empty, or not an array |
+| `500` | `{error message}` | Server-side failure |
+
+## GET /api/chat/:threadId/stream
+
+Reconnect to an in-progress stream. This is the server-side half of the AI SDK [resumable streams](https://ai-sdk.dev/docs/ai-sdk-ui/resumable-streams) protocol.
+
+```
+GET /api/chat/:threadId/stream
+Authorization: Bearer <token>
+```
+
+| Status | Meaning |
+|---|---|
+| `200` | Active stream found — returns buffered SSE stream from current position |
+| `204` | No active stream (already finished, or serverless mode) |
+
+The server buffers each SSE stream in memory so clients can reconnect mid-stream. Buffers are cleaned up 60 seconds after the stream completes. In serverless mode (e.g. Cloudflare Workers), this endpoint always returns `204`.
+

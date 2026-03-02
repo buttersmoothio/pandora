@@ -498,7 +498,7 @@ export function PluginInfoDialog({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
       <DialogContent
-        className={`flex max-h-[85vh] flex-col gap-0 p-0 ${hasSidebar ? 'sm:max-w-2xl' : ''}`}
+        className={`flex max-h-[85vh] flex-col gap-0 p-0 ${hasSidebar ? 'sm:max-w-3xl' : 'sm:max-w-xl'}`}
         showCloseButton={false}
       >
         <DialogHeaderContent

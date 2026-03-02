@@ -2,7 +2,7 @@ import { Steps, FileTree, Callout } from 'nextra/components'
 
 # Build a Channel
 
-A channel connects Pandora to an external messaging platform. Each channel is a standalone npm package that default-exports a `ChannelPlugin` descriptor.
+A channel connects Pandora to an external messaging platform. Each channel is a standalone package with a `pandora.manifest.json` that declares its capabilities and a factory function that creates the adapter.
 
 This tutorial walks through building a hypothetical Discord channel to illustrate the full process.
 
@@ -11,8 +11,9 @@ This tutorial walks through building a hypothetical Discord channel to illustrat
 ### Set up the package
 
 <FileTree>
-  <FileTree.Folder name="pandora-channel-discord" defaultOpen>
+  <FileTree.Folder name="discord" defaultOpen>
     <FileTree.File name="package.json" />
+    <FileTree.File name="pandora.manifest.json" />
     <FileTree.Folder name="src" defaultOpen>
       <FileTree.File name="index.ts" />
       <FileTree.File name="adapter.ts" />
@@ -23,7 +24,7 @@ This tutorial walks through building a hypothetical Discord channel to illustrat
 
 ```json
 {
-  "name": "pandora-channel-discord",
+  "name": "@pandorakit/discord",
   "type": "module",
   "exports": { ".": "./src/index.ts" },
   "peerDependencies": {
@@ -34,6 +35,50 @@ This tutorial walks through building a hypothetical Discord channel to illustrat
   }
 }
 ```
+
+### Write the manifest
+
+The `pandora.manifest.json` declares the channel's identity, environment variables, and config fields:
+
+```json
+{
+  "manifestVersion": 1,
+  "id": "@pandorakit/discord",
+  "name": "Discord",
+  "description": "Chat with your assistant through Discord",
+  "author": "You",
+  "version": "0.1.0",
+  "license": "MIT",
+  "pandora": ">=0.0.1",
+  "provides": {
+    "channels": {
+      "entry": "./src/index.ts",
+      "sandbox": "host"
+    }
+  },
+  "envVars": [{ "name": "DISCORD_BOT_TOKEN" }],
+  "configFields": [
+    {
+      "key": "guildId",
+      "label": "Server ID",
+      "type": "text",
+      "required": true,
+      "placeholder": "123456789012345678",
+      "description": "The Discord server (guild) ID to listen in."
+    },
+    {
+      "key": "channelId",
+      "label": "Channel ID",
+      "type": "text",
+      "required": true,
+      "placeholder": "123456789012345678",
+      "description": "The text channel ID to respond in."
+    }
+  ]
+}
+```
+
+Channel plugins typically use `"sandbox": "host"` because they need native dependencies (WebSocket connections, platform SDKs) that can't run in a sandboxed compartment.
 
 ### Create the adapter
 
@@ -100,59 +145,41 @@ export function createDiscordAdapter(
 }
 ```
 
-### Export the plugin descriptor
+### Export the factory
 
-The entry point exports a `ChannelPlugin` — metadata about your channel plus a factory function:
+The entry point (declared in the manifest's `provides.channels.entry`) exports a named `factory` function:
 
 ```ts
 // src/index.ts
-import type { ChannelPlugin } from '@pandorakit/core/channels'
+import type { ChannelFactory } from '@pandorakit/core/channels'
 import { createDiscordAdapter } from './adapter'
 
-export default {
-  id: 'channel-discord',
-  name: 'Discord',
-  schemaVersion: 1,
-  envVars: [{ name: 'DISCORD_BOT_TOKEN' }],
-  configFields: [
-    {
-      key: 'guildId',
-      label: 'Server ID',
-      type: 'text',
-      required: true,
-      placeholder: '123456789012345678',
-      description: 'The Discord server (guild) ID to listen in.',
-    },
-    {
-      key: 'channelId',
-      label: 'Channel ID',
-      type: 'text',
-      required: true,
-      placeholder: '123456789012345678',
-      description: 'The text channel ID to respond in.',
-    },
-  ],
-  factory: (env, config) => {
-    const token = env.DISCORD_BOT_TOKEN
-    if (!token) return null
-    return createDiscordAdapter(
-      token,
-      config.guildId as string,
-      config.channelId as string,
-    )
-  },
-} satisfies ChannelPlugin
+export const factory: ChannelFactory = (env, config) => {
+  const token = env.DISCORD_BOT_TOKEN
+  if (!token) return null
+  return createDiscordAdapter(
+    token,
+    config.guildId as string,
+    config.channelId as string,
+  )
+}
 ```
 
-Key fields:
+The factory receives env vars and validated config. Return `null` if required env vars are missing.
 
-- **`id`** — must be `channel-{name}`, matching your package name
-- **`schemaVersion`** — must be `1`
-- **`envVars`** — env vars the factory needs, as `{ name, required? }` descriptors. Variables default to required; set `required: false` for optional ones. The settings UI shows whether they're configured.
-- **`configFields`** — describes settings inputs beyond the `enabled` toggle. Pandora validates input from these descriptors.
-- **`factory`** — receives env vars and validated config. Return `null` if required env vars are missing.
+### Test it
 
-### Using the runtime
+Set the environment variable and start Pandora:
+
+```bash
+DISCORD_BOT_TOKEN=your-token-here bun run dev
+```
+
+Then enable the channel on the **Plugins** page in the web UI.
+
+</Steps>
+
+## Using the runtime
 
 The `ChannelRuntime` object passed to your adapter provides everything you need:
 
@@ -167,29 +194,6 @@ The `ChannelRuntime` object passed to your adapter provides everything you need:
 <Callout type="info">
   Use `generate()` when the platform expects a single reply. Use `stream()` when you can edit messages in real-time (e.g. updating a Discord message as tokens arrive).
 </Callout>
-
-### Register the plugin
-
-Install your package in the Pandora instance and register it in `plugins.ts`:
-
-```ts
-import discord from 'pandora-channel-discord'
-import { registerChannelPlugin } from './channels'
-
-registerChannelPlugin(discord)
-```
-
-### Test it
-
-Set the environment variable and start Pandora:
-
-```bash
-DISCORD_BOT_TOKEN=your-token-here bun run dev
-```
-
-Then enable the channel in **Settings → Channels** in the web UI.
-
-</Steps>
 
 ## Webhook Mode
 
@@ -254,30 +258,15 @@ All types are exported from `@pandorakit/core/channels`:
 
 ```ts
 import type {
-  ChannelPlugin,
   ChannelAdapter,
   ChannelFactory,
   ChannelWebhook,
   ChannelRealtime,
   ChannelRuntime,
-  ConfigFieldDescriptor,
   GenerateResult,
   StreamResult,
 } from '@pandorakit/core/channels'
 ```
-
-### `ChannelPlugin`
-
-The descriptor your package default-exports:
-
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `id` | `string` | Yes | Plugin identifier, e.g. `'channel-telegram'` |
-| `name` | `string` | Yes | Human-readable display name, e.g. `'Telegram'` |
-| `schemaVersion` | `number` | Yes | Must be `1` |
-| `envVars` | `EnvVarDescriptor[]` | No | Environment variable descriptors |
-| `configFields` | `ConfigFieldDescriptor[]` | No | UI field descriptors beyond the `enabled` toggle |
-| `factory` | `ChannelFactory` | Yes | Creates a channel adapter from env vars and config |
 
 ### `ChannelFactory`
 
@@ -342,20 +331,6 @@ The object passed to your `start()`, `handle()`, and `stop()` methods:
 | `newThread` | `(channelId: string, externalId: string) => Promise<string>` | Start a fresh thread, returns new threadId |
 | `env` | `Record<string, string \| undefined>` | Environment variables |
 
-### `ConfigFieldDescriptor`
-
-Describes a config field for UI rendering:
-
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `key` | `string` | Yes | Field key in config object |
-| `label` | `string` | Yes | Human-readable label |
-| `type` | `'text' \| 'number' \| 'password' \| 'enum'` | Yes | Input type hint. `'enum'` renders a dropdown select. |
-| `required` | `boolean` | No | Whether this field is required |
-| `placeholder` | `string` | No | Placeholder text |
-| `description` | `string` | No | Help text shown below the input |
-| `options` | `{ value: string; label: string }[]` | No | Allowed values for `type: 'enum'` |
-
 ### `GenerateResult`
 
 Non-streaming response — all fields resolved:
@@ -397,3 +372,16 @@ Streaming response — live text stream plus promise-based fields:
 | `reasoningText` | `Promise<string \| undefined>` | Reasoning text when complete |
 | `usage` | `Promise<LanguageModelUsage>` | Usage when complete |
 
+### `ConfigFieldDescriptor`
+
+Describes a config field for UI rendering (declared in the manifest's `configFields`):
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `key` | `string` | Yes | Field key in config object |
+| `label` | `string` | Yes | Human-readable label |
+| `type` | `'text' \| 'number' \| 'password' \| 'enum'` | Yes | Input type hint. `'enum'` renders a dropdown select. |
+| `required` | `boolean` | No | Whether this field is required |
+| `placeholder` | `string` | No | Placeholder text |
+| `description` | `string` | No | Help text shown below the input |
+| `options` | `{ value: string; label: string }[]` | No | Allowed values for `type: 'enum'` |

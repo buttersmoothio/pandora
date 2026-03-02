@@ -20,13 +20,23 @@ Core variables that apply to all deployments:
 
 | Variable | Default | Description |
 |---|---|---|
-| `STORAGE_PROVIDER` | `storage-libsql` | Which storage backend to use (e.g. `storage-postgres`, `storage-mongodb`) |
+| `DATABASE_URL` | `file:data/pandora.db` | SQLite / LibSQL connection URL |
+| `DATABASE_AUTH_TOKEN` | — | Auth token for remote Turso databases |
 | `FRONTEND_URL` | — | URL of your UI (always included in CORS origins) |
 | `CORS_ORIGINS` | `http://localhost:3000` | Comma-separated allowed origins, or `*` for all |
 | `LOG_LEVEL` | `debug` | Log verbosity: `debug`, `info`, `warn`, or `error` |
 | `PORT` | `4111` | HTTP server port |
 
-Each storage provider has its own variables (e.g. `DATABASE_URL`, `MONGODB_URI`). See the individual [storage provider pages](/user-guide/storage) for details.
+## Database
+
+Pandora uses SQLite, storing everything in a local file at `data/pandora.db`. No setup needed.
+
+To use a hosted [Turso](https://turso.tech) database instead:
+
+```bash
+DATABASE_URL=libsql://your-db-name-org.turso.io
+DATABASE_AUTH_TOKEN=your-auth-token
+```
 
 ## CORS
 

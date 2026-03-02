@@ -1,8 +1,4 @@
----
-asIndexPage: true
----
-
-import { Cards, Callout } from 'nextra/components'
+import { Callout } from 'nextra/components'
 
 # Memory
 
@@ -20,26 +16,3 @@ Open the **Config** page and scroll to the **Memory** section:
 </Callout>
 
 That's it. No extra setup is needed — memory works with the default SQLite local database.
-
-## Using a Different Vector Database
-
-By default, memory stores vectors in the same SQLite database as everything else. If you want to use a dedicated vector database instead, set `VECTOR_PROVIDER` and install the matching package — same pattern as [switching storage providers](/user-guide/storage).
-
-```bash
-# .env
-VECTOR_PROVIDER=vector-qdrant
-QDRANT_URL=http://localhost:6333
-QDRANT_API_KEY=secret
-```
-
-```bash
-bun add pandora-vector-qdrant
-```
-
-Restart the server after switching.
-
-## Providers
-
-<Cards num={2}>
-  <Cards.Card title="SQLite" href="/user-guide/memory/libsql" arrow />
-</Cards>

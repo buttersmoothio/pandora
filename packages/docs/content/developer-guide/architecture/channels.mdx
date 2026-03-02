@@ -1,0 +1,32 @@
+# Channels
+
+Channels connect Pandora to external messaging platforms (Telegram, Discord, Slack, etc.). This page covers the design decisions behind the channel system.
+
+## Plugin Model
+
+Each channel is a standalone npm package with its own dependencies. A Telegram channel depends on grammY, a Discord channel would depend on discord.js — none of these are bundled with core. This keeps the core package small and avoids pulling in SDKs for platforms the user doesn't need.
+
+## Dual Modes: Webhook vs Realtime
+
+A channel adapter can implement one or both modes:
+
+- **Webhook** — the platform sends HTTP requests to Pandora at `/wh/:channel`. Good for platforms with native webhook support (Telegram bot API webhook mode, Slack Events API). The adapter receives a `Request` and returns a `Response`.
+- **Realtime** — Pandora opens a persistent connection to the platform (long-polling, WebSocket, etc.). Good for platforms where the bot initiates the connection (Telegram long-polling, Discord gateway). Core calls `start()` on server boot and `stop()` on shutdown.
+
+Both modes exist because platforms differ in how they deliver events. Some offer both (Telegram supports webhooks and long-polling), so the adapter author picks whichever makes sense for their deployment model.
+
+## Lazy Loading
+
+Channel adapters are instantiated lazily — the factory runs only when the plugin is discovered, its env vars are present, and its config is valid. If the bot token is missing or the channel is disabled in config, the factory returns `null` and the adapter is skipped entirely. This means unused channels cost nothing at runtime.
+
+## Webhook Route Placement
+
+The webhook route (`/wh/:channel`) is mounted **before** the auth middleware. External platforms (Telegram servers, Slack, etc.) can't authenticate with Pandora's bearer tokens. Instead, each adapter implements its own `verify()` method to validate request signatures using platform-specific secrets (e.g. Telegram's secret token header). This runs before `handle()` to reject forged requests early.
+
+## Thread Abstraction
+
+Channels map external conversations to Pandora threads via `resolveThread(channelId, externalId)`. The `externalId` is whatever the platform uses to identify a conversation (Telegram chat ID, Discord channel ID, etc.). `resolveThread()` returns an existing thread or creates a new one, so the first message in a conversation automatically starts a thread. Users can also start fresh with `newThread()`, which maps to bot commands like `/new`.
+
+## Manifest Versioning
+
+Each plugin manifest declares a `manifestVersion` number. Core checks this against its expected version and rejects mismatched plugins with a clear error. This lets core evolve the plugin contract (add required fields, change the runtime API) without silent breakage from outdated packages.

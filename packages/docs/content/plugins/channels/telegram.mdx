@@ -1,0 +1,57 @@
+import { Steps, Callout } from 'nextra/components'
+
+# Telegram
+
+Connect Pandora to Telegram via a personal bot that responds only to you.
+
+<Steps>
+
+### Create a bot
+
+Open [BotFather](https://t.me/BotFather) in Telegram and run `/newbot`. Follow the prompts to choose a name and username. BotFather will give you a **bot token** — a string like `123456789:ABCdef...`.
+
+### Get your user ID
+
+Send a message to [@userinfobot](https://t.me/userinfobot). It will reply with your numeric **user ID** (e.g. `123456789`). We use this to make sure your bot will only respond to you.
+
+### Set the environment variable
+
+Add `TELEGRAM_BOT_TOKEN` to your environment:
+
+```bash
+TELEGRAM_BOT_TOKEN=123456789:ABCdefGHIjklMNOpqrSTUvwxYZ
+```
+
+### Enable in the Plugins page
+
+Open Pandora's web UI, go to **Plugins**, find **Telegram**. Enter your **Owner ID** from step 2, and toggle on to start the channel.
+
+</Steps>
+
+## Bot Commands
+
+| Command | Description |
+|---|---|
+| `/start` | Start the bot and begin a new conversation |
+| `/new` | Start a fresh conversation thread |
+
+<Callout type="warning">
+  **Owner-only access** — The Telegram bot only responds to the Owner ID configured in settings. Messages from other users are rejected with "Sorry, this bot is private."
+</Callout>
+
+## Configuration
+
+| Variable | Required | Description |
+|---|---|---|
+| `TELEGRAM_BOT_TOKEN` | Yes | Bot token from BotFather |
+
+| Setting | Required | Description |
+|---|---|---|
+| Owner ID | Yes | Your Telegram user ID. Only this user can interact with the bot. |
+
+## Troubleshooting
+
+- **Bot doesn't respond** — Check that `TELEGRAM_BOT_TOKEN` is set and Pandora is running. The token must match the bot you created with BotFather.
+- **"Sorry, this bot is private"** — You're sending from a different Telegram account than the Owner ID. Verify your user ID with [@userinfobot](https://t.me/userinfobot).
+- **Plugin not showing** — Restart Pandora after setting the environment variable. The plugin only appears when the token is present.
+- **Messages cut off** — Telegram has a 4096-character limit per message. Pandora automatically splits long responses into multiple messages.

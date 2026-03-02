@@ -36,7 +36,7 @@ async function resolveAgentModelTools(
   config: Config,
   pluginConfig: AgentPluginConfig | null,
 ): Promise<{ tools: ToolRecord; alerts: Alert[] }> {
-  if (!agentDef.modelTools?.length || config.nativeModelTools === false) {
+  if (!agentDef.modelTools?.length) {
     return { tools: {}, alerts: [] }
   }
   const agentCfg = getAgentConfig(pluginConfig, agentDef.id)

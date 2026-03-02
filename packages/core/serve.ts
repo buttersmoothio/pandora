@@ -10,4 +10,5 @@ console.log(`🚀 Pandora server starting on http://localhost:${port}`)
 export default {
   port,
   fetch: app.fetch,
+  idleTimeout: 255,
 }

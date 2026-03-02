@@ -1,0 +1,60 @@
+import { Callout } from 'nextra/components'
+
+# Models
+
+Pandora supports over 60 LLM providers including OpenAI, Anthropic, Google, Mistral, Groq, DeepSeek, and many more.
+
+## Choosing a Model
+
+Open the **Config** page and scroll to **Models**:
+
+1. Pick a **Provider** from the dropdown (configured providers sort to the top)
+2. Pick a **Model** from the provider's model list
+3. Click **Save**
+
+If the provider isn't configured yet, the UI shows the environment variable you need to set and links to the provider's documentation for getting an API key.
+
+## Common Providers
+
+| Provider | Environment Variable |
+|---|---|
+| Anthropic | `ANTHROPIC_API_KEY` |
+| OpenAI | `OPENAI_API_KEY` |
+| Google | `GOOGLE_GENERATIVE_AI_API_KEY` |
+| Mistral | `MISTRAL_API_KEY` |
+| Groq | `GROQ_API_KEY` |
+| DeepSeek | `DEEPSEEK_API_KEY` |
+| Perplexity | `PERPLEXITY_API_KEY` |
+| xAI | `XAI_API_KEY` |
+
+Set the environment variable and restart Pandora. The provider will show as configured on the Config page.
+
+<Callout type="info">
+  The full provider list is available in the Config page UI — pick any provider to see its required environment variables.
+</Callout>
+
+## Temperature and Max Tokens
+
+You can optionally adjust these on the Config page alongside the model selection:
+
+- **Temperature** (0–2) — controls randomness. Lower values give more focused, deterministic responses; higher values give more creative, varied output.
+- **Max Tokens** — limits the maximum length of generated responses. Leave blank to use the model's default.
+
+## Built-in Search
+
+Some providers include built-in web search that Pandora can use automatically:
+
+| Provider | Search Capability |
+|---|---|
+| OpenAI | Web Search |
+| Anthropic | Web Search |
+| Google | Google Search |
+| Perplexity | Native search (built into all responses) |
+
+When using one of these providers, agents like the [Research Agent](/plugins/agents/research) get search out of the box — no additional API keys or search plugins needed.
+
+## Agent Model Overrides
+
+By default, all agents use the model configured on the Config page. To override this per-agent, open the plugin's settings dialog on the **Plugins** page and toggle **Custom model** for any agent to assign it a different provider and model.
+
+This is useful when you want the main model to be fast and cheap but a specialist agent (like research) on a more capable one.
