@@ -1,4 +1,5 @@
 {
+  "$schema": "https://pandorakit.com/schemas/manifest-v1.json",
   "manifestVersion": 1,
   "id": "@pandorakit/research-agent",
   "name": "Research",

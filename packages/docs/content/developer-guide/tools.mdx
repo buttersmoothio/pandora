@@ -22,7 +22,7 @@ A tool package follows this structure:
   </FileTree.Folder>
 </FileTree>
 
-The `package.json` declares `@pandorakit/core` as a dev dependency (only type-only imports are used at runtime):
+The `package.json` declares `@pandorakit/sdk` as a dev dependency (only type-only imports are used at runtime):
 
 ```json
 {
@@ -30,7 +30,7 @@ The `package.json` declares `@pandorakit/core` as a dev dependency (only type-on
   "type": "module",
   "exports": { ".": "./src/index.ts" },
   "devDependencies": {
-    "@pandorakit/core": "*"
+    "@pandorakit/sdk": "*"
   }
 }
 ```
@@ -90,13 +90,13 @@ Key manifest fields:
 
 ### Define the tool
 
-Export a `ToolExport` object — a plain object with metadata, JSON Schema parameters, and an `execute` function:
+Export a `Tool` object — a plain object with metadata, JSON Schema parameters, and an `execute` function:
 
 ```ts
 // src/weather.ts
-import type { ToolExport } from '@pandorakit/core/tools'
+import type { Tool } from '@pandorakit/sdk/tools'
 
-export const weatherTool: ToolExport = {
+export const weatherTool: Tool = {
   id: 'weather',
   name: 'Weather',
   description: 'Get current weather for a city',
@@ -122,7 +122,7 @@ export const weatherTool: ToolExport = {
 }
 ```
 
-- `ToolExport` is a plain object — no framework dependencies at runtime. Only type-only imports from `@pandorakit/core` (erased by the TypeScript compiler).
+- `Tool` is a plain object — no framework dependencies at runtime. Only type-only imports from `@pandorakit/sdk` (erased by the TypeScript compiler).
 - The `execute` function receives `{ env }` as its second argument, giving tools access to environment variables.
 - **`annotations`** are MCP-compatible hints that help the UI decide whether to auto-approve or prompt for confirmation.
 
@@ -153,13 +153,13 @@ A plugin with required `configFields` is skipped until the user configures them.
 
 ## Dynamic Tool Resolution
 
-Some tools can't be defined statically — they depend on which API keys are available or user configuration. For these cases, your entry point can export an async `resolveTools` function that runs at load time and returns `ToolExport` objects dynamically.
+Some tools can't be defined statically — they depend on which API keys are available or user configuration. For these cases, your entry point can export an async `resolveTools` function that runs at load time and returns `Tool` objects dynamically.
 
 This is the mechanism behind the search plugins (e.g. `@pandorakit/tavily-search`, `@pandorakit/brave-search`): each checks whether its API key is available and returns the appropriate tool.
 
 ```ts
 // src/index.ts
-import type { ResolveToolsContext, ResolveToolsResult } from '@pandorakit/core/tools'
+import type { ResolveToolsContext, ResolveToolsResult } from '@pandorakit/sdk/tools'
 import { resolveSearchTool } from './resolve'
 
 export const tools = []
@@ -182,11 +182,11 @@ interface ResolveToolsContext {
 }
 ```
 
-Return a `ResolveToolsResult` — an object with `tools` (array of `ToolExport`) and optional `alerts`:
+Return a `ResolveToolsResult` — an object with `tools` (array of `Tool`) and optional `alerts`:
 
 ```ts
 interface ResolveToolsResult {
-  tools: ToolExport[]
+  tools: Tool[]
   alerts?: Alert[]
 }
 ```
@@ -204,7 +204,7 @@ export async function resolveTools({ env }: ResolveToolsContext): Promise<Resolv
     }
   }
   return {
-    tools: [myToolExport],
+    tools: [myTool],
     alerts: [{ level: 'info', message: 'Using MyService' }],
   }
 }
@@ -214,18 +214,18 @@ Alerts are stored at load time and surfaced in the Plugins page and the `/api/pl
 
 ## Reference
 
-All types are exported from `@pandorakit/core/tools`:
+All types are exported from `@pandorakit/sdk/tools`:
 
 ```ts
 import type {
   ResolveToolsContext,
   ResolveToolsResult,
   ToolAnnotations,
-  ToolExport,
-} from '@pandorakit/core/tools'
+  Tool,
+} from '@pandorakit/sdk/tools'
 ```
 
-### `ToolExport`
+### `Tool`
 
 The standard tool export interface. All plugins use this — no framework dependencies required.
 

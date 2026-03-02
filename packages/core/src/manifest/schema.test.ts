@@ -1,4 +1,7 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { z } from 'zod'
 import { normalizeProvidesEntries, pluginManifestSchema } from './schema'
 
 describe('pluginManifestSchema', () => {
@@ -19,7 +22,7 @@ describe('pluginManifestSchema', () => {
 
   it('validates a full manifest', () => {
     const full = {
-      $schema: 'https://pandora.dev/schemas/manifest-v1.json',
+      $schema: 'https://pandorakit.com/schemas/manifest-v1.json',
       manifestVersion: 1,
       id: 'test-plugin',
       name: 'Test Plugin',
@@ -123,6 +126,23 @@ describe('pluginManifestSchema', () => {
     }
     const result = pluginManifestSchema.safeParse(manifest)
     expect(result.success).toBe(false)
+  })
+})
+
+describe('JSON Schema sync', () => {
+  it('committed JSON Schema matches Zod schema', () => {
+    const raw = z.toJSONSchema(pluginManifestSchema, { target: 'draft-2020-12' })
+    const generated = Object.fromEntries(
+      Object.entries(raw).filter(([k]) => !k.startsWith('~') && k !== '$schema'),
+    )
+
+    const committedPath = resolve(__dirname, '../../../sdk/schemas/pandora.manifest.schema.json')
+    const committed = JSON.parse(readFileSync(committedPath, 'utf-8'))
+
+    // Strip metadata fields that are added by the generation script
+    const { $schema: _s, $id: _id, title: _t, description: _d, ...committedRest } = committed
+
+    expect(committedRest).toEqual(generated)
   })
 })
 

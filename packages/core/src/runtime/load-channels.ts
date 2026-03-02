@@ -1,4 +1,4 @@
-import type { ChannelAdapter } from '../channels/types'
+import type { Channel } from '../channels/types'
 import type { Config } from '../config'
 import { getLogger } from '../logger'
 import { validatePluginConfig } from './config-validate'
@@ -8,9 +8,9 @@ export async function loadChannels(
   registry: PluginRegistry,
   config: Config,
   env: Record<string, string | undefined>,
-): Promise<Map<string, ChannelAdapter>> {
+): Promise<Map<string, Channel>> {
   const log = getLogger()
-  const channels = new Map<string, ChannelAdapter>()
+  const channels = new Map<string, Channel>()
 
   for (const [, plugin] of registry.plugins) {
     if (!plugin.channels) continue

@@ -1,5 +1,5 @@
 import type { z } from 'zod'
-import type { AgentDefinition } from '../agents/define'
+import type { Agent } from '../agents/define'
 import type { AgentManifest } from '../agents/types'
 import type { ChannelFactory } from '../channels/types'
 import type {
@@ -8,7 +8,7 @@ import type {
   ResolveToolsContext,
   ResolveToolsResult,
 } from '../plugin-types'
-import type { SandboxMode, ToolExport, ToolManifest, ToolPermissions } from '../tools/types'
+import type { SandboxMode, Tool, ToolManifest, ToolPermissions } from '../tools/types'
 
 export interface RegisteredPlugin {
   id: string
@@ -25,7 +25,7 @@ export interface RegisteredPlugin {
   schema?: z.ZodObject
 
   tools?: {
-    entries: ToolExport[]
+    entries: Tool[]
     resolveTools?: (ctx: ResolveToolsContext) => Promise<ResolveToolsResult>
     manifests: Map<string, ToolManifest>
     sandbox?: SandboxMode
@@ -33,7 +33,7 @@ export interface RegisteredPlugin {
     requireApproval?: boolean
   }
   agents?: {
-    definitions: AgentDefinition[]
+    definitions: Agent[]
     manifests: Map<string, AgentManifest>
   }
   channels?: {

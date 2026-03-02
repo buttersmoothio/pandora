@@ -21,7 +21,7 @@ An agent package follows this structure:
   </FileTree.Folder>
 </FileTree>
 
-The `package.json` declares `@pandorakit/core` as a dev dependency (only type-only imports, if any, are used at runtime):
+The `package.json` declares `@pandorakit/sdk` as a dev dependency (only type-only imports, if any, are used at runtime):
 
 ```json
 {
@@ -29,7 +29,7 @@ The `package.json` declares `@pandorakit/core` as a dev dependency (only type-on
   "type": "module",
   "exports": { ".": "./src/research.ts" },
   "devDependencies": {
-    "@pandorakit/core": "*"
+    "@pandorakit/sdk": "*"
   }
 }
 ```
@@ -96,7 +96,7 @@ When answering:
 }
 ```
 
-No imports from `@pandorakit/core` needed. Agent entry points are pure data — the system reads identity and instructions from the exported object.
+No imports from `@pandorakit/sdk` needed. Agent entry points are pure data — the system reads identity and instructions from the exported object.
 
 ### Enable it
 
@@ -115,7 +115,7 @@ With zero agents registered, Pandora handles all requests directly — behavior 
 
 ## Scoped tools (optional)
 
-Agents can have their own tools that are scoped to them (not added to the global tool list). Define them as `ToolExport` objects and include them in the agent's `tools` array:
+Agents can have their own tools that are scoped to them (not added to the global tool list). Define them as `Tool` objects and include them in the agent's `tools` array:
 
 ```ts
 // src/my-agent.ts
@@ -146,13 +146,13 @@ export const agent = {
 
 ## Reference
 
-All types are exported from `@pandorakit/core/agents`:
+All types are exported from `@pandorakit/sdk/agents`:
 
 ```ts
-import type { AgentDefinition } from '@pandorakit/core/agents'
+import type { Agent } from '@pandorakit/sdk/agents'
 ```
 
-### `AgentDefinition`
+### `Agent`
 
 | Field | Type | Required | Description |
 |---|---|---|---|
@@ -160,6 +160,6 @@ import type { AgentDefinition } from '@pandorakit/core/agents'
 | `name` | `string` | Yes | Human-readable display name |
 | `description` | `string` | Yes | What the agent does (used for routing decisions) |
 | `instructions` | `string` | Yes | System instructions for the agent |
-| `tools` | `ToolExport[]` | No | Static scoped tools available to this agent |
+| `tools` | `Tool[]` | No | Static scoped tools available to this agent |
 
 Tool dependencies (`useTools`, `modelTools`) are declared in the manifest `provides.agents` entries, not in the agent code.

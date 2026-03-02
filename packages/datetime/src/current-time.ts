@@ -1,4 +1,4 @@
-import type { ToolExport } from '@pandorakit/core/tools'
+import type { Tool } from '@pandorakit/sdk/tools'
 
 interface TimeInput {
   timezone?: string
@@ -10,7 +10,7 @@ interface TimeResult {
   timezone: string
 }
 
-export const currentTime: ToolExport<TimeInput, TimeResult> = {
+export const currentTime: Tool<TimeInput, TimeResult> = {
   id: 'current-time',
   name: 'Current Time',
   description: 'Get the current date and time in ISO 8601 format',

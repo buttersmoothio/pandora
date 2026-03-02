@@ -12,8 +12,8 @@ const baseManifest: PluginManifest = {
 }
 
 describe('adaptManifest', () => {
-  it('adapts a tools entry with ToolExports', () => {
-    const toolExport = {
+  it('adapts a tools entry with Tools', () => {
+    const toolDef = {
       id: 'greet',
       name: 'Greet',
       description: 'Greet someone',
@@ -24,19 +24,19 @@ describe('adaptManifest', () => {
       {
         key: 'tools',
         entry: { entry: './src/index.ts', sandbox: 'compartment' },
-        namespace: { tools: [toolExport], resolveTools: async () => ({ tools: [] }) },
+        namespace: { tools: [toolDef], resolveTools: async () => ({ tools: [] }) },
       },
     ]
 
     const result = adaptManifest(baseManifest, entries)
     expect(result.tools).toBeDefined()
     expect(result.tools?.entries).toHaveLength(1)
-    expect(result.tools?.entries[0]).toBe(toolExport)
+    expect(result.tools?.entries[0]).toBe(toolDef)
     expect(result.tools?.resolveTools).toBeTypeOf('function')
   })
 
   it('stamps tool exports with sandbox and permissions from provides entry', () => {
-    const toolExport = {
+    const toolDef = {
       id: 'search',
       name: 'Search',
       description: 'Search the web',
@@ -47,7 +47,7 @@ describe('adaptManifest', () => {
       {
         key: 'tools',
         entry: { entry: './src/index.ts', sandbox: 'host', permissions },
-        namespace: { tools: [toolExport] },
+        namespace: { tools: [toolDef] },
       },
     ]
 
@@ -93,7 +93,7 @@ describe('adaptManifest', () => {
     expect(result.agents?.manifests.get('agent-b')).toBeDefined()
   })
 
-  it('stamps useTools and modelTools from provides entry onto AgentDefinition', () => {
+  it('stamps useTools and modelTools from provides entry onto Agent', () => {
     const entries: LoadedEntry[] = [
       {
         key: 'agents',
@@ -238,7 +238,7 @@ describe('adaptManifest', () => {
   })
 
   it('builds tool manifests map from entries', () => {
-    const toolExport = {
+    const toolDef = {
       id: 'greet',
       name: 'Greet',
       description: 'Greet someone',
@@ -248,7 +248,7 @@ describe('adaptManifest', () => {
       {
         key: 'tools',
         entry: { entry: './src/index.ts' },
-        namespace: { tools: [toolExport] },
+        namespace: { tools: [toolDef] },
       },
     ]
 

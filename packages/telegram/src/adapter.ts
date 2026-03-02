@@ -1,5 +1,4 @@
-import type { ChannelAdapter, ChannelRealtime, GenerateResult } from '@pandorakit/core/channels'
-import { getLogger } from '@pandorakit/core/logger'
+import type { Channel, ChannelRealtime, GenerateResult } from '@pandorakit/sdk/channels'
 import type { Context } from 'grammy'
 import { Bot, GrammyError, HttpError, InlineKeyboard } from 'grammy'
 import { markdownToHtml } from './format'
@@ -77,7 +76,7 @@ function sendResult(
   return Promise.resolve()
 }
 
-export function createTelegramAdapter(token: string, ownerId: string): ChannelAdapter {
+export function createTelegramAdapter(token: string, ownerId: string): Channel {
   let bot: Bot | null = null
 
   // Store pending approvals — Telegram callback data has 64-byte limit, so we
@@ -166,15 +165,14 @@ export function createTelegramAdapter(token: string, ownerId: string): ChannelAd
         await sendResult(ctx, result, pendingApprovals, nextId)
       })
 
-      const log = getLogger()
       bot.catch((err) => {
         const e = err.error
         if (e instanceof GrammyError) {
-          log.error('Telegram API error', { error: e.description })
+          runtime.logger.error('Telegram API error', { error: e.description })
         } else if (e instanceof HttpError) {
-          log.error('Telegram network error', { error: e.message })
+          runtime.logger.error('Telegram network error', { error: e.message })
         } else {
-          log.error('Grammy error', { error: e })
+          runtime.logger.error('Grammy error', { error: e })
         }
       })
 

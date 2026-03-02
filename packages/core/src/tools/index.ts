@@ -1,4 +1,4 @@
-export { bindToolExport, buildManifest } from './define'
+export { bindTool, buildManifest } from './define'
 export type { CompartmentExecuteOptions, Endowments } from './sandbox'
 export { executeInCompartment } from './sandbox'
 export type {
@@ -9,12 +9,11 @@ export type {
   ResolveToolsContext,
   ResolveToolsResult,
   SandboxMode,
+  Tool,
   ToolAnnotations,
-  ToolExport,
   ToolManifest,
   ToolPermissions,
   ToolPlugin,
-  ToolPluginConfig,
   ToolRecord,
 } from './types'
 export { DEFAULT_TOOL_TIMEOUT } from './types'

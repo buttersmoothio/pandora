@@ -18,9 +18,11 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest --coverage"
+    "test:coverage": "vitest --coverage",
+    "generate:schema": "bun run scripts/generate-manifest-schema.ts"
   },
   "dependencies": {
+    "@pandorakit/sdk": "workspace:*",
     "@libsql/client": "^0.17.0",
     "@mastra/ai-sdk": "^1.0.4",
     "@mastra/core": "^1.4.0",

@@ -1,52 +1,47 @@
-import { createTool, type Tool } from '@mastra/core/tools'
+import { createTool, type Tool as MastraTool } from '@mastra/core/tools'
 import { z } from 'zod'
 import { createPluginConsole } from './sandbox/endowments'
-import {
-  DEFAULT_TOOL_TIMEOUT,
-  type ToolExport,
-  type ToolManifest,
-  type ToolPluginConfig,
-} from './types'
+import { DEFAULT_TOOL_TIMEOUT, type PluginConfig, type Tool, type ToolManifest } from './types'
 
 // biome-ignore lint/suspicious/noExplicitAny: Tool generics require `any` for covariant assignment
-type AnyTool = Tool<any, any, any, any, any, any>
+type AnyTool = MastraTool<any, any, any, any, any, any>
 
 // --- buildManifest ---
 
 /**
- * Build a ToolManifest from a ToolExport.
+ * Build a ToolManifest from a Tool definition.
  */
-export function buildManifest(exp: ToolExport): ToolManifest {
+export function buildManifest(def: Tool): ToolManifest {
   return {
-    id: exp.id,
-    name: exp.name,
-    description: exp.description,
-    permissions: exp.permissions,
-    sandbox: exp.sandbox ?? 'compartment',
-    annotations: exp.annotations,
-    timeout: exp.timeout ?? DEFAULT_TOOL_TIMEOUT,
+    id: def.id,
+    name: def.name,
+    description: def.description,
+    permissions: def.permissions,
+    sandbox: def.sandbox ?? 'compartment',
+    annotations: def.annotations,
+    timeout: def.timeout ?? DEFAULT_TOOL_TIMEOUT,
   }
 }
 
-// --- bindToolExport ---
+// --- bindTool ---
 
-/** Bind a ToolExport to env/config and produce a Mastra Tool instance. */
-export function bindToolExport(
-  exp: ToolExport,
+/** Bind a Tool definition to env/config and produce a Mastra Tool instance. */
+export function bindTool(
+  def: Tool,
   envVars: Record<string, string | undefined>,
-  _pluginConfig: ToolPluginConfig,
+  _pluginConfig: PluginConfig,
   namespacedId: string,
 ): AnyTool {
   const toolId = namespacedId
-  const timeout = exp.timeout ?? DEFAULT_TOOL_TIMEOUT
-  const inputSchema = exp.parameters ? z.fromJSONSchema(exp.parameters) : z.object({})
+  const timeout = def.timeout ?? DEFAULT_TOOL_TIMEOUT
+  const inputSchema = def.parameters ? z.fromJSONSchema(def.parameters) : z.object({})
   return createTool({
     id: toolId,
-    description: exp.description,
+    description: def.description,
     inputSchema,
     execute: (input) => {
       const pluginId = namespacedId.split(':')[0]
-      const result = exp.execute(input, { env: envVars, logger: createPluginConsole(pluginId) })
+      const result = def.execute(input, { env: envVars, logger: createPluginConsole(pluginId) })
       return Promise.race([
         result,
         new Promise<never>((_, reject) =>
@@ -57,6 +52,6 @@ export function bindToolExport(
         ),
       ])
     },
-    ...(exp.annotations && { mcp: { annotations: exp.annotations } }),
+    ...(def.annotations && { mcp: { annotations: def.annotations } }),
   })
 }

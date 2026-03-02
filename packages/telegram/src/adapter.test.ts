@@ -1,4 +1,4 @@
-import type { ChannelGateway } from '@pandorakit/core/channels'
+import type { ChannelGateway } from '@pandorakit/sdk/channels'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createTelegramAdapter } from './adapter'
 
@@ -61,6 +61,7 @@ const OWNER_ID = '42'
 function createMockRuntime(): ChannelGateway {
   return {
     env: { TELEGRAM_BOT_TOKEN: 'test-token' },
+    logger: { log: vi.fn(), warn: vi.fn(), error: vi.fn() },
     generate: vi.fn().mockResolvedValue({ text: 'AI response' }),
     stream: vi.fn(),
     approveToolCall: vi.fn().mockResolvedValue({ text: 'Approved result' }),

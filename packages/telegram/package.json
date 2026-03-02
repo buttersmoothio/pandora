@@ -19,7 +19,7 @@
     "unified": "^11.0.5"
   },
   "peerDependencies": {
-    "@pandorakit/core": "workspace:*"
+    "@pandorakit/sdk": "workspace:*"
   },
   "devDependencies": {
     "@types/hast": "^3.0.4",

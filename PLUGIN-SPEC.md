@@ -307,13 +307,13 @@ const websearch = await loadPlugin('@pandorakit/tavily-search', {
 registerToolPlugin(websearch.default)
 ```
 
-### `ToolExport` — The universal tool interface
+### `Tool` — The universal tool interface
 
-All plugins (host and compartment mode) export `ToolExport` objects — plain objects with JSON Schema parameters, no framework dependencies. The core wraps these into Mastra tools at load time via `bindToolExport()`. When a tool runs inside a Compartment, its `execute` closure only has access to what the Compartment provides.
+All plugins (host and compartment mode) export `Tool` objects — plain objects with JSON Schema parameters, no framework dependencies. The core wraps these into Mastra tools at load time via `bindTool()`. When a tool runs inside a Compartment, its `execute` closure only has access to what the Compartment provides.
 
-### `resolveTools()` hook — Returns `ToolExport[]`
+### `resolveTools()` hook — Returns `Tool[]`
 
-The `resolveTools` hook replaces the old `getTools` hook. It returns `ToolExport` objects instead of raw `ToolRecord`, meaning resolved tools go through `bindToolExport()` + `registerManifest()` and get full manifest support. Dynamic imports go through the Compartment's `importHook`, which the compartment mapper controls.
+The `resolveTools` hook replaces the old `getTools` hook. It returns `Tool` objects instead of raw `ToolRecord`, meaning resolved tools go through `bindTool()` + `registerManifest()` and get full manifest support. Dynamic imports go through the Compartment's `importHook`, which the compartment mapper controls.
 
 ### Tool Permission Enforcement
 
@@ -425,7 +425,7 @@ Currently Pandora has five separate plugin types (`ToolPlugin`, `AgentPlugin`, `
 |---|---|
 | Tool | `tools[]`, `resolveTools()` |
 | Agent | `agents[]` |
-| Channel | `factory()` → `ChannelAdapter` |
+| Channel | `factory()` → `Channel` |
 | Storage | `factory()` → `StorageResult` |
 | Vector | `factory()` → `VectorResult` |
 
@@ -435,7 +435,7 @@ The manifest unifies these. **A single package can provide any combination** —
 
 ```json
 {
-  "$schema": "https://pandora.dev/schemas/manifest-v1.json",
+  "$schema": "https://pandorakit.com/schemas/manifest-v1.json",
   "manifestVersion": 1,
 
   "id": "pandora-plugin-weather",
@@ -602,22 +602,22 @@ Each capability type has a defined set of exports the system looks for in its en
 **Tools** (`provides.tools.entry`):
 ```typescript
 // Both host and compartment mode: plain objects with JSON Schema parameters
-export const tools: ToolExport[]
-// Optional dynamic tool resolution — returns ToolExport objects (not raw ToolRecord)
+export const tools: Tool[]
+// Optional dynamic tool resolution — returns Tool objects (not raw ToolRecord)
 export function resolveTools(ctx: ResolveToolsContext): Promise<ResolveToolsResult>
 ```
 
 **Agents** (`provides.agents.entry`):
 ```typescript
 // Each entry point exports a plain agent definition object
-export const agent: AgentDefinition  // { id, name, description, instructions, tools? }
+export const agent: Agent  // { id, name, description, instructions, tools? }
 ```
 
 Agent tool dependencies (`useTools`, `modelTools`) are declared in the manifest `provides.agents` entries, not in agent code.
 
 **Channels** (`provides.channels.entry`):
 ```typescript
-export function factory(env, config): ChannelAdapter | null
+export function factory(env, config): Channel | null
 ```
 
 **Storage** (`provides.storage.entry`):
@@ -688,7 +688,7 @@ export default {
 ```json
 // tools-websearch/pandora.manifest.json
 {
-  "$schema": "https://pandora.dev/schemas/manifest-v1.json",
+  "$schema": "https://pandorakit.com/schemas/manifest-v1.json",
   "manifestVersion": 1,
 
   "id": "tools-websearch",
@@ -785,8 +785,8 @@ The manifest is validated with a Zod schema at discovery time. Invalid manifests
 - [x] TypeScript type erasure via `ts-blank-space` in `syncModuleTransforms`
 - [x] Scoped endowments from manifest `permissions` (scoped `fetch`, `env.get()`, `Date`, etc.)
 - [x] Runtime enforcement of `ToolPermissions` via Compartment scope
-- [x] `ToolExport` interface for plain compartmentalized plugin exports (JSON Schema, no zod)
-- [x] `bindToolExport()` wraps `ToolExport` → Mastra Tool using `z.fromJSONSchema()`
+- [x] `Tool` interface for plain compartmentalized plugin exports (JSON Schema, no zod)
+- [x] `bindTool()` wraps `Tool` → Mastra Tool using `z.fromJSONSchema()`
 - [x] `tools-datetime` refactored as first compartmentalized plugin
 - [x] `tools-websearch` stays `sandbox: 'host'` (dynamic imports for optional SDK packages)
 
@@ -839,7 +839,7 @@ The manifest is validated with a Zod schema at discovery time. Invalid manifests
 
 ### Not done — Miscellaneous
 
-- [ ] `$schema` JSON schema generation and hosting for IDE autocompletion
+- [x] `$schema` JSON schema generation and hosting for IDE autocompletion
 - [ ] Agent-written code sandbox wiring (`executeInCompartment` called from tool execution path)
 - [x] UI permission display — sandbox badge + per-permission badges on cards, expandable permission rows with host/key/path lists in dialogs
 - [ ] Pin Endo package versions to tested release

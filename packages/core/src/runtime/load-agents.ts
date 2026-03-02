@@ -1,9 +1,9 @@
-import { Agent } from '@mastra/core/agent'
+import { Agent as MastraAgent } from '@mastra/core/agent'
 import type { MastraMemory } from '@mastra/core/memory'
-import type { AgentDefinition } from '../agents/define'
+import type { Agent } from '../agents/define'
 import type { ModelToolKey } from '../agents/model-tools'
 import { resolveModelTools } from '../agents/model-tools'
-import type { AgentPluginConfig, AgentRecord } from '../agents/types'
+import type { AgentRecord, PluginConfig } from '../agents/types'
 import type { Config } from '../config'
 import { getLogger } from '../logger'
 import { buildModelString } from '../mastra/models'
@@ -13,7 +13,7 @@ import { validatePluginConfig } from './config-validate'
 import type { PluginRegistry } from './plugin-registry'
 
 function getAgentConfig(
-  pluginConfig: AgentPluginConfig | null,
+  pluginConfig: PluginConfig | null,
   agentId: string,
 ):
   | { model?: { provider: string; model: string }; tools?: Record<string, { enabled: boolean }> }
@@ -23,7 +23,7 @@ function getAgentConfig(
   return agents?.[agentId] as ReturnType<typeof getAgentConfig>
 }
 
-function resolveInheritedTools(agentDef: AgentDefinition, globalTools: ToolRecord): ToolRecord {
+function resolveInheritedTools(agentDef: Agent, globalTools: ToolRecord): ToolRecord {
   const tools: ToolRecord = {}
   for (const id of agentDef.useTools ?? []) {
     if (globalTools[id]) tools[id] = globalTools[id]
@@ -32,9 +32,9 @@ function resolveInheritedTools(agentDef: AgentDefinition, globalTools: ToolRecor
 }
 
 async function resolveAgentModelTools(
-  agentDef: AgentDefinition,
+  agentDef: Agent,
   config: Config,
-  pluginConfig: AgentPluginConfig | null,
+  pluginConfig: PluginConfig | null,
 ): Promise<{ tools: ToolRecord; alerts: Alert[] }> {
   if (!agentDef.modelTools?.length) {
     return { tools: {}, alerts: [] }
@@ -86,7 +86,7 @@ export async function loadAgents(
 
       const allTools = { ...inheritedTools, ...modelNativeTools }
 
-      result[agentDef.id] = new Agent({
+      result[agentDef.id] = new MastraAgent({
         id: manifest.id,
         name: manifest.name,
         instructions: manifest.instructions,

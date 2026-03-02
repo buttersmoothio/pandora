@@ -1,4 +1,6 @@
-export const agent = {
+import type { Agent } from '@pandorakit/sdk/agents'
+
+export const agent: Agent = {
   id: 'research',
   name: 'Deep Research',
   description: 'Thorough, multi-step research on complex topics',

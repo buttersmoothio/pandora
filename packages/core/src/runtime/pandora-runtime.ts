@@ -1,5 +1,5 @@
 import type { Mastra } from '@mastra/core'
-import type { ChannelAdapter } from '../channels/types'
+import type { Channel } from '../channels/types'
 import type { Config } from '../config'
 import { getConfig } from '../config'
 import { getLogger } from '../logger'
@@ -26,7 +26,7 @@ export interface PandoraRuntime {
   }
   config: Config
   mastra: Mastra
-  channels: Map<string, ChannelAdapter>
+  channels: Map<string, Channel>
 
   reload(): Promise<void>
   close(): Promise<void>
@@ -159,7 +159,7 @@ async function startRealtimeChannels(runtime: PandoraRuntime): Promise<void> {
   }
 }
 
-async function stopRealtimeChannels(channels: Map<string, ChannelAdapter>): Promise<void> {
+async function stopRealtimeChannels(channels: Map<string, Channel>): Promise<void> {
   const log = getLogger()
   for (const adapter of channels.values()) {
     if (!adapter.realtime) continue

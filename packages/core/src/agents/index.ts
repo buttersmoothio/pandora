@@ -1,7 +1,6 @@
-export type { AgentDefinition } from './define'
+export type { Agent } from './define'
 export type {
   AgentManifest,
-  AgentPluginConfig,
   AgentRecord,
   ConfigFieldDescriptor,
   EnvVarDescriptor,

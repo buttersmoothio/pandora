@@ -1,14 +1,14 @@
-import type { AgentDefinition } from '../agents/define'
+import type { Agent } from '../agents/define'
 import type { AgentManifest } from '../agents/types'
 import { buildSchemaFromFields } from '../plugin-types'
 import type { RegisteredPlugin } from '../runtime/plugin-registry'
 import { buildManifest } from '../tools/define'
-import type { ToolExport, ToolManifest } from '../tools/types'
+import type { Tool, ToolManifest } from '../tools/types'
 import type { LoadedEntry } from './loader'
 import type { AgentProvidesEntry, PluginManifest, ProvidesEntry } from './schema'
 
 function adaptTools(entry: ProvidesEntry, ns: Record<string, unknown>): RegisteredPlugin['tools'] {
-  const tools = (ns.tools ?? []) as ToolExport[]
+  const tools = (ns.tools ?? []) as Tool[]
   for (const t of tools) {
     t.sandbox = entry.sandbox
     t.permissions = entry.permissions
@@ -34,9 +34,9 @@ function adaptTools(entry: ProvidesEntry, ns: Record<string, unknown>): Register
 function adaptAgent(
   entry: AgentProvidesEntry,
   ns: Record<string, unknown>,
-): { def: AgentDefinition; manifest: AgentManifest } | null {
+): { def: Agent; manifest: AgentManifest } | null {
   if (!ns.agent) return null
-  const agentDef = ns.agent as AgentDefinition
+  const agentDef = ns.agent as Agent
   agentDef.useTools = entry.useTools ?? []
   agentDef.modelTools = entry.modelTools ?? []
   return {
@@ -86,7 +86,7 @@ export function adaptManifest(manifest: PluginManifest, entries: LoadedEntry[]):
       : undefined,
   }
 
-  const agentDefs: AgentDefinition[] = []
+  const agentDefs: Agent[] = []
   const agentManifests = new Map<string, AgentManifest>()
 
   for (const { key, entry, namespace: ns } of entries) {

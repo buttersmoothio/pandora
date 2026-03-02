@@ -28,7 +28,7 @@ This tutorial walks through building a hypothetical Discord channel to illustrat
   "type": "module",
   "exports": { ".": "./src/index.ts" },
   "peerDependencies": {
-    "@pandorakit/core": "*"
+    "@pandorakit/sdk": "*"
   },
   "dependencies": {
     "discord.js": "^14.0.0"
@@ -82,18 +82,18 @@ Channel plugins typically use `"sandbox": "host"` because they need native depen
 
 ### Create the adapter
 
-The adapter implements `ChannelAdapter` with either `webhook`, `realtime`, or both:
+The adapter implements `Channel` with either `webhook`, `realtime`, or both:
 
 ```ts
 // src/adapter.ts
-import type { ChannelAdapter, ChannelRealtime } from '@pandorakit/core/channels'
+import type { Channel, ChannelRealtime } from '@pandorakit/sdk/channels'
 import { Client, GatewayIntentBits } from 'discord.js'
 
 export function createDiscordAdapter(
   token: string,
   guildId: string,
   channelId: string,
-): ChannelAdapter {
+): Channel {
   let client: Client | null = null
 
   const realtime: ChannelRealtime = {
@@ -151,7 +151,7 @@ The entry point (declared in the manifest's `provides.channels.entry`) exports a
 
 ```ts
 // src/index.ts
-import type { ChannelFactory } from '@pandorakit/core/channels'
+import type { ChannelFactory } from '@pandorakit/sdk/channels'
 import { createDiscordAdapter } from './adapter'
 
 export const factory: ChannelFactory = (env, config) => {
@@ -181,7 +181,7 @@ Then enable the channel on the **Plugins** page in the web UI.
 
 ## Using the runtime
 
-The `ChannelRuntime` object passed to your adapter provides everything you need:
+The `ChannelGateway` object passed to your adapter provides everything you need:
 
 - **`generate(opts)`** — send a message and wait for the full response. Best for platforms where you reply once per message (like Telegram and Discord).
 - **`stream(opts)`** — send a message and get a streaming response. Returns a `textStream` you can read incrementally, plus promise-based fields for the final values.
@@ -200,7 +200,7 @@ The `ChannelRuntime` object passed to your adapter provides everything you need:
 If your platform pushes events via HTTP (e.g. Slack Events API), implement `ChannelWebhook` instead of or in addition to `ChannelRealtime`:
 
 ```ts
-import type { ChannelWebhook } from '@pandorakit/core/channels'
+import type { ChannelWebhook } from '@pandorakit/sdk/channels'
 
 const webhook: ChannelWebhook = {
   async verify(request, env) {
@@ -232,7 +232,7 @@ The webhook route is `POST /wh/:channel` where `:channel` is your adapter's `id`
 When a tool has **Require Approval** enabled, `generate()` may return with `pendingToolApproval` set instead of a text response. Your adapter should present the user with a way to approve or deny, then call `approveToolCall` or `declineToolCall` to resume. The resumed result may itself require approval (if the agent calls another protected tool), so handle it in a loop or recursively.
 
 ```ts
-async function handleResult(ctx: PlatformContext, runtime: ChannelRuntime, result: GenerateResult) {
+async function handleResult(ctx: PlatformContext, runtime: ChannelGateway, result: GenerateResult) {
   if (result.pendingToolApproval) {
     const { toolCallId, toolName, args } = result.pendingToolApproval
     // Show approval UI to the user (platform-specific)
@@ -254,18 +254,18 @@ async function handleResult(ctx: PlatformContext, runtime: ChannelRuntime, resul
 
 ## Reference
 
-All types are exported from `@pandorakit/core/channels`:
+All types are exported from `@pandorakit/sdk/channels`:
 
 ```ts
 import type {
-  ChannelAdapter,
+  Channel,
   ChannelFactory,
-  ChannelWebhook,
+  ChannelGateway,
   ChannelRealtime,
-  ChannelRuntime,
+  ChannelWebhook,
   GenerateResult,
   StreamResult,
-} from '@pandorakit/core/channels'
+} from '@pandorakit/sdk/channels'
 ```
 
 ### `ChannelFactory`
@@ -273,13 +273,13 @@ import type {
 ```ts
 type ChannelFactory = (
   env: Record<string, string | undefined>,
-  config: ChannelConfig,
-) => ChannelAdapter | null
+  config: PluginConfig,
+) => Channel | null
 ```
 
 Returns `null` when required env vars are missing.
 
-### `ChannelAdapter`
+### `Channel`
 
 The object your factory returns:
 
@@ -301,7 +301,7 @@ interface ChannelWebhook {
   ): Promise<boolean>
 
   /** Handle the webhook request and return a Response. */
-  handle(request: Request, runtime: ChannelRuntime): Promise<Response>
+  handle(request: Request, runtime: ChannelGateway): Promise<Response>
 }
 ```
 
@@ -310,14 +310,14 @@ interface ChannelWebhook {
 ```ts
 interface ChannelRealtime {
   /** Open a persistent connection to the platform. */
-  start(runtime: ChannelRuntime): Promise<void>
+  start(runtime: ChannelGateway): Promise<void>
 
   /** Tear down the connection. */
   stop(): Promise<void>
 }
 ```
 
-### `ChannelRuntime`
+### `ChannelGateway`
 
 The object passed to your `start()`, `handle()`, and `stop()` methods:
 
@@ -330,6 +330,7 @@ The object passed to your `start()`, `handle()`, and `stop()` methods:
 | `resolveThread` | `(channelId: string, externalId: string) => Promise<string>` | Get or create a thread for a platform conversation |
 | `newThread` | `(channelId: string, externalId: string) => Promise<string>` | Start a fresh thread, returns new threadId |
 | `env` | `Record<string, string \| undefined>` | Environment variables |
+| `logger` | `Logger` | Structured logger (`log`, `warn`, `error`) |
 
 ### `GenerateResult`
 
@@ -338,13 +339,13 @@ Non-streaming response — all fields resolved:
 | Field | Type | Description |
 |---|---|---|
 | `text` | `string` | Generated text response |
-| `sources` | `SourceChunk[]` | Referenced sources |
-| `toolCalls` | `ToolCallChunk[]` | Tool calls made during generation |
-| `toolResults` | `ToolResultChunk[]` | Results from tool executions |
-| `files` | `FileChunk[]` | Generated files |
-| `reasoning` | `ReasoningChunk[]` | Reasoning steps |
+| `sources` | `Source[]` | Referenced sources |
+| `toolCalls` | `ToolCall[]` | Tool calls made during generation |
+| `toolResults` | `ToolResult[]` | Results from tool executions |
+| `files` | `FileData[]` | Generated files |
+| `reasoning` | `Reasoning[]` | Reasoning steps |
 | `reasoningText` | `string?` | Combined reasoning text |
-| `usage` | `LanguageModelUsage` | Token usage statistics |
+| `usage` | `Usage` | Token usage statistics |
 | `runId` | `string?` | Run ID — pass to `approveToolCall`/`declineToolCall` when approval is pending |
 | `pendingToolApproval` | `PendingToolApproval?` | Present when a tool requires user approval before running |
 
@@ -364,13 +365,13 @@ Streaming response — live text stream plus promise-based fields:
 |---|---|---|
 | `textStream` | `ReadableStream<string>` | Live text stream |
 | `text` | `Promise<string>` | Full text when complete |
-| `sources` | `Promise<SourceChunk[]>` | Sources when complete |
-| `toolCalls` | `Promise<ToolCallChunk[]>` | Tool calls when complete |
-| `toolResults` | `Promise<ToolResultChunk[]>` | Tool results when complete |
-| `files` | `Promise<FileChunk[]>` | Files when complete |
-| `reasoning` | `Promise<ReasoningChunk[]>` | Reasoning when complete |
+| `sources` | `Promise<Source[]>` | Sources when complete |
+| `toolCalls` | `Promise<ToolCall[]>` | Tool calls when complete |
+| `toolResults` | `Promise<ToolResult[]>` | Tool results when complete |
+| `files` | `Promise<FileData[]>` | Files when complete |
+| `reasoning` | `Promise<Reasoning[]>` | Reasoning when complete |
 | `reasoningText` | `Promise<string \| undefined>` | Reasoning text when complete |
-| `usage` | `Promise<LanguageModelUsage>` | Usage when complete |
+| `usage` | `Promise<Usage>` | Usage when complete |
 
 ### `ConfigFieldDescriptor`
 

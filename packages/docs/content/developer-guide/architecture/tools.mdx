@@ -33,13 +33,13 @@ Tools are explicit opt-in: only enabled plugins have their tools loaded. The def
 
 ## Dynamic Tool Resolution
 
-The `resolveTools` named export enables dynamic tool resolution. Unlike the static `tools` array (which is registered at startup), `resolveTools` runs at load time and returns `ToolExport` objects based on environment variables and config. This is how the search plugins (e.g. `@pandorakit/tavily-search`, `@pandorakit/brave-search`) work: each checks whether its API key is available and returns the appropriate backend.
+The `resolveTools` named export enables dynamic tool resolution. Unlike the static `tools` array (which is registered at startup), `resolveTools` runs at load time and returns `Tool` objects based on environment variables and config. This is how the search plugins (e.g. `@pandorakit/tavily-search`, `@pandorakit/brave-search`) work: each checks whether its API key is available and returns the appropriate backend.
 
 Resolved tools go through the same binding pipeline as static tools — they get manifests, timeouts, Zod schema wrapping, and appear in the UI. All tools, whether static or dynamically resolved, are first-class citizens with full manifest support.
 
 ## Model-Native Tools
 
-Some models have built-in tool support — OpenAI has `webSearch()`, Google has `googleSearch()`, Anthropic has `webSearch_20250305()`. These are provider-defined tools that don't go through `ToolExport` and have no Pandora manifest.
+Some models have built-in tool support — OpenAI has `webSearch()`, Google has `googleSearch()`, Anthropic has `webSearch_20250305()`. These are provider-defined tools that don't go through `Tool` and have no Pandora manifest.
 
 Model-native tools are resolved in core via `resolveModelTools()`, not in plugins. Agents declare which model capabilities they need via `modelTools` in their manifest (e.g. `"modelTools": ["search"]`). Core maps these capability keys to the appropriate provider SDK tools based on the configured model.
 

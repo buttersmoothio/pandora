@@ -1,6 +1,6 @@
 import { PROVIDER_REGISTRY } from '@mastra/core/llm'
 import { Hono } from 'hono'
-import type { ChannelAdapter } from '../channels/types'
+import type { Channel } from '../channels/types'
 import { validatePluginConfig } from '../runtime/config-validate'
 import type { PluginRegistry, RegisteredPlugin } from '../runtime/plugin-registry'
 import type { Env } from './helpers'
@@ -51,7 +51,7 @@ function buildAgentsProvides(
   }
 }
 
-function buildChannelsProvides(plugin: RegisteredPlugin, channels: Map<string, ChannelAdapter>) {
+function buildChannelsProvides(plugin: RegisteredPlugin, channels: Map<string, Channel>) {
   if (!plugin.channels) return undefined
   const adapterId = plugin.id.replace(/^channel-/, '')
   const adapter = channels.get(adapterId)

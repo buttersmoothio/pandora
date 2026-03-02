@@ -1,0 +1,19 @@
+{
+  "name": "@pandorakit/sdk",
+  "version": "0.0.1",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./tools": "./src/tools.ts",
+    "./channels": "./src/channels.ts",
+    "./agents": "./src/agents.ts",
+    "./schemas/pandora.manifest.schema.json": "./schemas/pandora.manifest.schema.json"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.9",
+    "typescript": "^5.9.3"
+  }
+}

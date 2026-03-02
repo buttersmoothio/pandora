@@ -1,27 +1,25 @@
 /**
- * Public API for channel authors.
- *
- * Import from `@pandorakit/core/channels` to build channel adapter packages.
+ * Channel types are now in `@pandorakit/sdk/channels`.
+ * This subpath export is kept for core-internal use only.
  */
 
 export type {
-  ChannelAdapter,
-  ChannelConfig,
+  Channel,
   ChannelFactory,
   ChannelGateway,
   ChannelRealtime,
   ChannelWebhook,
-  ConfigFieldDescriptor,
-  EnvVarDescriptor,
-  FileChunk,
+  FileData,
+  FilePart,
   GenerateResult,
-  LanguageModelUsage,
-  MastraMessagePart,
   MessagePart,
   PendingToolApproval,
-  ReasoningChunk,
-  SourceChunk,
+  PluginConfig,
+  Reasoning,
+  Source,
   StreamResult,
-  ToolCallChunk,
-  ToolResultChunk,
+  TextPart,
+  ToolCall,
+  ToolResult,
+  Usage,
 } from './types'

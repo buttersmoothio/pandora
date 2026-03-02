@@ -5,7 +5,7 @@ import { tools } from './index'
 const noopLogger = { log: vi.fn(), warn: vi.fn(), error: vi.fn() }
 
 describe('current-time tool (plain export)', () => {
-  it('has required ToolExport fields', () => {
+  it('has required Tool fields', () => {
     expect(currentTime.id).toBe('current-time')
     expect(currentTime.name).toBe('Current Time')
     expect(currentTime.description).toBeDefined()
@@ -40,7 +40,10 @@ describe('current-time tool (plain export)', () => {
   })
 
   it('accepts a timezone', async () => {
-    const result = (await currentTime.execute({ timezone: 'America/New_York' }, { env: {}, logger: noopLogger })) as {
+    const result = (await currentTime.execute(
+      { timezone: 'America/New_York' },
+      { env: {}, logger: noopLogger },
+    )) as {
       iso: string
       formatted: string
       timezone: string
@@ -50,7 +53,10 @@ describe('current-time tool (plain export)', () => {
   })
 
   it('falls back to UTC for invalid timezone', async () => {
-    const result = (await currentTime.execute({ timezone: 'Invalid/Zone' }, { env: {}, logger: noopLogger })) as {
+    const result = (await currentTime.execute(
+      { timezone: 'Invalid/Zone' },
+      { env: {}, logger: noopLogger },
+    )) as {
       iso: string
       formatted: string
       timezone: string

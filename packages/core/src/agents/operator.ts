@@ -1,4 +1,4 @@
-import { Agent } from '@mastra/core/agent'
+import { Agent as MastraAgent } from '@mastra/core/agent'
 import type { MastraMemory } from '@mastra/core/memory'
 import type { Config } from '../config'
 import { getLogger } from '../logger'
@@ -24,13 +24,13 @@ export function createOperator(
   tools: ToolRecord,
   memory: MastraMemory,
   subagents?: AgentRecord,
-): Agent {
+): MastraAgent {
   getLogger().debug('Operator agent created', {
     tools: Object.keys(tools).length,
     subagents: Object.keys(subagents ?? {}).length,
   })
 
-  return new Agent({
+  return new MastraAgent({
     id: 'operator',
     name: config.identity.name,
     description: 'The main assistant. Handles any request that specialist agents cannot.',

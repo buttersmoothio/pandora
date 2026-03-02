@@ -1,15 +1,6 @@
 /**
- * Public API for agent plugin authors.
- *
- * Import from `@pandorakit/core/agents` to define agents in external packages.
+ * Core-only agent exports. Plugin authors should import from `@pandorakit/sdk/agents`.
  */
 
-export type { AgentDefinition } from './define'
-export type {
-  AgentManifest,
-  AgentPluginConfig,
-  AgentRecord,
-  ConfigFieldDescriptor,
-  EnvVarDescriptor,
-  PluginConfig,
-} from './types'
+export type { Agent } from './define'
+export type { AgentRecord } from './types'

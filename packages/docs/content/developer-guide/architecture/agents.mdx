@@ -14,7 +14,7 @@ The routing decision is made by the LLM, not by rules. The operator sees what ea
 
 ## Scoped Tools
 
-Scoped tools belong to individual agents, not to the global tool registry. Agent entry points can declare a `tools` array of `ToolExport` objects. These scoped tools:
+Scoped tools belong to individual agents, not to the global tool registry. Agent entry points can declare a `tools` array of `Tool` objects. These scoped tools:
 
 - Don't appear in the global Plugins page tool listings
 - Are only available to the owning agent — the operator never sees them

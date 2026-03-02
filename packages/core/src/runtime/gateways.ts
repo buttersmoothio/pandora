@@ -1,13 +1,33 @@
 import { toAISdkStream } from '@mastra/ai-sdk'
 import type { Mastra } from '@mastra/core'
-import type { FullOutput } from '@mastra/core/stream'
+import type {
+  FileChunk,
+  FullOutput,
+  LanguageModelUsage,
+  ReasoningChunk,
+  SourceChunk,
+  ToolCallChunk,
+  ToolResultChunk,
+} from '@mastra/core/stream'
 import type { Memory } from '@mastra/memory'
-import type { ChannelGateway, GenerateResult, MessagePart, StreamResult } from '../channels/types'
+import type {
+  ChannelGateway,
+  FileData,
+  GenerateResult,
+  MessagePart,
+  Reasoning,
+  Source,
+  StreamResult,
+  ToolCall,
+  ToolResult,
+  Usage,
+} from '../channels/types'
 import { getLogger } from '../logger'
 
 const RESOURCE_ID = 'default'
 
-function buildMessages(parts: MessagePart[]) {
+// biome-ignore lint/suspicious/noExplicitAny: SDK MessagePart is a structural subset of Mastra's
+function buildMessages(parts: MessagePart[]): any[] {
   return [{ id: crypto.randomUUID(), role: 'user' as const, parts }]
 }
 
@@ -17,16 +37,72 @@ async function getMemory(mastra: Mastra): Promise<Memory> {
   return memory as Memory
 }
 
+// ---------------------------------------------------------------------------
+// Mastra → SDK type mappers
+// ---------------------------------------------------------------------------
+
+function mapSource(chunk: SourceChunk): Source {
+  return {
+    id: chunk.payload.id,
+    sourceType: chunk.payload.sourceType,
+    title: chunk.payload.title,
+    url: chunk.payload.url,
+    mimeType: chunk.payload.mimeType,
+    filename: chunk.payload.filename,
+  }
+}
+
+function mapToolCall(chunk: ToolCallChunk): ToolCall {
+  return {
+    toolCallId: chunk.payload.toolCallId,
+    toolName: chunk.payload.toolName,
+    args: chunk.payload.args,
+  }
+}
+
+function mapToolResult(chunk: ToolResultChunk): ToolResult {
+  return {
+    toolCallId: chunk.payload.toolCallId,
+    toolName: chunk.payload.toolName,
+    result: chunk.payload.result,
+    isError: chunk.payload.isError,
+  }
+}
+
+function mapFile(chunk: FileChunk): FileData {
+  return {
+    data: chunk.payload.data,
+    mimeType: chunk.payload.mimeType,
+  }
+}
+
+function mapReasoning(chunk: ReasoningChunk): Reasoning {
+  return {
+    id: chunk.payload.id,
+    text: chunk.payload.text,
+  }
+}
+
+function mapUsage(usage: LanguageModelUsage): Usage {
+  return {
+    inputTokens: usage.inputTokens,
+    outputTokens: usage.outputTokens,
+    totalTokens: usage.totalTokens,
+    reasoningTokens: usage.reasoningTokens,
+    cachedInputTokens: usage.cachedInputTokens,
+  }
+}
+
 function buildResult(result: FullOutput): GenerateResult {
   return {
     text: result.text,
-    sources: result.sources,
-    toolCalls: result.toolCalls,
-    toolResults: result.toolResults,
-    files: result.files,
-    reasoning: result.reasoning,
+    sources: result.sources.map(mapSource),
+    toolCalls: result.toolCalls.map(mapToolCall),
+    toolResults: result.toolResults.map(mapToolResult),
+    files: result.files.map(mapFile),
+    reasoning: result.reasoning.map(mapReasoning),
     reasoningText: result.reasoningText ?? undefined,
-    usage: result.usage,
+    usage: mapUsage(result.usage),
     runId: result.runId ?? undefined,
     pendingToolApproval:
       result.finishReason === 'suspended' && result.suspendPayload
@@ -99,8 +175,6 @@ export interface WebGateway {
 
 // -- Channel Gateway --
 
-// Re-exported from types — ChannelGateway is the public interface for channel adapters
-
 interface GatewayDeps {
   mastra: Mastra
   env: Record<string, string | undefined>
@@ -132,8 +206,16 @@ export function createGateways(deps: GatewayDeps): {
     return { thread: threadId, resource: RESOURCE_ID }
   }
 
+  const mastraLogger = getLogger(env)
+  const logger = {
+    log: (...args: unknown[]) => mastraLogger.info(String(args[0]), ...args.slice(1)),
+    warn: (...args: unknown[]) => mastraLogger.warn(String(args[0]), ...args.slice(1)),
+    error: (...args: unknown[]) => mastraLogger.error(String(args[0]), ...args.slice(1)),
+  }
+
   const channel = (_channelId?: string): ChannelGateway => ({
     env,
+    logger,
 
     async generate({ threadId, parts, channelId: chId, externalId }) {
       const agent = mastra.getAgent('operator')
@@ -152,13 +234,13 @@ export function createGateways(deps: GatewayDeps): {
       return {
         textStream: output.textStream,
         text: output.text,
-        sources: output.sources,
-        toolCalls: output.toolCalls,
-        toolResults: output.toolResults,
-        files: output.files,
-        reasoning: output.reasoning,
+        sources: output.sources.then((s) => s.map(mapSource)),
+        toolCalls: output.toolCalls.then((t) => t.map(mapToolCall)),
+        toolResults: output.toolResults.then((t) => t.map(mapToolResult)),
+        files: output.files.then((f) => f.map(mapFile)),
+        reasoning: output.reasoning.then((r) => r.map(mapReasoning)),
         reasoningText: output.reasoningText,
-        usage: output.usage,
+        usage: output.usage.then(mapUsage),
       } satisfies StreamResult
     },
 

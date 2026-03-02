@@ -1,4 +1,4 @@
-import type { ChannelFactory } from '@pandorakit/core/channels'
+import type { ChannelFactory } from '@pandorakit/sdk/channels'
 import { createTelegramAdapter } from './adapter'
 
 export const factory: ChannelFactory = (env, config) => {
