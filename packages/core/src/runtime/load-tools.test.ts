@@ -122,6 +122,46 @@ describe('loadTools', () => {
     expect(tools['test-tools:greet']).toBeDefined()
   })
 
+  it('applies requireApproval from manifest default', async () => {
+    const registry = createPluginRegistry()
+    registry.plugins.set(
+      'test-tools',
+      makeToolPlugin({
+        tools: {
+          entries: [
+            {
+              id: 'greet',
+              name: 'Greet',
+              description: 'Greet someone',
+              execute: async () => ({ hello: 'world' }),
+            },
+          ],
+          manifests: new Map(),
+          requireApproval: true,
+        },
+      }),
+    )
+
+    const tools = await loadTools(registry, DEFAULTS, {})
+    // biome-ignore lint/suspicious/noExplicitAny: requireApproval is set dynamically
+    expect((tools['test-tools:greet'] as any).requireApproval).toBe(true)
+  })
+
+  it('applies per-tool requireApproval override from plugin config', async () => {
+    const registry = createPluginRegistry()
+    registry.plugins.set('test-tools', makeToolPlugin())
+
+    const config = {
+      ...DEFAULTS,
+      plugins: {
+        'test-tools': { enabled: true, requireApproval: { greet: true } },
+      },
+    }
+    const tools = await loadTools(registry, config, {})
+    // biome-ignore lint/suspicious/noExplicitAny: requireApproval is set dynamically
+    expect((tools['test-tools:greet'] as any).requireApproval).toBe(true)
+  })
+
   it('loads tools from multiple plugins', async () => {
     const registry = createPluginRegistry()
     registry.plugins.set(

@@ -91,4 +91,27 @@ describe('createOperator', () => {
     const config = mockAgentConstructor.mock.calls.at(-1)?.[0]
     expect(config.model).toBe('openai/gpt-4o')
   })
+
+  it('passes subagents to agent constructor', () => {
+    const subagents = { helper: { id: 'helper' } as never }
+    createOperator(DEFAULTS, emptyTools, mockMemory, subagents)
+
+    const config = mockAgentConstructor.mock.calls.at(-1)?.[0]
+    expect(config.agents).toBe(subagents)
+  })
+
+  it('defaults agents to empty object when no subagents provided', () => {
+    createOperator(DEFAULTS, emptyTools, mockMemory)
+
+    const config = mockAgentConstructor.mock.calls.at(-1)?.[0]
+    expect(config.agents).toEqual({})
+  })
+
+  it('sets description on operator agent', () => {
+    createOperator(DEFAULTS, emptyTools, mockMemory)
+
+    const config = mockAgentConstructor.mock.calls.at(-1)?.[0]
+    expect(config.description).toBeDefined()
+    expect(config.description.length).toBeGreaterThan(0)
+  })
 })

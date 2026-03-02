@@ -89,5 +89,48 @@ describe('Config', () => {
       const config = await getConfig(configStore)
       expect(config.identity.name).toBe('Pandora')
     })
+
+    it('preserves plugin configs through reset', async () => {
+      await updateConfig(configStore, {
+        identity: { name: 'TempBot' },
+        plugins: { 'my-plugin': { enabled: true, apiKey: 'keep-me' } },
+      })
+      const reset = await resetConfig(configStore)
+      expect(reset.identity.name).toBe('Pandora') // reset
+      expect(reset.plugins['my-plugin']).toEqual({ enabled: true, apiKey: 'keep-me' }) // preserved
+    })
+  })
+
+  describe('updateConfig validation', () => {
+    it('rejects invalid model config', async () => {
+      await expect(
+        updateConfig(configStore, {
+          models: { operator: { provider: '', model: '' } },
+        }),
+      ).rejects.toThrow()
+    })
+  })
+
+  describe('deepMerge via updateConfig', () => {
+    it('deep merges nested objects', async () => {
+      await updateConfig(configStore, {
+        models: { operator: { provider: 'openai', model: 'gpt-4o' } },
+      })
+      const config = await getConfig(configStore)
+      expect(config.models.operator.provider).toBe('openai')
+      expect(config.models.operator.model).toBe('gpt-4o')
+    })
+
+    it('null value deletes the key', async () => {
+      await updateConfig(configStore, {
+        plugins: { 'test-plugin': { enabled: true } },
+      })
+      // Delete the key by setting to null
+      await updateConfig(configStore, {
+        plugins: { 'test-plugin': null },
+      } as never)
+      const config = await getConfig(configStore)
+      expect(config.plugins['test-plugin']).toBeUndefined()
+    })
   })
 })
