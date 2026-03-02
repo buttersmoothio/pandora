@@ -1,5 +1,6 @@
 import { createTool, type Tool } from '@mastra/core/tools'
 import { z } from 'zod'
+import { createPluginConsole } from './sandbox/endowments'
 import {
   DEFAULT_TOOL_TIMEOUT,
   type ToolExport,
@@ -44,7 +45,8 @@ export function bindToolExport(
     description: exp.description,
     inputSchema,
     execute: (input) => {
-      const result = exp.execute(input, { env: envVars })
+      const pluginId = namespacedId.split(':')[0]
+      const result = exp.execute(input, { env: envVars, logger: createPluginConsole(pluginId) })
       return Promise.race([
         result,
         new Promise<never>((_, reject) =>

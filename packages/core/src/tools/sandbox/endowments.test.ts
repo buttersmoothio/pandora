@@ -1,5 +1,16 @@
-import { describe, expect, it, vi } from 'vitest'
-import { buildEndowments, isPrivateHostname, tamedConsole } from './endowments'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { buildEndowments, createPluginConsole, isPrivateHostname } from './endowments'
+
+const mockLogger = {
+  debug: vi.fn(),
+  info: vi.fn(),
+  warn: vi.fn(),
+  error: vi.fn(),
+}
+
+vi.mock('../../logger', () => ({
+  getLogger: () => mockLogger,
+}))
 
 describe('buildEndowments', () => {
   it('returns only console with empty permissions', () => {
@@ -197,29 +208,31 @@ describe('isPrivateHostname', () => {
   })
 })
 
-describe('tamedConsole', () => {
-  it('prefixes log output with [sandbox]', () => {
-    const spy = vi.spyOn(console, 'log').mockImplementation(() => {})
-    tamedConsole.log('hello')
-    expect(spy).toHaveBeenCalledWith('[sandbox]', 'hello')
-    spy.mockRestore()
+describe('createPluginConsole', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
   })
 
-  it('prefixes warn output with [sandbox]', () => {
-    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    tamedConsole.warn('warning')
-    expect(spy).toHaveBeenCalledWith('[sandbox]', 'warning')
-    spy.mockRestore()
+  it('routes log to logger.debug with plugin tag', () => {
+    const pc = createPluginConsole('my-plugin')
+    pc.log('hello', 'world')
+    expect(mockLogger.debug).toHaveBeenCalledWith('hello world', { plugin: 'plugin:my-plugin' })
   })
 
-  it('prefixes error output with [sandbox]', () => {
-    const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
-    tamedConsole.error('error')
-    expect(spy).toHaveBeenCalledWith('[sandbox]', 'error')
-    spy.mockRestore()
+  it('routes warn to logger.warn with plugin tag', () => {
+    const pc = createPluginConsole('my-plugin')
+    pc.warn('danger')
+    expect(mockLogger.warn).toHaveBeenCalledWith('danger', { plugin: 'plugin:my-plugin' })
+  })
+
+  it('routes error to logger.error with plugin tag', () => {
+    const pc = createPluginConsole('my-plugin')
+    pc.error('failed')
+    expect(mockLogger.error).toHaveBeenCalledWith('failed', { plugin: 'plugin:my-plugin' })
   })
 
   it('is frozen', () => {
-    expect(Object.isFrozen(tamedConsole)).toBe(true)
+    const pc = createPluginConsole('test')
+    expect(Object.isFrozen(pc)).toBe(true)
   })
 })

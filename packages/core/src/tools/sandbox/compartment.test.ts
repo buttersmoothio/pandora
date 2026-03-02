@@ -1,6 +1,17 @@
 import { describe, expect, it, vi } from 'vitest'
 import { executeInCompartment } from './compartment'
 
+const mockLogger = {
+  debug: vi.fn(),
+  info: vi.fn(),
+  warn: vi.fn(),
+  error: vi.fn(),
+}
+
+vi.mock('../../logger', () => ({
+  getLogger: () => mockLogger,
+}))
+
 describe('executeInCompartment', () => {
   it('runs async function code and returns result', async () => {
     const result = await executeInCompartment({
@@ -282,8 +293,8 @@ describe('executeInCompartment', () => {
   })
 
   describe('console', () => {
-    it('tamed console is always available', async () => {
-      const spy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    it('routes console.log through the structured logger', async () => {
+      mockLogger.debug.mockClear()
 
       await executeInCompartment({
         code: 'async function() { console.log("from sandbox"); return {} }',
@@ -291,9 +302,9 @@ describe('executeInCompartment', () => {
         permissions: {},
         envVars: {},
       })
-      expect(spy).toHaveBeenCalledWith('[sandbox]', 'from sandbox')
-
-      spy.mockRestore()
+      expect(mockLogger.debug).toHaveBeenCalledWith('from sandbox', {
+        plugin: 'plugin:sandbox',
+      })
     })
   })
 

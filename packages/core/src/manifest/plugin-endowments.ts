@@ -1,6 +1,6 @@
 import '../ses-lockdown'
 
-import { buildEndowments, tamedConsole } from '../tools/sandbox/endowments'
+import { buildEndowments, createPluginConsole } from '../tools/sandbox/endowments'
 import type { ToolPermissions } from '../tools/types'
 
 /**
@@ -13,12 +13,13 @@ import type { ToolPermissions } from '../tools/types'
 export function buildPluginEndowments(
   permissions: ToolPermissions,
   envVars: Record<string, string | undefined>,
+  pluginId = 'plugin',
 ): Record<string, unknown> {
-  const gated = buildEndowments(permissions, envVars)
+  const gated = buildEndowments(permissions, envVars, pluginId)
 
   const globals: Record<string, unknown> = {
     // --- Always provided (safe web-platform APIs) ---
-    console: tamedConsole,
+    console: createPluginConsole(pluginId),
     URL,
     URLSearchParams,
     TextEncoder,

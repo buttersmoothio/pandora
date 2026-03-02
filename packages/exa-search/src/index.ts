@@ -20,9 +20,14 @@ export const tools = [
     },
     execute: async (
       input: { query: string; num_results?: number },
-      context: { env: Record<string, string | undefined> },
+      context: {
+        env: Record<string, string | undefined>
+        logger: { log: (...args: unknown[]) => void; error: (...args: unknown[]) => void }
+      },
     ) => {
+      const { logger } = context
       const apiKey = context.env.EXA_API_KEY
+      logger.log(`Searching: "${input.query}"`)
       const response = await fetch(EXA_API_URL, {
         method: 'POST',
         headers: {
@@ -37,17 +42,20 @@ export const tools = [
       })
 
       if (!response.ok) {
+        logger.error(`API error: ${response.status} ${response.statusText}`)
         throw new Error(`Exa API error: ${response.status} ${response.statusText}`)
       }
 
       const data = (await response.json()) as {
         results?: { title: string; url: string; text?: string }[]
       }
-      return (data.results ?? []).map((r) => ({
+      const results = (data.results ?? []).map((r) => ({
         title: r.title,
         url: r.url,
         description: r.text ?? '',
       }))
+      logger.log(`Found ${results.length} results`)
+      return results
     },
   },
 ]

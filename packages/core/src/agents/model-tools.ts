@@ -1,4 +1,5 @@
 import type { ToolsInput } from '@mastra/core/agent'
+import { getLogger } from '../logger'
 import type { Alert } from '../plugin-types'
 
 /** Supported model-native tool capability keys. */
@@ -24,6 +25,8 @@ export async function resolveModelTools(
   // Strip optional gateway prefix (e.g. "vercel/openai/gpt-4o" → "openai/gpt-4o")
   const provider = modelString.replace(/^vercel\//, '')
 
+  const log = getLogger()
+
   for (const key of requested) {
     switch (key) {
       case 'search': {
@@ -31,6 +34,9 @@ export async function resolveModelTools(
         if (result) {
           Object.assign(tools, result.tools)
           alerts.push({ level: 'info', message: result.message })
+          log.debug('Model-native tool resolved', { key, message: result.message })
+        } else {
+          log.debug('Model-native tool not available', { key, provider })
         }
         break
       }

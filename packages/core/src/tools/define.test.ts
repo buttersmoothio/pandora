@@ -46,6 +46,19 @@ describe('bindToolExport', () => {
     expect(result).toEqual({ gotEnv: 'secret' })
   })
 
+  it('passes logger to execute context', async () => {
+    const exp = makeTestExport({
+      execute: async (_input: unknown, ctx: { logger: Record<string, unknown> }) => ({
+        hasLog: typeof ctx.logger.log === 'function',
+        hasWarn: typeof ctx.logger.warn === 'function',
+        hasError: typeof ctx.logger.error === 'function',
+      }),
+    })
+    const tool = bindToolExport(exp, defaultEnv, defaultConfig, `test-plugin:${exp.id}`)
+    const result = await tool.execute?.({ value: '' }, {} as never)
+    expect(result).toEqual({ hasLog: true, hasWarn: true, hasError: true })
+  })
+
   it('passes annotations through to Mastra mcp', () => {
     const annotations = { readOnlyHint: true, destructiveHint: false }
     const exp = makeTestExport({ annotations })

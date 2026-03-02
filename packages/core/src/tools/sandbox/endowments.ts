@@ -2,7 +2,11 @@
 import '../../ses-lockdown'
 
 import path from 'node:path'
+import { getLogger } from '../../logger'
 import type { ToolPermissions } from '../types'
+
+/** Logger interface provided to plugins via console (compartment) or context (host). */
+export type PluginLogger = Pick<Console, 'log' | 'warn' | 'error'>
 
 /**
  * Endowments object passed as globals to a SES Compartment.
@@ -15,7 +19,7 @@ export interface Endowments {
   Date?: typeof Date
   Intl?: typeof Intl
   Math?: { random: () => number }
-  console: Pick<Console, 'log' | 'warn' | 'error'>
+  console: PluginLogger
 }
 
 // --- SSRF protection ---
@@ -90,12 +94,23 @@ function createScopedReadFile(allowedPaths: string[]): Endowments['readFile'] {
   })
 }
 
-/** Tamed console — prefixed with [sandbox]. */
-export const tamedConsole: Endowments['console'] = harden({
-  log: (...args: unknown[]) => console.log('[sandbox]', ...args),
-  warn: (...args: unknown[]) => console.warn('[sandbox]', ...args),
-  error: (...args: unknown[]) => console.error('[sandbox]', ...args),
-})
+/**
+ * Create a plugin-scoped console that routes through the structured logger.
+ *
+ * - `console.log` → `logger.debug` (plugin output is verbose by default)
+ * - `console.warn` → `logger.warn`
+ * - `console.error` → `logger.error`
+ */
+export function createPluginConsole(pluginId: string): PluginLogger {
+  const log = getLogger()
+  const tag = `plugin:${pluginId}`
+  const fmt = (args: unknown[]) => args.map(String).join(' ')
+  return harden({
+    log: (...args: unknown[]) => log.debug(fmt(args), { plugin: tag }),
+    warn: (...args: unknown[]) => log.warn(fmt(args), { plugin: tag }),
+    error: (...args: unknown[]) => log.error(fmt(args), { plugin: tag }),
+  })
+}
 
 // --- Main factory ---
 
@@ -109,9 +124,10 @@ export const MAX_OUTPUT_BYTES = 1_048_576
 export function buildEndowments(
   permissions: ToolPermissions,
   envVars: Record<string, string | undefined>,
+  pluginId = 'sandbox',
 ): Endowments {
   const endowments: Endowments = {
-    console: tamedConsole,
+    console: createPluginConsole(pluginId),
   }
 
   if (permissions.time) {

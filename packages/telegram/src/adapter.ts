@@ -1,4 +1,5 @@
 import type { ChannelAdapter, ChannelRealtime, GenerateResult } from '@pandorakit/core/channels'
+import { getLogger } from '@pandorakit/core/logger'
 import type { Context } from 'grammy'
 import { Bot, GrammyError, HttpError, InlineKeyboard } from 'grammy'
 import { markdownToHtml } from './format'
@@ -165,14 +166,15 @@ export function createTelegramAdapter(token: string, ownerId: string): ChannelAd
         await sendResult(ctx, result, pendingApprovals, nextId)
       })
 
+      const log = getLogger()
       bot.catch((err) => {
         const e = err.error
         if (e instanceof GrammyError) {
-          console.error('Telegram API error:', e.description)
+          log.error('Telegram API error', { error: e.description })
         } else if (e instanceof HttpError) {
-          console.error('Telegram network error:', e.message)
+          log.error('Telegram network error', { error: e.message })
         } else {
-          console.error('Grammy error:', e)
+          log.error('Grammy error', { error: e })
         }
       })
 

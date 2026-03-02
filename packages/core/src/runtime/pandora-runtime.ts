@@ -108,6 +108,9 @@ async function buildState(
 
   // 4. Vector (for semantic recall)
   const vectorResult = config.memory.semanticRecall.enabled ? await createVector(env) : null
+  if (!config.memory.semanticRecall.enabled) {
+    log.debug('[runtime] semantic recall disabled, skipping vector store')
+  }
 
   // 5. Memory
   const memory = createMemory({ config, vector: vectorResult })

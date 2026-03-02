@@ -28,7 +28,7 @@ export const currentTime: ToolExport<TimeInput, TimeResult> = {
     destructiveHint: false,
     idempotentHint: true,
   },
-  execute: async (input) => {
+  execute: async (input, context) => {
     const requested = input.timezone ?? 'UTC'
     const now = new Date()
     try {
@@ -39,6 +39,7 @@ export const currentTime: ToolExport<TimeInput, TimeResult> = {
         timezone: requested,
       }
     } catch {
+      context.logger.warn(`Invalid timezone "${requested}", falling back to UTC`)
       return {
         iso: now.toISOString(),
         formatted: new Intl.DateTimeFormat('en-US', { timeZone: 'UTC' }).format(now),

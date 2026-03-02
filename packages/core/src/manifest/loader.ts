@@ -37,6 +37,7 @@ export async function loadEntry(
       entryPath,
       permissions: entry.permissions,
       envVars: process.env as Record<string, string | undefined>,
+      pluginId: plugin.manifest.id,
     })
   }
 

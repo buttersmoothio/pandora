@@ -8,7 +8,8 @@
     "./tools": "./src/tools/exports.ts",
     "./channels": "./src/channels/exports.ts",
     "./agents": "./src/agents/exports.ts",
-    "./manifest": "./src/manifest/index.ts"
+    "./manifest": "./src/manifest/index.ts",
+    "./logger": "./src/logger.ts"
   },
   "scripts": {
     "dev": "bun run serve.ts",

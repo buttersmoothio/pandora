@@ -59,6 +59,8 @@ export interface LoadInCompartmentOptions {
   permissions?: ToolPermissions
   /** Environment variables snapshot. */
   envVars: Record<string, string | undefined>
+  /** Plugin identifier for scoped logging. */
+  pluginId?: string
 }
 
 /**
@@ -78,7 +80,7 @@ export async function loadInCompartment(
   const entryUrl = pathToFileURL(opts.entryPath).href
 
   // Build hardened globals from declared permissions
-  const globals = buildPluginEndowments(opts.permissions ?? {}, opts.envVars)
+  const globals = buildPluginEndowments(opts.permissions ?? {}, opts.envVars, opts.pluginId)
 
   const mapOptions = {
     parserForLanguage,

@@ -1,6 +1,8 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { currentTime } from './current-time'
 import { tools } from './index'
+
+const noopLogger = { log: vi.fn(), warn: vi.fn(), error: vi.fn() }
 
 describe('current-time tool (plain export)', () => {
   it('has required ToolExport fields', () => {
@@ -28,7 +30,7 @@ describe('current-time tool (plain export)', () => {
   })
 
   it('returns ISO timestamp for default UTC', async () => {
-    const result = (await currentTime.execute({}, { env: {} })) as {
+    const result = (await currentTime.execute({}, { env: {}, logger: noopLogger })) as {
       iso: string
       formatted: string
       timezone: string
@@ -38,7 +40,7 @@ describe('current-time tool (plain export)', () => {
   })
 
   it('accepts a timezone', async () => {
-    const result = (await currentTime.execute({ timezone: 'America/New_York' }, { env: {} })) as {
+    const result = (await currentTime.execute({ timezone: 'America/New_York' }, { env: {}, logger: noopLogger })) as {
       iso: string
       formatted: string
       timezone: string
@@ -48,7 +50,7 @@ describe('current-time tool (plain export)', () => {
   })
 
   it('falls back to UTC for invalid timezone', async () => {
-    const result = (await currentTime.execute({ timezone: 'Invalid/Zone' }, { env: {} })) as {
+    const result = (await currentTime.execute({ timezone: 'Invalid/Zone' }, { env: {}, logger: noopLogger })) as {
       iso: string
       formatted: string
       timezone: string

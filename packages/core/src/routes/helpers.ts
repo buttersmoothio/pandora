@@ -4,6 +4,7 @@ import { env } from 'hono/adapter'
 import { createMiddleware } from 'hono/factory'
 import { HTTPException } from 'hono/http-exception'
 import { isServerless } from '../env'
+import { getLogger } from '../logger'
 import type { PandoraRuntime } from '../runtime/pandora-runtime'
 import { createRuntime } from '../runtime/pandora-runtime'
 import type { PluginRegistry } from '../runtime/plugin-registry'
@@ -48,9 +49,14 @@ export function createRuntimeMiddleware(registry: PluginRegistry) {
     c.set('envVars', envVars)
 
     if (isServerless()) {
+      getLogger(envVars).debug('Runtime: creating (serverless mode)')
       c.set('runtime', await createRuntime(registry, envVars))
+    } else if (_runtime) {
+      c.set('runtime', _runtime)
     } else {
-      _runtime ??= await createRuntime(registry, envVars)
+      getLogger(envVars).debug('Runtime: creating (server mode)')
+      _runtime = await createRuntime(registry, envVars)
+      getLogger(envVars).debug('Runtime: created and cached')
       c.set('runtime', _runtime)
     }
 

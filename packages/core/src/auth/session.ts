@@ -1,3 +1,4 @@
+import { getLogger } from '../logger'
 import type { AuthStore, RefreshToken, Session } from './auth-store'
 import { generateSessionToken, hashToken } from './crypto'
 
@@ -53,6 +54,11 @@ export async function createTokenPair(
   }
   await store.createRefreshToken(refreshToken)
 
+  getLogger().debug('Token pair created', {
+    accessExpiresAt: session.expiresAt,
+    refreshExpiresAt: refreshToken.expiresAt,
+  })
+
   return {
     accessToken: access.token,
     accessExpiresAt: session.expiresAt,
@@ -96,6 +102,7 @@ export async function rotateTokens(
   // Reuse detection: if this token was already used, someone may have stolen it.
   // Invalidate all sessions and refresh tokens as a safety measure.
   if (existing.used) {
+    getLogger().warn('Refresh token reuse detected — invalidating all sessions')
     await store.deleteAllSessions()
     await store.deleteAllRefreshTokens()
     throw new Error('refresh_token_reused')

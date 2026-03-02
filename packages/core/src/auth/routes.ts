@@ -1,5 +1,6 @@
 import type { Context } from 'hono'
 import { Hono } from 'hono'
+import { getLogger } from '../logger'
 import type { Env } from '../routes/helpers'
 import type { AuthStore } from './auth-store'
 import { hashPassword, hashToken, verifyPassword } from './crypto'
@@ -24,6 +25,7 @@ export function extractBearerToken(c: {
  */
 export function createAuthRoutes(getAuthStore: (c: Context<Env>) => Promise<AuthStore>) {
   const auth = new Hono<Env>()
+  const log = getLogger()
 
   // POST /api/auth/setup — set initial password, auto-login
   auth.post('/setup', async (c) => {
@@ -43,6 +45,7 @@ export function createAuthRoutes(getAuthStore: (c: Context<Env>) => Promise<Auth
     })
 
     if (!created) {
+      log.warn('Setup attempted but already configured')
       return c.json({ error: 'already_setup' }, 409)
     }
 
@@ -51,6 +54,7 @@ export function createAuthRoutes(getAuthStore: (c: Context<Env>) => Promise<Auth
     const ip = c.req.header('X-Forwarded-For') ?? c.req.header('X-Real-IP')
     const pair = await createTokenPair(store, { userAgent, ip: ip ?? undefined })
 
+    log.info('Initial setup complete')
     return c.json(
       {
         token: pair.accessToken,
@@ -78,6 +82,7 @@ export function createAuthRoutes(getAuthStore: (c: Context<Env>) => Promise<Auth
 
     const valid = await verifyPassword(body.password, credential)
     if (!valid) {
+      log.warn('Login failed: invalid credentials')
       return c.json({ error: 'invalid_credentials' }, 401)
     }
 
@@ -85,6 +90,7 @@ export function createAuthRoutes(getAuthStore: (c: Context<Env>) => Promise<Auth
     const ip = c.req.header('X-Forwarded-For') ?? c.req.header('X-Real-IP')
     const pair = await createTokenPair(store, { userAgent, ip: ip ?? undefined })
 
+    log.info('Login successful')
     return c.json({
       token: pair.accessToken,
       refreshToken: pair.refreshToken,
@@ -103,6 +109,7 @@ export function createAuthRoutes(getAuthStore: (c: Context<Env>) => Promise<Auth
       await store.deleteSession(tokenHash)
     }
 
+    log.info('Logout successful')
     return c.json({ success: true })
   })
 
@@ -146,6 +153,7 @@ export function createAuthRoutes(getAuthStore: (c: Context<Env>) => Promise<Auth
     const ip = c.req.header('X-Forwarded-For') ?? c.req.header('X-Real-IP')
     const pair = await createTokenPair(store, { userAgent, ip: ip ?? undefined })
 
+    log.info('Password changed, all sessions invalidated')
     return c.json({
       token: pair.accessToken,
       refreshToken: pair.refreshToken,
@@ -233,6 +241,7 @@ export function createAuthRoutes(getAuthStore: (c: Context<Env>) => Promise<Auth
       })
     } catch (err) {
       const message = err instanceof Error ? err.message : 'invalid_refresh_token'
+      log.warn('Token refresh failed', { error: message })
       return c.json({ error: message }, 401)
     }
   })

@@ -5,6 +5,7 @@ import type { MastraCompositeStore } from '@mastra/core/storage'
 import type { AuthStore } from '../auth/auth-store'
 import { SQLAuthStore } from '../auth/auth-stores/sql'
 import type { Config } from '../config'
+import { getLogger } from '../logger'
 import type { ConfigStore } from './config-store'
 import { SQLConfigStore } from './config-stores/sql'
 
@@ -49,7 +50,9 @@ function createLibSQLConfigStore(client: {
 export async function createStorage(
   env: Record<string, string | undefined>,
 ): Promise<StorageResult> {
+  const log = getLogger(env)
   const url = env.DATABASE_URL ?? `file:${DEFAULT_DB_PATH}`
+  log.debug('Storage initializing', { url: url.startsWith('file:') ? 'file (local)' : 'remote' })
 
   if (url.startsWith('file:')) {
     const filePath = url.slice(5)
@@ -84,6 +87,8 @@ export async function createStorage(
     await config.init()
   }
   await auth.init()
+
+  log.debug('Storage initialized')
 
   return {
     mastra,

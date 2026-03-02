@@ -25,9 +25,14 @@ export const tools = [
     },
     execute: async (
       input: { query: string; max_results?: number; search_depth?: string },
-      context: { env: Record<string, string | undefined> },
+      context: {
+        env: Record<string, string | undefined>
+        logger: { log: (...args: unknown[]) => void; error: (...args: unknown[]) => void }
+      },
     ) => {
+      const { logger } = context
       const apiKey = context.env.TAVILY_API_KEY
+      logger.log(`Searching: "${input.query}"`)
       const response = await fetch(TAVILY_API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -40,17 +45,20 @@ export const tools = [
       })
 
       if (!response.ok) {
+        logger.error(`API error: ${response.status} ${response.statusText}`)
         throw new Error(`Tavily API error: ${response.status} ${response.statusText}`)
       }
 
       const data = (await response.json()) as {
         results?: { title: string; url: string; content: string }[]
       }
-      return (data.results ?? []).map((r) => ({
+      const results = (data.results ?? []).map((r) => ({
         title: r.title,
         url: r.url,
         description: r.content,
       }))
+      logger.log(`Found ${results.length} results`)
+      return results
     },
   },
 ]

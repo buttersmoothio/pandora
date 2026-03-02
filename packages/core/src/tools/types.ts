@@ -152,5 +152,15 @@ export interface ToolExport<TIn = unknown, TOut = unknown> {
   sandbox?: SandboxMode
   /** Permission declarations — stamped by the manifest adapter from the provides entry. */
   permissions?: ToolPermissions
-  execute: (input: TIn, context: { env: Record<string, string | undefined> }) => Promise<TOut>
+  execute: (
+    input: TIn,
+    context: {
+      env: Record<string, string | undefined>
+      logger: {
+        log: (...args: unknown[]) => void
+        warn: (...args: unknown[]) => void
+        error: (...args: unknown[]) => void
+      }
+    },
+  ) => Promise<TOut>
 }

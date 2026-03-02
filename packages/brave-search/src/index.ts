@@ -25,13 +25,18 @@ export const tools = [
     },
     execute: async (
       input: { query: string; count?: number; freshness?: string },
-      context: { env: Record<string, string | undefined> },
+      context: {
+        env: Record<string, string | undefined>
+        logger: { log: (...args: unknown[]) => void; error: (...args: unknown[]) => void }
+      },
     ) => {
+      const { logger } = context
       const apiKey = context.env.BRAVE_API_KEY
       const params = new URLSearchParams({ q: input.query })
       if (input.count) params.set('count', String(input.count))
       if (input.freshness) params.set('freshness', input.freshness)
 
+      logger.log(`Searching: "${input.query}"`)
       const response = await fetch(`${BRAVE_API_URL}?${params}`, {
         headers: {
           Accept: 'application/json',
@@ -41,17 +46,20 @@ export const tools = [
       })
 
       if (!response.ok) {
+        logger.error(`API error: ${response.status} ${response.statusText}`)
         throw new Error(`Brave Search API error: ${response.status} ${response.statusText}`)
       }
 
       const data = (await response.json()) as {
         web?: { results?: { title: string; url: string; description: string }[] }
       }
-      return (data.web?.results ?? []).map((r) => ({
+      const results = (data.web?.results ?? []).map((r) => ({
         title: r.title,
         url: r.url,
         description: r.description,
       }))
+      logger.log(`Found ${results.length} results`)
+      return results
     },
   },
 ]
