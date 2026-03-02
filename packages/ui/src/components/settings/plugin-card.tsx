@@ -462,10 +462,10 @@ export function PluginInfoDialog({
   const [open, setOpen] = useState(false)
   const [draft, setDraft] = useState<Record<string, unknown>>(plugin.config)
 
-  // Reset draft when server data changes
+  // Reset draft when server data changes or dialog closes
   useEffect(() => {
     setDraft(plugin.config)
-  }, [plugin])
+  }, [plugin, open])
 
   const isDirty = JSON.stringify(draft) !== JSON.stringify(plugin.config)
 
@@ -559,15 +559,25 @@ export function PluginInfoDialog({
 
         {/* Footer */}
         <DialogFooter className="border-t px-6 py-4">
-          <DialogClose asChild>
-            <Button variant="outline" size="sm">
-              Cancel
-            </Button>
-          </DialogClose>
-          <Button size="sm" disabled={!isDirty || updateConfig.isPending} onClick={save}>
-            {updateConfig.isPending && <Loader2Icon className="size-4 animate-spin" />}
-            Save
-          </Button>
+          {isDirty ? (
+            <>
+              <DialogClose asChild>
+                <Button variant="outline" size="sm">
+                  Cancel
+                </Button>
+              </DialogClose>
+              <Button size="sm" disabled={updateConfig.isPending} onClick={save}>
+                {updateConfig.isPending && <Loader2Icon className="size-4 animate-spin" />}
+                Save
+              </Button>
+            </>
+          ) : (
+            <DialogClose asChild>
+              <Button variant="outline" size="sm">
+                Close
+              </Button>
+            </DialogClose>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

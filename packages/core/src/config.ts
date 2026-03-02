@@ -211,9 +211,13 @@ export async function updateConfig(
 
 /**
  * Reset configuration to defaults.
- * Deletes from storage.
+ * Preserves plugin configurations.
  */
 export async function resetConfig(configStore: ConfigStore<Config>): Promise<Config> {
-  await configStore.delete()
-  return DEFAULTS
+  const stored = await configStore.get()
+  const plugins = (stored as Config | null)?.plugins ?? DEFAULTS.plugins
+
+  const reset = { ...DEFAULTS, plugins }
+  await configStore.set(reset)
+  return reset
 }
