@@ -28,6 +28,18 @@ export interface Config {
       embedder?: string
     }
   }
+  schedule: {
+    enabled: boolean
+    tasks: Array<{
+      id: string
+      name: string
+      cron: string
+      prompt: string
+      enabled: boolean
+      timezone?: string
+      maxRuns?: number
+    }>
+  }
 }
 
 const CONFIG_KEY = ['config'] as const

@@ -2,6 +2,7 @@
 
 import {
   BlocksIcon,
+  ClockIcon,
   LogOutIcon,
   MoonIcon,
   PlusIcon,
@@ -31,6 +32,7 @@ import { useAuth } from '@/providers/auth-provider'
 const NAV_ITEMS = [
   { title: 'Configuration', href: '/config', icon: SettingsIcon },
   { title: 'Plugins', href: '/plugins', icon: BlocksIcon },
+  { title: 'Schedules', href: '/schedules', icon: ClockIcon },
   { title: 'Security', href: '/security', icon: ShieldIcon },
 ]
 

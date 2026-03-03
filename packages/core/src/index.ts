@@ -15,6 +15,7 @@ import { discoveryRoutes } from './routes/discovery'
 import { healthRoutes } from './routes/health'
 import type { Env } from './routes/helpers'
 import { createRuntimeMiddleware, getAuthStore } from './routes/helpers'
+import { scheduleRoutes } from './routes/schedule'
 import { threadRoutes } from './routes/threads'
 import { webhookRoutes } from './routes/webhooks'
 
@@ -84,6 +85,7 @@ app.route('/api/config', configRoutes)
 app.route('/api', discoveryRoutes)
 app.route('/api/chat', chatRoutes)
 app.route('/api/threads', threadRoutes)
+app.route('/api/schedule', scheduleRoutes)
 
 // 404 handler
 app.notFound((c) => {

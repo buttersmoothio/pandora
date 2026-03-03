@@ -13,6 +13,22 @@ const ModelConfigSchema = z.object({
 })
 
 /**
+ * Scheduled task configuration
+ */
+const ScheduledTaskSchema = z.object({
+  id: z.uuid(),
+  name: z.string().min(1, 'Task name is required'),
+  cron: z.string().min(1, 'Cron expression is required'),
+  prompt: z.string().min(1, 'Prompt is required'),
+  enabled: z.boolean().default(true),
+  timezone: z.string().optional(),
+  maxRuns: z.number().int().positive().optional(),
+})
+
+export type ScheduledTask = z.infer<typeof ScheduledTaskSchema>
+export { ScheduledTaskSchema }
+
+/**
  * Default system prompt for the operator agent.
  */
 export const DEFAULT_SYSTEM_PROMPT = `# Who You Are
@@ -116,6 +132,14 @@ function createConfigSchema(registry?: PluginRegistry) {
           embedder: 'openai/text-embedding-3-small',
         },
       })),
+
+    /** Schedule configuration */
+    schedule: z
+      .object({
+        enabled: z.boolean(),
+        tasks: z.array(ScheduledTaskSchema),
+      })
+      .default(() => ({ enabled: true, tasks: [] })),
   })
 }
 
@@ -216,8 +240,9 @@ export async function updateConfig(
 export async function resetConfig(configStore: ConfigStore<Config>): Promise<Config> {
   const stored = await configStore.get()
   const plugins = (stored as Config | null)?.plugins ?? DEFAULTS.plugins
+  const schedule = (stored as Config | null)?.schedule ?? DEFAULTS.schedule
 
-  const reset = { ...DEFAULTS, plugins }
+  const reset = { ...DEFAULTS, plugins, schedule }
   await configStore.set(reset)
   return reset
 }

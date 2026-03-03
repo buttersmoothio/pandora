@@ -1,9 +1,12 @@
 import type { Mastra } from '@mastra/core'
 import type { Channel } from '@pandorakit/sdk/channels'
 import type { Config } from '../config'
-import { getConfig } from '../config'
+import { getConfig, updateConfig } from '../config'
 import { getLogger } from '../logger'
 import { createMemory } from '../memory'
+import type { Scheduler } from '../scheduler'
+import { createScheduler } from '../scheduler'
+import { createScheduleTools } from '../scheduler/tools'
 import type { StorageResult } from '../storage'
 import { createStorage } from '../storage'
 import { createVector } from '../vector'
@@ -27,7 +30,9 @@ export interface PandoraRuntime {
   config: Config
   mastra: Mastra
   channels: Map<string, Channel>
+  scheduler: Scheduler
 
+  syncSchedule(): void
   reload(): Promise<void>
   close(): Promise<void>
 }
@@ -44,8 +49,30 @@ export async function createRuntime(
   // 2. Config
   const config = await getConfig(storage.config, registry)
 
+  // 3. Mutable ref for schedule tools (tools are created before runtime exists)
+  const runtimeRef: { current: PandoraRuntime | null } = { current: null }
+
   // Build mutable state
-  const state = await buildState(registry, config, env, storage)
+  const state = await buildState(registry, config, env, storage, runtimeRef)
+
+  // 4. Scheduler
+  const taskHandler = createTaskHandler(runtimeRef, env)
+  const onComplete = async (taskId: string) => {
+    log.info('[scheduler] task completed maxRuns, auto-disabling', { taskId })
+    const rt = runtimeRef.current
+    if (!rt) return
+    const tasks = rt.config.schedule.tasks.map((t) =>
+      t.id === taskId ? { ...t, enabled: false } : t,
+    )
+    const updated = await updateConfig(
+      storage.config,
+      { schedule: { enabled: rt.config.schedule.enabled, tasks } },
+      registry,
+    )
+    rt.config = updated
+    rt.syncSchedule()
+  }
+  const scheduler = createScheduler(taskHandler, onComplete)
 
   const runtime: PandoraRuntime = {
     registry,
@@ -54,11 +81,20 @@ export async function createRuntime(
     mastra: state.mastra,
     channels: state.channels,
     web: state.web,
+    scheduler,
 
     streams: {
       store: storeStream,
       getResume: getResumeStream,
       getActiveIds: getActiveStreamIds,
+    },
+
+    syncSchedule() {
+      if (runtime.config.schedule.enabled) {
+        runtime.scheduler.sync(runtime.config.schedule.tasks)
+      } else {
+        runtime.scheduler.stop()
+      }
     },
 
     async reload() {
@@ -68,7 +104,7 @@ export async function createRuntime(
 
       // Re-read config
       const freshConfig = await getConfig(storage.config, registry)
-      const fresh = await buildState(registry, freshConfig, env, storage)
+      const fresh = await buildState(registry, freshConfig, env, storage, runtimeRef)
 
       runtime.config = fresh.config
       runtime.mastra = fresh.mastra
@@ -76,15 +112,25 @@ export async function createRuntime(
       // web gateway is reassigned via closure in buildState
       ;(runtime as { web: WebGateway }).web = fresh.web
 
+      // Sync schedule after reload
+      runtime.syncSchedule()
+
       // Start realtime channels
       await startRealtimeChannels(runtime)
     },
 
     async close() {
+      runtime.scheduler.stop()
       await stopRealtimeChannels(runtime.channels)
       await storage.close?.()
     },
   }
+
+  // Set the ref so schedule tools can access runtime
+  runtimeRef.current = runtime
+
+  // Initial schedule sync
+  runtime.syncSchedule()
 
   // Start realtime channels on initial creation
   await startRealtimeChannels(runtime)
@@ -99,11 +145,18 @@ async function buildState(
   config: Config,
   env: Record<string, string | undefined>,
   storage: StorageResult,
+  runtimeRef: { current: PandoraRuntime | null },
 ) {
   const log = getLogger(env)
 
-  // 3. Tools
-  const tools = await loadTools(registry, config, env)
+  // 3. Tools (plugin tools + schedule tools)
+  const pluginTools = await loadTools(registry, config, env)
+  const scheduleTools = createScheduleTools({
+    configStore: storage.config,
+    registry,
+    runtimeRef,
+  })
+  const tools = { ...pluginTools, ...scheduleTools }
   log.info('[runtime] loaded tools', { toolIds: Object.keys(tools) })
 
   // 4. Vector (for semantic recall)
@@ -141,6 +194,27 @@ async function buildState(
   const { web } = createGateways({ mastra, env })
 
   return { config, mastra, channels, web }
+}
+
+function createTaskHandler(
+  runtimeRef: { current: PandoraRuntime | null },
+  env: Record<string, string | undefined>,
+) {
+  const log = getLogger(env)
+  return async (task: import('../config').ScheduledTask) => {
+    const runtime = runtimeRef.current
+    if (!runtime) {
+      log.error('[scheduler] runtime not available for task', { taskId: task.id })
+      return
+    }
+    const threadId = `schedule-${task.id}`
+    const agent = runtime.mastra.getAgent('operator')
+    log.info('[scheduler] executing task', { taskId: task.id, name: task.name })
+    await agent.generate(
+      [{ id: crypto.randomUUID(), role: 'user', parts: [{ type: 'text', text: task.prompt }] }],
+      { memory: { thread: threadId, resource: 'default' } },
+    )
+  }
 }
 
 async function startRealtimeChannels(runtime: PandoraRuntime): Promise<void> {
