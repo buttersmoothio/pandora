@@ -25,16 +25,17 @@ describe('loadChannels', () => {
     const registry = createPluginRegistry()
     registry.plugins.set('channel-test', makeChannelPlugin())
 
-    const channels = await loadChannels(registry, DEFAULTS, { TEST_TOKEN: 'abc' })
+    const { channels, channelNames } = await loadChannels(registry, DEFAULTS, { TEST_TOKEN: 'abc' })
     expect(channels.get('channel-test:test')).toBeDefined()
     expect(channels.get('channel-test:test')?.name).toBe('Test')
+    expect(channelNames.get('Test')).toBe('channel-test:test')
   })
 
   it('skips channels when factory returns null', async () => {
     const registry = createPluginRegistry()
     registry.plugins.set('channel-test', makeChannelPlugin())
 
-    const channels = await loadChannels(registry, DEFAULTS, {})
+    const { channels } = await loadChannels(registry, DEFAULTS, {})
     expect(channels.size).toBe(0)
   })
 
@@ -43,7 +44,7 @@ describe('loadChannels', () => {
     registry.plugins.set('channel-test', makeChannelPlugin())
 
     const config = { ...DEFAULTS, plugins: { 'channel-test': { enabled: false } } }
-    const channels = await loadChannels(registry, config, { TEST_TOKEN: 'abc' })
+    const { channels } = await loadChannels(registry, config, { TEST_TOKEN: 'abc' })
     expect(channels.size).toBe(0)
   })
 
@@ -57,7 +58,7 @@ describe('loadChannels', () => {
       tools: { entries: [], manifests: new Map() },
     })
 
-    const channels = await loadChannels(registry, DEFAULTS, {})
+    const { channels } = await loadChannels(registry, DEFAULTS, {})
     expect(channels.size).toBe(0)
   })
 })

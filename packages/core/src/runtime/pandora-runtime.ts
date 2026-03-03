@@ -2,7 +2,7 @@ import type { Mastra } from '@mastra/core'
 import type { Channel } from '@pandorakit/sdk/channels'
 import type { Config } from '../config'
 import { getConfig, updateConfig } from '../config'
-import { createInboxTools } from '../inbox/tools'
+import { createSendToTools } from '../inbox/tools'
 import { getLogger } from '../logger'
 import { createMemory } from '../memory'
 import type { Scheduler } from '../scheduler'
@@ -22,7 +22,7 @@ import { getActiveStreamIds, getResumeStream, storeStream } from './stream-store
 export interface PandoraRuntime {
   readonly registry: PluginRegistry
   readonly storage: StorageResult
-  readonly web: WebGateway
+  web: WebGateway
   readonly streams: {
     store(chatId: string, sseStream: ReadableStream<string>): void
     getResume(chatId: string): ReadableStream<string> | null
@@ -31,6 +31,7 @@ export interface PandoraRuntime {
   config: Config
   mastra: Mastra
   channels: Map<string, Channel>
+  channelNames: Map<string, string>
   scheduler: Scheduler
 
   syncSchedule(): void
@@ -79,6 +80,7 @@ export async function createRuntime(
     config: state.config,
     mastra: state.mastra,
     channels: state.channels,
+    channelNames: state.channelNames,
     web: state.web,
     scheduler,
 
@@ -108,8 +110,8 @@ export async function createRuntime(
       runtime.config = fresh.config
       runtime.mastra = fresh.mastra
       runtime.channels = fresh.channels
-      // web gateway is reassigned via closure in buildState
-      ;(runtime as { web: WebGateway }).web = fresh.web
+      runtime.channelNames = fresh.channelNames
+      runtime.web = fresh.web
 
       // Sync schedule after reload
       runtime.syncSchedule()
@@ -187,12 +189,12 @@ async function buildState(
   })
 
   // 9. Channels
-  const channels = await loadChannels(registry, config, env)
+  const { channels, channelNames } = await loadChannels(registry, config, env)
 
   // 10. Gateways
   const { web } = createGateways({ mastra, env })
 
-  return { config, mastra, channels, web }
+  return { config, mastra, channels, channelNames, web }
 }
 
 function createTaskHandler(
@@ -208,7 +210,12 @@ function createTaskHandler(
     }
     const threadId = `schedule-${task.id}`
     const agent = runtime.mastra.getAgent('operator')
-    const inboxTools = createInboxTools(runtime.storage.inbox, threadId)
+    const sendToTools = createSendToTools({
+      inboxStore: runtime.storage.inbox,
+      threadId,
+      channels: runtime.channels,
+      channelNames: runtime.channelNames,
+    })
     log.info('[scheduler] executing task', { taskId: task.id, name: task.name })
     await agent.generate(
       [{ id: crypto.randomUUID(), role: 'user', parts: [{ type: 'text', text: task.prompt }] }],
@@ -220,7 +227,7 @@ function createTaskHandler(
           },
           resource: 'default',
         },
-        toolsets: { inbox: inboxTools },
+        toolsets: { notifications: sendToTools },
       },
     )
   }

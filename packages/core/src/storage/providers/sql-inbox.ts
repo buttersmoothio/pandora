@@ -1,4 +1,4 @@
-import type { InboxMessage, InboxStore } from '../inbox-store'
+import type { DeliveryStatus, InboxMessage, InboxStore } from '../inbox-store'
 
 const TABLE = 'pandora_inbox'
 
@@ -28,6 +28,8 @@ export class SQLInboxStore implements InboxStore {
             subject TEXT NOT NULL,
             body TEXT NOT NULL,
             thread_id TEXT,
+            destination TEXT NOT NULL,
+            status TEXT NOT NULL,
             read BOOLEAN DEFAULT FALSE,
             created_at TIMESTAMPTZ DEFAULT NOW()
           )
@@ -40,6 +42,8 @@ export class SQLInboxStore implements InboxStore {
             subject NVARCHAR(MAX) NOT NULL,
             body NVARCHAR(MAX) NOT NULL,
             thread_id NVARCHAR(255),
+            destination NVARCHAR(255) NOT NULL,
+            status NVARCHAR(50) NOT NULL,
             read BIT DEFAULT 0,
             created_at DATETIME2 DEFAULT GETUTCDATE()
           )
@@ -51,6 +55,8 @@ export class SQLInboxStore implements InboxStore {
             subject TEXT NOT NULL,
             body TEXT NOT NULL,
             thread_id TEXT,
+            destination TEXT NOT NULL,
+            status TEXT NOT NULL,
             read INTEGER DEFAULT 0,
             created_at TEXT DEFAULT (datetime('now'))
           )
@@ -66,15 +72,25 @@ export class SQLInboxStore implements InboxStore {
     const id = crypto.randomUUID()
     const createdAt = new Date().toISOString()
     await this.execute(
-      `INSERT INTO ${TABLE} (id, subject, body, thread_id, created_at)
-       VALUES (${this.param(1)}, ${this.param(2)}, ${this.param(3)}, ${this.param(4)}, ${this.param(5)})`,
-      [id, message.subject, message.body, message.threadId, createdAt],
+      `INSERT INTO ${TABLE} (id, subject, body, thread_id, destination, status, created_at)
+       VALUES (${this.param(1)}, ${this.param(2)}, ${this.param(3)}, ${this.param(4)}, ${this.param(5)}, ${this.param(6)}, ${this.param(7)})`,
+      [
+        id,
+        message.subject,
+        message.body,
+        message.threadId,
+        message.destination,
+        message.status,
+        createdAt,
+      ],
     )
     return {
       id,
       subject: message.subject,
       body: message.body,
       threadId: message.threadId,
+      destination: message.destination,
+      status: message.status,
       read: false,
       createdAt,
     }
@@ -82,14 +98,14 @@ export class SQLInboxStore implements InboxStore {
 
   async list(): Promise<InboxMessage[]> {
     const rows = await this.execute(
-      `SELECT id, subject, body, thread_id, read, created_at FROM ${TABLE} ORDER BY created_at DESC`,
+      `SELECT id, subject, body, thread_id, destination, status, read, created_at FROM ${TABLE} ORDER BY created_at DESC`,
     )
     return (rows as Record<string, unknown>[]).map(toMessage)
   }
 
   async get(id: string): Promise<InboxMessage | null> {
     const rows = await this.execute(
-      `SELECT id, subject, body, thread_id, read, created_at FROM ${TABLE} WHERE id = ${this.param(1)}`,
+      `SELECT id, subject, body, thread_id, destination, status, read, created_at FROM ${TABLE} WHERE id = ${this.param(1)}`,
       [id],
     )
     if (!rows || rows.length === 0) return null
@@ -104,6 +120,13 @@ export class SQLInboxStore implements InboxStore {
     ])
   }
 
+  async updateStatus(id: string, status: DeliveryStatus): Promise<void> {
+    await this.execute(
+      `UPDATE ${TABLE} SET status = ${this.param(1)} WHERE id = ${this.param(2)}`,
+      [status, id],
+    )
+  }
+
   async delete(id: string): Promise<void> {
     await this.execute(`DELETE FROM ${TABLE} WHERE id = ${this.param(1)}`, [id])
   }
@@ -115,6 +138,8 @@ function toMessage(row: Record<string, unknown>): InboxMessage {
     subject: row.subject as string,
     body: row.body as string,
     threadId: (row.thread_id as string) ?? null,
+    destination: (row.destination as string) ?? 'web',
+    status: (row.status as DeliveryStatus) ?? 'sent',
     read: !!row.read,
     createdAt: row.created_at as string,
   }

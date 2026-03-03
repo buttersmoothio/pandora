@@ -2,11 +2,15 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { apiFetch } from '@/lib/api'
 
+export type DeliveryStatus = 'pending' | 'sent' | 'failed'
+
 export interface InboxMessage {
   id: string
   subject: string
   body: string
   threadId: string | null
+  destination: string
+  status: DeliveryStatus
   read: boolean
   createdAt: string
 }

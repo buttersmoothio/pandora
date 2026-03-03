@@ -98,6 +98,26 @@ function sanitiseToolId(id: string): string {
  * Build a lookup map from sanitised tool key → human-readable name.
  * Also maps agent IDs to their display names.
  */
+/**
+ * Build a lookup map from channel namespaced key → human-readable plugin name.
+ * Used to display friendly names for inbox message destinations.
+ */
+export function useChannelNames(): Map<string, string> {
+  const { plugins } = usePlugins()
+  return useMemo(() => {
+    const map = new Map<string, string>()
+    if (!plugins) return map
+    for (const plugin of plugins) {
+      if (plugin.provides.channels?.loaded) {
+        // The nsKey is `pluginId:channelId` — we don't know the channelId here,
+        // so we match any destination that starts with `pluginId:`
+        map.set(plugin.id, plugin.name)
+      }
+    }
+    return map
+  }, [plugins])
+}
+
 export function useToolNames(): Map<string, string> {
   const { plugins } = usePlugins()
   return useMemo(() => {

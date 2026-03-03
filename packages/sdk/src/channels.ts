@@ -100,6 +100,8 @@ export interface Channel {
   webhook?: ChannelWebhook
   /** Realtime mode — opens a persistent connection */
   realtime?: ChannelRealtime
+  /** Send a one-way notification to this channel (no conversation context). */
+  notify?(message: { subject: string; body: string }): Promise<void>
 }
 
 /**

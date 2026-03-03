@@ -196,5 +196,18 @@ export function createTelegramAdapter(token: string, ownerId: string): Channel {
     id: CHANNEL_ID,
     name: 'Telegram',
     realtime,
+    async notify(message) {
+      if (!bot) {
+        throw new Error('Telegram bot not started — cannot send notification')
+      }
+      const text = `<b>${markdownToHtml(message.subject)}</b>\n\n${markdownToHtml(message.body)}`
+      for (const chunk of splitMessage(text)) {
+        try {
+          await bot.api.sendMessage(Number(ownerId), chunk, { parse_mode: 'HTML' })
+        } catch {
+          await bot.api.sendMessage(Number(ownerId), chunk)
+        }
+      }
+    },
   }
 }

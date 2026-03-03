@@ -1,27 +1,84 @@
 import { createTool } from '@mastra/core/tools'
+import type { Channel } from '@pandorakit/sdk/channels'
 import { z } from 'zod'
 import type { InboxStore } from '../storage/inbox-store'
 import type { ToolRecord } from '../tools/types'
 
-export function createInboxTools(inboxStore: InboxStore, threadId: string): ToolRecord {
-  const send_to_inbox = createTool({
-    id: 'send_to_inbox',
+export interface SendToToolDeps {
+  inboxStore: InboxStore
+  threadId: string
+  channels: Map<string, Channel>
+  channelNames: Map<string, string>
+}
+
+export function createSendToTools(deps: SendToToolDeps): ToolRecord {
+  const { inboxStore, threadId, channels, channelNames } = deps
+
+  // Build mapping of friendly names to channels that support notify
+  const notifiable = new Map<string, { nsKey: string; channel: Channel }>()
+  for (const [friendlyName, nsKey] of channelNames) {
+    const channel = channels.get(nsKey)
+    if (channel?.notify) {
+      notifiable.set(friendlyName, { nsKey, channel })
+    }
+  }
+
+  const destinations = ['Web', ...notifiable.keys()] as [string, ...string[]]
+
+  const send_to = createTool({
+    id: 'send_to',
     description:
-      "Send a message to the user's inbox with your findings. Keep subjects brief and bodies concise. " +
-      'Use markdown for formatting.',
+      'Send a notification to the user. Destination "Web" delivers to the web inbox only. ' +
+      'Other destinations deliver via that channel and also appear in the web inbox.',
     inputSchema: z.object({
       subject: z.string().min(1).describe('Brief subject line'),
       body: z.string().min(1).describe('Message body in markdown'),
+      destination: z.enum(destinations).describe('Where to deliver the notification'),
     }),
     execute: async (input) => {
+      const { subject, body, destination } = input
+
+      if (destination === 'Web') {
+        const msg = await inboxStore.add({
+          subject,
+          body,
+          threadId,
+          destination: 'web',
+          status: 'sent',
+        })
+        return { sent: true, id: msg.id, destination: 'web', status: 'sent' }
+      }
+
+      const entry = notifiable.get(destination)
+      if (!entry?.channel.notify) {
+        return { sent: false, error: `Destination "${destination}" is not available` }
+      }
+
       const msg = await inboxStore.add({
-        subject: input.subject,
-        body: input.body,
+        subject,
+        body,
         threadId,
+        destination: entry.nsKey,
+        status: 'pending',
       })
-      return { sent: true, id: msg.id }
+
+      try {
+        await entry.channel.notify({ subject, body })
+        await inboxStore.updateStatus(msg.id, 'sent')
+        return { sent: true, id: msg.id, destination: entry.nsKey, status: 'sent' }
+      } catch (err) {
+        await inboxStore.updateStatus(msg.id, 'failed')
+        const errorMsg = err instanceof Error ? err.message : 'Unknown error'
+        return {
+          sent: false,
+          id: msg.id,
+          destination: entry.nsKey,
+          status: 'failed',
+          error: errorMsg,
+        }
+      }
     },
   })
 
-  return { send_to_inbox }
+  return { send_to }
 }
