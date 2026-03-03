@@ -1,5 +1,6 @@
 import { AIV5Adapter } from '@mastra/core/agent/message-list'
 import type { Memory } from '@mastra/memory'
+import type { UIMessage } from 'ai'
 import { Hono } from 'hono'
 import { getLogger } from '../logger'
 import type { Env } from './helpers'
@@ -130,21 +131,20 @@ threadRoutes.get('/:id', async (c) => {
         | undefined
       if (pendingMap) {
         const pending = Object.values(pendingMap)
-        for (const part of uiMsg.parts) {
-          const raw = part as Record<string, unknown>
+        uiMsg.parts = uiMsg.parts.map((part: UIMessage['parts'][number]) => {
           if (
-            typeof raw.type === 'string' &&
-            raw.type.startsWith('tool-') &&
-            'toolCallId' in raw &&
-            raw.state === 'input-available'
+            'toolCallId' in part &&
+            part.type.startsWith('tool-') &&
+            'state' in part &&
+            part.state === 'input-available'
           ) {
-            const approval = pending.find((a) => a.toolCallId === raw.toolCallId)
+            const approval = pending.find((a) => a.toolCallId === part.toolCallId)
             if (approval) {
-              raw.state = 'approval-requested'
-              raw.approval = { id: approval.runId }
+              return { ...part, state: 'approval-requested', approval: { id: approval.runId } }
             }
           }
-        }
+          return part
+        })
       }
       return uiMsg
     })
@@ -163,7 +163,7 @@ threadRoutes.post('/:id/fork', async (c) => {
   const log = getLogger()
   try {
     const threadId = c.req.param('id')
-    const { messageId } = await c.req.json()
+    const { messageId } = await c.req.json<{ messageId?: string }>()
     if (!messageId || typeof messageId !== 'string') {
       return c.json({ error: 'messageId is required' }, 400)
     }

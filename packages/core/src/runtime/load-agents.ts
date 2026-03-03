@@ -2,8 +2,7 @@ import { Agent as MastraAgent } from '@mastra/core/agent'
 import type { MastraMemory } from '@mastra/core/memory'
 import type { Alert, PluginConfig } from '@pandorakit/sdk'
 import type { Agent } from '@pandorakit/sdk/agents'
-import type { ModelToolKey } from '../agents/model-tools'
-import { resolveModelTools } from '../agents/model-tools'
+import { filterModelToolKeys, resolveModelTools } from '../agents/model-tools'
 import type { Config } from '../config'
 import { getLogger } from '../logger'
 import { buildModelString } from '../models'
@@ -14,15 +13,9 @@ import type { PluginRegistry } from './plugin-registry'
 
 type AgentRecord = Record<string, MastraAgent>
 
-function getAgentConfig(
-  pluginConfig: PluginConfig | null,
-  agentId: string,
-):
-  | { model?: { provider: string; model: string }; tools?: Record<string, { enabled: boolean }> }
-  | undefined {
+function getAgentConfig(pluginConfig: PluginConfig | null, agentId: string) {
   if (!pluginConfig) return undefined
-  const agents = pluginConfig.agents as Record<string, unknown> | undefined
-  return agents?.[agentId] as ReturnType<typeof getAgentConfig>
+  return pluginConfig.agents?.[agentId]
 }
 
 function resolveInheritedTools(agentDef: Agent, globalTools: ToolRecord): ToolRecord {
@@ -43,7 +36,7 @@ async function resolveAgentModelTools(
   }
   const agentCfg = getAgentConfig(pluginConfig, agentDef.id)
   const modelConfig = agentCfg?.model ?? config.models.operator
-  return resolveModelTools(buildModelString(modelConfig), agentDef.modelTools as ModelToolKey[])
+  return resolveModelTools(buildModelString(modelConfig), filterModelToolKeys(agentDef.modelTools))
 }
 
 export async function loadAgents(

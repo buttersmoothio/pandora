@@ -1,7 +1,6 @@
 import { createTool } from '@mastra/core/tools'
 import { z } from 'zod'
-import type { Config, ScheduledTask } from '../config'
-import { updateConfig } from '../config'
+import { applyTaskPatch, type Config, type ScheduledTask, updateConfig } from '../config'
 import type { PandoraRuntime } from '../runtime/pandora-runtime'
 import type { PluginRegistry } from '../runtime/plugin-registry'
 import type { ConfigStore } from '../storage/config-store'
@@ -11,16 +10,6 @@ export interface ScheduleToolDeps {
   configStore: ConfigStore<Config>
   registry: PluginRegistry
   runtimeRef: { current: PandoraRuntime | null }
-}
-
-function applyTaskPatch(task: ScheduledTask, patch: Record<string, unknown>): ScheduledTask {
-  const updated = { ...task, ...patch } as Record<string, unknown>
-  if (patch.runAt !== undefined && patch.runAt !== null) delete updated.cron
-  if (patch.cron !== undefined && patch.cron !== null) delete updated.runAt
-  for (const key of ['timezone', 'maxRuns', 'cron', 'runAt']) {
-    if (patch[key] === null) delete updated[key]
-  }
-  return updated as ScheduledTask
 }
 
 export function createScheduleTools(deps: ScheduleToolDeps): ToolRecord {
@@ -120,7 +109,7 @@ export function createScheduleTools(deps: ScheduleToolDeps): ToolRecord {
       const { id, ...patch } = input
       const tasks = runtime.config.schedule.tasks.map((t) => {
         if (t.id !== id) return t
-        return applyTaskPatch(t, patch as Record<string, unknown>)
+        return applyTaskPatch(t, patch)
       })
 
       const found = tasks.some((t) => t.id === id)

@@ -15,7 +15,7 @@ const schema = {
   ...cleaned,
 }
 
-const json = JSON.stringify(schema, null, 2) + '\n'
+const json = `${JSON.stringify(schema, null, 2)}\n`
 
 const root = resolve(import.meta.dirname, '../../..')
 const sdkOut = resolve(root, 'packages/sdk/schemas/pandora.manifest.schema.json')

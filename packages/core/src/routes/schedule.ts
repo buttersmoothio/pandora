@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
 import type { ScheduledTask } from '../config'
-import { updateConfig } from '../config'
+import { applyTaskPatch, updateConfig } from '../config'
 import { getLogger } from '../logger'
 import type { Env } from './helpers'
 
@@ -28,18 +28,6 @@ const UpdateTaskSchema = z.object({
   timezone: z.string().optional().nullable(),
   maxRuns: z.number().int().positive().optional().nullable(),
 })
-
-function applyTaskPatch(task: ScheduledTask, patch: Record<string, unknown>): ScheduledTask {
-  const updated = { ...task, ...patch } as Record<string, unknown>
-  // Mutual exclusion: setting runAt clears cron and vice versa
-  if (patch.runAt !== undefined && patch.runAt !== null) delete updated.cron
-  if (patch.cron !== undefined && patch.cron !== null) delete updated.runAt
-  // null means clear optional fields
-  for (const key of ['timezone', 'maxRuns', 'cron', 'runAt']) {
-    if (patch[key] === null) delete updated[key]
-  }
-  return updated as ScheduledTask
-}
 
 const scheduleRoutes = new Hono<Env>()
 
@@ -111,7 +99,7 @@ scheduleRoutes.patch('/:id', async (c) => {
     const tasks = runtime.config.schedule.tasks.map((t) => {
       if (t.id !== id) return t
       found = true
-      return applyTaskPatch(t, patch as Record<string, unknown>)
+      return applyTaskPatch(t, patch)
     })
 
     if (!found) return c.json({ error: 'Task not found' }, 404)

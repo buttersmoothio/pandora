@@ -5,6 +5,12 @@ import { getLogger } from '../logger'
 /** Supported model-native tool capability keys. */
 export type ModelToolKey = 'search'
 
+const VALID_MODEL_TOOL_KEYS: ReadonlySet<string> = new Set<ModelToolKey>(['search'])
+
+export function filterModelToolKeys(keys: string[]): ModelToolKey[] {
+  return keys.filter((k): k is ModelToolKey => VALID_MODEL_TOOL_KEYS.has(k))
+}
+
 /**
  * Resolve model-native tools from provider SDKs.
  *

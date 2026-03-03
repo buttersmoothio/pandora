@@ -15,12 +15,14 @@ export interface ServerMessage {
  * with pending approvals patched to `approval-requested` state, so no
  * normalisation is needed here.
  */
+function isChatRole(m: ServerMessage): m is ServerMessage & { role: 'user' | 'assistant' } {
+  return m.role === 'user' || m.role === 'assistant'
+}
+
 export function convertServerMessages(messages: ServerMessage[]): UIMessage[] {
-  return messages
-    .filter((m) => m.role === 'user' || m.role === 'assistant')
-    .map((m) => ({
-      id: m.id,
-      role: m.role as 'user' | 'assistant',
-      parts: m.parts ?? ([] as UIMessage['parts']),
-    }))
+  return messages.filter(isChatRole).map((m) => ({
+    id: m.id,
+    role: m.role,
+    parts: m.parts ?? ([] as UIMessage['parts']),
+  }))
 }

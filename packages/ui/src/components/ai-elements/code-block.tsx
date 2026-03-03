@@ -150,7 +150,8 @@ const createRawTokens = (code: string): TokenizedCode => ({
           {
             color: 'inherit',
             content: line,
-          } as ThemedToken,
+            offset: 0,
+          },
         ],
   ),
 })
@@ -444,7 +445,7 @@ export const CodeBlockCopyButton = ({
         timeoutRef.current = window.setTimeout(() => setIsCopied(false), timeout)
       }
     } catch (error) {
-      onError?.(error as Error)
+      onError?.(error instanceof Error ? error : new Error(String(error)))
     }
   }, [code, onCopy, onError, timeout, isCopied])
 

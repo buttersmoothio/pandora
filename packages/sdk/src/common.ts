@@ -40,13 +40,17 @@ export interface EnvVarDescriptor {
 /** Per-plugin user configuration (shared shape for all plugin types). */
 export interface PluginConfig {
   enabled: boolean
+  /** Per-tool approval overrides (toolId → requires approval). */
+  requireApproval?: Record<string, boolean>
+  /** Per-agent configuration overrides. */
+  agents?: Record<string, { model?: { provider: string; model: string } } & Record<string, unknown>>
   [key: string]: unknown
 }
 
 /** Context passed to a plugin's resolveTools hook. */
 export interface ResolveToolsContext {
   /** The plugin's own validated config. */
-  pluginConfig: Record<string, unknown>
+  pluginConfig: PluginConfig
   /** Environment variables. */
   env: Record<string, string | undefined>
 }

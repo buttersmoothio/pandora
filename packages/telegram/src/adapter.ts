@@ -14,7 +14,7 @@ const NEW_THREAD_GREETINGS = [
 ]
 
 function randomGreeting(): string {
-  return NEW_THREAD_GREETINGS[Math.floor(Math.random() * NEW_THREAD_GREETINGS.length)] as string
+  return NEW_THREAD_GREETINGS[Math.floor(Math.random() * NEW_THREAD_GREETINGS.length)] ?? 'Hello!'
 }
 
 /**
@@ -33,8 +33,8 @@ async function reply(ctx: Context, text: string): Promise<void> {
 
 /** Format tool args as a readable key-value list */
 function formatArgs(args: unknown): string {
-  if (!args || typeof args !== 'object') return ''
-  const entries = Object.entries(args as Record<string, unknown>)
+  if (!args || typeof args !== 'object' || Array.isArray(args)) return ''
+  const entries = Object.entries(args)
   if (entries.length === 0) return ''
   return entries
     .map(([key, value]) => {
@@ -142,7 +142,8 @@ export function createTelegramAdapter(token: string, ownerId: string): Channel {
       })
 
       bot.callbackQuery(/^(a|d):(\d+)$/, async (ctx) => {
-        const match = ctx.match as RegExpMatchArray
+        const match = ctx.match
+        if (!match || typeof match === 'string') return
         const [, action, id] = match
         const pending = pendingApprovals.get(id)
         if (!pending) {

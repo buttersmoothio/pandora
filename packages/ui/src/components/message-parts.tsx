@@ -1,6 +1,6 @@
 'use client'
 
-import type { ChatAddToolApproveResponseFunction } from 'ai'
+import type { ChatAddToolApproveResponseFunction, DynamicToolUIPart, ToolUIPart } from 'ai'
 import { isToolUIPart, type UIMessage } from 'ai'
 import { CheckIcon, XIcon } from 'lucide-react'
 import { MessageContent, MessageResponse } from '@/components/ai-elements/message'
@@ -11,7 +11,7 @@ import { Tool, ToolContent, ToolHeader, ToolInput, ToolOutput } from '@/componen
 import { Button } from '@/components/ui/button'
 import { useToolNames } from '@/hooks/use-plugins'
 
-type ToolPart = Extract<UIMessage['parts'][number], { type: `tool-${string}` | 'dynamic-tool' }>
+type ToolPart = ToolUIPart | DynamicToolUIPart
 type TextPart = Extract<UIMessage['parts'][number], { type: 'text' }>
 type PartGroup = { type: 'text'; part: TextPart } | { type: 'tools'; parts: ToolPart[] }
 
@@ -23,9 +23,9 @@ function groupParts(parts: UIMessage['parts']): PartGroup[] {
     } else if (isToolUIPart(part)) {
       const last = groups.at(-1)
       if (last?.type === 'tools') {
-        last.parts.push(part as ToolPart)
+        last.parts.push(part)
       } else {
-        groups.push({ type: 'tools', parts: [part as ToolPart] })
+        groups.push({ type: 'tools', parts: [part] })
       }
     }
   }

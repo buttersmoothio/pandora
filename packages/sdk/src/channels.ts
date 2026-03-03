@@ -20,7 +20,7 @@ export interface Source {
 export interface ToolCall {
   toolCallId: string
   toolName: string
-  args?: unknown
+  args?: Record<string, unknown>
 }
 
 /** A tool execution result. */
@@ -122,7 +122,7 @@ export type ChannelFactory = (
 export interface PendingToolApproval {
   toolCallId: string
   toolName: string
-  args: unknown
+  args: Record<string, unknown>
 }
 
 /** Non-streaming result — all fields resolved. */

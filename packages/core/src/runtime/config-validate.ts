@@ -34,7 +34,7 @@ export function validatePluginConfig(
       log.debug(`Plugin ${plugin.id} skipped (not configured)`)
       return { config: null, errors: [] }
     }
-    return { config: fallback.data as PluginConfig, errors: [] }
+    return { config: { enabled: true, ...fallback.data }, errors: [] }
   }
 
   if (rawConfig && schema) {

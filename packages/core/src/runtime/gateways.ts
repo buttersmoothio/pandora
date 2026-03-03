@@ -115,11 +115,16 @@ function buildResult(result: FullOutput): GenerateResult {
   }
 }
 
+interface StreamChunk {
+  type: string
+  data?: { runId?: string; toolCallId?: string }
+  [key: string]: unknown
+}
+
 function createApprovalTransform(): TransformStream {
   const log = getLogger()
   return new TransformStream({
-    // biome-ignore lint/suspicious/noExplicitAny: stream chunks are untyped
-    transform(chunk: any, controller) {
+    transform(chunk: StreamChunk, controller) {
       try {
         if (chunk.type === 'data-tool-call-approval') {
           log.info('[ApprovalTransform] data-tool-call-approval → tool-approval-request', {

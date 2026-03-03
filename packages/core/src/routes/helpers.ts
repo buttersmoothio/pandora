@@ -1,8 +1,10 @@
+import type { Mastra } from '@mastra/core'
 import type { Memory } from '@mastra/memory'
 import type { Context } from 'hono'
 import { env, getRuntimeKey } from 'hono/adapter'
 import { createMiddleware } from 'hono/factory'
 import { HTTPException } from 'hono/http-exception'
+import type { AuthStore } from '../auth/auth-store'
 import { getLogger } from '../logger'
 
 type Runtime = ReturnType<typeof getRuntimeKey>
@@ -75,12 +77,14 @@ export function createRuntimeMiddleware(registry: PluginRegistry) {
 }
 
 /** Helper to get auth store from request context */
-export async function getAuthStore(c: Context<Env>) {
+export async function getAuthStore(c: Context<Env>): Promise<AuthStore> {
   return c.var.runtime.storage.auth
 }
 
 /** Get memory from the operator agent, or throw 500 */
-export async function getMemoryOrFail(c: Context<Env>) {
+export async function getMemoryOrFail(
+  c: Context<Env>,
+): Promise<{ mastra: Mastra; memory: Memory }> {
   const { mastra } = c.var.runtime
   const memory = await mastra.getAgent('operator').getMemory()
   if (!memory) throw new HTTPException(500, { message: 'Memory not configured' })

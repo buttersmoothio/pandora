@@ -29,6 +29,44 @@ const ScheduledTaskSchema = z.object({
 export type ScheduledTask = z.infer<typeof ScheduledTaskSchema>
 export { ScheduledTaskSchema }
 
+/** Optional fields that can be cleared with `null`. */
+type ClearableTaskFields = 'timezone' | 'maxRuns' | 'cron' | 'runAt'
+
+export type ScheduledTaskPatch = Partial<Omit<ScheduledTask, 'id' | ClearableTaskFields>> & {
+  [K in ClearableTaskFields]?: ScheduledTask[K] | null
+}
+
+/**
+ * Apply a partial patch to a scheduled task, handling mutual exclusion
+ * between `cron` and `runAt`, and clearing optional fields set to `null`.
+ */
+export function applyTaskPatch(task: ScheduledTask, patch: ScheduledTaskPatch): ScheduledTask {
+  const { timezone, maxRuns, cron, runAt, ...restPatch } = patch
+  const updated: Partial<ScheduledTask> = { ...task, ...restPatch }
+
+  // Mutual exclusion: setting runAt clears cron and vice versa
+  if (runAt !== undefined && runAt !== null) {
+    updated.runAt = runAt
+    delete updated.cron
+  } else if (runAt === null) {
+    delete updated.runAt
+  }
+  if (cron !== undefined && cron !== null) {
+    updated.cron = cron
+    delete updated.runAt
+  } else if (cron === null) {
+    delete updated.cron
+  }
+
+  // null means clear optional fields
+  if (timezone === null) delete updated.timezone
+  else if (timezone !== undefined) updated.timezone = timezone
+  if (maxRuns === null) delete updated.maxRuns
+  else if (maxRuns !== undefined) updated.maxRuns = maxRuns
+
+  return updated as ScheduledTask
+}
+
 /**
  * Default system prompt for the operator agent.
  */
@@ -204,7 +242,7 @@ export async function getConfig(
   // Load from storage
   const storedConfig = await configStore.get()
   if (storedConfig) {
-    config = deepMerge(config, storedConfig as Partial<Config>)
+    config = deepMerge(config, storedConfig)
   }
 
   // Validate with registry-aware schema
@@ -240,8 +278,8 @@ export async function updateConfig(
  */
 export async function resetConfig(configStore: ConfigStore<Config>): Promise<Config> {
   const stored = await configStore.get()
-  const plugins = (stored as Config | null)?.plugins ?? DEFAULTS.plugins
-  const schedule = (stored as Config | null)?.schedule ?? DEFAULTS.schedule
+  const plugins = stored?.plugins ?? DEFAULTS.plugins
+  const schedule = stored?.schedule ?? DEFAULTS.schedule
 
   const reset = { ...DEFAULTS, plugins, schedule }
   await configStore.set(reset)

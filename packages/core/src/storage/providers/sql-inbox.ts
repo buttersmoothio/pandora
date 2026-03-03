@@ -2,6 +2,18 @@ import type { DeliveryStatus, InboxMessage, InboxStore } from '../inbox-store'
 
 const TABLE = 'pandora_inbox'
 
+/** Raw column shape returned from the inbox SQL table. */
+interface InboxRow {
+  id: string
+  subject: string
+  body: string
+  thread_id: string | null
+  destination: string
+  status: string
+  read: number | boolean
+  created_at: string
+}
+
 export class SQLInboxStore implements InboxStore {
   constructor(
     private execute: (sql: string, params?: unknown[]) => Promise<unknown[]>,
@@ -97,19 +109,19 @@ export class SQLInboxStore implements InboxStore {
   }
 
   async list(): Promise<InboxMessage[]> {
-    const rows = await this.execute(
+    const rows = (await this.execute(
       `SELECT id, subject, body, thread_id, destination, status, read, created_at FROM ${TABLE} ORDER BY created_at DESC`,
-    )
-    return (rows as Record<string, unknown>[]).map(toMessage)
+    )) as InboxRow[]
+    return rows.map(toMessage)
   }
 
   async get(id: string): Promise<InboxMessage | null> {
-    const rows = await this.execute(
+    const rows = (await this.execute(
       `SELECT id, subject, body, thread_id, destination, status, read, created_at FROM ${TABLE} WHERE id = ${this.param(1)}`,
       [id],
-    )
+    )) as InboxRow[]
     if (!rows || rows.length === 0) return null
-    return toMessage(rows[0] as Record<string, unknown>)
+    return toMessage(rows[0])
   }
 
   async markRead(id: string): Promise<void> {
@@ -132,15 +144,21 @@ export class SQLInboxStore implements InboxStore {
   }
 }
 
-function toMessage(row: Record<string, unknown>): InboxMessage {
+function toMessage(row: InboxRow): InboxMessage {
   return {
-    id: row.id as string,
-    subject: row.subject as string,
-    body: row.body as string,
-    threadId: (row.thread_id as string) ?? null,
-    destination: (row.destination as string) ?? 'web',
-    status: (row.status as DeliveryStatus) ?? 'sent',
+    id: row.id,
+    subject: row.subject,
+    body: row.body,
+    threadId: row.thread_id,
+    destination: row.destination ?? 'web',
+    status: (DELIVERY_STATUSES.has(row.status) ? row.status : 'sent') as DeliveryStatus,
     read: !!row.read,
-    createdAt: row.created_at as string,
+    createdAt: row.created_at,
   }
 }
+
+const DELIVERY_STATUSES: ReadonlySet<string> = new Set<DeliveryStatus>([
+  'pending',
+  'sent',
+  'failed',
+])

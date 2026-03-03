@@ -1,4 +1,5 @@
 import { PROVIDER_REGISTRY } from '@mastra/core/llm'
+import type { PluginConfig } from '@pandorakit/sdk'
 import type { Channel } from '@pandorakit/sdk/channels'
 import { Hono } from 'hono'
 import { validatePluginConfig } from '../runtime/config-validate'
@@ -25,15 +26,12 @@ function buildToolsProvides(plugin: RegisteredPlugin) {
 function buildAgentsProvides(
   plugin: RegisteredPlugin,
   registry: PluginRegistry,
-  pluginConfig: unknown,
+  pluginConfig: PluginConfig | undefined,
 ) {
   if (!plugin.agents) return undefined
   const agents = plugin.agents.definitions.map((def) => {
     const manifest = plugin.agents?.manifests.get(def.id)
-    const agentCfg = (pluginConfig as Record<string, unknown> | undefined)?.agents as
-      | Record<string, unknown>
-      | undefined
-    const ac = agentCfg?.[def.id] as { model?: unknown } | undefined
+    const ac = pluginConfig?.agents?.[def.id]
     const tools = (def.useTools ?? [])
       .map((nsId) => {
         const colonIdx = nsId.lastIndexOf(':')
@@ -76,7 +74,11 @@ discoveryRoutes.get('/plugins', (c) => {
     const envVars = descriptors.map((d) => ({ ...d, configured: !!c.var.envVars[d.name] }))
     const envConfigured = envVars.filter((d) => d.required !== false).every((d) => d.configured)
 
-    const provides: Record<string, unknown> = {}
+    const provides: {
+      tools?: NonNullable<ReturnType<typeof buildToolsProvides>>
+      agents?: NonNullable<ReturnType<typeof buildAgentsProvides>>
+      channels?: NonNullable<ReturnType<typeof buildChannelsProvides>>
+    } = {}
     const tools = buildToolsProvides(plugin)
     if (tools) provides.tools = tools
     const agents = buildAgentsProvides(plugin, registry, pluginConfig)

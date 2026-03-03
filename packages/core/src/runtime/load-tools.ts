@@ -15,7 +15,7 @@ function loadStaticTools(
   if (!plugin.tools) return {}
   const tools: ToolRecord = {}
   const manifestDefault = plugin.tools.requireApproval ?? false
-  const perTool = (pluginConfig.requireApproval ?? {}) as Record<string, boolean>
+  const perTool = pluginConfig.requireApproval ?? {}
   for (const exp of plugin.tools.entries) {
     validateEntityId('tool', plugin.id, exp.id)
     const nsKey = namespacedKey(plugin.id, exp.id)

@@ -1,3 +1,4 @@
+import type { MessagePart } from '@pandorakit/sdk/channels'
 import { createUIMessageStreamResponse, UI_MESSAGE_STREAM_HEADERS } from 'ai'
 import { Hono } from 'hono'
 import { getLogger } from '../logger'
@@ -10,10 +11,10 @@ const chatRoutes = new Hono<Env>()
 chatRoutes.post('/', async (c) => {
   const log = getLogger()
   try {
-    const body = await c.req.json()
-
-    // Accept { parts, threadId? } — server wraps into messages + memory config
-    const { parts, threadId: clientThreadId } = body
+    const { parts, threadId: clientThreadId } = await c.req.json<{
+      parts?: MessagePart[]
+      threadId?: string
+    }>()
     if (!Array.isArray(parts) || parts.length === 0) {
       return c.json({ error: 'parts must be a non-empty array' }, 400)
     }
@@ -52,7 +53,13 @@ chatRoutes.post('/', async (c) => {
 chatRoutes.post('/approve', async (c) => {
   const log = getLogger()
   try {
-    const { runId, toolCallId, approved, threadId, messageId } = await c.req.json()
+    const { runId, toolCallId, approved, threadId, messageId } = await c.req.json<{
+      runId?: string
+      toolCallId?: string
+      approved?: boolean
+      threadId?: string
+      messageId?: string
+    }>()
     if (!(runId && threadId)) {
       return c.json({ error: 'runId and threadId are required' }, 400)
     }

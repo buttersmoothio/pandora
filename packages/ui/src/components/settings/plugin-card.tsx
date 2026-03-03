@@ -463,6 +463,7 @@ export function PluginInfoDialog({
   const [draft, setDraft] = useState<Record<string, unknown>>(plugin.config)
 
   // Reset draft when server data changes or dialog closes
+  // biome-ignore lint/correctness/useExhaustiveDependencies: open triggers reset on dialog reopen
   useEffect(() => {
     setDraft(plugin.config)
   }, [plugin, open])

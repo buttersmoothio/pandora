@@ -1,7 +1,12 @@
 import { useQuery } from '@tanstack/react-query'
 import { useMemo } from 'react'
 import { apiFetch } from '@/lib/api'
-import type { Alert, ConfigFieldDescriptor, EnvVarDescriptor } from './plugin-types'
+import type {
+  Alert,
+  ConfigFieldDescriptor,
+  EnvVarDescriptor,
+  ToolPermissions,
+} from './plugin-types'
 
 export interface ToolOverview {
   id: string
@@ -13,7 +18,7 @@ export interface ToolsProvides {
   toolIds: string[]
   tools: ToolOverview[]
   sandbox?: string
-  permissions?: Record<string, unknown>
+  permissions?: ToolPermissions
   requireApproval?: boolean
   alerts: Alert[]
 }
@@ -118,24 +123,24 @@ export function useChannelNames(): Map<string, string> {
   }, [plugins])
 }
 
-export function useToolNames(): Map<string, string> {
-  const { plugins } = usePlugins()
-  return useMemo(() => {
-    const map = new Map<string, string>()
-    if (!plugins) return map
-    for (const plugin of plugins) {
-      if (plugin.provides.tools) {
-        for (const tool of plugin.provides.tools.tools) {
-          const nsKey = `${plugin.id}:${tool.id}`
-          map.set(sanitiseToolId(nsKey), tool.name)
-        }
-      }
-      if (plugin.provides.agents) {
-        for (const agent of plugin.provides.agents.agents) {
-          map.set(sanitiseToolId(agent.id), agent.name)
-        }
+function buildToolNameMap(plugins: UnifiedPluginInfo[]): Map<string, string> {
+  const map = new Map<string, string>()
+  for (const plugin of plugins) {
+    if (plugin.provides.tools) {
+      for (const tool of plugin.provides.tools.tools) {
+        map.set(sanitiseToolId(`${plugin.id}:${tool.id}`), tool.name)
       }
     }
-    return map
-  }, [plugins])
+    if (plugin.provides.agents) {
+      for (const agent of plugin.provides.agents.agents) {
+        map.set(sanitiseToolId(agent.id), agent.name)
+      }
+    }
+  }
+  return map
+}
+
+export function useToolNames(): Map<string, string> {
+  const { plugins } = usePlugins()
+  return useMemo(() => (plugins ? buildToolNameMap(plugins) : new Map()), [plugins])
 }

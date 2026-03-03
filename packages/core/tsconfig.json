@@ -12,6 +12,6 @@
     "verbatimModuleSyntax": true,
     "lib": ["ESNext"]
   },
-  "include": ["src/**/*", "*.ts", "api/**/*"],
+  "include": ["src/**/*", "*.ts", "api/**/*", "scripts/**/*"],
   "exclude": ["node_modules", "dist"]
 }

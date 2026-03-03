@@ -109,7 +109,7 @@ function transformNodes(nodes: ElementContent[], ctx: ListContext = {}): Element
     }
 
     if (tag === 'ol') {
-      const start = (node.properties?.start as number) ?? 1
+      const start = Number(node.properties?.start) || 1
       result.push(...transformNodes(node.children, { listType: 'ol', counter: start }))
       continue
     }
@@ -146,7 +146,7 @@ function transformNodes(nodes: ElementContent[], ctx: ListContext = {}): Element
     }
 
     if (tag === 'img') {
-      const alt = (node.properties?.alt as string) ?? ''
+      const alt = String(node.properties?.alt ?? '')
       if (alt) result.push(text(alt))
       continue
     }
@@ -174,7 +174,10 @@ function transformNodes(nodes: ElementContent[], ctx: ListContext = {}): Element
  */
 function rehypeTelegram() {
   return (tree: Root) => {
-    tree.children = transformNodes(tree.children as ElementContent[]) as Root['children']
+    const elements = tree.children.filter(
+      (c): c is ElementContent => c.type === 'element' || c.type === 'text',
+    )
+    tree.children = transformNodes(elements)
   }
 }
 

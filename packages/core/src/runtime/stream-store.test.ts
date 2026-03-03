@@ -105,6 +105,7 @@ describe('getResumeStream', () => {
     const resume = getResumeStream('resume-replay')
     expect(resume).not.toBeNull()
 
+    // biome-ignore lint/style/noNonNullAssertion: asserted non-null on line above
     const reader = resume!.getReader()
 
     // Should immediately replay buffered chunks
@@ -137,6 +138,7 @@ describe('getResumeStream', () => {
     expect(resume).not.toBeNull()
 
     // Cancel the resume stream
+    // biome-ignore lint/style/noNonNullAssertion: asserted non-null on line above
     await resume!.cancel()
 
     // Cleanup

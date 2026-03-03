@@ -92,13 +92,13 @@ function AgentModelOverride({
 
   function updateAgentModel(modelValue: ModelConfig | null | undefined) {
     setDraft((prev) => {
-      const agents = (prev.agents ?? {}) as Record<string, unknown>
+      const agents = (prev.agents ?? {}) as Record<string, Record<string, unknown>>
       return {
         ...prev,
         agents: {
           ...agents,
           [agentId]: {
-            ...((agents[agentId] as Record<string, unknown>) ?? {}),
+            ...(agents[agentId] ?? {}),
             ...(modelValue !== undefined ? { model: modelValue } : {}),
           },
         },
