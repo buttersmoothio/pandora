@@ -4,6 +4,7 @@ import { Loader2Icon, PlusIcon, Trash2Icon } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { ButtonGroup } from '@/components/ui/button-group'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Dialog,
@@ -60,8 +61,10 @@ function MasterToggle() {
 }
 
 interface TaskFormState {
+  mode: 'cron' | 'runAt'
   name: string
   cron: string
+  runAt: string
   prompt: string
   enabled: boolean
   timezone: string
@@ -69,8 +72,10 @@ interface TaskFormState {
 }
 
 const EMPTY_FORM: TaskFormState = {
+  mode: 'cron',
   name: '',
   cron: '',
+  runAt: '',
   prompt: '',
   enabled: true,
   timezone: '',
@@ -95,8 +100,10 @@ function TaskDialog({
   useEffect(() => {
     if (task) {
       setForm({
+        mode: task.runAt ? 'runAt' : 'cron',
         name: task.name,
-        cron: task.cron,
+        cron: task.cron ?? '',
+        runAt: task.runAt ? new Date(task.runAt).toISOString().slice(0, 16) : '',
         prompt: task.prompt,
         enabled: task.enabled,
         timezone: task.timezone ?? '',
@@ -112,11 +119,15 @@ function TaskDialog({
   function handleSave() {
     const payload = {
       name: form.name,
-      cron: form.cron,
+      ...(form.mode === 'cron'
+        ? { cron: form.cron }
+        : { runAt: new Date(form.runAt).toISOString() }),
       prompt: form.prompt,
       enabled: form.enabled,
       ...(form.timezone ? { timezone: form.timezone } : {}),
-      ...(form.maxRuns ? { maxRuns: Number.parseInt(form.maxRuns, 10) } : {}),
+      ...(form.mode === 'cron' && form.maxRuns
+        ? { maxRuns: Number.parseInt(form.maxRuns, 10) }
+        : {}),
     }
 
     if (isEdit) {
@@ -126,7 +137,10 @@ function TaskDialog({
     }
   }
 
-  const canSave = form.name.trim() && form.cron.trim() && form.prompt.trim()
+  const canSave =
+    form.name.trim() &&
+    form.prompt.trim() &&
+    (form.mode === 'cron' ? form.cron.trim() : form.runAt.trim())
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -136,7 +150,7 @@ function TaskDialog({
           <DialogDescription>
             {isEdit
               ? 'Update the scheduled task configuration.'
-              : 'Create a new scheduled task that will run on a cron schedule.'}
+              : 'Create a new scheduled task — recurring or one-time.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -152,18 +166,55 @@ function TaskDialog({
           </div>
 
           <div className="flex flex-col gap-2">
-            <Label htmlFor="schedule-cron">Cron Expression</Label>
-            <Input
-              id="schedule-cron"
-              placeholder="0 8 * * *"
-              value={form.cron}
-              onChange={(e) => setForm({ ...form, cron: e.target.value })}
-            />
-            <p className="text-muted-foreground text-xs">
-              Examples: <code>0 8 * * *</code> (daily 8am), <code>*/30 * * * *</code> (every 30
-              min), <code>0 9 * * 1</code> (Mondays 9am)
-            </p>
+            <Label>Type</Label>
+            <ButtonGroup>
+              <Button
+                variant={form.mode === 'cron' ? 'default' : 'outline'}
+                size="sm"
+                type="button"
+                onClick={() => setForm({ ...form, mode: 'cron' })}
+              >
+                Recurring
+              </Button>
+              <Button
+                variant={form.mode === 'runAt' ? 'default' : 'outline'}
+                size="sm"
+                type="button"
+                onClick={() => setForm({ ...form, mode: 'runAt' })}
+              >
+                One-time
+              </Button>
+            </ButtonGroup>
           </div>
+
+          {form.mode === 'cron' ? (
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="schedule-cron">Cron Expression</Label>
+              <Input
+                id="schedule-cron"
+                placeholder="0 8 * * *"
+                value={form.cron}
+                onChange={(e) => setForm({ ...form, cron: e.target.value })}
+              />
+              <p className="text-muted-foreground text-xs">
+                Examples: <code>0 8 * * *</code> (daily 8am), <code>*/30 * * * *</code> (every 30
+                min), <code>0 9 * * 1</code> (Mondays 9am)
+              </p>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="schedule-runat">Run At</Label>
+              <Input
+                id="schedule-runat"
+                type="datetime-local"
+                value={form.runAt}
+                onChange={(e) => setForm({ ...form, runAt: e.target.value })}
+              />
+              <p className="text-muted-foreground text-xs">
+                The task will run once at this date and time.
+              </p>
+            </div>
+          )}
 
           <div className="flex flex-col gap-2">
             <Label htmlFor="schedule-prompt">Prompt</Label>
@@ -177,20 +228,20 @@ function TaskDialog({
           </div>
 
           <div className="flex gap-4">
-            <div className="flex flex-1 flex-col gap-2">
-              <Label htmlFor="schedule-maxruns">Max Runs</Label>
-              <Input
-                id="schedule-maxruns"
-                type="number"
-                min={1}
-                placeholder="Unlimited"
-                value={form.maxRuns}
-                onChange={(e) => setForm({ ...form, maxRuns: e.target.value })}
-              />
-              <p className="text-muted-foreground text-xs">
-                Leave empty for recurring. Use 1 for one-time.
-              </p>
-            </div>
+            {form.mode === 'cron' && (
+              <div className="flex flex-1 flex-col gap-2">
+                <Label htmlFor="schedule-maxruns">Max Runs</Label>
+                <Input
+                  id="schedule-maxruns"
+                  type="number"
+                  min={1}
+                  placeholder="Unlimited"
+                  value={form.maxRuns}
+                  onChange={(e) => setForm({ ...form, maxRuns: e.target.value })}
+                />
+                <p className="text-muted-foreground text-xs">Leave empty for recurring forever.</p>
+              </div>
+            )}
             <div className="flex flex-1 flex-col gap-2">
               <Label htmlFor="schedule-timezone">Timezone</Label>
               <Input
@@ -273,6 +324,7 @@ function TaskList() {
             <div className="flex min-w-0 flex-1 flex-col gap-1">
               <div className="flex items-center gap-2">
                 <span className="truncate font-medium text-sm">{task.name}</span>
+                <Badge variant="outline">{task.cron ? 'Recurring' : 'One-time'}</Badge>
                 {task.enabled ? (
                   <Badge variant="secondary">Active</Badge>
                 ) : (
@@ -282,7 +334,19 @@ function TaskList() {
               </div>
               <div className="flex gap-4 text-muted-foreground text-xs">
                 <span>
-                  <code>{task.cron}</code>
+                  {task.cron ? (
+                    <code>{task.cron}</code>
+                  ) : (
+                    <>
+                      Run at:{' '}
+                      {new Date(task.runAt ?? '').toLocaleString(undefined, {
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </>
+                  )}
                 </span>
                 <span>Next: {formatNextRun(task.nextRun)}</span>
                 {task.maxRuns && <span>Max runs: {task.maxRuns}</span>}
@@ -366,8 +430,8 @@ export default function SchedulesPage() {
         <CardHeader>
           <CardTitle>Scheduled Tasks</CardTitle>
           <CardDescription>
-            Tasks that run automatically on a cron schedule. The agent executes each task's prompt
-            in a dedicated thread.
+            Tasks that run automatically on a schedule. Recurring tasks use cron expressions;
+            one-time tasks run at a specific date and time.
           </CardDescription>
         </CardHeader>
         <CardContent>

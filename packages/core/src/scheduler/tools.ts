@@ -13,6 +13,16 @@ export interface ScheduleToolDeps {
   runtimeRef: { current: PandoraRuntime | null }
 }
 
+function applyTaskPatch(task: ScheduledTask, patch: Record<string, unknown>): ScheduledTask {
+  const updated = { ...task, ...patch } as Record<string, unknown>
+  if (patch.runAt !== undefined && patch.runAt !== null) delete updated.cron
+  if (patch.cron !== undefined && patch.cron !== null) delete updated.runAt
+  for (const key of ['timezone', 'maxRuns', 'cron', 'runAt']) {
+    if (patch[key] === null) delete updated[key]
+  }
+  return updated as ScheduledTask
+}
+
 export function createScheduleTools(deps: ScheduleToolDeps): ToolRecord {
   const { configStore, registry, runtimeRef } = deps
 
@@ -36,20 +46,32 @@ export function createScheduleTools(deps: ScheduleToolDeps): ToolRecord {
   const create_schedule = createTool({
     id: 'create_schedule',
     description:
-      'Create a new scheduled task. Provide a cron expression, a name, and the prompt the agent should execute on schedule.',
-    inputSchema: z.object({
-      name: z.string().min(1).describe('Human-readable task name'),
-      cron: z.string().min(1).describe('Cron expression (e.g. "0 8 * * *" for daily at 8am)'),
-      prompt: z.string().min(1).describe('The prompt the agent will execute on each run'),
-      enabled: z.boolean().default(true).describe('Whether the task is active'),
-      timezone: z.string().optional().describe('IANA timezone (e.g. "America/New_York")'),
-      maxRuns: z
-        .number()
-        .int()
-        .positive()
-        .optional()
-        .describe('Max number of runs (omit for recurring forever, 1 for one-shot)'),
-    }),
+      'Create a new scheduled task. Provide either a cron expression (recurring) or a runAt ISO datetime (one-time), plus a name and prompt.',
+    inputSchema: z
+      .object({
+        name: z.string().min(1).describe('Human-readable task name'),
+        cron: z
+          .string()
+          .min(1)
+          .optional()
+          .describe('Cron expression for recurring tasks (e.g. "0 8 * * *" for daily at 8am)'),
+        runAt: z
+          .string()
+          .optional()
+          .describe('ISO 8601 datetime for a one-time task (e.g. "2026-03-15T09:00:00Z")'),
+        prompt: z.string().min(1).describe('The prompt the agent will execute on each run'),
+        enabled: z.boolean().default(true).describe('Whether the task is active'),
+        timezone: z.string().optional().describe('IANA timezone (e.g. "America/New_York")'),
+        maxRuns: z
+          .number()
+          .int()
+          .positive()
+          .optional()
+          .describe('Max number of runs (omit for recurring forever)'),
+      })
+      .refine((d) => (d.cron != null) !== (d.runAt != null), {
+        message: 'Provide exactly one of "cron" or "runAt"',
+      }),
     execute: async (input) => {
       const runtime = runtimeRef.current
       if (!runtime) return { error: 'Runtime not available' }
@@ -78,10 +100,11 @@ export function createScheduleTools(deps: ScheduleToolDeps): ToolRecord {
     inputSchema: z.object({
       id: z.string().uuid().describe('Task ID to update'),
       name: z.string().min(1).optional().describe('New task name'),
-      cron: z.string().min(1).optional().describe('New cron expression'),
+      cron: z.string().min(1).optional().nullable().describe('New cron expression (null to clear)'),
+      runAt: z.string().optional().nullable().describe('ISO 8601 datetime (null to clear)'),
       prompt: z.string().min(1).optional().describe('New prompt'),
       enabled: z.boolean().optional().describe('Enable or disable the task'),
-      timezone: z.string().optional().describe('New timezone'),
+      timezone: z.string().optional().nullable().describe('New timezone (null to clear)'),
       maxRuns: z
         .number()
         .int()
@@ -97,10 +120,7 @@ export function createScheduleTools(deps: ScheduleToolDeps): ToolRecord {
       const { id, ...patch } = input
       const tasks = runtime.config.schedule.tasks.map((t) => {
         if (t.id !== id) return t
-        const updated = { ...t, ...patch }
-        // null means clear maxRuns
-        if (patch.maxRuns === null) delete (updated as Record<string, unknown>).maxRuns
-        return updated as ScheduledTask
+        return applyTaskPatch(t, patch as Record<string, unknown>)
       })
 
       const found = tasks.some((t) => t.id === id)

@@ -4,14 +4,16 @@ import type { TaskHandler } from '../index'
 import { CronerScheduler } from './croner'
 
 function makeTask(overrides: Partial<ScheduledTask> = {}): ScheduledTask {
-  return {
+  const base = {
     id: crypto.randomUUID(),
     name: 'Test Task',
-    cron: '* * * * *', // every minute
     prompt: 'do something',
     enabled: true,
-    ...overrides,
   }
+  if (overrides.runAt) {
+    return { ...base, ...overrides } as ScheduledTask
+  }
+  return { ...base, cron: '* * * * *', ...overrides } as ScheduledTask
 }
 
 describe('CronerScheduler', () => {
@@ -95,5 +97,35 @@ describe('CronerScheduler', () => {
 
     await vi.waitFor(() => expect(onComplete).toHaveBeenCalledWith(task.id), { timeout: 3000 })
     s.stop()
+  })
+
+  describe('runAt tasks', () => {
+    it('schedules a runAt task at the given date', () => {
+      const future = new Date(Date.now() + 60_000).toISOString()
+      const task = makeTask({ runAt: future })
+      scheduler.sync([task])
+      const next = scheduler.nextRun(task.id)
+      expect(next).toBeInstanceOf(Date)
+      expect(Math.abs((next as Date).getTime() - new Date(future).getTime())).toBeLessThan(1000)
+    })
+
+    it('runAt task in the past returns null nextRun', () => {
+      const past = new Date(Date.now() - 60_000).toISOString()
+      const task = makeTask({ runAt: past })
+      scheduler.sync([task])
+      expect(scheduler.nextRun(task.id)).toBeNull()
+    })
+
+    it('calls onComplete after runAt task executes', async () => {
+      const onComplete = vi.fn()
+      const s = new CronerScheduler(handler, onComplete)
+
+      const soon = new Date(Date.now() + 1500).toISOString()
+      const task = makeTask({ runAt: soon })
+      s.sync([task])
+
+      await vi.waitFor(() => expect(onComplete).toHaveBeenCalledWith(task.id), { timeout: 5000 })
+      s.stop()
+    })
   })
 })

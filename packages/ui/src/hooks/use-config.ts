@@ -33,7 +33,8 @@ export interface Config {
     tasks: Array<{
       id: string
       name: string
-      cron: string
+      cron?: string
+      runAt?: string
       prompt: string
       enabled: boolean
       timezone?: string

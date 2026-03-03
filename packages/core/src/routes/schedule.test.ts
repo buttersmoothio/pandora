@@ -8,7 +8,7 @@ describe('Schedule routes', () => {
       expect(res.status).toBe(200)
 
       const body = (await res.json()) as { enabled: boolean; tasks: unknown[] }
-      expect(body.enabled).toBe(false)
+      expect(body.enabled).toBe(true)
       expect(body.tasks).toEqual([])
     })
   })
@@ -134,6 +134,49 @@ describe('Schedule routes', () => {
     it('returns 404 for missing task', async () => {
       const res = await authRequest('/api/schedule/00000000-0000-0000-0000-000000000000')
       expect(res.status).toBe(404)
+    })
+  })
+
+  describe('runAt tasks', () => {
+    it('POST with runAt creates one-time task', async () => {
+      const future = new Date(Date.now() + 3_600_000).toISOString()
+      const res = await authRequest('/api/schedule', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: 'One-time task',
+          runAt: future,
+          prompt: 'Do this once',
+        }),
+      })
+      expect(res.status).toBe(201)
+
+      const task = (await res.json()) as { id: string; runAt: string; cron?: string }
+      expect(task.runAt).toBe(future)
+      expect(task.cron).toBeUndefined()
+    })
+
+    it('POST with both cron and runAt returns 400', async () => {
+      const res = await authRequest('/api/schedule', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: 'Invalid',
+          cron: '0 8 * * *',
+          runAt: new Date().toISOString(),
+          prompt: 'Cannot have both',
+        }),
+      })
+      expect(res.status).toBe(400)
+    })
+
+    it('POST with neither cron nor runAt returns 400', async () => {
+      const res = await authRequest('/api/schedule', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: 'Invalid',
+          prompt: 'Need one of cron or runAt',
+        }),
+      })
+      expect(res.status).toBe(400)
     })
   })
 })

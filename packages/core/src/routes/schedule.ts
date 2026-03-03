@@ -1,20 +1,45 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
 import type { ScheduledTask } from '../config'
-import { ScheduledTaskSchema, updateConfig } from '../config'
+import { updateConfig } from '../config'
 import { getLogger } from '../logger'
 import type { Env } from './helpers'
 
-const CreateTaskSchema = ScheduledTaskSchema.omit({ id: true })
+const CreateTaskSchema = z
+  .object({
+    name: z.string().min(1),
+    cron: z.string().min(1).optional(),
+    runAt: z.string().optional(),
+    prompt: z.string().min(1),
+    enabled: z.boolean().default(true),
+    timezone: z.string().optional(),
+    maxRuns: z.number().int().positive().optional(),
+  })
+  .refine((d) => (d.cron != null) !== (d.runAt != null), {
+    message: 'Exactly one of "cron" or "runAt" is required',
+  })
 
 const UpdateTaskSchema = z.object({
   name: z.string().min(1).optional(),
-  cron: z.string().min(1).optional(),
+  cron: z.string().min(1).optional().nullable(),
+  runAt: z.string().optional().nullable(),
   prompt: z.string().min(1).optional(),
   enabled: z.boolean().optional(),
   timezone: z.string().optional().nullable(),
   maxRuns: z.number().int().positive().optional().nullable(),
 })
+
+function applyTaskPatch(task: ScheduledTask, patch: Record<string, unknown>): ScheduledTask {
+  const updated = { ...task, ...patch } as Record<string, unknown>
+  // Mutual exclusion: setting runAt clears cron and vice versa
+  if (patch.runAt !== undefined && patch.runAt !== null) delete updated.cron
+  if (patch.cron !== undefined && patch.cron !== null) delete updated.runAt
+  // null means clear optional fields
+  for (const key of ['timezone', 'maxRuns', 'cron', 'runAt']) {
+    if (patch[key] === null) delete updated[key]
+  }
+  return updated as ScheduledTask
+}
 
 const scheduleRoutes = new Hono<Env>()
 
@@ -86,11 +111,7 @@ scheduleRoutes.patch('/:id', async (c) => {
     const tasks = runtime.config.schedule.tasks.map((t) => {
       if (t.id !== id) return t
       found = true
-      const updated = { ...t, ...patch }
-      // null means clear optional fields
-      if (patch.timezone === null) delete (updated as Record<string, unknown>).timezone
-      if (patch.maxRuns === null) delete (updated as Record<string, unknown>).maxRuns
-      return updated as ScheduledTask
+      return applyTaskPatch(t, patch as Record<string, unknown>)
     })
 
     if (!found) return c.json({ error: 'Task not found' }, 404)

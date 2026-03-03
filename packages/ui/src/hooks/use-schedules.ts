@@ -5,7 +5,8 @@ import { apiFetch } from '@/lib/api'
 export interface ScheduleTask {
   id: string
   name: string
-  cron: string
+  cron?: string
+  runAt?: string
   prompt: string
   enabled: boolean
   timezone?: string
@@ -21,7 +22,8 @@ interface ScheduleListResponse {
 
 interface CreateScheduleInput {
   name: string
-  cron: string
+  cron?: string
+  runAt?: string
   prompt: string
   enabled?: boolean
   timezone?: string
@@ -31,7 +33,8 @@ interface CreateScheduleInput {
 interface UpdateScheduleInput {
   id: string
   name?: string
-  cron?: string
+  cron?: string | null
+  runAt?: string | null
   prompt?: string
   enabled?: boolean
   timezone?: string | null

@@ -18,7 +18,8 @@ const ModelConfigSchema = z.object({
 const ScheduledTaskSchema = z.object({
   id: z.uuid(),
   name: z.string().min(1, 'Task name is required'),
-  cron: z.string().min(1, 'Cron expression is required'),
+  cron: z.string().min(1, 'Cron expression is required').optional(),
+  runAt: z.string().optional(),
   prompt: z.string().min(1, 'Prompt is required'),
   enabled: z.boolean().default(true),
   timezone: z.string().optional(),
