@@ -150,13 +150,15 @@ async function buildState(
 ) {
   const log = getLogger(env)
 
-  // 3. Tools (plugin tools + schedule tools)
+  // 3. Tools (plugin tools + schedule tools when enabled)
   const pluginTools = await loadTools(registry, config, env)
-  const scheduleTools = createScheduleTools({
-    configStore: storage.config,
-    registry,
-    runtimeRef,
-  })
+  const scheduleTools = config.schedule.enabled
+    ? createScheduleTools({
+        configStore: storage.config,
+        registry,
+        runtimeRef,
+      })
+    : {}
   const tools = { ...pluginTools, ...scheduleTools }
   log.info('[runtime] loaded tools', { toolIds: Object.keys(tools) })
 
@@ -215,6 +217,7 @@ function createTaskHandler(
       threadId,
       channels: runtime.channels,
       channelNames: runtime.channelNames,
+      destination: task.destination,
     })
     log.info('[scheduler] executing task', { taskId: task.id, name: task.name })
     await agent.generate(

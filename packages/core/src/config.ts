@@ -24,13 +24,14 @@ const ScheduledTaskSchema = z.object({
   enabled: z.boolean().default(true),
   timezone: z.string().optional(),
   maxRuns: z.number().int().positive().optional(),
+  destination: z.string().optional(),
 })
 
 export type ScheduledTask = z.infer<typeof ScheduledTaskSchema>
 export { ScheduledTaskSchema }
 
 /** Optional fields that can be cleared with `null`. */
-type ClearableTaskFields = 'timezone' | 'maxRuns' | 'cron' | 'runAt'
+type ClearableTaskFields = 'timezone' | 'maxRuns' | 'cron' | 'runAt' | 'destination'
 
 export type ScheduledTaskPatch = Partial<Omit<ScheduledTask, 'id' | ClearableTaskFields>> & {
   [K in ClearableTaskFields]?: ScheduledTask[K] | null
@@ -41,7 +42,7 @@ export type ScheduledTaskPatch = Partial<Omit<ScheduledTask, 'id' | ClearableTas
  * between `cron` and `runAt`, and clearing optional fields set to `null`.
  */
 export function applyTaskPatch(task: ScheduledTask, patch: ScheduledTaskPatch): ScheduledTask {
-  const { timezone, maxRuns, cron, runAt, ...restPatch } = patch
+  const { timezone, maxRuns, cron, runAt, destination, ...restPatch } = patch
   const updated: Partial<ScheduledTask> = { ...task, ...restPatch }
 
   // Mutual exclusion: setting runAt clears cron and vice versa
@@ -63,6 +64,8 @@ export function applyTaskPatch(task: ScheduledTask, patch: ScheduledTaskPatch): 
   else if (timezone !== undefined) updated.timezone = timezone
   if (maxRuns === null) delete updated.maxRuns
   else if (maxRuns !== undefined) updated.maxRuns = maxRuns
+  if (destination === null) delete updated.destination
+  else if (destination !== undefined) updated.destination = destination
 
   return updated as ScheduledTask
 }

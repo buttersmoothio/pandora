@@ -17,6 +17,13 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { useConfig, useUpdateConfig } from '@/hooks/use-config'
@@ -24,6 +31,7 @@ import {
   type ScheduleTask,
   useCreateSchedule,
   useDeleteSchedule,
+  useDestinations,
   useSchedules,
   useUpdateSchedule,
 } from '@/hooks/use-schedules'
@@ -69,6 +77,7 @@ interface TaskFormState {
   enabled: boolean
   timezone: string
   maxRuns: string
+  destination: string
 }
 
 const EMPTY_FORM: TaskFormState = {
@@ -80,6 +89,7 @@ const EMPTY_FORM: TaskFormState = {
   enabled: true,
   timezone: '',
   maxRuns: '',
+  destination: '',
 }
 
 function TaskDialog({
@@ -93,6 +103,7 @@ function TaskDialog({
 }) {
   const createSchedule = useCreateSchedule()
   const updateSchedule = useUpdateSchedule()
+  const { data: destinationsData } = useDestinations()
   const isEdit = !!task
 
   const [form, setForm] = useState<TaskFormState>(EMPTY_FORM)
@@ -108,6 +119,7 @@ function TaskDialog({
         enabled: task.enabled,
         timezone: task.timezone ?? '',
         maxRuns: task.maxRuns?.toString() ?? '',
+        destination: task.destination ?? '',
       })
     } else {
       setForm(EMPTY_FORM)
@@ -128,6 +140,7 @@ function TaskDialog({
       ...(form.mode === 'cron' && form.maxRuns
         ? { maxRuns: Number.parseInt(form.maxRuns, 10) }
         : {}),
+      ...(form.destination ? { destination: form.destination } : {}),
     }
 
     if (isEdit) {
@@ -225,6 +238,31 @@ function TaskDialog({
               value={form.prompt}
               onChange={(e) => setForm({ ...form, prompt: e.target.value })}
             />
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="schedule-destination">Notify Via</Label>
+            <Select
+              value={form.destination}
+              onValueChange={(value) =>
+                setForm({ ...form, destination: value === 'none' ? '' : value })
+              }
+            >
+              <SelectTrigger id="schedule-destination">
+                <SelectValue placeholder="No notification" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">No notification</SelectItem>
+                {destinationsData?.destinations.map((dest) => (
+                  <SelectItem key={dest} value={dest}>
+                    {dest}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-muted-foreground text-xs">
+              Where to send the task results. Leave empty to skip notifications.
+            </p>
           </div>
 
           <div className="flex gap-4">

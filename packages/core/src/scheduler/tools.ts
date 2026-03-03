@@ -32,55 +32,64 @@ export function createScheduleTools(deps: ScheduleToolDeps): ToolRecord {
     },
   })
 
-  const create_schedule = createTool({
-    id: 'create_schedule',
+  const createTask = async (input: Omit<ScheduledTask, 'id'>) => {
+    const runtime = runtimeRef.current
+    if (!runtime) return { error: 'Runtime not available' }
+
+    const task: ScheduledTask = { id: crypto.randomUUID(), ...input }
+    const tasks = [...runtime.config.schedule.tasks, task]
+    const config = await updateConfig(
+      configStore,
+      { schedule: { enabled: runtime.config.schedule.enabled, tasks } },
+      registry,
+    )
+    runtime.config = config
+    runtime.syncSchedule()
+
+    return { created: task }
+  }
+
+  const schedule_task = createTool({
+    id: 'schedule_task',
     description:
-      'Create a new scheduled task. Provide either a cron expression (recurring) or a runAt ISO datetime (one-time), plus a name and prompt.',
-    inputSchema: z
-      .object({
-        name: z.string().min(1).describe('Human-readable task name'),
-        cron: z
-          .string()
-          .min(1)
-          .optional()
-          .describe('Cron expression for recurring tasks (e.g. "0 8 * * *" for daily at 8am)'),
-        runAt: z
-          .string()
-          .optional()
-          .describe('ISO 8601 datetime for a one-time task (e.g. "2026-03-15T09:00:00Z")'),
-        prompt: z.string().min(1).describe('The prompt the agent will execute on each run'),
-        enabled: z.boolean().default(true).describe('Whether the task is active'),
-        timezone: z.string().optional().describe('IANA timezone (e.g. "America/New_York")'),
-        maxRuns: z
-          .number()
-          .int()
-          .positive()
-          .optional()
-          .describe('Max number of runs (omit for recurring forever)'),
-      })
-      .refine((d) => (d.cron != null) !== (d.runAt != null), {
-        message: 'Provide exactly one of "cron" or "runAt"',
-      }),
-    execute: async (input) => {
-      const runtime = runtimeRef.current
-      if (!runtime) return { error: 'Runtime not available' }
+      'Schedule a one-time task to run at a specific date and time. Use this for reminders, one-off reports, delayed actions, etc.',
+    inputSchema: z.object({
+      name: z.string().min(1).describe('Human-readable task name'),
+      runAt: z
+        .string()
+        .describe('ISO 8601 datetime for when the task should run (e.g. "2026-03-15T09:00:00Z")'),
+      prompt: z.string().min(1).describe('The prompt the agent will execute when the task runs'),
+      enabled: z.boolean().default(true).describe('Whether the task is active'),
+      timezone: z.string().optional().describe('IANA timezone (e.g. "America/New_York")'),
+      destination: z.string().optional().describe('Notification destination'),
+    }),
+    execute: async (input) => createTask(input),
+  })
 
-      const task: ScheduledTask = {
-        id: crypto.randomUUID(),
-        ...input,
-      }
-
-      const tasks = [...runtime.config.schedule.tasks, task]
-      const config = await updateConfig(
-        configStore,
-        { schedule: { enabled: runtime.config.schedule.enabled, tasks } },
-        registry,
-      )
-      runtime.config = config
-      runtime.syncSchedule()
-
-      return { created: task }
-    },
+  const schedule_recurring = createTool({
+    id: 'schedule_recurring',
+    description:
+      'Create a recurring scheduled task using a cron expression. Use this for daily digests, periodic reports, repeated checks, etc.',
+    inputSchema: z.object({
+      name: z.string().min(1).describe('Human-readable task name'),
+      cron: z
+        .string()
+        .min(1)
+        .describe(
+          'Cron expression (e.g. "0 8 * * *" for daily at 8am, "0 */6 * * *" for every 6 hours)',
+        ),
+      prompt: z.string().min(1).describe('The prompt the agent will execute on each run'),
+      enabled: z.boolean().default(true).describe('Whether the task is active'),
+      timezone: z.string().optional().describe('IANA timezone (e.g. "America/New_York")'),
+      maxRuns: z
+        .number()
+        .int()
+        .positive()
+        .optional()
+        .describe('Max number of runs (omit to run forever)'),
+      destination: z.string().optional().describe('Notification destination'),
+    }),
+    execute: async (input) => createTask(input),
   })
 
   const update_schedule = createTool({
@@ -153,5 +162,5 @@ export function createScheduleTools(deps: ScheduleToolDeps): ToolRecord {
     },
   })
 
-  return { list_schedules, create_schedule, update_schedule, delete_schedule }
+  return { list_schedules, schedule_task, schedule_recurring, update_schedule, delete_schedule }
 }

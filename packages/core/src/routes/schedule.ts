@@ -14,6 +14,7 @@ const CreateTaskSchema = z
     enabled: z.boolean().default(true),
     timezone: z.string().optional(),
     maxRuns: z.number().int().positive().optional(),
+    destination: z.string().optional(),
   })
   .refine((d) => (d.cron != null) !== (d.runAt != null), {
     message: 'Exactly one of "cron" or "runAt" is required',
@@ -27,9 +28,21 @@ const UpdateTaskSchema = z.object({
   enabled: z.boolean().optional(),
   timezone: z.string().optional().nullable(),
   maxRuns: z.number().int().positive().optional().nullable(),
+  destination: z.string().optional().nullable(),
 })
 
 const scheduleRoutes = new Hono<Env>()
+
+// List available notification destinations
+scheduleRoutes.get('/destinations', (c) => {
+  const { channels, channelNames } = c.var.runtime
+  const destinations: string[] = ['Web']
+  for (const [friendlyName, nsKey] of channelNames) {
+    const channel = channels.get(nsKey)
+    if (channel?.notify) destinations.push(friendlyName)
+  }
+  return c.json({ destinations })
+})
 
 // List all tasks
 scheduleRoutes.get('/', (c) => {

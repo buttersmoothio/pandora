@@ -9,6 +9,8 @@ export interface SendToToolDeps {
   threadId: string
   channels: Map<string, Channel>
   channelNames: Map<string, string>
+  /** When set, lock the tool to this single destination. */
+  destination?: string
 }
 
 export function createSendToTools(deps: SendToToolDeps): ToolRecord {
@@ -23,13 +25,15 @@ export function createSendToTools(deps: SendToToolDeps): ToolRecord {
     }
   }
 
-  const destinations = ['Web', ...notifiable.keys()] as [string, ...string[]]
+  const allDestinations = ['Web', ...notifiable.keys()] as [string, ...string[]]
+  const destinations = deps.destination ? ([deps.destination] as [string]) : allDestinations
 
   const send_to = createTool({
     id: 'send_to',
-    description:
-      'Send a notification to the user. Destination "Web" delivers to the web inbox only. ' +
-      'Other destinations deliver via that channel and also appear in the web inbox.',
+    description: deps.destination
+      ? `Send a notification to the user via ${deps.destination}.`
+      : 'Send a notification to the user. Destination "Web" delivers to the web inbox only. ' +
+        'Other destinations deliver via that channel and also appear in the web inbox.',
     inputSchema: z.object({
       subject: z.string().min(1).describe('Brief subject line'),
       body: z.string().min(1).describe('Message body in markdown'),

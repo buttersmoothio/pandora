@@ -11,6 +11,7 @@ export interface ScheduleTask {
   enabled: boolean
   timezone?: string
   maxRuns?: number
+  destination?: string
   nextRun: string | null
   isRunning: boolean
 }
@@ -28,6 +29,7 @@ interface CreateScheduleInput {
   enabled?: boolean
   timezone?: string
   maxRuns?: number
+  destination?: string
 }
 
 interface UpdateScheduleInput {
@@ -39,9 +41,18 @@ interface UpdateScheduleInput {
   enabled?: boolean
   timezone?: string | null
   maxRuns?: number | null
+  destination?: string | null
 }
 
 const SCHEDULES_KEY = ['schedules'] as const
+const DESTINATIONS_KEY = ['schedule-destinations'] as const
+
+export function useDestinations() {
+  return useQuery({
+    queryKey: DESTINATIONS_KEY,
+    queryFn: () => apiFetch<{ destinations: string[] }>('/api/schedule/destinations'),
+  })
+}
 
 export function useSchedules() {
   return useQuery({

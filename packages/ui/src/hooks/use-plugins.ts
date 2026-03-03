@@ -128,7 +128,8 @@ function buildToolNameMap(plugins: UnifiedPluginInfo[]): Map<string, string> {
   for (const plugin of plugins) {
     if (plugin.provides.tools) {
       for (const tool of plugin.provides.tools.tools) {
-        map.set(sanitiseToolId(`${plugin.id}:${tool.id}`), tool.name)
+        // tool.id is already namespaced (e.g. "@pandorakit/brave-search:brave_search")
+        map.set(sanitiseToolId(tool.id), tool.name)
       }
     }
     if (plugin.provides.agents) {
