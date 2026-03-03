@@ -50,10 +50,14 @@ export async function createLibSQLStorage(
   const { SQLAuthStore } = await import('../../auth/providers/sql')
   const auth = new SQLAuthStore(wrapExecute, 'sqlite')
 
+  const { SQLInboxStore } = await import('./sql-inbox')
+  const inbox = new SQLInboxStore(wrapExecute, 'sqlite')
+
   // Initialize stores
   await mastra.init()
   if (config.init) await config.init()
   await auth.init()
+  await inbox.init()
 
   log.debug('Storage initialized')
 
@@ -61,6 +65,7 @@ export async function createLibSQLStorage(
     mastra,
     config,
     auth,
+    inbox,
     close: async () => {
       client.close()
     },

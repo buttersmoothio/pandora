@@ -2,6 +2,7 @@ import type { Mastra } from '@mastra/core'
 import type { Channel } from '@pandorakit/sdk/channels'
 import type { Config } from '../config'
 import { getConfig, updateConfig } from '../config'
+import { createInboxTools } from '../inbox/tools'
 import { getLogger } from '../logger'
 import { createMemory } from '../memory'
 import type { Scheduler } from '../scheduler'
@@ -58,12 +59,10 @@ export async function createRuntime(
   // 4. Scheduler
   const taskHandler = createTaskHandler(runtimeRef, env)
   const onComplete = async (taskId: string) => {
-    log.info('[scheduler] task completed maxRuns, auto-disabling', { taskId })
+    log.info('[scheduler] task completed, removing from schedule', { taskId })
     const rt = runtimeRef.current
     if (!rt) return
-    const tasks = rt.config.schedule.tasks.map((t) =>
-      t.id === taskId ? { ...t, enabled: false } : t,
-    )
+    const tasks = rt.config.schedule.tasks.filter((t) => t.id !== taskId)
     const updated = await updateConfig(
       storage.config,
       { schedule: { enabled: rt.config.schedule.enabled, tasks } },
@@ -209,10 +208,20 @@ function createTaskHandler(
     }
     const threadId = `schedule-${task.id}`
     const agent = runtime.mastra.getAgent('operator')
+    const inboxTools = createInboxTools(runtime.storage.inbox, threadId)
     log.info('[scheduler] executing task', { taskId: task.id, name: task.name })
     await agent.generate(
       [{ id: crypto.randomUUID(), role: 'user', parts: [{ type: 'text', text: task.prompt }] }],
-      { memory: { thread: threadId, resource: 'default' } },
+      {
+        memory: {
+          thread: {
+            id: threadId,
+            metadata: { root: true, source: 'schedule', taskId: task.id },
+          },
+          resource: 'default',
+        },
+        toolsets: { inbox: inboxTools },
+      },
     )
   }
 }

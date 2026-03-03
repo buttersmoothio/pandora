@@ -1,6 +1,6 @@
 'use client'
 
-import { MessageSquareIcon, MoreHorizontalIcon, TrashIcon } from 'lucide-react'
+import { ClockIcon, MessageSquareIcon, MoreHorizontalIcon, TrashIcon } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useState } from 'react'
@@ -65,6 +65,8 @@ export function NavThreads() {
                         <span className="absolute size-2.5 animate-ping rounded-full bg-blue-400 opacity-75" />
                         <span className="size-2 rounded-full bg-blue-500" />
                       </span>
+                    ) : thread.metadata?.source === 'schedule' ? (
+                      <ClockIcon />
                     ) : (
                       <MessageSquareIcon />
                     )}

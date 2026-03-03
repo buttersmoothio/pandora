@@ -2,10 +2,12 @@ import type { MastraCompositeStore } from '@mastra/core/storage'
 import type { AuthStore } from '../auth/auth-store'
 import type { Config } from '../config'
 import type { ConfigStore } from './config-store'
+import type { InboxStore } from './inbox-store'
 
 export type { MastraCompositeStore, StorageDomains } from '@mastra/core/storage'
 export type { AuthStore } from '../auth/auth-store'
 export type { ConfigStore } from './config-store'
+export type { InboxStore } from './inbox-store'
 
 /**
  * Combined storage result with both Mastra domains and Pandora config
@@ -17,6 +19,8 @@ export interface StorageResult {
   config: ConfigStore<Config>
   /** Pandora auth storage */
   auth: AuthStore
+  /** Pandora inbox storage */
+  inbox: InboxStore
   /** Close all connections (optional cleanup on shutdown) */
   close?(): Promise<void>
 }
