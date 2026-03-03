@@ -230,10 +230,10 @@ async function startRealtimeChannels(runtime: PandoraRuntime): Promise<void> {
   const log = getLogger()
   const { channel } = createGateways({ mastra: runtime.mastra, env: {} })
 
-  for (const adapter of runtime.channels.values()) {
+  for (const [nsKey, adapter] of runtime.channels) {
     if (!adapter.realtime) continue
     try {
-      await adapter.realtime.start(channel(adapter.id))
+      await adapter.realtime.start(channel(nsKey))
       log.info(`Realtime channel started: ${adapter.name}`)
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error'

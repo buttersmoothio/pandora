@@ -2,15 +2,16 @@ import { PROVIDER_REGISTRY } from '@mastra/core/llm'
 import type { Channel } from '@pandorakit/sdk/channels'
 import { Hono } from 'hono'
 import { validatePluginConfig } from '../runtime/config-validate'
+import { encodeNsKey, namespacedKey } from '../runtime/namespace'
 import type { PluginRegistry, RegisteredPlugin } from '../runtime/plugin-registry'
 import type { Env } from './helpers'
 
 function buildToolsProvides(plugin: RegisteredPlugin) {
   if (!plugin.tools) return undefined
   return {
-    toolIds: plugin.tools.entries.map((t) => t.id),
+    toolIds: plugin.tools.entries.map((t) => namespacedKey(plugin.id, t.id)),
     tools: plugin.tools.entries.map((t) => ({
-      id: t.id,
+      id: namespacedKey(plugin.id, t.id),
       name: t.name,
       description: t.description,
     })),
@@ -34,18 +35,18 @@ function buildAgentsProvides(
       | undefined
     const ac = agentCfg?.[def.id] as { model?: unknown } | undefined
     const tools = (def.useTools ?? [])
-      .map((id) => {
-        for (const p of registry.plugins.values()) {
-          const tm = p.tools?.manifests.get(id)
-          if (tm) return tm
-        }
-        return undefined
+      .map((nsId) => {
+        const colonIdx = nsId.lastIndexOf(':')
+        if (colonIdx === -1) return undefined
+        const pId = nsId.slice(0, colonIdx)
+        const tId = nsId.slice(colonIdx + 1)
+        return registry.plugins.get(pId)?.tools?.manifests.get(tId)
       })
       .filter((tm): tm is NonNullable<typeof tm> => !!tm)
     return { ...manifest, model: ac?.model, tools, alerts: [] }
   })
   return {
-    agentIds: plugin.agents.definitions.map((d) => d.id),
+    agentIds: plugin.agents.definitions.map((d) => namespacedKey(plugin.id, d.id)),
     agents,
     alerts: [],
   }
@@ -53,12 +54,13 @@ function buildAgentsProvides(
 
 function buildChannelsProvides(plugin: RegisteredPlugin, channels: Map<string, Channel>) {
   if (!plugin.channels) return undefined
-  const adapterId = plugin.id.replace(/^channel-/, '')
-  const adapter = channels.get(adapterId)
+  const entry = [...channels.entries()].find(([key]) => key.startsWith(`${plugin.id}:`))
+  const [nsKey, adapter] = entry ?? []
   return {
     loaded: !!adapter,
     webhook: adapter ? !!adapter.webhook : null,
     realtime: adapter ? !!adapter.realtime : null,
+    webhookPath: nsKey ? `/wh/${encodeNsKey(nsKey)}` : null,
   }
 }
 

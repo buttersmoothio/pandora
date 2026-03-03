@@ -34,6 +34,11 @@ export async function loadAllPlugins(packagesDir?: string): Promise<PluginRegist
 
   for (const plugin of discovered) {
     try {
+      if (registry.plugins.has(plugin.manifest.id)) {
+        log.warn(`Plugin ${plugin.manifest.id} already loaded, skipping duplicate`)
+        continue
+      }
+
       const entries = await loadPluginEntries(plugin)
       const registered = adaptManifest(plugin.manifest, entries)
       registry.plugins.set(registered.id, registered)

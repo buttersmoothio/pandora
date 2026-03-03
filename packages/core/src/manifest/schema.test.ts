@@ -117,6 +117,11 @@ describe('pluginManifestSchema', () => {
     expect(result.success).toBe(false)
   })
 
+  it('rejects plugin ID containing a colon', () => {
+    const result = pluginManifestSchema.safeParse({ ...minimal, id: 'bad:id' })
+    expect(result.success).toBe(false)
+  })
+
   it('rejects invalid sandbox value', () => {
     const manifest = {
       ...minimal,

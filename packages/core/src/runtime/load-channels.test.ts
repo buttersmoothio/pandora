@@ -26,8 +26,8 @@ describe('loadChannels', () => {
     registry.plugins.set('channel-test', makeChannelPlugin())
 
     const channels = await loadChannels(registry, DEFAULTS, { TEST_TOKEN: 'abc' })
-    expect(channels.get('test')).toBeDefined()
-    expect(channels.get('test')?.name).toBe('Test')
+    expect(channels.get('channel-test:test')).toBeDefined()
+    expect(channels.get('channel-test:test')?.name).toBe('Test')
   })
 
   it('skips channels when factory returns null', async () => {

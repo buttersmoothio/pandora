@@ -27,7 +27,7 @@ describe('Discovery routes', () => {
       expect(datetime?.provides.tools).toBeDefined()
 
       const tools = datetime?.provides.tools as { toolIds: string[] }
-      expect(tools.toolIds).toContain('current-time')
+      expect(tools.toolIds).toContain('@pandorakit/datetime:current-time')
     })
 
     it('each plugin has required fields', async () => {

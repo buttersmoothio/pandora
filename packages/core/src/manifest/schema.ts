@@ -70,7 +70,7 @@ export const pluginManifestSchema = z
   .object({
     $schema: z.string().optional(),
     manifestVersion: z.literal(1),
-    id: z.string(),
+    id: z.string().refine((s) => !s.includes(':'), 'Plugin ID must not contain colons'),
     name: z.string(),
     description: z.string().optional(),
     author: z.string().optional(),

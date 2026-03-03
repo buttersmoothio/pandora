@@ -2,6 +2,7 @@ import type { Channel } from '@pandorakit/sdk/channels'
 import type { Config } from '../config'
 import { getLogger } from '../logger'
 import { validatePluginConfig } from './config-validate'
+import { namespacedKey, validateEntityId } from './namespace'
 import type { PluginRegistry } from './plugin-registry'
 
 export async function loadChannels(
@@ -25,8 +26,10 @@ export async function loadChannels(
         continue
       }
 
-      channels.set(adapter.id, adapter)
-      log.info(`Channel loaded: ${adapter.name} (${adapter.id})`)
+      validateEntityId('channel', plugin.id, adapter.id)
+      const nsKey = namespacedKey(plugin.id, adapter.id)
+      channels.set(nsKey, adapter)
+      log.info(`Channel loaded: ${adapter.name} (${nsKey})`)
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error'
       log.error(`Failed to load channel ${plugin.id}`, { error: message })

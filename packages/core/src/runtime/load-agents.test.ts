@@ -62,8 +62,8 @@ describe('loadAgents', () => {
     registry.plugins.set('test-agent-plugin', makeAgentPlugin())
 
     const agents = await loadAgents(registry, DEFAULTS, mockMemory, {})
-    expect(agents['test-agent']).toBeDefined()
-    expect(agents['test-agent'].id).toBe('test-agent')
+    expect(agents['test-agent-plugin:test-agent']).toBeDefined()
+    expect(agents['test-agent-plugin:test-agent'].id).toBe('test-agent-plugin:test-agent')
   })
 
   it('skips agents when plugin is disabled', async () => {
@@ -101,7 +101,7 @@ describe('loadAgents', () => {
     )
 
     const agents = await loadAgents(registry, DEFAULTS, mockMemory, { REQUIRED_KEY: 'value' })
-    expect(agents['test-agent']).toBeDefined()
+    expect(agents['test-agent-plugin:test-agent']).toBeDefined()
   })
 
   it('skips env check for optional env vars', async () => {
@@ -114,7 +114,7 @@ describe('loadAgents', () => {
     )
 
     const agents = await loadAgents(registry, DEFAULTS, mockMemory, {})
-    expect(agents['test-agent']).toBeDefined()
+    expect(agents['test-agent-plugin:test-agent']).toBeDefined()
   })
 
   it('skips agent definition when manifest is missing', async () => {
@@ -173,7 +173,7 @@ describe('loadAgents', () => {
 
     const globalTools = { 'plugin:greet': { execute: vi.fn() } as never }
     const agents = await loadAgents(registry, DEFAULTS, mockMemory, {}, globalTools)
-    expect(agents['test-agent']).toBeDefined()
+    expect(agents['test-agent-plugin:test-agent']).toBeDefined()
 
     // Verify the agent was constructed with the inherited tool
     const lastCall = mockAgentConstructor.mock.calls.at(-1)?.[0]

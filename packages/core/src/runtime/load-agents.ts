@@ -9,6 +9,7 @@ import { getLogger } from '../logger'
 import { buildModelString } from '../models'
 import type { ToolRecord } from '../tools/types'
 import { validatePluginConfig } from './config-validate'
+import { namespacedKey, validateEntityId } from './namespace'
 import type { PluginRegistry } from './plugin-registry'
 
 type AgentRecord = Record<string, MastraAgent>
@@ -87,8 +88,10 @@ export async function loadAgents(
 
       const allTools = { ...inheritedTools, ...modelNativeTools }
 
-      result[agentDef.id] = new MastraAgent({
-        id: manifest.id,
+      validateEntityId('agent', plugin.id, agentDef.id)
+      const nsKey = namespacedKey(plugin.id, agentDef.id)
+      result[nsKey] = new MastraAgent({
+        id: nsKey,
         name: manifest.name,
         instructions: manifest.instructions,
         description: manifest.description,
