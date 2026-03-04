@@ -24,6 +24,7 @@
     "@mastra/memory": "^1.4.0",
     "@pandorakit/sdk": "workspace:*",
     "ai": "^6.0.90",
+    "chrono-node": "^2.9.0",
     "croner": "^10.0.1",
     "hono": "^4.11.9",
     "ses": "^1.14.0",

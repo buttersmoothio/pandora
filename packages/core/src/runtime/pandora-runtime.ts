@@ -151,7 +151,17 @@ async function buildState(
 ) {
   const log = getLogger(env)
 
-  // 3. Tools (built-in + plugin tools + schedule tools when enabled)
+  // 3. Channels (loaded early so schedule tools can enumerate destinations)
+  const { channels, channelNames } = await loadChannels(registry, config, env)
+
+  const notifiableNames: string[] = []
+  for (const [friendlyName, nsKey] of channelNames) {
+    const channel = channels.get(nsKey)
+    if (channel?.notify) notifiableNames.push(friendlyName)
+  }
+  const destinations = ['Web Inbox', ...notifiableNames] as [string, ...string[]]
+
+  // 4. Tools (built-in + plugin tools + schedule tools when enabled)
   const builtinTools = { current_time: createCurrentTimeTool(config.timezone) }
   const pluginTools = await loadTools(registry, config, env)
   const scheduleTools = config.schedule.enabled
@@ -159,31 +169,32 @@ async function buildState(
         configStore: storage.config,
         registry,
         runtimeRef,
+        destinations,
       })
     : {}
   const tools = { ...builtinTools, ...pluginTools, ...scheduleTools }
   log.info('[runtime] loaded tools', { toolIds: Object.keys(tools) })
 
-  // 4. Vector (for semantic recall)
+  // 5. Vector (for semantic recall)
   const vectorResult = config.memory.semanticRecall.enabled ? await createVector(env) : null
   if (!config.memory.semanticRecall.enabled) {
     log.debug('[runtime] semantic recall disabled, skipping vector store')
   }
 
-  // 5. Memory
+  // 6. Memory
   const memory = createMemory({ config, vector: vectorResult })
 
-  // 6. Subagents
+  // 7. Subagents
   const subagents = await loadAgents(registry, config, memory, env, tools)
   if (Object.keys(subagents).length > 0) {
     log.info('[runtime] loaded subagents', { agentIds: Object.keys(subagents) })
   }
 
-  // 7. Operator agent
+  // 8. Operator agent
   const { createOperator } = await import('../agents/operator')
   const operator = createOperator(config, tools, memory, subagents)
 
-  // 8. Mastra instance
+  // 9. Mastra instance
   const { Mastra } = await import('@mastra/core')
   const mastra = new Mastra({
     agents: { operator, ...subagents },
@@ -191,9 +202,6 @@ async function buildState(
     memory: { default: memory },
     logger: getLogger(env),
   })
-
-  // 9. Channels
-  const { channels, channelNames } = await loadChannels(registry, config, env)
 
   // 10. Gateways
   const { web } = createGateways({ mastra, env })
@@ -221,9 +229,12 @@ function createTaskHandler(
       channelNames: runtime.channelNames,
       destination: task.destination,
     })
+    const prompt = task.destination
+      ? `${task.prompt}\n\nSend the result to ${task.destination}.`
+      : task.prompt
     log.info('[scheduler] executing task', { taskId: task.id, name: task.name })
     await agent.generate(
-      [{ id: crypto.randomUUID(), role: 'user', parts: [{ type: 'text', text: task.prompt }] }],
+      [{ id: crypto.randomUUID(), role: 'user', parts: [{ type: 'text', text: prompt }] }],
       {
         memory: {
           thread: {

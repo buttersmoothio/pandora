@@ -36,7 +36,7 @@ const scheduleRoutes = new Hono<Env>()
 // List available notification destinations
 scheduleRoutes.get('/destinations', (c) => {
   const { channels, channelNames } = c.var.runtime
-  const destinations: string[] = ['Web']
+  const destinations: string[] = ['Web Inbox']
   for (const [friendlyName, nsKey] of channelNames) {
     const channel = channels.get(nsKey)
     if (channel?.notify) destinations.push(friendlyName)

@@ -1,4 +1,5 @@
 import { createTool } from '@mastra/core/tools'
+import * as chrono from 'chrono-node'
 import { z } from 'zod'
 import { applyTaskPatch, type Config, type ScheduledTask, updateConfig } from '../config'
 import type { PandoraRuntime } from '../runtime/pandora-runtime'
@@ -10,10 +11,17 @@ export interface ScheduleToolDeps {
   configStore: ConfigStore<Config>
   registry: PluginRegistry
   runtimeRef: { current: PandoraRuntime | null }
+  /** Available notification destinations (friendly names). Always includes "Web". */
+  destinations: [string, ...string[]]
 }
 
 export function createScheduleTools(deps: ScheduleToolDeps): ToolRecord {
-  const { configStore, registry, runtimeRef } = deps
+  const { configStore, registry, runtimeRef, destinations } = deps
+
+  const destinationSchema = z
+    .enum(destinations)
+    .optional()
+    .describe('Where to deliver the notification when this task runs')
 
   const list_schedules = createTool({
     id: 'list_schedules',
@@ -57,12 +65,20 @@ export function createScheduleTools(deps: ScheduleToolDeps): ToolRecord {
       name: z.string().min(1).describe('Human-readable task name'),
       runAt: z
         .string()
-        .describe('ISO 8601 datetime for when the task should run (e.g. "2026-03-15T09:00:00")'),
+        .min(1)
+        .describe(
+          'Natural language time expression (e.g. "tomorrow at 3pm", "in 2 hours", "next Friday at 9am", "March 15 at noon")',
+        ),
       prompt: z.string().min(1).describe('The prompt the agent will execute when the task runs'),
       enabled: z.boolean().default(true).describe('Whether the task is active'),
-      destination: z.string().optional().describe('Notification destination'),
+      destination: destinationSchema,
     }),
-    execute: async (input) => createTask(input),
+    execute: async (input) => {
+      const tz = runtimeRef.current?.config.timezone
+      const parsed = chrono.parseDate(input.runAt, { instant: new Date(), timezone: tz })
+      if (!parsed) return { error: `Could not parse time: "${input.runAt}"` }
+      return createTask({ ...input, runAt: parsed.toISOString() })
+    },
   })
 
   const schedule_recurring = createTool({
@@ -85,7 +101,7 @@ export function createScheduleTools(deps: ScheduleToolDeps): ToolRecord {
         .positive()
         .optional()
         .describe('Max number of runs (omit to run forever)'),
-      destination: z.string().optional().describe('Notification destination'),
+      destination: destinationSchema,
     }),
     execute: async (input) => createTask(input),
   })
@@ -96,23 +112,28 @@ export function createScheduleTools(deps: ScheduleToolDeps): ToolRecord {
     inputSchema: z.object({
       id: z.string().uuid().describe('Task ID to update'),
       name: z.string().min(1).optional().describe('New task name'),
-      cron: z.string().min(1).optional().nullable().describe('New cron expression (null to clear)'),
-      runAt: z.string().optional().nullable().describe('ISO 8601 datetime (null to clear)'),
+      cron: z.string().min(1).optional().describe('New cron expression'),
+      runAt: z
+        .string()
+        .min(1)
+        .optional()
+        .describe('New natural language time expression (e.g. "tomorrow at 3pm")'),
       prompt: z.string().min(1).optional().describe('New prompt'),
       enabled: z.boolean().optional().describe('Enable or disable the task'),
-      maxRuns: z
-        .number()
-        .int()
-        .positive()
-        .optional()
-        .nullable()
-        .describe('New max runs (null to clear)'),
+      maxRuns: z.number().int().positive().optional().describe('New max runs'),
+      destination: destinationSchema,
     }),
     execute: async (input) => {
       const runtime = runtimeRef.current
       if (!runtime) return { error: 'Runtime not available' }
 
       const { id, ...patch } = input
+      if (patch.runAt) {
+        const tz = runtime.config.timezone
+        const parsed = chrono.parseDate(patch.runAt, { instant: new Date(), timezone: tz })
+        if (!parsed) return { error: `Could not parse time: "${patch.runAt}"` }
+        patch.runAt = parsed.toISOString()
+      }
       const tasks = runtime.config.schedule.tasks.map((t) => {
         if (t.id !== id) return t
         return applyTaskPatch(t, patch)

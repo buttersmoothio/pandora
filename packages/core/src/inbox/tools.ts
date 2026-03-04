@@ -25,14 +25,14 @@ export function createSendToTools(deps: SendToToolDeps): ToolRecord {
     }
   }
 
-  const allDestinations = ['Web', ...notifiable.keys()] as [string, ...string[]]
+  const allDestinations = ['Web Inbox', ...notifiable.keys()] as [string, ...string[]]
   const destinations = deps.destination ? ([deps.destination] as [string]) : allDestinations
 
   const send_to = createTool({
     id: 'send_to',
     description: deps.destination
       ? `Send a notification to the user via ${deps.destination}.`
-      : 'Send a notification to the user. Destination "Web" delivers to the web inbox only. ' +
+      : 'Send a notification to the user. "Web Inbox" delivers to the web inbox only. ' +
         'Other destinations deliver via that channel and also appear in the web inbox.',
     inputSchema: z.object({
       subject: z.string().min(1).describe('Brief subject line'),
@@ -42,7 +42,7 @@ export function createSendToTools(deps: SendToToolDeps): ToolRecord {
     execute: async (input) => {
       const { subject, body, destination } = input
 
-      if (destination === 'Web') {
+      if (destination === 'Web Inbox') {
         const msg = await inboxStore.add({
           subject,
           body,

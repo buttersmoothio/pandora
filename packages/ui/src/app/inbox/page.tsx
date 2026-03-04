@@ -2,25 +2,20 @@
 
 import {
   AlertCircleIcon,
-  ExternalLinkIcon,
+  ArchiveIcon,
+  CheckCheckIcon,
+  InboxIcon,
   Loader2Icon,
   MailIcon,
   MailOpenIcon,
+  ReplyIcon,
   Trash2Icon,
 } from 'lucide-react'
 import Link from 'next/link'
 import { useState } from 'react'
+import { MessageResponse } from '@/components/ai-elements/message'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
 import {
   type InboxMessage,
   useDeleteInboxMessage,
@@ -43,219 +38,238 @@ function formatRelativeTime(iso: string): string {
 
 /** Resolve a destination nsKey to a human-friendly name. */
 function resolveDestinationName(destination: string, channelNames: Map<string, string>): string {
-  if (destination === 'web') return 'Web'
-  // Extract plugin ID from nsKey (e.g., "@pandorakit/telegram:telegram" → "@pandorakit/telegram")
+  if (destination === 'web') return 'Web Inbox'
   const colonIdx = destination.lastIndexOf(':')
   if (colonIdx !== -1) {
     const pluginId = destination.slice(0, colonIdx)
     const name = channelNames.get(pluginId)
     if (name) return name
   }
-  // Fallback: extract the part after the last colon
   return colonIdx !== -1 ? destination.slice(colonIdx + 1) : destination
+}
+
+function MessageRow({
+  message,
+  selected,
+  channelNames,
+  onSelect,
+}: {
+  message: InboxMessage
+  selected: boolean
+  channelNames: Map<string, string>
+  onSelect: () => void
+}) {
+  const destName = resolveDestinationName(message.destination, channelNames)
+
+  return (
+    <button
+      type="button"
+      className={`flex cursor-pointer items-center gap-3 border-b px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-muted/50 ${selected ? 'bg-muted' : ''}`}
+      onClick={onSelect}
+    >
+      <div className="shrink-0 text-muted-foreground">
+        {message.read ? (
+          <MailOpenIcon className="size-4" />
+        ) : (
+          <MailIcon className="size-4 text-foreground" />
+        )}
+      </div>
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <div className="flex items-center gap-2">
+          <span
+            className={`truncate text-sm ${message.read ? 'text-muted-foreground' : 'font-semibold'}`}
+          >
+            {message.subject}
+          </span>
+          {message.status === 'failed' && (
+            <AlertCircleIcon className="size-3.5 shrink-0 text-destructive" />
+          )}
+        </div>
+        <span className="truncate text-muted-foreground text-xs">{message.body.slice(0, 100)}</span>
+      </div>
+      <div className="flex shrink-0 flex-col items-end gap-1">
+        <span className="text-muted-foreground text-xs">
+          {formatRelativeTime(message.createdAt)}
+        </span>
+        <Badge variant="outline" className="text-[10px]">
+          {destName}
+        </Badge>
+      </div>
+    </button>
+  )
 }
 
 function MessageDetail({
   message,
-  open,
-  onOpenChange,
-  destinationName,
+  channelNames,
+  onDelete,
 }: {
   message: InboxMessage
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  destinationName: string
+  channelNames: Map<string, string>
+  onDelete: () => void
 }) {
   const deleteMessage = useDeleteInboxMessage()
+  const destName = resolveDestinationName(message.destination, channelNames)
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
-          <DialogTitle>{message.subject}</DialogTitle>
-          <DialogDescription>
-            {formatRelativeTime(message.createdAt)}
-            {' \u00b7 '}
-            {destinationName}
-            {message.status === 'failed' && ' \u00b7 Delivery failed'}
-            {message.status === 'pending' && ' \u00b7 Delivery pending'}
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="whitespace-pre-wrap text-sm">{message.body}</div>
-
-        <DialogFooter className="flex items-center gap-2">
-          {message.threadId && (
-            <Button variant="outline" size="sm" asChild className="mr-auto">
-              <Link href={`/chat/${message.threadId}`}>
-                <ExternalLinkIcon className="mr-1 size-3.5" />
-                View conversation
-              </Link>
-            </Button>
-          )}
+    <div className="flex flex-1 flex-col overflow-hidden">
+      {/* Header with actions */}
+      <div className="flex items-center justify-between border-b px-6 py-2">
+        <div className="flex items-center gap-1">
           <Button
-            variant="destructive"
+            variant="ghost"
             size="sm"
+            className="text-destructive hover:text-destructive"
             disabled={deleteMessage.isPending}
             onClick={() => {
-              deleteMessage.mutate(message.id, {
-                onSuccess: () => onOpenChange(false),
-              })
+              deleteMessage.mutate(message.id, { onSuccess: onDelete })
             }}
           >
             {deleteMessage.isPending ? (
-              <Loader2Icon className="size-4 animate-spin" />
+              <Loader2Icon className="mr-1 size-3.5 animate-spin" />
             ) : (
-              <>
-                <Trash2Icon className="mr-1 size-3.5" />
-                Delete
-              </>
+              <Trash2Icon className="mr-1 size-3.5" />
             )}
+            Delete
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={deleteMessage.isPending}
+            onClick={() => {
+              deleteMessage.mutate(message.id, { onSuccess: onDelete })
+            }}
+          >
+            <ArchiveIcon className="mr-1 size-3.5" />
+            Done
+          </Button>
+        </div>
+        {message.threadId && (
+          <Button variant="default" size="sm" asChild>
+            <Link href={`/chat/${message.threadId}`}>
+              <ReplyIcon className="mr-1 size-3.5" />
+              Reply
+            </Link>
+          </Button>
+        )}
+      </div>
+
+      {/* Subject + meta */}
+      <div className="border-b px-6 py-4">
+        <h2 className="font-semibold text-lg">{message.subject}</h2>
+        <div className="mt-1 flex items-center gap-2 text-muted-foreground text-xs">
+          <span>{formatRelativeTime(message.createdAt)}</span>
+          <span>&middot;</span>
+          <Badge variant="outline" className="text-[10px]">
+            {destName}
+          </Badge>
+          {message.status === 'failed' && (
+            <>
+              <span>&middot;</span>
+              <span className="text-destructive">Delivery failed</span>
+            </>
+          )}
+          {message.status === 'pending' && (
+            <>
+              <span>&middot;</span>
+              <span>Delivery pending</span>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Body */}
+      <div className="flex-1 overflow-y-auto px-6 py-4 text-sm">
+        <MessageResponse>{message.body}</MessageResponse>
+      </div>
+    </div>
   )
 }
 
-function MessageList() {
+function EmptyDetail() {
+  return (
+    <div className="flex flex-1 flex-col items-center justify-center text-muted-foreground">
+      <InboxIcon className="mb-3 size-10 opacity-30" />
+      <p className="text-sm">Select a message to read</p>
+    </div>
+  )
+}
+
+export default function InboxPage() {
   const { data, isLoading, error } = useInbox()
   const markRead = useMarkInboxRead()
-  const deleteMessage = useDeleteInboxMessage()
   const channelNames = useChannelNames()
-  const [selected, setSelected] = useState<InboxMessage | null>(null)
-  const [deleteTarget, setDeleteTarget] = useState<InboxMessage | null>(null)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+
+  const messages = data?.messages ?? []
+  const selected = messages.find((m) => m.id === selectedId) ?? null
+
+  const handleSelect = (msg: InboxMessage) => {
+    setSelectedId(msg.id)
+    if (!msg.read) markRead.mutate(msg.id)
+  }
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-8">
+      <div className="flex flex-1 items-center justify-center">
         <Loader2Icon className="size-5 animate-spin text-muted-foreground" />
       </div>
     )
   }
 
   if (error) {
-    return <p className="text-destructive text-sm">Failed to load inbox: {error.message}</p>
+    return (
+      <div className="flex flex-1 items-center justify-center">
+        <p className="text-destructive text-sm">Failed to load inbox: {error.message}</p>
+      </div>
+    )
   }
-
-  const messages = data?.messages ?? []
 
   if (messages.length === 0) {
-    return <p className="text-muted-foreground text-sm">No messages yet.</p>
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center text-muted-foreground">
+        <CheckCheckIcon className="mb-3 size-10 opacity-30" />
+        <p className="font-medium text-foreground text-sm">Inbox zero</p>
+        <p className="mt-1 text-xs">You're all caught up.</p>
+      </div>
+    )
   }
 
   return (
-    <>
-      <div className="flex flex-col gap-1">
-        {messages.map((msg) => {
-          const destName = resolveDestinationName(msg.destination, channelNames)
-          return (
-            <button
-              type="button"
+    <div className="flex flex-1 overflow-hidden">
+      {/* Message list */}
+      <div className="flex w-80 shrink-0 flex-col overflow-hidden border-r lg:w-96">
+        <div className="border-b px-4 py-3">
+          <h1 className="font-semibold text-sm">
+            Inbox
+            {messages.length > 0 && (
+              <span className="ml-2 font-normal text-muted-foreground">{messages.length}</span>
+            )}
+          </h1>
+        </div>
+        <div className="flex-1 overflow-y-auto">
+          {messages.map((msg) => (
+            <MessageRow
               key={msg.id}
-              className="flex items-center gap-3 rounded-md border p-3 text-left transition-colors hover:bg-muted/50"
-              onClick={() => {
-                setSelected(msg)
-                if (!msg.read) markRead.mutate(msg.id)
-              }}
-            >
-              <div className="shrink-0 text-muted-foreground">
-                {msg.read ? <MailOpenIcon className="size-4" /> : <MailIcon className="size-4" />}
-              </div>
-              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <span className={`truncate text-sm ${msg.read ? '' : 'font-semibold'}`}>
-                  {msg.subject}
-                </span>
-                <span className="truncate text-muted-foreground text-xs">
-                  {msg.body.slice(0, 120)}
-                </span>
-              </div>
-              <div className="flex shrink-0 items-center gap-2">
-                <Badge variant="outline" className="text-xs">
-                  {destName}
-                </Badge>
-                {msg.status === 'failed' && (
-                  <AlertCircleIcon className="size-3.5 text-destructive" />
-                )}
-                <span className="text-muted-foreground text-xs">
-                  {formatRelativeTime(msg.createdAt)}
-                </span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-destructive hover:text-destructive"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    setDeleteTarget(msg)
-                  }}
-                >
-                  <Trash2Icon className="size-4" />
-                </Button>
-              </div>
-            </button>
-          )
-        })}
+              message={msg}
+              selected={selectedId === msg.id}
+              channelNames={channelNames}
+              onSelect={() => handleSelect(msg)}
+            />
+          ))}
+        </div>
       </div>
 
-      {selected && (
+      {/* Detail pane */}
+      {selected ? (
         <MessageDetail
           message={selected}
-          open={!!selected}
-          onOpenChange={(open) => !open && setSelected(null)}
-          destinationName={resolveDestinationName(selected.destination, channelNames)}
+          channelNames={channelNames}
+          onDelete={() => setSelectedId(null)}
         />
+      ) : (
+        <EmptyDetail />
       )}
-
-      <Dialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete message?</DialogTitle>
-            <DialogDescription>
-              This will permanently delete &quot;{deleteTarget?.subject}&quot;.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteTarget(null)}>
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              disabled={deleteMessage.isPending}
-              onClick={() => {
-                if (deleteTarget) {
-                  deleteMessage.mutate(deleteTarget.id, {
-                    onSuccess: () => setDeleteTarget(null),
-                  })
-                }
-              }}
-            >
-              {deleteMessage.isPending ? <Loader2Icon className="size-4 animate-spin" /> : 'Delete'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
-  )
-}
-
-export default function InboxPage() {
-  return (
-    <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 p-6">
-      <div className="flex items-center justify-between">
-        <h1 className="font-semibold text-2xl">Inbox</h1>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Messages</CardTitle>
-          <CardDescription>
-            Messages from scheduled tasks and background agent activity.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <MessageList />
-        </CardContent>
-      </Card>
     </div>
   )
 }
