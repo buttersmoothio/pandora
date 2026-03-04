@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from 'next/font/google'
 import './globals.css'
 
 import { AppSidebar } from '@/components/app-sidebar'
+import { OnboardingGuard } from '@/components/onboarding/onboarding-guard'
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar'
 import { Toaster } from '@/components/ui/sonner'
 import { AuthProvider } from '@/providers/auth-provider'
@@ -35,15 +36,17 @@ export default function RootLayout({
         <ThemeProvider>
           <QueryProvider>
             <AuthProvider>
-              <SidebarProvider>
-                <AppSidebar />
-                <SidebarInset className="min-w-0">
-                  <header className="flex h-12 shrink-0 items-center gap-2 border-b px-4">
-                    <SidebarTrigger className="-ml-1" />
-                  </header>
-                  <main className="flex min-w-0 flex-1 flex-col">{children}</main>
-                </SidebarInset>
-              </SidebarProvider>
+              <OnboardingGuard>
+                <SidebarProvider>
+                  <AppSidebar />
+                  <SidebarInset className="min-w-0">
+                    <header className="flex h-12 shrink-0 items-center gap-2 border-b px-4">
+                      <SidebarTrigger className="-ml-1" />
+                    </header>
+                    <main className="flex min-w-0 flex-1 flex-col">{children}</main>
+                  </SidebarInset>
+                </SidebarProvider>
+              </OnboardingGuard>
             </AuthProvider>
             <Toaster />
           </QueryProvider>

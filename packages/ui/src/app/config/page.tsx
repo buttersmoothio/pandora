@@ -528,6 +528,34 @@ function MemorySection() {
   )
 }
 
+function SetupWizardSection() {
+  const updateConfig = useUpdateConfig()
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Setup Wizard</CardTitle>
+        <CardDescription>
+          Re-run the first-run setup wizard to reconfigure your agent.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Button
+          variant="outline"
+          disabled={updateConfig.isPending}
+          onClick={() => updateConfig.mutate({ onboardingComplete: false })}
+        >
+          {updateConfig.isPending ? (
+            <Loader2Icon className="size-4 animate-spin" />
+          ) : (
+            'Run Setup Wizard'
+          )}
+        </Button>
+      </CardContent>
+    </Card>
+  )
+}
+
 export default function ConfigPage() {
   const { data: config, isLoading, error } = useConfig()
   const resetConfig = useResetConfig()
@@ -583,6 +611,7 @@ export default function ConfigPage() {
       <PersonalitySection />
       <ModelsSection />
       <MemorySection />
+      <SetupWizardSection />
     </div>
   )
 }

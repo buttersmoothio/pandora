@@ -25,12 +25,18 @@ function makeToolPlugin(overrides?: Partial<RegisteredPlugin>): RegisteredPlugin
   }
 }
 
+function configWith(...pluginIds: string[]) {
+  const plugins: Record<string, { enabled: boolean }> = {}
+  for (const id of pluginIds) plugins[id] = { enabled: true }
+  return { ...DEFAULTS, plugins }
+}
+
 describe('loadTools', () => {
   it('loads tools from enabled plugins', async () => {
     const registry = createPluginRegistry()
     registry.plugins.set('test-tools', makeToolPlugin())
 
-    const tools = await loadTools(registry, DEFAULTS, {})
+    const tools = await loadTools(registry, configWith('test-tools'), {})
     expect(tools['test-tools:greet']).toBeDefined()
   })
 
@@ -65,7 +71,7 @@ describe('loadTools', () => {
       }),
     )
 
-    const tools = await loadTools(registry, DEFAULTS, {})
+    const tools = await loadTools(registry, configWith('test-tools'), {})
     expect(tools['test-tools:dynamic-tool']).toBeDefined()
   })
 
@@ -92,7 +98,7 @@ describe('loadTools', () => {
       }),
     )
 
-    const tools = await loadTools(registry, DEFAULTS, {})
+    const tools = await loadTools(registry, configWith('test-tools'), {})
     expect(Object.keys(tools)).toHaveLength(0)
   })
 
@@ -105,7 +111,7 @@ describe('loadTools', () => {
       }),
     )
 
-    const tools = await loadTools(registry, DEFAULTS, { MY_API_KEY: 'secret' })
+    const tools = await loadTools(registry, configWith('test-tools'), { MY_API_KEY: 'secret' })
     expect(tools['test-tools:greet']).toBeDefined()
   })
 
@@ -118,7 +124,7 @@ describe('loadTools', () => {
       }),
     )
 
-    const tools = await loadTools(registry, DEFAULTS, {})
+    const tools = await loadTools(registry, configWith('test-tools'), {})
     expect(tools['test-tools:greet']).toBeDefined()
   })
 
@@ -142,7 +148,7 @@ describe('loadTools', () => {
       }),
     )
 
-    const tools = await loadTools(registry, DEFAULTS, {})
+    const tools = await loadTools(registry, configWith('test-tools'), {})
     // biome-ignore lint/suspicious/noExplicitAny: requireApproval is set dynamically
     expect((tools['test-tools:greet'] as any).requireApproval).toBe(true)
   })
@@ -185,7 +191,7 @@ describe('loadTools', () => {
       }),
     )
 
-    const tools = await loadTools(registry, DEFAULTS, {})
+    const tools = await loadTools(registry, configWith('plugin-a', 'plugin-b'), {})
     expect(tools['plugin-a:tool-a']).toBeDefined()
     expect(tools['plugin-b:tool-b']).toBeDefined()
   })

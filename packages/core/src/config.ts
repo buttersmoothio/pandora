@@ -144,7 +144,9 @@ function createConfigSchema(registry?: PluginRegistry) {
     /** Plugin configurations — keyed by plugin (manifest) ID */
     plugins: z
       .record(z.string(), z.looseObject({ enabled: z.boolean() }))
-      .default(() => ({}))
+      .default(() => ({
+        '@pandorakit/datetime': { enabled: true },
+      }))
       .superRefine((plugins, ctx) => {
         if (!registry) return
         for (const [id, raw] of Object.entries(plugins)) {
@@ -182,6 +184,9 @@ function createConfigSchema(registry?: PluginRegistry) {
         tasks: z.array(ScheduledTaskSchema),
       })
       .default(() => ({ enabled: true, tasks: [] })),
+
+    /** Whether the first-run onboarding wizard has been completed */
+    onboardingComplete: z.boolean().default(false),
   })
 }
 
@@ -283,8 +288,9 @@ export async function resetConfig(configStore: ConfigStore<Config>): Promise<Con
   const stored = await configStore.get()
   const plugins = stored?.plugins ?? DEFAULTS.plugins
   const schedule = stored?.schedule ?? DEFAULTS.schedule
+  const onboardingComplete = stored?.onboardingComplete ?? DEFAULTS.onboardingComplete
 
-  const reset = { ...DEFAULTS, plugins, schedule }
+  const reset = { ...DEFAULTS, plugins, schedule, onboardingComplete }
   await configStore.set(reset)
   return reset
 }

@@ -23,21 +23,17 @@ export function validatePluginConfig(
   const log = getLogger()
   const schema = plugin.schema
 
-  if (rawConfig?.enabled === false) {
+  if (!rawConfig) {
+    log.debug(`Plugin ${plugin.id} skipped (not configured)`)
+    return { config: null, errors: [] }
+  }
+
+  if (rawConfig.enabled === false) {
     log.debug(`Plugin ${plugin.id} disabled by config`)
     return { config: null, errors: [] }
   }
 
-  if (!rawConfig && schema) {
-    const fallback = basePluginSchema.extend(schema.shape).safeParse({ enabled: true })
-    if (!fallback.success) {
-      log.debug(`Plugin ${plugin.id} skipped (not configured)`)
-      return { config: null, errors: [] }
-    }
-    return { config: { enabled: true, ...fallback.data }, errors: [] }
-  }
-
-  if (rawConfig && schema) {
+  if (schema) {
     const result = basePluginSchema.extend(schema.shape).safeParse(rawConfig)
     if (!result.success) {
       const errors = result.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`)
@@ -46,5 +42,5 @@ export function validatePluginConfig(
     }
   }
 
-  return { config: rawConfig ?? { enabled: true }, errors: [] }
+  return { config: rawConfig, errors: [] }
 }

@@ -14,10 +14,10 @@ function makePlugin(overrides?: Partial<RegisteredPlugin>): RegisteredPlugin {
 }
 
 describe('validatePluginConfig', () => {
-  it('returns enabled config when no schema and no raw config', () => {
+  it('returns null when no raw config provided', () => {
     const plugin = makePlugin()
     const result = validatePluginConfig(plugin, undefined)
-    expect(result.config).toEqual({ enabled: true })
+    expect(result.config).toBeNull()
     expect(result.errors).toEqual([])
   })
 
@@ -55,12 +55,12 @@ describe('validatePluginConfig', () => {
     expect(result.errors).toEqual([])
   })
 
-  it('uses schema defaults when no raw config', () => {
+  it('returns null when no raw config even with schema defaults', () => {
     const plugin = makePlugin({
       schema: z.object({ mode: z.string().default('auto') }),
     })
     const result = validatePluginConfig(plugin, undefined)
-    expect(result.config).toBeDefined()
-    expect((result.config as Record<string, unknown>)?.mode).toBe('auto')
+    expect(result.config).toBeNull()
+    expect(result.errors).toEqual([])
   })
 })

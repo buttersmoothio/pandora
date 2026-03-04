@@ -4,6 +4,8 @@ import { apiFetch } from '@/lib/api'
 
 // Types mirroring packages/core/src/config.ts
 
+export type DeepPartial<T> = { [K in keyof T]?: T[K] extends object ? DeepPartial<T[K]> : T[K] }
+
 export interface ModelConfig {
   provider: string
   model: string
@@ -41,6 +43,7 @@ export interface Config {
       maxRuns?: number
     }>
   }
+  onboardingComplete: boolean
 }
 
 const CONFIG_KEY = ['config'] as const
@@ -60,7 +63,7 @@ export function useUpdateConfig() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (patch: Partial<Config>) =>
+    mutationFn: (patch: DeepPartial<Config>) =>
       apiFetch<Config>('/api/config', {
         method: 'PATCH',
         body: JSON.stringify(patch),
@@ -68,7 +71,6 @@ export function useUpdateConfig() {
     onSuccess: (data) => {
       queryClient.setQueryData(CONFIG_KEY, data)
       queryClient.invalidateQueries({ queryKey: ['plugins'] })
-      toast.success('Configuration saved')
     },
     onError: (err: Error) => {
       toast.error(`Failed to save: ${err.message}`)

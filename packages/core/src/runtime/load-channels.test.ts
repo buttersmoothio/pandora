@@ -4,6 +4,12 @@ import { loadChannels } from './load-channels'
 import type { RegisteredPlugin } from './plugin-registry'
 import { createPluginRegistry } from './plugin-registry'
 
+function configWith(...pluginIds: string[]) {
+  const plugins: Record<string, { enabled: boolean }> = {}
+  for (const id of pluginIds) plugins[id] = { enabled: true }
+  return { ...DEFAULTS, plugins }
+}
+
 function makeChannelPlugin(overrides?: Partial<RegisteredPlugin>): RegisteredPlugin {
   return {
     id: 'channel-test',
@@ -25,7 +31,9 @@ describe('loadChannels', () => {
     const registry = createPluginRegistry()
     registry.plugins.set('channel-test', makeChannelPlugin())
 
-    const { channels, channelNames } = await loadChannels(registry, DEFAULTS, { TEST_TOKEN: 'abc' })
+    const { channels, channelNames } = await loadChannels(registry, configWith('channel-test'), {
+      TEST_TOKEN: 'abc',
+    })
     expect(channels.get('channel-test:test')).toBeDefined()
     expect(channels.get('channel-test:test')?.name).toBe('Test')
     expect(channelNames.get('Test')).toBe('channel-test:test')

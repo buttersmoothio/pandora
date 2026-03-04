@@ -24,6 +24,12 @@ vi.mock('../agents/model-tools', () => ({
 
 const mockMemory = {} as MastraMemory
 
+function configWith(...pluginIds: string[]) {
+  const plugins: Record<string, { enabled: boolean }> = {}
+  for (const id of pluginIds) plugins[id] = { enabled: true }
+  return { ...DEFAULTS, plugins }
+}
+
 function makeAgentPlugin(overrides?: Partial<RegisteredPlugin>): RegisteredPlugin {
   return {
     id: 'test-agent-plugin',
@@ -61,7 +67,7 @@ describe('loadAgents', () => {
     const registry = createPluginRegistry()
     registry.plugins.set('test-agent-plugin', makeAgentPlugin())
 
-    const agents = await loadAgents(registry, DEFAULTS, mockMemory, {})
+    const agents = await loadAgents(registry, configWith('test-agent-plugin'), mockMemory, {})
     expect(agents['test-agent-plugin:test-agent']).toBeDefined()
     expect(agents['test-agent-plugin:test-agent'].id).toBe('test-agent-plugin:test-agent')
   })
@@ -87,7 +93,7 @@ describe('loadAgents', () => {
       }),
     )
 
-    const agents = await loadAgents(registry, DEFAULTS, mockMemory, {})
+    const agents = await loadAgents(registry, configWith('test-agent-plugin'), mockMemory, {})
     expect(Object.keys(agents)).toHaveLength(0)
   })
 
@@ -100,7 +106,9 @@ describe('loadAgents', () => {
       }),
     )
 
-    const agents = await loadAgents(registry, DEFAULTS, mockMemory, { REQUIRED_KEY: 'value' })
+    const agents = await loadAgents(registry, configWith('test-agent-plugin'), mockMemory, {
+      REQUIRED_KEY: 'value',
+    })
     expect(agents['test-agent-plugin:test-agent']).toBeDefined()
   })
 
@@ -113,7 +121,7 @@ describe('loadAgents', () => {
       }),
     )
 
-    const agents = await loadAgents(registry, DEFAULTS, mockMemory, {})
+    const agents = await loadAgents(registry, configWith('test-agent-plugin'), mockMemory, {})
     expect(agents['test-agent-plugin:test-agent']).toBeDefined()
   })
 
@@ -172,7 +180,13 @@ describe('loadAgents', () => {
     )
 
     const globalTools = { 'plugin:greet': { execute: vi.fn() } as never }
-    const agents = await loadAgents(registry, DEFAULTS, mockMemory, {}, globalTools)
+    const agents = await loadAgents(
+      registry,
+      configWith('test-agent-plugin'),
+      mockMemory,
+      {},
+      globalTools,
+    )
     expect(agents['test-agent-plugin:test-agent']).toBeDefined()
 
     // Verify the agent was constructed with the inherited tool
@@ -184,7 +198,7 @@ describe('loadAgents', () => {
     const registry = createPluginRegistry()
     registry.plugins.set('test-agent-plugin', makeAgentPlugin())
 
-    await loadAgents(registry, DEFAULTS, mockMemory, {})
+    await loadAgents(registry, configWith('test-agent-plugin'), mockMemory, {})
 
     const lastCall = mockAgentConstructor.mock.calls.at(-1)?.[0]
     expect(lastCall.model).toBe('anthropic/claude-sonnet-4-20250514')

@@ -86,7 +86,6 @@ discoveryRoutes.get('/plugins', (c) => {
     const ch = buildChannelsProvides(plugin, channels)
     if (ch) provides.channels = ch
 
-    const defaultEnabled = !plugin.channels
     const { errors: validationErrors } = validatePluginConfig(plugin, pluginConfig)
 
     return {
@@ -102,7 +101,7 @@ discoveryRoutes.get('/plugins', (c) => {
       envVars,
       envConfigured,
       configFields: plugin.configFields ?? [],
-      enabled: pluginConfig?.enabled ?? defaultEnabled,
+      enabled: pluginConfig?.enabled ?? false,
       config: pluginConfig ?? {},
       provides,
       validationErrors: validationErrors.length > 0 ? validationErrors : [],
