@@ -38,10 +38,18 @@ function buildAgentsProvides(
         if (colonIdx === -1) return undefined
         const pId = nsId.slice(0, colonIdx)
         const tId = nsId.slice(colonIdx + 1)
-        return registry.plugins.get(pId)?.tools?.manifests.get(tId)
+        const tm = registry.plugins.get(pId)?.tools?.manifests.get(tId)
+        if (!tm) return undefined
+        return { ...tm, id: nsId }
       })
-      .filter((tm): tm is NonNullable<typeof tm> => !!tm)
-    return { ...manifest, model: ac?.model, tools, alerts: [] }
+      .filter((t): t is NonNullable<typeof t> => !!t)
+    return {
+      ...manifest,
+      id: namespacedKey(plugin.id, def.id),
+      model: ac?.model,
+      tools,
+      alerts: [],
+    }
   })
   return {
     agentIds: plugin.agents.definitions.map((d) => namespacedKey(plugin.id, d.id)),

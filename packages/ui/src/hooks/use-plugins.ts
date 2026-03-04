@@ -134,7 +134,8 @@ function buildToolNameMap(plugins: UnifiedPluginInfo[]): Map<string, string> {
     }
     if (plugin.provides.agents) {
       for (const agent of plugin.provides.agents.agents) {
-        map.set(sanitiseToolId(agent.id), agent.name)
+        // Mastra prefixes agent tool keys with `agent-` (e.g. `agent-@pandorakit/research-agent:research`)
+        map.set(`agent-${sanitiseToolId(agent.id)}`, agent.name)
       }
     }
   }

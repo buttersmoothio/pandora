@@ -76,8 +76,8 @@ export const getStatusBadge = (status: ToolPart['state']) => (
  *   `tool-agent-research`                          → "Agent Research"
  */
 function formatToolName(type: string): string {
-  // Strip `tool-` prefix
-  const raw = type.replace(/^tool-/, '')
+  // Strip `tool-` prefix and Mastra `agent-` prefix for subagent tools
+  const raw = type.replace(/^tool-/, '').replace(/^agent-/, '')
 
   // Namespaced: `@scope/pkg:toolId` or `_scope_pkg_toolId` (sanitised by SDK)
   const colonIdx = raw.lastIndexOf(':')
