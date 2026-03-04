@@ -13,6 +13,7 @@ export interface InboxMessage {
   status: DeliveryStatus
   read: boolean
   createdAt: string
+  archivedAt: string | null
 }
 
 interface InboxListResponse {
@@ -21,10 +22,10 @@ interface InboxListResponse {
 
 export const INBOX_KEY = ['inbox'] as const
 
-export function useInbox() {
+export function useInbox(archived = false) {
   return useQuery({
-    queryKey: INBOX_KEY,
-    queryFn: () => apiFetch<InboxListResponse>('/api/inbox'),
+    queryKey: [...INBOX_KEY, { archived }],
+    queryFn: () => apiFetch<InboxListResponse>(`/api/inbox${archived ? '?archived=true' : ''}`),
     refetchInterval: 30_000,
   })
 }
@@ -43,6 +44,44 @@ export function useMarkInboxRead() {
     },
     onError: (err: Error) => {
       toast.error(`Failed to mark message as read: ${err.message}`)
+    },
+  })
+}
+
+export function useArchiveInboxMessage() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (id: string) =>
+      apiFetch<InboxMessage>(`/api/inbox/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ archived: true }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: INBOX_KEY })
+      toast.success('Message archived')
+    },
+    onError: (err: Error) => {
+      toast.error(`Failed to archive message: ${err.message}`)
+    },
+  })
+}
+
+export function useUnarchiveInboxMessage() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (id: string) =>
+      apiFetch<InboxMessage>(`/api/inbox/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ archived: false }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: INBOX_KEY })
+      toast.success('Message restored')
+    },
+    onError: (err: Error) => {
+      toast.error(`Failed to restore message: ${err.message}`)
     },
   })
 }

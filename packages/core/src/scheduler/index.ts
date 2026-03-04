@@ -7,7 +7,7 @@ export type TaskHandler = (task: ScheduledTask) => Promise<void>
 
 export interface Scheduler {
   /** Replace all running jobs with the given task list */
-  sync(tasks: ScheduledTask[]): void
+  sync(tasks: ScheduledTask[], timezone?: string): void
   /** Stop all jobs and clean up */
   stop(): void
   /** Next run time for a task (null if not scheduled) */

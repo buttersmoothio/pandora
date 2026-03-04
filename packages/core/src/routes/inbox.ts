@@ -3,9 +3,10 @@ import type { Env } from './helpers'
 
 const inboxRoutes = new Hono<Env>()
 
-// List all messages (newest first)
+// List messages (newest first)
 inboxRoutes.get('/', async (c) => {
-  const messages = await c.var.runtime.storage.inbox.list()
+  const archived = c.req.query('archived') === 'true'
+  const messages = await c.var.runtime.storage.inbox.list({ archived })
   return c.json({ messages })
 })
 
@@ -16,17 +17,24 @@ inboxRoutes.get('/:id', async (c) => {
   return c.json(msg)
 })
 
-// Mark as read
+// Update message (mark read, archive/unarchive)
 inboxRoutes.patch('/:id', async (c) => {
   const id = c.req.param('id')
   const msg = await c.var.runtime.storage.inbox.get(id)
   if (!msg) return c.json({ error: 'Message not found' }, 404)
 
-  const body = await c.req.json<{ read?: boolean }>()
+  const body = await c.req.json<{ read?: boolean; archived?: boolean }>()
   if (body.read) {
     await c.var.runtime.storage.inbox.markRead(id)
   }
-  return c.json({ ...msg, read: body.read ?? msg.read })
+  if (body.archived === true) {
+    await c.var.runtime.storage.inbox.archive(id)
+  } else if (body.archived === false) {
+    await c.var.runtime.storage.inbox.unarchive(id)
+  }
+
+  const updated = await c.var.runtime.storage.inbox.get(id)
+  return c.json(updated)
 })
 
 // Delete message

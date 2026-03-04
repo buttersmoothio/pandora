@@ -16,7 +16,9 @@ export class CronerScheduler implements Scheduler {
     this.timezone = timezone
   }
 
-  sync(tasks: ScheduledTask[]): void {
+  sync(tasks: ScheduledTask[], timezone?: string): void {
+    if (timezone) this.timezone = timezone
+
     for (const job of this.jobs.values()) job.stop()
     this.jobs.clear()
 

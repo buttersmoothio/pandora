@@ -93,7 +93,7 @@ export async function createRuntime(
 
     syncSchedule() {
       if (runtime.config.schedule.enabled) {
-        runtime.scheduler.sync(runtime.config.schedule.tasks)
+        runtime.scheduler.sync(runtime.config.schedule.tasks, runtime.config.timezone)
       } else {
         runtime.scheduler.stop()
       }

@@ -249,7 +249,7 @@ function TaskDialog({
 
           {form.mode === 'cron' ? (
             <div className="flex flex-col gap-2">
-              <Label htmlFor="schedule-cron">Cron Expression</Label>
+              <Label htmlFor="schedule-cron">Cron Expression ({timezone})</Label>
               <Input
                 id="schedule-cron"
                 placeholder="0 8 * * *"

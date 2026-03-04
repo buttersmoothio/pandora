@@ -18,9 +18,11 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   type InboxMessage,
+  useArchiveInboxMessage,
   useDeleteInboxMessage,
   useInbox,
   useMarkInboxRead,
+  useUnarchiveInboxMessage,
 } from '@/hooks/use-inbox'
 import { useChannelNames } from '@/hooks/use-plugins'
 
@@ -102,13 +104,17 @@ function MessageRow({
 function MessageDetail({
   message,
   channelNames,
-  onDelete,
+  showArchived,
+  onDismiss,
 }: {
   message: InboxMessage
   channelNames: Map<string, string>
-  onDelete: () => void
+  showArchived: boolean
+  onDismiss: () => void
 }) {
   const deleteMessage = useDeleteInboxMessage()
+  const archiveMessage = useArchiveInboxMessage()
+  const unarchiveMessage = useUnarchiveInboxMessage()
   const destName = resolveDestinationName(message.destination, channelNames)
 
   return (
@@ -116,13 +122,46 @@ function MessageDetail({
       {/* Header with actions */}
       <div className="flex items-center justify-between border-b px-6 py-2">
         <div className="flex items-center gap-1">
+          {showArchived ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={unarchiveMessage.isPending}
+              onClick={() => {
+                unarchiveMessage.mutate(message.id, { onSuccess: onDismiss })
+              }}
+            >
+              {unarchiveMessage.isPending ? (
+                <Loader2Icon className="mr-1 size-3.5 animate-spin" />
+              ) : (
+                <InboxIcon className="mr-1 size-3.5" />
+              )}
+              Unarchive
+            </Button>
+          ) : (
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={archiveMessage.isPending}
+              onClick={() => {
+                archiveMessage.mutate(message.id, { onSuccess: onDismiss })
+              }}
+            >
+              {archiveMessage.isPending ? (
+                <Loader2Icon className="mr-1 size-3.5 animate-spin" />
+              ) : (
+                <ArchiveIcon className="mr-1 size-3.5" />
+              )}
+              Archive
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="sm"
             className="text-destructive hover:text-destructive"
             disabled={deleteMessage.isPending}
             onClick={() => {
-              deleteMessage.mutate(message.id, { onSuccess: onDelete })
+              deleteMessage.mutate(message.id, { onSuccess: onDismiss })
             }}
           >
             {deleteMessage.isPending ? (
@@ -131,17 +170,6 @@ function MessageDetail({
               <Trash2Icon className="mr-1 size-3.5" />
             )}
             Delete
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            disabled={deleteMessage.isPending}
-            onClick={() => {
-              deleteMessage.mutate(message.id, { onSuccess: onDelete })
-            }}
-          >
-            <ArchiveIcon className="mr-1 size-3.5" />
-            Done
           </Button>
         </div>
         {message.threadId && (
@@ -196,7 +224,8 @@ function EmptyDetail() {
 }
 
 export default function InboxPage() {
-  const { data, isLoading, error } = useInbox()
+  const [showArchived, setShowArchived] = useState(false)
+  const { data, isLoading, error } = useInbox(showArchived)
   const markRead = useMarkInboxRead()
   const channelNames = useChannelNames()
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -228,9 +257,35 @@ export default function InboxPage() {
   if (messages.length === 0) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center text-muted-foreground">
-        <CheckCheckIcon className="mb-3 size-10 opacity-30" />
-        <p className="font-medium text-foreground text-sm">Inbox zero</p>
-        <p className="mt-1 text-xs">You're all caught up.</p>
+        {showArchived ? (
+          <>
+            <ArchiveIcon className="mb-3 size-10 opacity-30" />
+            <p className="font-medium text-foreground text-sm">No archived messages</p>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="mt-2"
+              onClick={() => setShowArchived(false)}
+            >
+              Back to Inbox
+            </Button>
+          </>
+        ) : (
+          <>
+            <CheckCheckIcon className="mb-3 size-10 opacity-30" />
+            <p className="font-medium text-foreground text-sm">Inbox zero</p>
+            <p className="mt-1 text-xs">You're all caught up.</p>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="mt-2"
+              onClick={() => setShowArchived(true)}
+            >
+              <ArchiveIcon className="mr-1 size-3.5" />
+              View Archive
+            </Button>
+          </>
+        )}
       </div>
     )
   }
@@ -239,13 +294,28 @@ export default function InboxPage() {
     <div className="flex flex-1 overflow-hidden">
       {/* Message list */}
       <div className="flex w-80 shrink-0 flex-col overflow-hidden border-r lg:w-96">
-        <div className="border-b px-4 py-3">
+        <div className="flex items-center justify-between border-b px-4 py-3">
           <h1 className="font-semibold text-sm">
-            Inbox
+            {showArchived ? 'Archived' : 'Inbox'}
             {messages.length > 0 && (
               <span className="ml-2 font-normal text-muted-foreground">{messages.length}</span>
             )}
           </h1>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              setShowArchived(!showArchived)
+              setSelectedId(null)
+            }}
+          >
+            {showArchived ? (
+              <InboxIcon className="mr-1 size-3.5" />
+            ) : (
+              <ArchiveIcon className="mr-1 size-3.5" />
+            )}
+            {showArchived ? 'Inbox' : 'Archived'}
+          </Button>
         </div>
         <div className="flex-1 overflow-y-auto">
           {messages.map((msg) => (
@@ -265,7 +335,8 @@ export default function InboxPage() {
         <MessageDetail
           message={selected}
           channelNames={channelNames}
-          onDelete={() => setSelectedId(null)}
+          showArchived={showArchived}
+          onDismiss={() => setSelectedId(null)}
         />
       ) : (
         <EmptyDetail />

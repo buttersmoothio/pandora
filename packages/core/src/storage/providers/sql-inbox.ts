@@ -12,6 +12,7 @@ interface InboxRow {
   status: string
   read: number | boolean
   created_at: string
+  archived_at: string | null
 }
 
 export class SQLInboxStore implements InboxStore {
@@ -43,7 +44,8 @@ export class SQLInboxStore implements InboxStore {
             destination TEXT NOT NULL,
             status TEXT NOT NULL,
             read BOOLEAN DEFAULT FALSE,
-            created_at TIMESTAMPTZ DEFAULT NOW()
+            created_at TIMESTAMPTZ DEFAULT NOW(),
+            archived_at TIMESTAMPTZ DEFAULT NULL
           )
         `
       case 'mssql':
@@ -57,7 +59,8 @@ export class SQLInboxStore implements InboxStore {
             destination NVARCHAR(255) NOT NULL,
             status NVARCHAR(50) NOT NULL,
             read BIT DEFAULT 0,
-            created_at DATETIME2 DEFAULT GETUTCDATE()
+            created_at DATETIME2 DEFAULT GETUTCDATE(),
+            archived_at DATETIME2 DEFAULT NULL
           )
         `
       default:
@@ -70,7 +73,8 @@ export class SQLInboxStore implements InboxStore {
             destination TEXT NOT NULL,
             status TEXT NOT NULL,
             read INTEGER DEFAULT 0,
-            created_at TEXT DEFAULT (datetime('now'))
+            created_at TEXT DEFAULT (datetime('now')),
+            archived_at TEXT DEFAULT NULL
           )
         `
     }
@@ -80,7 +84,9 @@ export class SQLInboxStore implements InboxStore {
     await this.execute(this.createTableSQL)
   }
 
-  async add(message: Omit<InboxMessage, 'id' | 'read' | 'createdAt'>): Promise<InboxMessage> {
+  async add(
+    message: Omit<InboxMessage, 'id' | 'read' | 'createdAt' | 'archivedAt'>,
+  ): Promise<InboxMessage> {
     const id = crypto.randomUUID()
     const createdAt = new Date().toISOString()
     await this.execute(
@@ -105,19 +111,22 @@ export class SQLInboxStore implements InboxStore {
       status: message.status,
       read: false,
       createdAt,
+      archivedAt: null,
     }
   }
 
-  async list(): Promise<InboxMessage[]> {
+  async list(filter?: { archived?: boolean }): Promise<InboxMessage[]> {
+    const archived = filter?.archived ?? false
+    const condition = archived ? 'WHERE archived_at IS NOT NULL' : 'WHERE archived_at IS NULL'
     const rows = (await this.execute(
-      `SELECT id, subject, body, thread_id, destination, status, read, created_at FROM ${TABLE} ORDER BY created_at DESC`,
+      `SELECT id, subject, body, thread_id, destination, status, read, created_at, archived_at FROM ${TABLE} ${condition} ORDER BY created_at DESC`,
     )) as InboxRow[]
     return rows.map(toMessage)
   }
 
   async get(id: string): Promise<InboxMessage | null> {
     const rows = (await this.execute(
-      `SELECT id, subject, body, thread_id, destination, status, read, created_at FROM ${TABLE} WHERE id = ${this.param(1)}`,
+      `SELECT id, subject, body, thread_id, destination, status, read, created_at, archived_at FROM ${TABLE} WHERE id = ${this.param(1)}`,
       [id],
     )) as InboxRow[]
     if (!rows || rows.length === 0) return null
@@ -139,6 +148,18 @@ export class SQLInboxStore implements InboxStore {
     )
   }
 
+  async archive(id: string): Promise<void> {
+    const now = new Date().toISOString()
+    await this.execute(
+      `UPDATE ${TABLE} SET archived_at = ${this.param(1)} WHERE id = ${this.param(2)}`,
+      [now, id],
+    )
+  }
+
+  async unarchive(id: string): Promise<void> {
+    await this.execute(`UPDATE ${TABLE} SET archived_at = NULL WHERE id = ${this.param(1)}`, [id])
+  }
+
   async delete(id: string): Promise<void> {
     await this.execute(`DELETE FROM ${TABLE} WHERE id = ${this.param(1)}`, [id])
   }
@@ -154,6 +175,7 @@ function toMessage(row: InboxRow): InboxMessage {
     status: (DELIVERY_STATUSES.has(row.status) ? row.status : 'sent') as DeliveryStatus,
     read: !!row.read,
     createdAt: row.created_at,
+    archivedAt: row.archived_at ?? null,
   }
 }
 
