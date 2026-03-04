@@ -37,10 +37,6 @@ describe('Plugins routes', () => {
       plugins: { id: string; provides: Record<string, unknown> }[]
     }
     expect(Array.isArray(body.plugins)).toBe(true)
-
-    const datetime = body.plugins.find((p) => p.id === '@pandorakit/datetime')
-    expect(datetime).toBeDefined()
-    expect(datetime?.provides.tools).toBeDefined()
   })
 })
 

@@ -9,7 +9,6 @@ export interface ScheduleTask {
   runAt?: string
   prompt: string
   enabled: boolean
-  timezone?: string
   maxRuns?: number
   destination?: string
   nextRun: string | null
@@ -27,7 +26,6 @@ interface CreateScheduleInput {
   runAt?: string
   prompt: string
   enabled?: boolean
-  timezone?: string
   maxRuns?: number
   destination?: string
 }
@@ -39,7 +37,6 @@ interface UpdateScheduleInput {
   runAt?: string | null
   prompt?: string
   enabled?: boolean
-  timezone?: string | null
   maxRuns?: number | null
   destination?: string | null
 }

@@ -6,11 +6,15 @@ import type { Scheduler, TaskHandler } from '../index'
 export class CronerScheduler implements Scheduler {
   private jobs = new Map<string, Cron>()
   private running = new Set<string>()
+  private timezone: string
 
   constructor(
     private handler: TaskHandler,
     private onComplete?: (taskId: string) => void,
-  ) {}
+    timezone = 'UTC',
+  ) {
+    this.timezone = timezone
+  }
 
   sync(tasks: ScheduledTask[]): void {
     for (const job of this.jobs.values()) job.stop()
@@ -30,7 +34,7 @@ export class CronerScheduler implements Scheduler {
       let runs = 0
       const job = new Cron(
         schedule,
-        { timezone: task.timezone, protect: true, maxRuns: task.maxRuns },
+        { timezone: this.timezone, protect: true, maxRuns: task.maxRuns },
         async () => {
           runs++
           this.running.add(task.id)

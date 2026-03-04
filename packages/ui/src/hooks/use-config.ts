@@ -17,6 +17,7 @@ export interface Config {
   identity: {
     name: string
   }
+  timezone: string
   personality: {
     systemPrompt: string
   }
@@ -39,7 +40,6 @@ export interface Config {
       runAt?: string
       prompt: string
       enabled: boolean
-      timezone?: string
       maxRuns?: number
     }>
   }

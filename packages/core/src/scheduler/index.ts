@@ -19,6 +19,7 @@ export interface Scheduler {
 export function createScheduler(
   handler: TaskHandler,
   onComplete?: (taskId: string) => void,
+  timezone?: string,
 ): Scheduler {
-  return new CronerScheduler(handler, onComplete)
+  return new CronerScheduler(handler, onComplete, timezone)
 }

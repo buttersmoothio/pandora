@@ -75,7 +75,6 @@ interface TaskFormState {
   runAt: string
   prompt: string
   enabled: boolean
-  timezone: string
   maxRuns: string
   destination: string
 }
@@ -87,7 +86,6 @@ const EMPTY_FORM: TaskFormState = {
   runAt: '',
   prompt: '',
   enabled: true,
-  timezone: '',
   maxRuns: '',
   destination: '',
 }
@@ -117,7 +115,6 @@ function TaskDialog({
         runAt: task.runAt ? new Date(task.runAt).toISOString().slice(0, 16) : '',
         prompt: task.prompt,
         enabled: task.enabled,
-        timezone: task.timezone ?? '',
         maxRuns: task.maxRuns?.toString() ?? '',
         destination: task.destination ?? '',
       })
@@ -136,7 +133,6 @@ function TaskDialog({
         : { runAt: new Date(form.runAt).toISOString() }),
       prompt: form.prompt,
       enabled: form.enabled,
-      ...(form.timezone ? { timezone: form.timezone } : {}),
       ...(form.mode === 'cron' && form.maxRuns
         ? { maxRuns: Number.parseInt(form.maxRuns, 10) }
         : {}),
@@ -265,31 +261,20 @@ function TaskDialog({
             </p>
           </div>
 
-          <div className="flex gap-4">
-            {form.mode === 'cron' && (
-              <div className="flex flex-1 flex-col gap-2">
-                <Label htmlFor="schedule-maxruns">Max Runs</Label>
-                <Input
-                  id="schedule-maxruns"
-                  type="number"
-                  min={1}
-                  placeholder="Unlimited"
-                  value={form.maxRuns}
-                  onChange={(e) => setForm({ ...form, maxRuns: e.target.value })}
-                />
-                <p className="text-muted-foreground text-xs">Leave empty for recurring forever.</p>
-              </div>
-            )}
-            <div className="flex flex-1 flex-col gap-2">
-              <Label htmlFor="schedule-timezone">Timezone</Label>
+          {form.mode === 'cron' && (
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="schedule-maxruns">Max Runs</Label>
               <Input
-                id="schedule-timezone"
-                placeholder="America/New_York"
-                value={form.timezone}
-                onChange={(e) => setForm({ ...form, timezone: e.target.value })}
+                id="schedule-maxruns"
+                type="number"
+                min={1}
+                placeholder="Unlimited"
+                value={form.maxRuns}
+                onChange={(e) => setForm({ ...form, maxRuns: e.target.value })}
               />
+              <p className="text-muted-foreground text-xs">Leave empty for recurring forever.</p>
             </div>
-          </div>
+          )}
 
           <div className="flex items-center gap-2">
             <Switch

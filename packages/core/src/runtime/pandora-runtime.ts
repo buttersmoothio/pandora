@@ -10,6 +10,7 @@ import { createScheduler } from '../scheduler'
 import { createScheduleTools } from '../scheduler/tools'
 import type { StorageResult } from '../storage'
 import { createStorage } from '../storage'
+import { createCurrentTimeTool } from '../tools/current-time'
 import { createVector } from '../vector'
 import type { WebGateway } from './gateways'
 import { createGateways } from './gateways'
@@ -72,7 +73,7 @@ export async function createRuntime(
     rt.config = updated
     rt.syncSchedule()
   }
-  const scheduler = createScheduler(taskHandler, onComplete)
+  const scheduler = createScheduler(taskHandler, onComplete, config.timezone)
 
   const runtime: PandoraRuntime = {
     registry,
@@ -150,7 +151,8 @@ async function buildState(
 ) {
   const log = getLogger(env)
 
-  // 3. Tools (plugin tools + schedule tools when enabled)
+  // 3. Tools (built-in + plugin tools + schedule tools when enabled)
+  const builtinTools = { current_time: createCurrentTimeTool(config.timezone) }
   const pluginTools = await loadTools(registry, config, env)
   const scheduleTools = config.schedule.enabled
     ? createScheduleTools({
@@ -159,7 +161,7 @@ async function buildState(
         runtimeRef,
       })
     : {}
-  const tools = { ...pluginTools, ...scheduleTools }
+  const tools = { ...builtinTools, ...pluginTools, ...scheduleTools }
   log.info('[runtime] loaded tools', { toolIds: Object.keys(tools) })
 
   // 4. Vector (for semantic recall)

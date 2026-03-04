@@ -16,7 +16,7 @@ export const DEFAULT_TOOL_TIMEOUT = 60_000
 
 /** Plugin descriptor for tool packages */
 export interface ToolPlugin {
-  /** Unique plugin identifier, e.g. '@pandorakit/datetime' */
+  /** Unique plugin identifier, e.g. '@pandorakit/tavily-search' */
   id: string
   /** Human-readable display name, e.g. 'Date & Time' */
   name: string

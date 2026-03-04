@@ -47,6 +47,7 @@ Deletes the stored config and returns the default values.
 | Section | Description | Fields |
 |---|---|---|
 | `identity` | Agent name | `name` |
+| `timezone` | IANA timezone string | Default `"UTC"`. Used for scheduling, system prompt time context, and the built-in `current_time` tool. |
 | `personality` | Behavior and tone | `systemPrompt` |
 | `models` | LLM configuration | `operator: { provider, model, temperature?, maxTokens? }` |
 | `plugins` | Plugin management | Keyed by plugin ID: `{ enabled, ...pluginFields }` |
@@ -59,7 +60,6 @@ Plugin configuration is stored under the `plugins` key, keyed by plugin ID (the 
 ```json
 {
   "plugins": {
-    "@pandorakit/datetime": { "enabled": true },
     "@pandorakit/telegram": {
       "enabled": true,
       "ownerId": "123456789"
@@ -91,28 +91,28 @@ Returns all discovered plugins with their metadata, capabilities, and config sta
 {
   "plugins": [
     {
-      "id": "@pandorakit/datetime",
-      "name": "Date & Time",
-      "description": "Let your assistant know the current date and time",
+      "id": "@pandorakit/tavily-search",
+      "name": "Tavily Search",
+      "description": "Web search via Tavily API",
       "author": "Pandora",
       "icon": null,
       "version": "0.1.0",
       "homepage": null,
       "repository": "https://github.com/...",
       "license": "MIT",
-      "envVars": [],
-      "envConfigured": true,
+      "envVars": [{ "name": "TAVILY_API_KEY", "required": true, "configured": false }],
+      "envConfigured": false,
       "configFields": [],
-      "enabled": true,
-      "config": { "enabled": true },
+      "enabled": false,
+      "config": { "enabled": false },
       "provides": {
         "tools": {
-          "toolIds": ["current-time"],
+          "toolIds": ["tavily_search"],
           "tools": [
-            { "id": "current-time", "name": "Current Time", "description": "..." }
+            { "id": "tavily_search", "name": "Tavily Search", "description": "..." }
           ],
-          "sandbox": "compartment",
-          "permissions": { "time": true },
+          "sandbox": "host",
+          "permissions": {},
           "requireApproval": false,
           "alerts": []
         }

@@ -601,6 +601,7 @@ function canContinueFromStep(step: number, state: WizardState): boolean {
 export function OnboardingWizard() {
   const { data: config } = useConfig()
   const updateConfig = useUpdateConfig()
+  const { mutate } = updateConfig
 
   const [step, setStep] = useState(0)
   const [name, setName] = useState('')
@@ -624,7 +625,15 @@ export function OnboardingWizard() {
       setEmbeddingModel(embedder.slice(slashIdx + 1))
     }
     setScheduleEnabled(config.schedule.enabled)
-  }, [config])
+
+    // Auto-detect browser timezone and prefill if not already set
+    if (!config.timezone || config.timezone === 'UTC') {
+      const detected = Intl.DateTimeFormat().resolvedOptions().timeZone
+      if (detected && detected !== 'UTC') {
+        mutate({ timezone: detected })
+      }
+    }
+  }, [config, mutate])
 
   const isSaving = updateConfig.isPending
   const isComplete = step === TOTAL_STEPS

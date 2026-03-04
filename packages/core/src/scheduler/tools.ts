@@ -36,7 +36,7 @@ export function createScheduleTools(deps: ScheduleToolDeps): ToolRecord {
     const runtime = runtimeRef.current
     if (!runtime) return { error: 'Runtime not available' }
 
-    const task: ScheduledTask = { id: crypto.randomUUID(), ...input }
+    const task: ScheduledTask = { ...input, id: crypto.randomUUID() }
     const tasks = [...runtime.config.schedule.tasks, task]
     const config = await updateConfig(
       configStore,
@@ -57,10 +57,9 @@ export function createScheduleTools(deps: ScheduleToolDeps): ToolRecord {
       name: z.string().min(1).describe('Human-readable task name'),
       runAt: z
         .string()
-        .describe('ISO 8601 datetime for when the task should run (e.g. "2026-03-15T09:00:00Z")'),
+        .describe('ISO 8601 datetime for when the task should run (e.g. "2026-03-15T09:00:00")'),
       prompt: z.string().min(1).describe('The prompt the agent will execute when the task runs'),
       enabled: z.boolean().default(true).describe('Whether the task is active'),
-      timezone: z.string().optional().describe('IANA timezone (e.g. "America/New_York")'),
       destination: z.string().optional().describe('Notification destination'),
     }),
     execute: async (input) => createTask(input),
@@ -80,7 +79,6 @@ export function createScheduleTools(deps: ScheduleToolDeps): ToolRecord {
         ),
       prompt: z.string().min(1).describe('The prompt the agent will execute on each run'),
       enabled: z.boolean().default(true).describe('Whether the task is active'),
-      timezone: z.string().optional().describe('IANA timezone (e.g. "America/New_York")'),
       maxRuns: z
         .number()
         .int()
@@ -102,7 +100,6 @@ export function createScheduleTools(deps: ScheduleToolDeps): ToolRecord {
       runAt: z.string().optional().nullable().describe('ISO 8601 datetime (null to clear)'),
       prompt: z.string().min(1).optional().describe('New prompt'),
       enabled: z.boolean().optional().describe('Enable or disable the task'),
-      timezone: z.string().optional().nullable().describe('New timezone (null to clear)'),
       maxRuns: z
         .number()
         .int()

@@ -9,25 +9,6 @@ describe('Discovery routes', () => {
 
       const body = (await res.json()) as { plugins: Record<string, unknown>[] }
       expect(Array.isArray(body.plugins)).toBe(true)
-
-      // At minimum, datetime plugin should exist (it's always loaded)
-      const datetime = body.plugins.find(
-        (p: Record<string, unknown>) => p.id === '@pandorakit/datetime',
-      )
-      expect(datetime).toBeDefined()
-    })
-
-    it('datetime plugin has tools provides', async () => {
-      const res = await authRequest('/api/plugins')
-      const body = (await res.json()) as {
-        plugins: { id: string; provides: Record<string, unknown> }[]
-      }
-
-      const datetime = body.plugins.find((p) => p.id === '@pandorakit/datetime')
-      expect(datetime?.provides.tools).toBeDefined()
-
-      const tools = datetime?.provides.tools as { toolIds: string[] }
-      expect(tools.toolIds).toContain('@pandorakit/datetime:current-time')
     })
 
     it('each plugin has required fields', async () => {

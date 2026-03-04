@@ -66,6 +66,75 @@ function IdentitySection() {
   )
 }
 
+const TIMEZONES = ['UTC', ...Intl.supportedValuesOf('timeZone')]
+
+function TimezoneSection() {
+  const { data: config } = useConfig()
+  const updateConfig = useUpdateConfig()
+  const [timezone, setTimezone] = useState('')
+  const [open, setOpen] = useState(false)
+
+  useEffect(() => {
+    if (config) {
+      setTimezone(config.timezone)
+    }
+  }, [config])
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Timezone</CardTitle>
+        <CardDescription>
+          Set your timezone for scheduling, time awareness, and date formatting.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        <div className="flex flex-col gap-2">
+          <Label>Timezone</Label>
+          <Popover open={open} onOpenChange={setOpen}>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="justify-between font-normal">
+                {timezone || 'Select timezone...'}
+                <ChevronsUpDownIcon className="ml-2 size-4 shrink-0 opacity-50" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="p-0">
+              <Command>
+                <CommandInput placeholder="Search timezones..." />
+                <CommandList>
+                  <CommandEmpty>No timezone found.</CommandEmpty>
+                  {TIMEZONES.map((tz) => (
+                    <CommandItem
+                      key={tz}
+                      value={tz}
+                      onSelect={() => {
+                        setTimezone(tz)
+                        setOpen(false)
+                      }}
+                    >
+                      <CheckIcon
+                        className={cn('mr-2 size-4', timezone === tz ? 'opacity-100' : 'opacity-0')}
+                      />
+                      {tz}
+                    </CommandItem>
+                  ))}
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
+        </div>
+        <Button
+          className="self-end"
+          disabled={updateConfig.isPending || !timezone}
+          onClick={() => updateConfig.mutate({ timezone })}
+        >
+          {updateConfig.isPending ? <Loader2Icon className="size-4 animate-spin" /> : 'Save'}
+        </Button>
+      </CardContent>
+    </Card>
+  )
+}
+
 function PersonalitySection() {
   const { data: config } = useConfig()
   const updateConfig = useUpdateConfig()
@@ -608,6 +677,7 @@ export default function ConfigPage() {
         </AlertDialog>
       </div>
       <IdentitySection />
+      <TimezoneSection />
       <PersonalitySection />
       <ModelsSection />
       <MemorySection />

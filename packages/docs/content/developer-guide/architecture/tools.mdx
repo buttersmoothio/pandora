@@ -25,7 +25,7 @@ Channels and agents always run in host mode because they need closures, persiste
 
 ## Plugin Packages
 
-Tools live in separate packages (e.g. `@pandorakit/datetime`, `@pandorakit/tavily-search`) rather than inside core. This keeps core's dependency surface small and lets each tool package be tested, versioned, and tree-shaken independently.
+Tools live in separate packages (e.g. `@pandorakit/tavily-search`, `@pandorakit/brave-search`) rather than inside core. This keeps core's dependency surface small and lets each tool package be tested, versioned, and tree-shaken independently.
 
 Plugins are discovered automatically — Pandora scans for `pandora.manifest.json` files in the packages directory at startup. No manual registration is needed.
 

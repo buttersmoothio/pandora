@@ -11,7 +11,19 @@ type AgentRecord = Record<string, MastraAgent>
  * Build the system instructions from identity + personality config.
  */
 function buildInstructions(config: Config): string {
-  return `You are ${config.identity.name}.\n\n${config.personality.systemPrompt}`
+  const now = new Date()
+  const formatted = new Intl.DateTimeFormat('en-US', {
+    timeZone: config.timezone,
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  }).format(now)
+
+  return `You are ${config.identity.name}.\n\n${config.personality.systemPrompt}\n\n# Context\n\nCurrent date and time: ${formatted} (${config.timezone})`
 }
 
 /**

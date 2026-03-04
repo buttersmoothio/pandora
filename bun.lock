@@ -45,15 +45,6 @@
         "vitest": "^3.2.4",
       },
     },
-    "packages/datetime": {
-      "name": "@pandorakit/datetime",
-      "version": "0.0.1",
-      "devDependencies": {
-        "@pandorakit/sdk": "workspace:*",
-        "typescript": "^5.9.3",
-        "vitest": "^3.2.4",
-      },
-    },
     "packages/docs": {
       "name": "@pandorakit/docs",
       "version": "1.0.0",
@@ -659,8 +650,6 @@
     "@pandorakit/brave-search": ["@pandorakit/brave-search@workspace:packages/brave-search"],
 
     "@pandorakit/core": ["@pandorakit/core@workspace:packages/core"],
-
-    "@pandorakit/datetime": ["@pandorakit/datetime@workspace:packages/datetime"],
 
     "@pandorakit/docs": ["@pandorakit/docs@workspace:packages/docs"],
 

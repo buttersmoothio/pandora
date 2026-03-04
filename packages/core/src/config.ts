@@ -22,7 +22,6 @@ const ScheduledTaskSchema = z.object({
   runAt: z.string().optional(),
   prompt: z.string().min(1, 'Prompt is required'),
   enabled: z.boolean().default(true),
-  timezone: z.string().optional(),
   maxRuns: z.number().int().positive().optional(),
   destination: z.string().optional(),
 })
@@ -31,7 +30,7 @@ export type ScheduledTask = z.infer<typeof ScheduledTaskSchema>
 export { ScheduledTaskSchema }
 
 /** Optional fields that can be cleared with `null`. */
-type ClearableTaskFields = 'timezone' | 'maxRuns' | 'cron' | 'runAt' | 'destination'
+type ClearableTaskFields = 'maxRuns' | 'cron' | 'runAt' | 'destination'
 
 export type ScheduledTaskPatch = Partial<Omit<ScheduledTask, 'id' | ClearableTaskFields>> & {
   [K in ClearableTaskFields]?: ScheduledTask[K] | null
@@ -42,7 +41,7 @@ export type ScheduledTaskPatch = Partial<Omit<ScheduledTask, 'id' | ClearableTas
  * between `cron` and `runAt`, and clearing optional fields set to `null`.
  */
 export function applyTaskPatch(task: ScheduledTask, patch: ScheduledTaskPatch): ScheduledTask {
-  const { timezone, maxRuns, cron, runAt, destination, ...restPatch } = patch
+  const { maxRuns, cron, runAt, destination, ...restPatch } = patch
   const updated: Partial<ScheduledTask> = { ...task, ...restPatch }
 
   // Mutual exclusion: setting runAt clears cron and vice versa
@@ -60,8 +59,6 @@ export function applyTaskPatch(task: ScheduledTask, patch: ScheduledTaskPatch): 
   }
 
   // null means clear optional fields
-  if (timezone === null) delete updated.timezone
-  else if (timezone !== undefined) updated.timezone = timezone
   if (maxRuns === null) delete updated.maxRuns
   else if (maxRuns !== undefined) updated.maxRuns = maxRuns
   if (destination === null) delete updated.destination
@@ -120,6 +117,23 @@ function createConfigSchema(registry?: PluginRegistry) {
         name: 'Pandora',
       })),
 
+    /** IANA timezone for the user (e.g. "America/New_York") */
+    timezone: z
+      .string()
+      .default('UTC')
+      .refine(
+        (tz: string) => {
+          if (tz === 'UTC') return true
+          try {
+            Intl.DateTimeFormat(undefined, { timeZone: tz })
+            return true
+          } catch {
+            return false
+          }
+        },
+        { message: 'Invalid IANA timezone' },
+      ),
+
     /** Agent personality */
     personality: z
       .object({
@@ -144,9 +158,7 @@ function createConfigSchema(registry?: PluginRegistry) {
     /** Plugin configurations — keyed by plugin (manifest) ID */
     plugins: z
       .record(z.string(), z.looseObject({ enabled: z.boolean() }))
-      .default(() => ({
-        '@pandorakit/datetime': { enabled: true },
-      }))
+      .default(() => ({}))
       .superRefine((plugins, ctx) => {
         if (!registry) return
         for (const [id, raw] of Object.entries(plugins)) {
@@ -288,9 +300,10 @@ export async function resetConfig(configStore: ConfigStore<Config>): Promise<Con
   const stored = await configStore.get()
   const plugins = stored?.plugins ?? DEFAULTS.plugins
   const schedule = stored?.schedule ?? DEFAULTS.schedule
+  const timezone = stored?.timezone ?? DEFAULTS.timezone
   const onboardingComplete = stored?.onboardingComplete ?? DEFAULTS.onboardingComplete
 
-  const reset = { ...DEFAULTS, plugins, schedule, onboardingComplete }
+  const reset = { ...DEFAULTS, plugins, schedule, timezone, onboardingComplete }
   await configStore.set(reset)
   return reset
 }
