@@ -291,19 +291,3 @@ export async function updateConfig(
 
   return validated
 }
-
-/**
- * Reset configuration to defaults.
- * Preserves plugin configurations.
- */
-export async function resetConfig(configStore: ConfigStore<Config>): Promise<Config> {
-  const stored = await configStore.get()
-  const plugins = stored?.plugins ?? DEFAULTS.plugins
-  const schedule = stored?.schedule ?? DEFAULTS.schedule
-  const timezone = stored?.timezone ?? DEFAULTS.timezone
-  const onboardingComplete = stored?.onboardingComplete ?? DEFAULTS.onboardingComplete
-
-  const reset = { ...DEFAULTS, plugins, schedule, timezone, onboardingComplete }
-  await configStore.set(reset)
-  return reset
-}

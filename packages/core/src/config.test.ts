@@ -2,7 +2,7 @@ import type { InArgs } from '@libsql/client'
 import { createClient } from '@libsql/client'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Config } from './config'
-import { ConfigSchema, DEFAULTS, getConfig, resetConfig, updateConfig } from './config'
+import { ConfigSchema, DEFAULTS, getConfig, updateConfig } from './config'
 import type { ConfigStore } from './storage/config-store'
 import { SQLConfigStore } from './storage/providers/sql'
 
@@ -69,35 +69,6 @@ describe('Config', () => {
       })
       const config = await getConfig(configStore)
       expect(config.identity.name).toBe('PersistentBot')
-    })
-  })
-
-  describe('resetConfig', () => {
-    it('resets to defaults', async () => {
-      await updateConfig(configStore, {
-        identity: { name: 'TempBot' },
-      })
-      const reset = await resetConfig(configStore)
-      expect(reset).toEqual(DEFAULTS)
-    })
-
-    it('returns defaults after reset', async () => {
-      await updateConfig(configStore, {
-        identity: { name: 'TempBot' },
-      })
-      await resetConfig(configStore)
-      const config = await getConfig(configStore)
-      expect(config.identity.name).toBe('Pandora')
-    })
-
-    it('preserves plugin configs through reset', async () => {
-      await updateConfig(configStore, {
-        identity: { name: 'TempBot' },
-        plugins: { 'my-plugin': { enabled: true, apiKey: 'keep-me' } },
-      })
-      const reset = await resetConfig(configStore)
-      expect(reset.identity.name).toBe('Pandora') // reset
-      expect(reset.plugins['my-plugin']).toEqual({ enabled: true, apiKey: 'keep-me' }) // preserved
     })
   })
 

@@ -77,19 +77,3 @@ export function useUpdateConfig() {
     },
   })
 }
-
-export function useResetConfig() {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: () => apiFetch<Config>('/api/config', { method: 'DELETE' }),
-    onSuccess: (data) => {
-      queryClient.setQueryData(CONFIG_KEY, data)
-      queryClient.invalidateQueries({ queryKey: ['plugins'] })
-      toast.success('Configuration reset to defaults')
-    },
-    onError: (err: Error) => {
-      toast.error(`Failed to reset: ${err.message}`)
-    },
-  })
-}

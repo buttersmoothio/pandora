@@ -3,17 +3,6 @@
 import { CheckIcon, ChevronsUpDownIcon, ExternalLinkIcon, Loader2Icon } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { ProviderLogo } from '@/components/provider-logo'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -28,7 +17,7 @@ import { Label } from '@/components/ui/label'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
-import { useConfig, useResetConfig, useUpdateConfig } from '@/hooks/use-config'
+import { useConfig, useUpdateConfig } from '@/hooks/use-config'
 import { useModels } from '@/hooks/use-models'
 import { cn } from '@/lib/utils'
 
@@ -627,7 +616,6 @@ function SetupWizardSection() {
 
 export default function ConfigPage() {
   const { data: config, isLoading, error } = useConfig()
-  const resetConfig = useResetConfig()
 
   if (isLoading) {
     return (
@@ -649,33 +637,7 @@ export default function ConfigPage() {
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 p-6">
-      <div className="flex items-center justify-between">
-        <h1 className="font-semibold text-2xl">Configuration</h1>
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <Button variant="outline" size="sm" disabled={resetConfig.isPending}>
-              {resetConfig.isPending ? (
-                <Loader2Icon className="size-4 animate-spin" />
-              ) : (
-                'Reset to Defaults'
-              )}
-            </Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Reset to defaults?</AlertDialogTitle>
-              <AlertDialogDescription>
-                This will reset identity, personality, model, and memory settings to their defaults.
-                Plugin configurations will not be affected.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={() => resetConfig.mutate()}>Reset</AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-      </div>
+      <h1 className="font-semibold text-2xl">Configuration</h1>
       <IdentitySection />
       <TimezoneSection />
       <PersonalitySection />

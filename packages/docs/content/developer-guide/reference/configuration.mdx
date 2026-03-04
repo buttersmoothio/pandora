@@ -33,15 +33,6 @@ Content-Type: application/json
 
 Accepts a partial config object. Values are deep-merged with the existing config, validated, and persisted to storage.
 
-### Reset to Defaults
-
-```
-DELETE /api/config
-Authorization: Bearer <token>
-```
-
-Deletes the stored config and returns the default values.
-
 ## Config Schema
 
 | Section | Description | Fields |
