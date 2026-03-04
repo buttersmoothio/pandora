@@ -27,6 +27,55 @@ import {
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { useConfig, useUpdateConfig } from '@/hooks/use-config'
+
+/** Format a UTC ISO string as a datetime-local value in the given timezone. */
+function utcToLocalInput(iso: string, timeZone: string): string {
+  const date = new Date(iso)
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(date)
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? ''
+  // en-CA formats hour 00 as "24" at midnight — normalize
+  const hour = get('hour') === '24' ? '00' : get('hour')
+  return `${get('year')}-${get('month')}-${get('day')}T${hour}:${get('minute')}`
+}
+
+/** Convert a datetime-local value (in the given timezone) to a UTC ISO string. */
+function localInputToUtc(local: string, timeZone: string): string {
+  // Parse the user's intended date/time parts
+  const [datePart, timePart] = local.split('T')
+  const [year, month, day] = datePart.split('-').map(Number)
+  const [hour, minute] = timePart.split(':').map(Number)
+
+  // Start by treating the input as UTC to get a baseline
+  const asUtc = new Date(Date.UTC(year, month - 1, day, hour, minute))
+
+  // Format that UTC time in the target timezone to find the offset
+  const inTz = utcToLocalInput(asUtc.toISOString(), timeZone)
+  const [tzDate, tzTime] = inTz.split('T')
+  const [ty, tm, td] = tzDate.split('-').map(Number)
+  const [th, tmin] = tzTime.split(':').map(Number)
+  const tzAsUtc = new Date(Date.UTC(ty, tm - 1, td, th, tmin))
+
+  const offsetMs = tzAsUtc.getTime() - asUtc.getTime()
+  return new Date(asUtc.getTime() - offsetMs).toISOString()
+}
+
+/** Format a UTC ISO string for display in the given timezone. */
+function formatInTimezone(
+  iso: string,
+  timeZone: string,
+  options?: Intl.DateTimeFormatOptions,
+): string {
+  return new Date(iso).toLocaleString(undefined, { timeZone, ...options })
+}
+
 import {
   type ScheduleTask,
   useCreateSchedule,
@@ -99,6 +148,8 @@ function TaskDialog({
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
+  const { data: config } = useConfig()
+  const timezone = config?.timezone ?? 'UTC'
   const createSchedule = useCreateSchedule()
   const updateSchedule = useUpdateSchedule()
   const { data: destinationsData } = useDestinations()
@@ -112,7 +163,7 @@ function TaskDialog({
         mode: task.runAt ? 'runAt' : 'cron',
         name: task.name,
         cron: task.cron ?? '',
-        runAt: task.runAt ? new Date(task.runAt).toISOString().slice(0, 16) : '',
+        runAt: task.runAt ? utcToLocalInput(task.runAt, timezone) : '',
         prompt: task.prompt,
         enabled: task.enabled,
         maxRuns: task.maxRuns?.toString() ?? '',
@@ -121,7 +172,7 @@ function TaskDialog({
     } else {
       setForm(EMPTY_FORM)
     }
-  }, [task])
+  }, [task, timezone])
 
   const isPending = createSchedule.isPending || updateSchedule.isPending
 
@@ -130,7 +181,7 @@ function TaskDialog({
       name: form.name,
       ...(form.mode === 'cron'
         ? { cron: form.cron }
-        : { runAt: new Date(form.runAt).toISOString() }),
+        : { runAt: localInputToUtc(form.runAt, timezone) }),
       prompt: form.prompt,
       enabled: form.enabled,
       ...(form.mode === 'cron' && form.maxRuns
@@ -212,7 +263,7 @@ function TaskDialog({
             </div>
           ) : (
             <div className="flex flex-col gap-2">
-              <Label htmlFor="schedule-runat">Run At</Label>
+              <Label htmlFor="schedule-runat">Run At ({timezone})</Label>
               <Input
                 id="schedule-runat"
                 type="datetime-local"
@@ -306,10 +357,19 @@ function TaskDialog({
 }
 
 function TaskList() {
+  const { data: config } = useConfig()
+  const timezone = config?.timezone ?? 'UTC'
   const { data, isLoading, error } = useSchedules()
   const deleteSchedule = useDeleteSchedule()
   const [editTask, setEditTask] = useState<ScheduleTask | undefined>()
   const [deleteTarget, setDeleteTarget] = useState<ScheduleTask | null>(null)
+
+  const fmt: Intl.DateTimeFormatOptions = {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }
 
   if (isLoading) {
     return (
@@ -331,12 +391,7 @@ function TaskList() {
 
   function formatNextRun(iso: string | null) {
     if (!iso) return 'Not scheduled'
-    return new Date(iso).toLocaleString(undefined, {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    })
+    return formatInTimezone(iso, timezone, fmt)
   }
 
   return (
@@ -360,15 +415,7 @@ function TaskList() {
                   {task.cron ? (
                     <code>{task.cron}</code>
                   ) : (
-                    <>
-                      Run at:{' '}
-                      {new Date(task.runAt ?? '').toLocaleString(undefined, {
-                        month: 'short',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </>
+                    <>Run at: {formatInTimezone(task.runAt ?? '', timezone, fmt)}</>
                   )}
                 </span>
                 <span>Next: {formatNextRun(task.nextRun)}</span>
