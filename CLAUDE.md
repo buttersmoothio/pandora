@@ -34,14 +34,22 @@ Run `bun run check:fix` before committing.
 
 Docs live in `packages/docs/content/`. Run locally with `cd packages/docs && bun run dev`.
 
-The docs are organized into four sections with distinct audiences:
+### Structure
 
-- **Quick Start** — single page, zero to working setup as fast as possible
-- **User Guide** — day-to-day settings and configuration (user manual)
-- **Developer Guide** — API integration, custom UIs, custom storage/auth backends (tinkerer's manual)
-- **Architecture** — high-level design decisions only. Code is law — don't restate implementation details that someone can read in the source. Focus on the *why* and the shape of the system, not the *how*.
+| Section | Path | Audience | Purpose |
+|---------|------|----------|---------|
+| Top-level pages | `content/*.mdx` | End users | Day-to-day usage |
+| Plugins | `content/plugins/*.mdx` | Users + developers | Plugin usage and plugin development guides |
+| API Reference | `content/api-reference/*.mdx` | Developers | REST endpoint specs, request/response formats, type definitions |
 
-When adding docs, only include content relevant to each section's audience. Quick Start should stay as one page.
+### Writing Guidelines
+
+- **No internals.** Never expose implementation details: library names (SES, Mastra, LibSQL, ts-blank-space), internal tool names (`send_to`, `current_time`), internal config flags (`onboardingComplete`), thread naming conventions (`schedule-<id>`), specific algorithm details (PBKDF2 iterations), or encoding schemes (base64url). Describe *what* things do, not *how* they're built.
+- **User docs describe the UI and behavior.** Write as if guiding someone through the product. Reference page names ("the Config page", "the Plugins page"), not code paths.
+- **Developer docs describe the SDK and API contract.** Types, interfaces, and endpoints are fair game. Internal wiring (loader behavior, middleware ordering, storage internals) is not.
+- **Keep pages focused on their audience.** A user page shouldn't mention manifests. A plugin development page shouldn't explain how the sandbox is implemented internally.
+- **Cross-reference, don't duplicate.** Link to other pages instead of restating content. Use `[Page Name](/path)` links.
+- **Verify against code.** Every config option, API endpoint, parameter, and default value must match the actual codebase. When in doubt, read the source.
 
 ## Definition of Done
 

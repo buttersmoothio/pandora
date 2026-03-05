@@ -1,0 +1,34 @@
+# Scheduling
+
+Pandora can run tasks on a schedule — daily summaries, periodic checks, recurring reminders.
+
+The easiest way to set one up is to just ask in chat — *"Remind me to check my email every morning at 8 AM"* or *"Send me a news summary every Monday"*. The agent understands natural language time expressions like "tomorrow at 3pm", "in 2 hours", or "next Friday at 9am" and will create the right schedule for you. You can also create and manage tasks manually on the **Schedules** page.
+
+## Recurring vs One-time
+
+Tasks can repeat on a cron schedule or run once at a specific date and time.
+
+Common cron examples:
+
+| Schedule | Cron expression |
+|---|---|
+| Daily at 8 AM | `0 8 * * *` |
+| Every 30 minutes | `*/30 * * * *` |
+| Every Monday at 9 AM | `0 9 * * 1` |
+| Every 6 hours | `0 */6 * * *` |
+
+Recurring tasks can have a **max run count** — the task is automatically removed after that many runs. One-time tasks are also removed after they execute.
+
+## Destinations
+
+Each task can send its result to the **Web Inbox** or a connected channel like Telegram. When a channel destination is used, the result is delivered to that channel and also appears in the Web Inbox.
+
+If no destination is set, the task runs quietly and the conversation is available in the task's thread.
+
+Available destinations always include **Web Inbox**. Other destinations appear when a channel plugin with notification support (like Telegram) is enabled.
+
+## Pausing
+
+Individual tasks can be toggled on and off. There's also a master toggle on the Schedules page that pauses all scheduled tasks at once.
+
+All schedule times follow the timezone set on the [Configuration](/configuration) page.

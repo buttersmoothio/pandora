@@ -1,0 +1,396 @@
+import { Steps, FileTree, Callout } from 'nextra/components'
+
+# Building a Channel
+
+A channel connects Pandora to an external messaging platform. Each channel is a standalone package with a `pandora.manifest.json` that declares its capabilities and a factory function that creates the adapter.
+
+This tutorial walks through building a hypothetical Discord channel to illustrate the full process.
+
+<Steps>
+
+### Set up the package
+
+<FileTree>
+  <FileTree.Folder name="discord" defaultOpen>
+    <FileTree.File name="package.json" />
+    <FileTree.File name="pandora.manifest.json" />
+    <FileTree.Folder name="src" defaultOpen>
+      <FileTree.File name="index.ts" />
+      <FileTree.File name="adapter.ts" />
+    </FileTree.Folder>
+    <FileTree.File name="tsconfig.json" />
+  </FileTree.Folder>
+</FileTree>
+
+Channel plugins typically have runtime dependencies (SDKs for the platform) and `@pandorakit/sdk` as a peer dependency:
+
+```json
+{
+  "name": "@pandorakit/discord",
+  "type": "module",
+  "exports": { ".": "./src/index.ts" },
+  "dependencies": {
+    "discord.js": "^14.0.0"
+  },
+  "peerDependencies": {
+    "@pandorakit/sdk": "*"
+  }
+}
+```
+
+### Write the manifest
+
+The `pandora.manifest.json` declares the channel's identity, environment variables, and config fields:
+
+```json
+{
+  "manifestVersion": 1,
+  "id": "@pandorakit/discord",
+  "name": "Discord",
+  "description": "Chat with your assistant through Discord",
+  "author": "You",
+  "version": "0.1.0",
+  "license": "MIT",
+  "pandora": ">=0.0.1",
+  "provides": {
+    "channels": {
+      "entry": "./src/index.ts",
+      "sandbox": "host"
+    }
+  },
+  "envVars": [{ "name": "DISCORD_BOT_TOKEN" }],
+  "configFields": [
+    {
+      "key": "guildId",
+      "label": "Server ID",
+      "type": "text",
+      "required": true,
+      "placeholder": "123456789012345678",
+      "description": "The Discord server (guild) ID to listen in."
+    },
+    {
+      "key": "channelId",
+      "label": "Channel ID",
+      "type": "text",
+      "required": true,
+      "placeholder": "123456789012345678",
+      "description": "The text channel ID to respond in."
+    }
+  ]
+}
+```
+
+Channel plugins typically use `"sandbox": "host"` because they need native dependencies (WebSocket connections, platform SDKs) that can't run in a sandboxed compartment.
+
+### Create the adapter
+
+The adapter implements `Channel` with either `webhook`, `realtime`, or both:
+
+```ts
+// src/adapter.ts
+import type { Channel, ChannelRealtime } from '@pandorakit/sdk/channels'
+import { Client, GatewayIntentBits } from 'discord.js'
+
+export function createDiscordAdapter(
+  token: string,
+  guildId: string,
+  channelId: string,
+): Channel {
+  let client: Client | null = null
+
+  const realtime: ChannelRealtime = {
+    async start(runtime) {
+      client = new Client({
+        intents: [
+          GatewayIntentBits.Guilds,
+          GatewayIntentBits.GuildMessages,
+          GatewayIntentBits.MessageContent,
+        ],
+      })
+
+      client.on('messageCreate', async (message) => {
+        if (message.author.bot) return
+        if (message.guildId !== guildId) return
+        if (message.channelId !== channelId) return
+
+        const externalId = message.channelId
+        const threadId = await runtime.resolveThread('discord', externalId)
+
+        const result = await runtime.generate({
+          threadId,
+          channelId: 'discord',
+          externalId,
+          parts: [{ type: 'text', text: message.content }],
+        })
+
+        if (result.text) {
+          await message.reply(result.text)
+        }
+      })
+
+      await client.login(token)
+    },
+
+    async stop() {
+      if (client) {
+        await client.destroy()
+        client = null
+      }
+    },
+  }
+
+  return {
+    id: 'discord',
+    name: 'Discord',
+    realtime,
+  }
+}
+```
+
+### Export the factory
+
+The entry point (declared in the manifest's `provides.channels.entry`) exports a named `factory` function:
+
+```ts
+// src/index.ts
+import type { ChannelFactory } from '@pandorakit/sdk/channels'
+import { createDiscordAdapter } from './adapter'
+
+export const factory: ChannelFactory = (env, config) => {
+  const token = env.DISCORD_BOT_TOKEN
+  if (!token) return null
+  return createDiscordAdapter(
+    token,
+    config.guildId as string,
+    config.channelId as string,
+  )
+}
+```
+
+The factory receives env vars and validated config. Return `null` if required env vars are missing.
+
+### Test it
+
+Set the environment variable and start Pandora:
+
+```bash
+DISCORD_BOT_TOKEN=your-token-here bun run dev
+```
+
+Then enable the channel on the **Plugins** page in the web UI.
+
+</Steps>
+
+## Using the runtime
+
+The `ChannelGateway` object passed to your adapter provides everything you need:
+
+- **`generate(opts)`** — send a message and wait for the full response. Best for platforms where you reply once per message (like Telegram and Discord).
+- **`stream(opts)`** — send a message and get a streaming response. Returns a `textStream` you can read incrementally, plus promise-based fields for the final values.
+- **`approveToolCall(opts)`** — approve a pending tool call and resume generation. Returns a new `GenerateResult`.
+- **`declineToolCall(opts)`** — decline a pending tool call and resume generation. Returns a new `GenerateResult`.
+- **`resolveThread(channelId, externalId)`** — map a platform conversation to a Pandora thread. Creates one if it doesn't exist yet.
+- **`newThread(channelId, externalId)`** — start a fresh conversation (synchronous, returns the new thread ID immediately).
+- **`env`** — access to environment variables.
+- **`logger`** — structured logger with `log`, `warn`, and `error` methods.
+
+<Callout type="info">
+  Use `generate()` when the platform expects a single reply. Use `stream()` when you can edit messages in real-time (e.g. updating a Discord message as tokens arrive).
+</Callout>
+
+## Webhook Mode
+
+If your platform pushes events via HTTP (e.g. Slack Events API), implement `ChannelWebhook` instead of or in addition to `ChannelRealtime`:
+
+```ts
+import type { ChannelWebhook } from '@pandorakit/sdk/channels'
+
+const webhook: ChannelWebhook = {
+  async verify(request, env) {
+    // Validate the request signature using platform-specific logic
+    const signature = request.headers.get('x-signature')
+    return signature === env.MY_WEBHOOK_SECRET
+  },
+
+  async handle(request, runtime) {
+    const body = await request.json()
+
+    const threadId = await runtime.resolveThread('my-channel', body.channelId)
+    const result = await runtime.generate({
+      threadId,
+      parts: [{ type: 'text', text: body.text }],
+    })
+
+    return new Response(JSON.stringify({ text: result.text }), {
+      headers: { 'Content-Type': 'application/json' },
+    })
+  },
+}
+```
+
+You can find the exact webhook path from the `GET /api/plugins` endpoint under `provides.channels.webhookPath`. The `verify()` method runs before `handle()` — return `false` to reject the request with a 401.
+
+## Tool Approval
+
+When a tool has **Require Approval** enabled, `generate()` may return with `pendingToolApproval` set instead of a text response. Your adapter should present the user with a way to approve or deny, then call `approveToolCall` or `declineToolCall` to resume. The resumed result may itself require approval (if the agent calls another protected tool), so handle it in a loop or recursively.
+
+```ts
+async function handleResult(ctx: PlatformContext, runtime: ChannelGateway, result: GenerateResult) {
+  if (result.pendingToolApproval) {
+    const { toolCallId, toolName, args } = result.pendingToolApproval
+    // Show approval UI to the user (platform-specific)
+    const approved = await askUser(ctx, toolName, args)
+
+    const resumed = approved
+      ? await runtime.approveToolCall({ runId: result.runId!, toolCallId })
+      : await runtime.declineToolCall({ runId: result.runId!, toolCallId })
+
+    // The resumed result may need approval again
+    return handleResult(ctx, runtime, resumed)
+  }
+
+  if (result.text) {
+    await ctx.reply(result.text)
+  }
+}
+```
+
+## Reference
+
+All types are exported from `@pandorakit/sdk/channels`:
+
+```ts
+import type {
+  Channel,
+  ChannelFactory,
+  ChannelGateway,
+  ChannelRealtime,
+  ChannelWebhook,
+  GenerateResult,
+  MessagePart,
+  PendingToolApproval,
+  StreamResult,
+} from '@pandorakit/sdk/channels'
+```
+
+### `ChannelFactory`
+
+```ts
+type ChannelFactory = (
+  env: Record<string, string | undefined>,
+  config: PluginConfig,
+) => Channel | null
+```
+
+Returns `null` when required env vars are missing.
+
+### `Channel`
+
+The object your factory returns:
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `id` | `string` | Yes | Channel identifier, e.g. `'telegram'` |
+| `name` | `string` | Yes | Display name, e.g. `'Telegram'` |
+| `webhook` | `ChannelWebhook` | No | Webhook mode handler |
+| `realtime` | `ChannelRealtime` | No | Realtime mode handler |
+| `notify` | `(message: { subject: string; body: string }) => Promise<void>` | No | Send a one-way notification (no conversation context) |
+
+### `ChannelWebhook`
+
+```ts
+interface ChannelWebhook {
+  /** Verify request signature. Return false to reject with 401. */
+  verify(
+    request: Request,
+    env: Record<string, string | undefined>,
+  ): Promise<boolean>
+
+  /** Handle the webhook request and return a Response. */
+  handle(request: Request, runtime: ChannelGateway): Promise<Response>
+}
+```
+
+### `ChannelRealtime`
+
+```ts
+interface ChannelRealtime {
+  /** Open a persistent connection to the platform. */
+  start(runtime: ChannelGateway): Promise<void>
+
+  /** Tear down the connection. */
+  stop(): Promise<void>
+}
+```
+
+### `ChannelGateway`
+
+The object passed to your `start()`, `handle()`, and `stop()` methods:
+
+| Method | Signature | Description |
+|---|---|---|
+| `generate` | `(opts: { threadId: string; parts: MessagePart[]; channelId?: string; externalId?: string }) => Promise<GenerateResult>` | Non-streaming: send message, get full response |
+| `stream` | `(opts: { threadId: string; parts: MessagePart[]; channelId?: string; externalId?: string }) => Promise<StreamResult>` | Streaming: send message, get live text stream |
+| `approveToolCall` | `(opts: { runId: string; toolCallId?: string }) => Promise<GenerateResult>` | Approve a pending tool call and resume |
+| `declineToolCall` | `(opts: { runId: string; toolCallId?: string }) => Promise<GenerateResult>` | Decline a pending tool call and resume |
+| `resolveThread` | `(channelId: string, externalId: string) => Promise<string>` | Get or create a thread for a platform conversation |
+| `newThread` | `(channelId: string, externalId: string) => string` | Start a fresh thread, returns new threadId (synchronous) |
+| `env` | `Record<string, string \| undefined>` | Environment variables |
+| `logger` | `Logger` | Structured logger (`log`, `warn`, `error`) |
+
+Pass `channelId` and `externalId` to `generate`/`stream` when your adapter has just created a thread via `newThread`.
+
+### `GenerateResult`
+
+Non-streaming response — all fields resolved:
+
+| Field | Type | Description |
+|---|---|---|
+| `text` | `string` | Generated text response |
+| `sources` | `Source[]` | Referenced sources |
+| `toolCalls` | `ToolCall[]` | Tool calls made during generation |
+| `toolResults` | `ToolResult[]` | Results from tool executions |
+| `files` | `FileData[]` | Generated files |
+| `reasoning` | `Reasoning[]` | Reasoning steps |
+| `reasoningText` | `string?` | Combined reasoning text |
+| `usage` | `Usage` | Token usage statistics |
+| `runId` | `string?` | Run ID — pass to `approveToolCall`/`declineToolCall` when approval is pending |
+| `pendingToolApproval` | `PendingToolApproval?` | Present when a tool requires user approval before running |
+
+#### `PendingToolApproval`
+
+| Field | Type | Description |
+|---|---|---|
+| `toolCallId` | `string` | ID of the pending tool call |
+| `toolName` | `string` | Name of the tool awaiting approval |
+| `args` | `Record<string, unknown>` | Arguments the tool will be called with |
+
+### `StreamResult`
+
+Streaming response — live text stream plus promise-based fields:
+
+| Field | Type | Description |
+|---|---|---|
+| `textStream` | `ReadableStream<string>` | Live text stream |
+| `text` | `Promise<string>` | Full text when complete |
+| `sources` | `Promise<Source[]>` | Sources when complete |
+| `toolCalls` | `Promise<ToolCall[]>` | Tool calls when complete |
+| `toolResults` | `Promise<ToolResult[]>` | Tool results when complete |
+| `files` | `Promise<FileData[]>` | Files when complete |
+| `reasoning` | `Promise<Reasoning[]>` | Reasoning when complete |
+| `reasoningText` | `Promise<string \| undefined>` | Reasoning text when complete |
+| `usage` | `Promise<Usage>` | Usage when complete |
+
+### `ConfigFieldDescriptor`
+
+Describes a config field for UI rendering (declared in the manifest's `configFields`):
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `key` | `string` | Yes | Field key in config object |
+| `label` | `string` | Yes | Human-readable label |
+| `type` | `'text' \| 'number' \| 'password' \| 'enum'` | Yes | Input type hint. `'enum'` renders a dropdown select. |
+| `required` | `boolean` | No | Whether this field is required |
+| `placeholder` | `string` | No | Placeholder text |
+| `description` | `string` | No | Help text shown below the input |
+| `options` | `{ value: string; label: string }[]` | No | Allowed values for `type: 'enum'` |

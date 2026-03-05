@@ -1,0 +1,61 @@
+import { Callout, Steps } from 'nextra/components'
+
+# Getting Started
+
+Get Pandora running from zero in under 5 minutes.
+
+<Steps>
+
+### Install & Start
+
+```bash
+# Clone and install
+bun install
+
+# Start everything (server + UI)
+bun run dev
+```
+
+This starts the API on `http://localhost:4111` and the UI on `http://localhost:3000`.
+
+Storage uses SQLite — no database setup needed.
+
+### Set Your API Key
+
+You need at least one AI provider API key. Set it as an environment variable before starting:
+
+```bash
+# Example: Anthropic
+export ANTHROPIC_API_KEY=sk-ant-...
+
+# Example: OpenAI
+export OPENAI_API_KEY=sk-...
+```
+
+See [Models](/models) for the full list of supported providers and their environment variables.
+
+### Set a Password
+
+When you open the UI for the first time, you'll be asked to set a password. This secures your instance — all API routes are protected behind authentication.
+
+### Walk Through Setup
+
+After setting your password, the onboarding wizard guides you through configuration:
+
+1. **Name** — give your agent a name
+2. **Model** — pick an AI provider and model
+3. **Memory** — optionally enable semantic recall over past conversations (requires an embedding model)
+4. **Scheduling** — enable or disable scheduled tasks
+5. **Plugins** — browse and enable plugins like web search or Telegram
+
+Every step can be skipped and changed later from the Config and Plugins pages.
+
+### Start Chatting
+
+That's it — you're ready to go.
+
+</Steps>
+
+<Callout>
+Your timezone is auto-detected from the browser during onboarding. You can change it on the Config page.
+</Callout>

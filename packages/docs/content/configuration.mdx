@@ -1,0 +1,35 @@
+# Configuration
+
+Pandora's settings live on the **Config** page in the web UI. Changes are saved to the database and persist across restarts.
+
+## Identity
+
+Give Pandora a name. This is used in the system prompt and shown in the UI. Defaults to `Pandora`.
+
+## Timezone
+
+Controls when scheduled tasks run and Pandora's sense of local time. The current date, time, and timezone are included in the system prompt so the agent always knows what time it is.
+
+Accepts any IANA timezone identifier (e.g. `America/New_York`, `Europe/London`). Defaults to `UTC`.
+
+## Personality
+
+Defines how Pandora behaves — its tone, style, and boundaries. This is the system prompt sent to the model on every message.
+
+The default personality is opinionated: warm but direct, concise, tool-first, and honest. You can replace it entirely or tweak individual sections.
+
+## Models
+
+Pick an AI provider and model for the operator agent. Temperature (0--2) and max tokens are optional. See [Models](/models) for provider setup details.
+
+Defaults to Anthropic's `claude-sonnet-4-20250514`.
+
+## Memory
+
+When enabled, Pandora uses semantic recall to remember past conversations and bring up relevant context automatically. You need to pick an embedding provider and model — this can be a different provider from your chat model.
+
+The default embedding model is OpenAI's `text-embedding-3-small`, but you can use any configured provider. See [Memory](/memory) for details.
+
+## Setup Wizard
+
+Use the **Run Setup Wizard** button to re-run the first-run onboarding flow. This walks you through initial configuration again on next load.

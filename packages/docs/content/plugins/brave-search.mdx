@@ -1,0 +1,30 @@
+# Brave Search
+
+Privacy-focused web search powered by [Brave](https://brave.com/search/api/). Supports time-based filtering and returns up to 20 results per query.
+
+## Setup
+
+1. Get an API key from [brave.com/search/api](https://brave.com/search/api/)
+2. Set the environment variable and restart Pandora:
+   ```bash
+   BRAVE_API_KEY=BSA...
+   ```
+3. Open the **Plugins** page and toggle **Brave Search** on
+
+## Tool Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `query` | string | yes | The search query |
+| `count` | integer | no | Number of results, 1--20 |
+| `freshness` | string | no | Time filter: `pd` (24h), `pw` (7d), `pm` (31d), `py` (1yr) |
+
+## Features
+
+- Up to 20 results per search
+- Time-based filtering -- restrict results to the past day, week, month, or year
+- Returns a title, URL, and description for each result
+
+## Used By
+
+- [Research Agent](/plugins/research-agent)

@@ -1,7 +1,14 @@
 export default {
   index: 'Introduction',
-  'quick-start': 'Quick Start',
-  'user-guide': 'User Guide',
-  plugins: 'Plugin Docs',
-  'developer-guide': 'Developer Guide',
+  'getting-started': 'Getting Started',
+  chat: 'Chat',
+  configuration: 'Configuration',
+  models: 'Models',
+  memory: 'Memory',
+  scheduling: 'Scheduling',
+  inbox: 'Inbox',
+  plugins: 'Plugins',
+  security: 'Security',
+  deployment: 'Deployment',
+  'api-reference': 'API Reference',
 }

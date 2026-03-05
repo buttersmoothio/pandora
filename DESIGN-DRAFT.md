@@ -4,71 +4,7 @@ This document tracks features from the original design that have **not yet been 
 
 ---
 
-## 1. Scheduling System
-
-Agents should be able to run tasks on a schedule — daily summaries, periodic checks, etc.
-
-### Design
-
-```typescript
-interface ScheduledTask {
-  id: string
-  cron: string           // '*/30 * * * *'
-  prompt: string         // What to tell the agent
-  threadId?: string      // Optional: continue a specific thread
-  enabled: boolean
-}
-
-interface Scheduler {
-  register(task: ScheduledTask): Promise<void>
-  remove(taskId: string): Promise<void>
-  start(): Promise<void>
-  stop(): Promise<void>
-}
-```
-
-**Server mode:** In-process scheduler (node-cron or setInterval). Started after server is listening.
-
-```typescript
-// Server mode: in-process
-const job = cron.schedule(task.cron, async () => {
-  const agent = mastra.getAgent('operator')
-  await agent.generate(task.prompt, {
-    threadId: task.threadId ?? `schedule-${task.id}`,
-    resourceId: 'system',
-  })
-})
-```
-
-**Serverless mode:** Platform cron hits `POST /api/cron/:taskId`. Task config stored in DB.
-
-```typescript
-// Serverless mode: cron endpoint
-app.post('/api/cron/:taskId', authMiddleware, async (c) => {
-  const taskId = c.req.param('taskId')
-  const config = await getConfig(storage)
-  const task = config.schedule.tasks.find((t) => t.id === taskId)
-  if (!task?.enabled) return c.json({ skipped: true })
-
-  const agent = mastra.getAgent('operator')
-  await agent.generate(task.prompt, {
-    threadId: task.threadId ?? `schedule-${task.id}`,
-    resourceId: 'system',
-  })
-  return c.json({ ok: true, taskId })
-})
-```
-
-### What's Needed
-
-- Config schema: add `schedule.tasks[]` section
-- Scheduler implementations (local + endpoint)
-- UI: Schedule management page (create/edit/delete tasks, cron expression, enable/disable, last run status)
-- Serverless guidance in UI for setting up platform cron (Vercel Cron, CF Cron Triggers)
-
----
-
-## 2. Security Processors
+## 1. Security Processors
 
 AI-based input/output processing to guard against prompt injection, PII leakage, content moderation failures, and system prompt extraction.
 
@@ -129,7 +65,7 @@ security: {
 
 ---
 
-## 3. MCP Tool Support
+## 2. MCP Tool Support
 
 External tools via Model Context Protocol.
 
@@ -153,7 +89,7 @@ MCP tools are treated as untrusted: description validation, user approval for ne
 
 ---
 
-## 4. Tool Generation Flow
+## 3. Tool Generation Flow
 
 Users describe what they want in natural language; an LLM generates the tool; the SES Compartment sandboxes it.
 
@@ -199,7 +135,7 @@ async function(input) {
 
 ---
 
-## 5. Working Memory
+## 4. Working Memory
 
 Per-resource persistent preferences and context. Preferences set via Telegram are available in web chat.
 
@@ -213,7 +149,7 @@ Mastra Memory supports `workingMemory: { enabled: true }` — structured data th
 
 ---
 
-## 6. Observational Memory
+## 5. Observational Memory
 
 Background compression of conversation history for 60-80% context reduction.
 
@@ -225,7 +161,7 @@ Background compression of conversation history for 60-80% context reduction.
 
 ---
 
-## 7. Dockerfile
+## 6. Dockerfile
 
 Docker containerization for self-hosted deployment.
 
@@ -238,7 +174,7 @@ Docker containerization for self-hosted deployment.
 
 ---
 
-## 8. Environment Status Page
+## 7. Environment Status Page
 
 A unified view of the deployment environment. Low priority — health endpoint + discovery endpoints already cover most of this per-plugin.
 

@@ -1,0 +1,30 @@
+# Tavily Search
+
+Web search powered by [Tavily](https://tavily.com). Offers basic and advanced search depth for balancing speed against thoroughness.
+
+## Setup
+
+1. Get an API key from [tavily.com](https://tavily.com)
+2. Set the environment variable and restart Pandora:
+   ```bash
+   TAVILY_API_KEY=tvly-...
+   ```
+3. Open the **Plugins** page and toggle **Tavily Search** on
+
+## Tool Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `query` | string | yes | The search query |
+| `max_results` | integer | no | Number of results, 1--10 (default 5) |
+| `search_depth` | string | no | `basic` (faster, default) or `advanced` (more thorough) |
+
+## Features
+
+- Up to 10 results per search (defaults to 5)
+- **Basic** mode for fast results, **Advanced** mode for more thorough searches
+- Returns a title, URL, and content snippet for each result
+
+## Used By
+
+- [Research Agent](/plugins/research-agent)

@@ -1,8 +1,0 @@
-# Runtime
-
-Pandora is built on Hono, which abstracts runtime differences. The same app runs on Bun, Node.js, Cloudflare Workers, Vercel Edge, and Fastly without code changes.
-
-Runtime detection uses Hono's `getRuntimeKey()`. This drives one key behavior: connection and instance caching.
-
-- **Server mode** (Bun, Node.js) — database connections, storage instances, and resolved config are cached for the process lifetime.
-- **Serverless mode** (Workers, Edge, Fastly) — fresh connections and instances per request, no in-memory caching.

@@ -4,29 +4,51 @@ asIndexPage: true
 
 import { Cards } from 'nextra/components'
 
-# Plugin Docs
+# Plugins
 
-Setup guides and configuration reference for official Pandora plugins.
+Plugins extend what Pandora can do -- tools for searching the web, specialist agents for research, and channels that connect to messaging platforms like Telegram. Manage them on the **Plugins** page.
 
-For general plugin management (enabling, configuring, permissions), see the [Plugins page](/user-guide/plugins) in the User Guide.
+## Types
 
-## Search Tools
+- **Tools** -- give Pandora new abilities (web search, date/time, etc.)
+- **Agents** -- specialists for specific tasks (research, coding, etc.)
+- **Channels** -- connections to messaging platforms (Telegram, etc.)
+
+A single plugin can provide any combination of these.
+
+## Enabling a Plugin
+
+Every plugin must be explicitly enabled. On the **Plugins** page, toggle a plugin on and fill in any required API keys and config fields. Plugins with missing required environment variables or required config fields are skipped at load time even if enabled.
+
+## Permissions
+
+Tool plugins show badges for what they can access: **Time**, **Network**, **Env**, **Filesystem**, and **Random**. These correspond to the capabilities granted in the plugin's sandbox -- see [Plugin System](/plugins/plugin-system#permissions) for details.
+
+## Require Approval
+
+You can require Pandora to ask before using specific tools. This can be configured per-tool in the plugin settings. When triggered, you'll see what Pandora wants to do and can approve or deny it. See [Chat -- Tool Approval](/chat#tool-approval) for how this looks in the interface.
+
+## Per-Agent Models
+
+Specialist agents can be given a different AI model than the main one -- useful for giving a research agent access to a more capable model while keeping everyday chat fast and cheap. Configure this per-agent in the plugin settings.
+
+## Available Plugins
 
 <Cards num={2}>
-  <Cards.Card title="Tavily Search" href="/plugins/tools/tavily-search" arrow />
-  <Cards.Card title="Brave Search" href="/plugins/tools/brave-search" arrow />
-  <Cards.Card title="Exa Search" href="/plugins/tools/exa-search" arrow />
-  <Cards.Card title="Perplexity Search" href="/plugins/tools/perplexity-search" arrow />
+  <Cards.Card title="Tavily Search" href="/plugins/tavily-search" arrow />
+  <Cards.Card title="Brave Search" href="/plugins/brave-search" arrow />
+  <Cards.Card title="Exa Search" href="/plugins/exa-search" arrow />
+  <Cards.Card title="Perplexity Search" href="/plugins/perplexity-search" arrow />
+  <Cards.Card title="Research Agent" href="/plugins/research-agent" arrow />
+  <Cards.Card title="Telegram" href="/plugins/telegram" arrow />
 </Cards>
 
-## Agents
+## Building Plugins
 
 <Cards num={2}>
-  <Cards.Card title="Research" href="/plugins/agents/research" arrow />
-</Cards>
-
-## Channels
-
-<Cards num={2}>
-  <Cards.Card title="Telegram" href="/plugins/channels/telegram" arrow />
+  <Cards.Card title="Plugin System" href="/plugins/plugin-system" arrow />
+  <Cards.Card title="Building a Tool" href="/plugins/building-a-tool" arrow />
+  <Cards.Card title="Building an Agent" href="/plugins/building-an-agent" arrow />
+  <Cards.Card title="Building a Channel" href="/plugins/building-a-channel" arrow />
+  <Cards.Card title="Building a Custom UI" href="/plugins/building-a-custom-ui" arrow />
 </Cards>

@@ -1,0 +1,93 @@
+# Inbox API
+
+Read, archive, and delete inbox messages.
+
+## Endpoints
+
+### List Messages
+
+```
+GET /api/inbox
+Authorization: Bearer <token>
+```
+
+Returns active (non-archived) messages, newest first.
+
+```json
+{
+  "messages": [
+    {
+      "id": "a1b2c3d4-...",
+      "subject": "Daily Summary",
+      "body": "Here's what happened today...",
+      "threadId": "abc123",
+      "destination": "web",
+      "status": "sent",
+      "read": false,
+      "createdAt": "2026-03-04T08:00:12.000Z",
+      "archivedAt": null
+    }
+  ]
+}
+```
+
+Add `?archived=true` to list archived messages instead.
+
+### Get Message
+
+```
+GET /api/inbox/:id
+Authorization: Bearer <token>
+```
+
+Returns a single message, or `404` if not found.
+
+### Update Message
+
+```
+PATCH /api/inbox/:id
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "read": true
+}
+```
+
+Supports two fields:
+
+| Field | Type | Effect |
+|---|---|---|
+| `read` | `boolean` | Mark the message as read |
+| `archived` | `boolean` | `true` to archive, `false` to unarchive |
+
+Returns the updated message.
+
+### Delete Message
+
+```
+DELETE /api/inbox/:id
+Authorization: Bearer <token>
+```
+
+Permanently deletes the message. Returns `{ "deleted": "<id>" }`.
+
+## Message Schema
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | `string` | UUID |
+| `subject` | `string` | Brief subject line |
+| `body` | `string` | Message body (markdown) |
+| `threadId` | `string \| null` | Associated chat thread ID |
+| `destination` | `string` | `"web"` for Web Inbox, or a channel key for channel destinations |
+| `status` | `string` | `"pending"`, `"sent"`, or `"failed"` |
+| `read` | `boolean` | Whether the message has been read |
+| `createdAt` | `string` | ISO 8601 timestamp |
+| `archivedAt` | `string \| null` | ISO 8601 timestamp when archived, `null` if active |
+
+## How Messages Are Created
+
+Messages are created automatically when scheduled tasks with destinations run, or when the agent sends notifications during conversations.
+
+For web inbox messages, the status is immediately `"sent"`. For channel destinations, the status starts as `"pending"`, then updates to `"sent"` or `"failed"` after delivery.

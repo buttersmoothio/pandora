@@ -1,0 +1,128 @@
+# Schedule API
+
+Manage scheduled tasks programmatically.
+
+## Endpoints
+
+### List Tasks
+
+```
+GET /api/schedule
+Authorization: Bearer <token>
+```
+
+Returns all scheduled tasks and the master enabled flag.
+
+```json
+{
+  "enabled": true,
+  "tasks": [
+    {
+      "id": "a1b2c3d4-...",
+      "name": "Daily summary",
+      "cron": "0 8 * * *",
+      "prompt": "Summarize my calendar for today",
+      "enabled": true,
+      "timezone": "America/New_York",
+      "destination": "Web Inbox",
+      "nextRun": "2026-03-05T08:00:00.000Z",
+      "isRunning": false
+    }
+  ]
+}
+```
+
+### Create Task
+
+```
+POST /api/schedule
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "name": "Daily summary",
+  "cron": "0 8 * * *",
+  "prompt": "Summarize my calendar for today",
+  "timezone": "America/New_York",
+  "destination": "Web Inbox"
+}
+```
+
+Returns `201` with the created task.
+
+Exactly one of `cron` or `runAt` must be provided.
+
+### Get Task
+
+```
+GET /api/schedule/:id
+Authorization: Bearer <token>
+```
+
+Returns a single task with computed `nextRun` and `isRunning` fields.
+
+### Update Task
+
+```
+PATCH /api/schedule/:id
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "enabled": false
+}
+```
+
+Accepts a partial task object. Set optional fields to `null` to clear them (e.g., `"maxRuns": null`).
+
+Setting `cron` clears `runAt` and vice versa.
+
+### Delete Task
+
+```
+DELETE /api/schedule/:id
+Authorization: Bearer <token>
+```
+
+Returns `{ "deleted": "<id>" }`.
+
+### List Destinations
+
+```
+GET /api/schedule/destinations
+Authorization: Bearer <token>
+```
+
+Returns available notification destinations:
+
+```json
+{
+  "destinations": ["Web Inbox", "Telegram"]
+}
+```
+
+Always includes `"Web Inbox"`. Channel destinations appear when a channel plugin with notification support is enabled.
+
+## Task Schema
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `id` | `string` | Auto | UUID, generated on creation |
+| `name` | `string` | Yes | Human-readable name |
+| `cron` | `string` | One of | Cron expression (mutually exclusive with `runAt`) |
+| `runAt` | `string` | One of | ISO 8601 timestamp for one-time tasks |
+| `prompt` | `string` | Yes | The prompt Pandora will process |
+| `enabled` | `boolean` | No | Default `true` |
+| `timezone` | `string` | No | IANA timezone for this task's schedule (e.g. `"America/New_York"`). Overrides the global timezone. |
+| `maxRuns` | `number` | No | Max executions (recurring only). Task is removed when reached. |
+| `destination` | `string` | No | Where to send results. One of the values from `/api/schedule/destinations`. |
+| `nextRun` | `string \| null` | Read-only | Next scheduled execution time (ISO 8601) |
+| `isRunning` | `boolean` | Read-only | Whether the task is currently executing |
+
+## Task Execution
+
+When a task fires:
+
+1. Pandora processes the prompt in a dedicated thread
+2. If a destination is set, results are delivered via the [Inbox](/api-reference/inbox) system
+3. One-time tasks and tasks that reach their `maxRuns` limit are automatically removed

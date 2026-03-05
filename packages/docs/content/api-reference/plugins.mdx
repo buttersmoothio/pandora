@@ -1,0 +1,142 @@
+# Plugins API
+
+Discovery endpoints for plugins and AI model providers.
+
+## GET /api/plugins
+
+Returns all discovered plugins with their metadata, capabilities, and config state.
+
+```
+GET /api/plugins
+Authorization: Bearer <token>
+```
+
+```json
+{
+  "plugins": [
+    {
+      "id": "@pandorakit/tavily-search",
+      "name": "Tavily Search",
+      "description": "Web search via Tavily API",
+      "author": "Pandora",
+      "icon": null,
+      "version": "0.1.0",
+      "homepage": null,
+      "repository": "https://github.com/...",
+      "license": "MIT",
+      "envVars": [{ "name": "TAVILY_API_KEY", "required": true, "configured": false }],
+      "envConfigured": false,
+      "configFields": [],
+      "enabled": false,
+      "config": { "enabled": false },
+      "provides": {
+        "tools": {
+          "toolIds": ["@pandorakit/tavily-search:tavily_search"],
+          "tools": [
+            { "id": "@pandorakit/tavily-search:tavily_search", "name": "Tavily Search", "description": "..." }
+          ],
+          "sandbox": "host",
+          "permissions": {},
+          "requireApproval": false,
+          "alerts": []
+        }
+      },
+      "validationErrors": []
+    }
+  ]
+}
+```
+
+Each plugin object contains:
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | `string` | Plugin identifier (from manifest) |
+| `name` | `string` | Display name |
+| `description` | `string?` | What the plugin does |
+| `author` | `string?` | Plugin author |
+| `icon` | `string?` | Icon URL or path |
+| `version` | `string?` | Plugin version |
+| `homepage` | `string?` | Homepage URL |
+| `repository` | `string?` | Repository URL |
+| `license` | `string?` | SPDX license identifier |
+| `envVars` | `EnvVarDescriptor[]` | Environment variable descriptors with `configured` flag |
+| `envConfigured` | `boolean` | Whether all required env vars are set |
+| `configFields` | `ConfigFieldDescriptor[]` | UI field descriptors |
+| `enabled` | `boolean` | Whether enabled in config |
+| `config` | `object` | Current config values |
+| `provides` | `object` | Capabilities — contains optional `tools`, `agents`, `channels` |
+| `validationErrors` | `string[]` | Config validation errors |
+
+### `provides.tools`
+
+Present when the plugin provides tools:
+
+| Field | Type | Description |
+|---|---|---|
+| `toolIds` | `string[]` | Tool identifiers |
+| `tools` | `{ id, name, description }[]` | Tool summaries |
+| `sandbox` | `string` | `'compartment'` or `'host'` |
+| `permissions` | `object?` | Declared capabilities (`time`, `network`, `env`, `fs`, `random`) |
+| `requireApproval` | `boolean` | Whether tools require approval by default |
+| `alerts` | `Alert[]` | Diagnostic alerts |
+
+### `provides.agents`
+
+Present when the plugin provides agents:
+
+| Field | Type | Description |
+|---|---|---|
+| `agentIds` | `string[]` | Agent identifiers |
+| `agents` | `AgentInfo[]` | Agent details (see below) |
+| `alerts` | `Alert[]` | Diagnostic alerts |
+
+Each agent in the array:
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | `string` | Agent identifier |
+| `name` | `string` | Display name |
+| `description` | `string` | What the agent does |
+| `instructions` | `string` | System instructions |
+| `model` | `object?` | Model override (`{ provider, model }`) or `null` |
+| `tools` | `ToolManifest[]` | Resolved tool manifests from `useTools` |
+| `alerts` | `Alert[]` | Agent-level alerts |
+
+### `provides.channels`
+
+Present when the plugin provides a channel:
+
+| Field | Type | Description |
+|---|---|---|
+| `loaded` | `boolean` | Whether the adapter loaded successfully |
+| `webhook` | `boolean \| null` | Whether the channel supports webhooks. `null` if not loaded. |
+| `realtime` | `boolean \| null` | Whether the channel supports realtime connections. `null` if not loaded. |
+| `webhookPath` | `string \| null` | The webhook URL path. `null` if not loaded. |
+
+## GET /api/models
+
+Returns all supported providers, their models, and whether the required API key is configured.
+
+```
+GET /api/models
+Authorization: Bearer <token>
+```
+
+```json
+{
+  "providers": [
+    {
+      "id": "anthropic",
+      "name": "Anthropic",
+      "models": ["claude-sonnet-4-20250514", "..."],
+      "configured": true,
+      "docUrl": "https://docs.anthropic.com",
+      "gateway": null,
+      "envVars": ["ANTHROPIC_API_KEY"]
+    }
+  ]
+}
+```
+
+Use this endpoint to build model selection UIs. Providers with `configured: false` are missing their API key.

@@ -1,0 +1,28 @@
+# Research Agent
+
+A deep research specialist. When you ask a complex question, Pandora hands it off to this agent, which runs multiple rounds of searches, cross-references sources, and synthesizes a comprehensive answer with citations.
+
+## Enabling
+
+Open the **Plugins** page and toggle **Research** on.
+
+## Search Sources
+
+The Research agent needs at least one search source to work.
+
+### Built-in provider search
+
+Models from **OpenAI**, **Google**, **Anthropic**, and **Perplexity** have built-in web search. If you're using one of these providers, the Research agent works out of the box.
+
+### Search plugins
+
+For other providers (or to add more search options), enable one or more search plugins:
+
+| Plugin | API Key | Provider |
+|---|---|---|
+| [Tavily Search](/plugins/tavily-search) | `TAVILY_API_KEY` | [Tavily](https://tavily.com) |
+| [Brave Search](/plugins/brave-search) | `BRAVE_API_KEY` | [Brave](https://brave.com/search/api/) |
+| [Exa Search](/plugins/exa-search) | `EXA_API_KEY` | [Exa](https://exa.ai) |
+| [Perplexity Search](/plugins/perplexity-search) | `PERPLEXITY_API_KEY` | [Perplexity](https://www.perplexity.ai) |
+
+You can enable multiple search plugins at once. The agent picks the best fit for each query.

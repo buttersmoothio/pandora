@@ -1,0 +1,27 @@
+# Memory
+
+When enabled, Pandora uses **semantic recall** to automatically bring up relevant context from past conversations. Instead of starting fresh every time, it searches its conversation history for messages related to what you're discussing and includes them as context.
+
+## How It Works
+
+Semantic recall uses vector embeddings — numerical representations of meaning — to find related messages across all your past threads. When you send a message, Pandora embeds it and searches for the most similar past messages to include alongside the conversation.
+
+When semantic recall is enabled, Pandora retrieves the most relevant messages from your history and adds them as additional context alongside the current conversation.
+
+This means Pandora can remember things you've told it before, reference earlier conversations, and build on past context without you having to repeat yourself.
+
+## Enabling
+
+Toggle semantic recall on the **Config** page under **Memory**. You'll also need to select an embedding provider and model (e.g. `text-embedding-3-small` from OpenAI).
+
+The embedding provider can be different from your chat model provider — you can chat with Anthropic but use OpenAI for embeddings, for example.
+
+The default embedding model is `openai/text-embedding-3-small` but you can change it to any embedding model from a configured provider.
+
+After changing the memory setting, **restart Pandora** for the change to take effect.
+
+## Requirements
+
+- At least one AI provider with embedding models must be configured (API key set)
+- The chosen embedding provider and model must be available
+- Storage uses the same database as everything else — no additional setup

@@ -1,3 +1,30 @@
+import { Cards } from 'nextra/components'
+
 # Pandora
 
-Your personal AI assistant that you fully control.
+A personal AI agent that you fully own and control. Run it on your own hardware, choose any AI provider, and extend it with plugins — no vendor lock-in.
+
+## What It Does
+
+- **UI-first** — full web interface for chat, configuration, and plugin management
+- **Chat** with models from 70+ AI providers (OpenAI, Anthropic, Google, Mistral, and more)
+- **Remember** past conversations and bring up relevant context automatically
+- **Run tasks on a schedule** — daily summaries, reminders, periodic checks
+- **Connect to messaging platforms** like Telegram
+- **Extend with plugins** — search the web, delegate to specialist agents, or build your own tools
+- **Security by design** — password-protected, sandboxed tool execution, single-owner design
+
+## How It Works
+
+Pandora is a self-hosted server with a web UI. The server handles AI conversations, tool execution, scheduling, and storage. The UI gives you chat, configuration, and plugin management. Everything runs on SQLite out of the box — the only external dependency is an AI provider API key.
+
+Plugins add capabilities: tools give the agent new abilities (web search, date/time), agents specialize in tasks (research, coding), and channels connect to external platforms (Telegram). Tools declare their permissions upfront and can be sandboxed.
+
+## Get Started
+
+<Cards num={2}>
+  <Cards.Card title="Getting Started" href="/getting-started" arrow />
+  <Cards.Card title="Chat" href="/chat" arrow />
+  <Cards.Card title="Plugins" href="/plugins" arrow />
+  <Cards.Card title="API Reference" href="/api-reference" arrow />
+</Cards>

@@ -1,0 +1,54 @@
+import { Callout } from 'nextra/components'
+
+# Security
+
+Pandora is a single-owner system protected by a password you set on first launch. All API routes under `/api/*` require authentication.
+
+## Authentication
+
+On first run, Pandora enters **setup mode** -- all `/api/*` routes return `403 setup_required` until you set a password through the UI or the setup endpoint.
+
+After setup, every API request must include a valid session token in the `Authorization` header:
+
+```
+Authorization: Bearer <access-token>
+```
+
+Tokens are short-lived (15 minutes). The UI silently refreshes them using a longer-lived refresh token (7 days). If a refresh token expires, you'll need to log in again.
+
+### Token rotation
+
+Pandora uses **refresh token rotation with reuse detection**. Each refresh token can only be used once. If a previously used token is presented again (indicating possible theft), all sessions and refresh tokens are immediately invalidated as a safety measure.
+
+## Password
+
+You can change your password at any time (minimum 8 characters). Passwords are securely hashed before storage.
+
+<Callout type="warning">
+  Changing your password immediately invalidates all sessions and refresh tokens, logging out every device. A new session is created for the device that changed the password.
+</Callout>
+
+## Sessions
+
+The Security page shows every active login -- device, IP address, and when it was created. You can revoke individual sessions or all sessions at once.
+
+## Rate limiting
+
+Auth endpoints are rate-limited per IP to prevent brute-force attacks:
+
+| Endpoint | Limit |
+|---|---|
+| Login | 5 requests / minute |
+| Setup | 3 requests / minute |
+| Refresh | 10 requests / minute |
+| Change password | 3 requests / minute |
+
+When rate-limited, the server returns `429 Too Many Requests` with a `Retry-After` header.
+
+## Plugin sandboxing
+
+Plugins run in sandboxed compartments. All JavaScript intrinsics are frozen at startup, preventing plugins from modifying built-in prototypes or accessing globals they weren't explicitly granted.
+
+## Webhook verification
+
+Channel webhooks (e.g. Telegram) do not require authentication — external platforms can POST freely. Each channel adapter is responsible for verifying request signatures before processing. Webhook routes are rate-limited to 60 requests per minute per IP.
