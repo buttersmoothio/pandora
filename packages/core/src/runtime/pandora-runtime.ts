@@ -11,7 +11,6 @@ import { createScheduleTools } from '../scheduler/tools'
 import type { StorageResult } from '../storage'
 import { createStorage } from '../storage'
 import { createCurrentTimeTool } from '../tools/current-time'
-import { createVector } from '../vector'
 import type { WebGateway } from './gateways'
 import { createGateways } from './gateways'
 import { loadAgents } from './load-agents'
@@ -175,26 +174,20 @@ async function buildState(
   const tools = { ...builtinTools, ...pluginTools, ...scheduleTools }
   log.info('[runtime] loaded tools', { toolIds: Object.keys(tools) })
 
-  // 5. Vector (for semantic recall)
-  const vectorResult = config.memory.semanticRecall.enabled ? await createVector(env) : null
-  if (!config.memory.semanticRecall.enabled) {
-    log.debug('[runtime] semantic recall disabled, skipping vector store')
-  }
+  // 5. Memory
+  const memory = createMemory(config)
 
-  // 6. Memory
-  const memory = createMemory({ config, vector: vectorResult })
-
-  // 7. Subagents
+  // 6. Subagents
   const subagents = await loadAgents(registry, config, memory, env, tools)
   if (Object.keys(subagents).length > 0) {
     log.info('[runtime] loaded subagents', { agentIds: Object.keys(subagents) })
   }
 
-  // 8. Operator agent
+  // 7. Operator agent
   const { createOperator } = await import('../agents/operator')
   const operator = createOperator(config, tools, memory, subagents)
 
-  // 9. Mastra instance
+  // 8. Mastra instance
   const { Mastra } = await import('@mastra/core')
   const mastra = new Mastra({
     agents: { operator, ...subagents },
@@ -203,7 +196,7 @@ async function buildState(
     logger: getLogger(env),
   })
 
-  // 10. Gateways
+  // 9. Gateways
   const { web } = createGateways({ mastra, env })
 
   return { config, mastra, channels, channelNames, web }

@@ -1,45 +1,29 @@
 # Memory
 
-Pandora's memory features are configured on the **Memory** page in the web UI. After changing memory settings, **restart Pandora** for the changes to take effect.
+Pandora's memory is configured on the **Memory** page in the web UI. After changing memory settings, **restart Pandora** for the changes to take effect.
 
-## Working Memory
+## How It Works
 
-Working memory is a persistent scratchpad that Pandora maintains across all conversations. It automatically tracks important facts, preferences, and context as you chat — so you don't have to repeat yourself across different threads.
+When memory is enabled, Pandora automatically watches your conversations and builds up observations — concise notes about what happened, what you discussed, and what matters. These observations persist across all threads, so context from one conversation is available in every other.
 
-Unlike semantic recall (which searches past messages), working memory is always present in every conversation. Think of it as the things Pandora actively keeps in mind about you.
+As conversations grow, older message history is compressed into observations. When observations themselves grow large enough, they're further condensed through reflection. The result is a three-tier system:
 
-### Enabling
+1. **Recent messages** — exact conversation history for the current exchange
+2. **Observations** — compressed notes from past conversations
+3. **Reflections** — condensed observations when memory grows very long
 
-Toggle working memory on the **Memory** page. Once enabled, Pandora will start building up context as you interact with it.
+This happens in the background — you don't need to do anything. Pandora decides what to remember automatically.
 
-### Custom Template
+## Enabling
 
-By default, Pandora decides what to remember on its own. You can optionally provide a template — a short instruction describing what kind of information it should track. Leave it empty to use the default behavior.
+Toggle memory on the **Memory** page. Memory is enabled by default.
 
-### How It Persists
+## Model Override
 
-Working memory is shared across all conversations — whether you're chatting in the web UI, through a connected channel, or when scheduled tasks run. Information learned in one conversation is available in all others.
+By default, the background memory processes use the same model as your chat model. You can optionally specify a different model on the **Memory** page using the `provider/model` format (e.g. `google/gemini-2.5-flash`).
 
-## Semantic Recall
+A fast model with a large context window works best for memory processing, since it runs in the background and handles potentially large amounts of conversation history.
 
-When enabled, Pandora uses **semantic recall** to automatically bring up relevant context from past conversations. Instead of starting fresh every time, it searches its conversation history for messages related to what you're discussing and includes them as context.
+## Viewing Observations
 
-### How It Works
-
-Semantic recall uses vector embeddings — numerical representations of meaning — to find related messages across all your past threads. When you send a message, Pandora searches for the most similar past messages to include alongside the conversation.
-
-This means Pandora can remember things you've told it before, reference earlier conversations, and build on past context without you having to repeat yourself.
-
-### Enabling
-
-Toggle semantic recall on the **Memory** page. You'll also need to select an embedding provider and model (e.g. `text-embedding-3-small` from OpenAI).
-
-The embedding provider can be different from your chat model provider — you can chat with Anthropic but use OpenAI for embeddings, for example.
-
-The default embedding model is `openai/text-embedding-3-small` but you can change it to any embedding model from a configured provider.
-
-### Requirements
-
-- At least one AI provider with embedding models must be configured (API key set)
-- The chosen embedding provider and model must be available
-- Storage uses the same database as everything else — no additional setup
+The **Memory** page shows the current observations that Pandora has built up. These are read-only — Pandora manages them automatically. You can see what it remembers about you and your conversations.

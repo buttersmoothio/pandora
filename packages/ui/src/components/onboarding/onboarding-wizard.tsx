@@ -261,35 +261,15 @@ function ModelStep({
 function MemoryStep({
   enabled,
   onChange,
-  embeddingProvider,
-  embeddingModel,
-  onEmbeddingProviderChange,
-  onEmbeddingModelChange,
 }: {
   enabled: boolean
   onChange: (enabled: boolean) => void
-  embeddingProvider: string
-  embeddingModel: string
-  onEmbeddingProviderChange: (provider: string) => void
-  onEmbeddingModelChange: (model: string) => void
 }) {
-  const { data: modelsData } = useModels()
-  const [providerOpen, setProviderOpen] = useState(false)
-  const [modelOpen, setModelOpen] = useState(false)
-
-  const allProviders = modelsData?.providers ?? []
-  const providers = [...allProviders].sort((a, b) => {
-    if (a.configured !== b.configured) return a.configured ? -1 : 1
-    return a.name.localeCompare(b.name)
-  })
-  const selectedProvider = allProviders.find((p) => p.id === embeddingProvider)
-  const models = selectedProvider?.models ?? []
-
   return (
     <StepLayout
       icon={BrainIcon}
       title="Should I remember things?"
-      subtitle="When enabled, I can recall context from our past conversations to give better answers."
+      subtitle="I'll automatically remember important details across all our conversations."
     >
       <div className="mx-auto w-full max-w-sm">
         <div
@@ -300,114 +280,17 @@ function MemoryStep({
         >
           <div className="flex flex-col gap-1">
             <Label htmlFor="onboarding-memory" className="font-medium text-sm">
-              Semantic recall
+              Memory
             </Label>
             <p className="text-muted-foreground text-xs">
-              Uses embeddings to find relevant context from previous messages
+              Automatically tracks important facts and context as you chat
             </p>
           </div>
           <Switch id="onboarding-memory" checked={enabled} onCheckedChange={onChange} />
         </div>
-        {enabled && (
-          <div className="mt-3 flex flex-col gap-3">
-            <p className="text-muted-foreground text-xs">
-              Choose an embedding model for semantic search over past conversations.
-            </p>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="flex flex-col gap-2">
-                <Label>Provider</Label>
-                <Popover open={providerOpen} onOpenChange={setProviderOpen}>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" size="sm" className="justify-between font-normal">
-                      <span className="flex items-center gap-2 truncate">
-                        {selectedProvider && <ProviderLogo providerId={embeddingProvider} />}
-                        {selectedProvider
-                          ? selectedProvider.name
-                          : embeddingProvider || 'Select...'}
-                      </span>
-                      <ChevronsUpDownIcon className="ml-2 size-3 shrink-0 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="p-0">
-                    <Command>
-                      <CommandInput placeholder="Search providers..." />
-                      <CommandList>
-                        <CommandEmpty>No provider found.</CommandEmpty>
-                        {providers.map((p) => (
-                          <CommandItem
-                            key={p.id}
-                            value={p.name}
-                            onSelect={() => {
-                              onEmbeddingProviderChange(p.id)
-                              if (embeddingProvider !== p.id) onEmbeddingModelChange('')
-                              setProviderOpen(false)
-                            }}
-                          >
-                            <CheckIcon
-                              className={cn(
-                                'mr-2 size-4',
-                                embeddingProvider === p.id ? 'opacity-100' : 'opacity-0',
-                              )}
-                            />
-                            <ProviderLogo providerId={p.id} />
-                            <span className="truncate">{p.name}</span>
-                            {!p.configured && (
-                              <span className="ml-auto text-muted-foreground text-xs">
-                                Not configured
-                              </span>
-                            )}
-                          </CommandItem>
-                        ))}
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label>Model</Label>
-                <Popover open={modelOpen} onOpenChange={setModelOpen}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="justify-between font-normal"
-                      disabled={!embeddingProvider}
-                    >
-                      <span className="truncate">{embeddingModel || 'Select...'}</span>
-                      <ChevronsUpDownIcon className="ml-2 size-3 shrink-0 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="p-0">
-                    <Command>
-                      <CommandInput placeholder="Search models..." />
-                      <CommandList>
-                        <CommandEmpty>No model found.</CommandEmpty>
-                        {models.map((m) => (
-                          <CommandItem
-                            key={m}
-                            value={m}
-                            onSelect={() => {
-                              onEmbeddingModelChange(m)
-                              setModelOpen(false)
-                            }}
-                          >
-                            <CheckIcon
-                              className={cn(
-                                'mr-2 size-4',
-                                embeddingModel === m ? 'opacity-100' : 'opacity-0',
-                              )}
-                            />
-                            {m}
-                          </CommandItem>
-                        ))}
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-              </div>
-            </div>
-          </div>
-        )}
+        <p className="mt-3 text-center text-muted-foreground text-xs">
+          You can customize the memory model on the Memory page.
+        </p>
       </div>
     </StepLayout>
   )
@@ -554,8 +437,6 @@ interface WizardState {
   provider: string
   model: string
   memoryEnabled: boolean
-  embeddingProvider: string
-  embeddingModel: string
   scheduleEnabled: boolean
 }
 
@@ -565,13 +446,8 @@ function buildStepPatch(step: number, state: WizardState): DeepPartial<Config> |
       return { identity: { name: state.name.trim() || 'Pandora' } }
     case 1:
       return { models: { operator: { provider: state.provider, model: state.model } } }
-    case 2: {
-      const embedder =
-        state.embeddingProvider && state.embeddingModel
-          ? `${state.embeddingProvider}/${state.embeddingModel}`
-          : undefined
-      return { memory: { semanticRecall: { enabled: state.memoryEnabled, embedder } } }
-    }
+    case 2:
+      return { memory: { enabled: state.memoryEnabled } }
     case 3:
       return { schedule: { enabled: state.scheduleEnabled } }
     case 5:
@@ -588,7 +464,7 @@ function canContinueFromStep(step: number, state: WizardState): boolean {
     case 1:
       return !!state.provider && !!state.model
     case 2:
-      return !state.memoryEnabled || (!!state.embeddingProvider && !!state.embeddingModel)
+      return true
     default:
       return true
   }
@@ -607,9 +483,7 @@ export function OnboardingWizard() {
   const [name, setName] = useState('')
   const [provider, setProvider] = useState('')
   const [model, setModel] = useState('')
-  const [memoryEnabled, setMemoryEnabled] = useState(false)
-  const [embeddingProvider, setEmbeddingProvider] = useState('openai')
-  const [embeddingModel, setEmbeddingModel] = useState('text-embedding-3-small')
+  const [memoryEnabled, setMemoryEnabled] = useState(true)
   const [scheduleEnabled, setScheduleEnabled] = useState(true)
 
   useEffect(() => {
@@ -617,13 +491,7 @@ export function OnboardingWizard() {
     setName(config.identity.name)
     setProvider(config.models.operator.provider)
     setModel(config.models.operator.model)
-    setMemoryEnabled(config.memory.semanticRecall.enabled)
-    const embedder = config.memory.semanticRecall.embedder ?? 'openai/text-embedding-3-small'
-    const slashIdx = embedder.indexOf('/')
-    if (slashIdx !== -1) {
-      setEmbeddingProvider(embedder.slice(0, slashIdx))
-      setEmbeddingModel(embedder.slice(slashIdx + 1))
-    }
+    setMemoryEnabled(config.memory.enabled)
     setScheduleEnabled(config.schedule.enabled)
 
     // Auto-detect browser timezone and prefill if not already set
@@ -643,8 +511,6 @@ export function OnboardingWizard() {
     provider,
     model,
     memoryEnabled,
-    embeddingProvider,
-    embeddingModel,
     scheduleEnabled,
   }
 
@@ -681,16 +547,7 @@ export function OnboardingWizard() {
               onModelChange={setModel}
             />
           )}
-          {step === 2 && (
-            <MemoryStep
-              enabled={memoryEnabled}
-              onChange={setMemoryEnabled}
-              embeddingProvider={embeddingProvider}
-              embeddingModel={embeddingModel}
-              onEmbeddingProviderChange={setEmbeddingProvider}
-              onEmbeddingModelChange={setEmbeddingModel}
-            />
-          )}
+          {step === 2 && <MemoryStep enabled={memoryEnabled} onChange={setMemoryEnabled} />}
           {step === 3 && <ScheduleStep enabled={scheduleEnabled} onChange={setScheduleEnabled} />}
           {step === 4 && <PluginsStep />}
           {step === 5 && (

@@ -26,13 +26,8 @@ export interface Config {
   }
   plugins: Record<string, { enabled: boolean; [key: string]: unknown }>
   memory: {
-    semanticRecall: {
-      enabled: boolean
-      embedder?: string
-    }
-    workingMemory: {
-      enabled: boolean
-    }
+    enabled: boolean
+    model?: string
   }
   schedule: {
     enabled: boolean
