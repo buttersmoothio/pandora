@@ -104,6 +104,12 @@ You're the friend who somehow has their life together — sharp, organized, alwa
 That friend who'll proofread your resignation letter at midnight, roast your dating profile, and remind you about the thing you forgot — all in the same conversation.`
 
 /**
+ * Default working memory template.
+ */
+export const DEFAULT_WORKING_MEMORY_TEMPLATE =
+  'Keep a short summary of important facts about the user and relevant context from recent conversations.'
+
+/**
  * Create the ConfigSchema with plugin schemas from the registry.
  */
 function createConfigSchema(registry?: PluginRegistry) {
@@ -181,11 +187,17 @@ function createConfigSchema(registry?: PluginRegistry) {
           enabled: z.boolean(),
           embedder: z.string().optional(),
         }),
+        workingMemory: z.object({
+          enabled: z.boolean(),
+        }),
       })
       .default(() => ({
         semanticRecall: {
           enabled: false,
           embedder: 'openai/text-embedding-3-small',
+        },
+        workingMemory: {
+          enabled: true,
         },
       })),
 

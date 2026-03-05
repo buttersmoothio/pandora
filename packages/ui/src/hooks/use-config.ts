@@ -30,6 +30,9 @@ export interface Config {
       enabled: boolean
       embedder?: string
     }
+    workingMemory: {
+      enabled: boolean
+    }
   }
   schedule: {
     enabled: boolean

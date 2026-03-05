@@ -2,6 +2,7 @@
 
 import {
   BlocksIcon,
+  BrainIcon,
   ClockIcon,
   InboxIcon,
   LogOutIcon,
@@ -33,6 +34,7 @@ import { useAuth } from '@/providers/auth-provider'
 const NAV_ITEMS = [
   { title: 'Inbox', href: '/inbox', icon: InboxIcon },
   { title: 'Configuration', href: '/config', icon: SettingsIcon },
+  { title: 'Memory', href: '/memory', icon: BrainIcon },
   { title: 'Plugins', href: '/plugins', icon: BlocksIcon },
   { title: 'Schedules', href: '/schedules', icon: ClockIcon },
   { title: 'Security', href: '/security', icon: ShieldIcon },

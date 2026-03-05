@@ -44,7 +44,7 @@ Returns `400` if validation fails, with validation errors in the `error` field.
 | `personality` | Behavior and tone | `systemPrompt` |
 | `models` | LLM configuration | `operator: { provider, model, temperature?, maxTokens? }` |
 | `plugins` | Plugin management | Keyed by plugin ID: `{ enabled, ...pluginFields }` |
-| `memory` | Semantic recall | `semanticRecall: { enabled, embedder? }` |
+| `memory` | Memory features | `semanticRecall: { enabled, embedder? }`, `workingMemory: { enabled }` |
 | `schedule` | Task scheduling | `enabled`, `tasks[]` (see [Schedule API](/api-reference/schedule)) |
 | `onboardingComplete` | First-run flag | `boolean`. Set to `true` after the onboarding wizard completes. |
 

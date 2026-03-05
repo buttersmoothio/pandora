@@ -16,6 +16,7 @@ import { healthRoutes } from './routes/health'
 import type { Env } from './routes/helpers'
 import { createRuntimeMiddleware, getAuthStore } from './routes/helpers'
 import { inboxRoutes } from './routes/inbox'
+import { memoryRoutes } from './routes/memory'
 import { scheduleRoutes } from './routes/schedule'
 import { threadRoutes } from './routes/threads'
 import { webhookRoutes } from './routes/webhooks'
@@ -88,6 +89,7 @@ app.route('/api/chat', chatRoutes)
 app.route('/api/threads', threadRoutes)
 app.route('/api/schedule', scheduleRoutes)
 app.route('/api/inbox', inboxRoutes)
+app.route('/api/memory', memoryRoutes)
 
 // 404 handler
 app.notFound((c) => {

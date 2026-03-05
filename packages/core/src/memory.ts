@@ -1,6 +1,6 @@
 import { ModelRouterEmbeddingModel } from '@mastra/core/llm'
 import { Memory } from '@mastra/memory'
-import type { Config } from './config'
+import { type Config, DEFAULT_WORKING_MEMORY_TEMPLATE } from './config'
 import { getLogger } from './logger'
 import type { VectorResult } from './vector'
 
@@ -19,10 +19,12 @@ export interface CreateMemoryOptions {
  */
 export function createMemory(options?: CreateMemoryOptions) {
   const sr = options?.config?.memory?.semanticRecall
+  const wm = options?.config?.memory?.workingMemory
   const log = getLogger()
   log.debug('Memory initializing', {
     semanticRecall: sr?.enabled ?? false,
     embedder: sr?.enabled ? sr?.embedder : undefined,
+    workingMemory: wm?.enabled ?? false,
   })
 
   return new Memory({
@@ -38,6 +40,9 @@ export function createMemory(options?: CreateMemoryOptions) {
       lastMessages: 20,
       generateTitle: true,
       semanticRecall: sr?.enabled ?? false, // Uses Mastra defaults (topK: 4, messageRange: {before:1, after:1})
+      workingMemory: wm?.enabled
+        ? { enabled: true, template: DEFAULT_WORKING_MEMORY_TEMPLATE }
+        : undefined,
     },
   })
 }
