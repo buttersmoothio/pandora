@@ -5,6 +5,7 @@ import { CheckIcon, ChevronsUpDownIcon, Loader2Icon } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Streamdown } from 'streamdown'
 import { ProviderLogo } from '@/components/provider-logo'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -16,32 +17,185 @@ import {
 } from '@/components/ui/command'
 import { Label } from '@/components/ui/label'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Progress } from '@/components/ui/progress'
 import { Switch } from '@/components/ui/switch'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { useConfig, useUpdateConfig } from '@/hooks/use-config'
 import { useModels } from '@/hooks/use-models'
 import { apiFetch } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
+interface OMRecord {
+  id: string
+  scope: 'resource' | 'thread'
+  generationCount: number
+  updatedAt: string
+  lastObservedAt?: string
+  observationTokenCount: number
+  pendingMessageTokens: number
+  totalTokensObserved: number
+  isObserving: boolean
+  isReflecting: boolean
+}
+
+interface OMThresholds {
+  scope: 'resource' | 'thread'
+  messageTokens: number
+  observationTokens: number
+}
+
+interface RecordResponse {
+  record: OMRecord | null
+  thresholds: OMThresholds | null
+}
+
+const POLL_INTERVAL = 10_000
+
 function useObservations() {
   return useQuery({
     queryKey: ['observations'],
     queryFn: () => apiFetch<{ observations: string | null }>('/api/memory/observations'),
-    refetchInterval: 30_000,
+    refetchInterval: POLL_INTERVAL,
   })
 }
 
 function useOMRecord() {
   return useQuery({
     queryKey: ['om-record'],
-    queryFn: () =>
-      apiFetch<{
-        record: {
-          generationCount: number
-          updatedAt: string
-        } | null
-      }>('/api/memory/record'),
-    refetchInterval: 30_000,
+    queryFn: () => apiFetch<RecordResponse>('/api/memory/record'),
+    refetchInterval: POLL_INTERVAL,
   })
+}
+
+function formatTokens(tokens: number) {
+  if (tokens >= 1000) return `${(tokens / 1000).toFixed(1)}k`
+  return String(tokens)
+}
+
+function timeAgo(dateStr: string) {
+  const diff = Date.now() - new Date(dateStr).getTime()
+  const seconds = Math.floor(diff / 1000)
+  if (seconds < 60) return 'just now'
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) return `${minutes}m ago`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}h ago`
+  const days = Math.floor(hours / 24)
+  return `${days}d ago`
+}
+
+function MemoryProgress({
+  label,
+  tokens,
+  threshold,
+  tooltip,
+}: {
+  label: string
+  tokens: number
+  threshold: number
+  tooltip: string
+}) {
+  const percent = threshold > 0 ? Math.min((tokens / threshold) * 100, 100) : 0
+
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-muted-foreground">{label}</span>
+              <span className="text-muted-foreground">{Math.round(percent)}%</span>
+            </div>
+            <Progress
+              value={percent}
+              className={cn(
+                'h-1.5',
+                percent >= 90 &&
+                  'bg-destructive/20 [&>[data-slot=progress-indicator]]:bg-destructive',
+                percent >= 70 &&
+                  percent < 90 &&
+                  'bg-yellow-500/20 [&>[data-slot=progress-indicator]]:bg-yellow-500',
+              )}
+            />
+          </div>
+        </TooltipTrigger>
+        <TooltipContent>{tooltip}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  )
+}
+
+function MonitoringSection() {
+  const { data: config } = useConfig()
+  const { data: recordData } = useOMRecord()
+
+  if (!config?.memory.enabled) return null
+
+  const record = recordData?.record ?? null
+  const thresholds = recordData?.thresholds ?? null
+
+  if (!(record && thresholds)) return null
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-start justify-between space-y-0">
+        <div className="flex flex-col gap-1.5">
+          <CardTitle>Status</CardTitle>
+          <CardDescription>Current memory activity and usage.</CardDescription>
+        </div>
+        <div className="flex items-center gap-2">
+          {record.isObserving && (
+            <Badge variant="secondary" className="gap-1.5">
+              <Loader2Icon className="size-3 animate-spin" />
+              Processing
+            </Badge>
+          )}
+          {record.isReflecting && (
+            <Badge variant="secondary" className="gap-1.5">
+              <Loader2Icon className="size-3 animate-spin" />
+              Condensing
+            </Badge>
+          )}
+          {!(record.isObserving || record.isReflecting) && <Badge variant="outline">Idle</Badge>}
+        </div>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-5">
+        <div className="flex flex-col gap-3">
+          <MemoryProgress
+            label="Unprocessed conversations"
+            tokens={record.pendingMessageTokens}
+            threshold={thresholds.messageTokens}
+            tooltip="Conversation content waiting to be processed into observations."
+          />
+          <MemoryProgress
+            label="Memory usage"
+            tokens={record.observationTokenCount}
+            threshold={thresholds.observationTokens}
+            tooltip="Active observation size. Condensed automatically when full."
+          />
+        </div>
+
+        <div className="grid grid-cols-3 gap-4 text-center">
+          <div className="flex flex-col gap-0.5">
+            <span className="font-mono text-sm">{formatTokens(record.totalTokensObserved)}</span>
+            <span className="text-muted-foreground text-xs">Processed</span>
+          </div>
+          <div className="flex flex-col gap-0.5">
+            <span className="font-mono text-sm">{record.generationCount}</span>
+            <span className="text-muted-foreground text-xs">
+              {record.generationCount === 1 ? 'Condensation' : 'Condensations'}
+            </span>
+          </div>
+          <div className="flex flex-col gap-0.5">
+            <span className="font-mono text-sm">
+              {record.lastObservedAt ? timeAgo(record.lastObservedAt) : '—'}
+            </span>
+            <span className="text-muted-foreground text-xs">Last active</span>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  )
 }
 
 function MemorySection() {
@@ -299,6 +453,7 @@ export default function MemoryPage() {
     <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 p-6">
       <h1 className="font-semibold text-2xl">Memory</h1>
       <MemorySection />
+      <MonitoringSection />
       <ObservationsSection />
     </div>
   )

@@ -1,0 +1,81 @@
+# Memory API
+
+Read memory observations and monitoring status.
+
+## Endpoints
+
+### Get Observations
+
+```
+GET /api/memory/observations
+Authorization: Bearer <token>
+```
+
+Returns the current observation text, or `null` if memory is disabled or no observations exist yet.
+
+```json
+{
+  "observations": "Date: 2026-03-06\n- User is building a Next.js app..."
+}
+```
+
+### Get Record
+
+```
+GET /api/memory/record
+Authorization: Bearer <token>
+```
+
+Returns the full memory record and threshold configuration, or `null` values if memory is disabled.
+
+```json
+{
+  "record": {
+    "id": "a1b2c3d4-...",
+    "scope": "resource",
+    "generationCount": 2,
+    "observationTokenCount": 12500,
+    "pendingMessageTokens": 8200,
+    "totalTokensObserved": 45000,
+    "isObserving": false,
+    "isReflecting": false,
+    "lastObservedAt": "2026-03-06T10:30:00.000Z",
+    "updatedAt": "2026-03-06T10:30:00.000Z"
+  },
+  "thresholds": {
+    "scope": "resource",
+    "messageTokens": 30000,
+    "observationTokens": 40000
+  }
+}
+```
+
+## Record Fields
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | `string` | Record ID |
+| `scope` | `string` | `"resource"` (cross-thread) or `"thread"` |
+| `generationCount` | `number` | Number of reflections that have occurred |
+| `observationTokenCount` | `number` | Token count of active observations |
+| `pendingMessageTokens` | `number` | Unobserved message tokens waiting to be processed |
+| `totalTokensObserved` | `number` | Lifetime total of all tokens observed |
+| `isObserving` | `boolean` | Whether the observer is currently running |
+| `isReflecting` | `boolean` | Whether the reflector is currently running |
+| `lastObservedAt` | `string \| null` | ISO 8601 timestamp of the last observation |
+| `updatedAt` | `string` | ISO 8601 timestamp of the last record update |
+
+## Threshold Fields
+
+| Field | Type | Description |
+|---|---|---|
+| `scope` | `string` | Memory scope |
+| `messageTokens` | `number` | Token threshold that triggers the observer |
+| `observationTokens` | `number` | Token threshold that triggers the reflector |
+
+## Monitoring
+
+Use the record and thresholds together to calculate fill percentages:
+
+- **Observer proximity**: `pendingMessageTokens / messageTokens` — how close to triggering observation
+- **Reflector proximity**: `observationTokenCount / observationTokens` — how close to triggering reflection

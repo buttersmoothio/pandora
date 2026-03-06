@@ -27,7 +27,21 @@ memoryRoutes.get('/observations', async (c) => {
 memoryRoutes.get('/record', async (c) => {
   const { memory } = await getMemoryOrFail(c)
   const om = await getOM(memory)
-  if (!om) return c.json({ record: null })
+  if (!om) return c.json({ record: null, thresholds: null })
   const record = await om.getRecord('', RESOURCE_ID)
-  return c.json({ record })
+  const { scope, observation, reflection } = om.config
+  return c.json({
+    record,
+    thresholds: {
+      scope,
+      messageTokens:
+        typeof observation.messageTokens === 'number'
+          ? observation.messageTokens
+          : observation.messageTokens.max,
+      observationTokens:
+        typeof reflection.observationTokens === 'number'
+          ? reflection.observationTokens
+          : reflection.observationTokens.max,
+    },
+  })
 })
