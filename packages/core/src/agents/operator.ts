@@ -1,5 +1,6 @@
 import { Agent as MastraAgent } from '@mastra/core/agent'
 import type { MastraMemory } from '@mastra/core/memory'
+import { BatchPartsProcessor } from '@mastra/core/processors'
 import type { Config } from '../config'
 import { getLogger } from '../logger'
 import { resolveModel } from '../models'
@@ -52,5 +53,12 @@ export function createOperator(
     tools,
     memory,
     agents: subagents ?? {},
+    outputProcessors: [
+      new BatchPartsProcessor({
+        batchSize: 5,
+        maxWaitTime: 100,
+        emitOnNonText: true,
+      }),
+    ],
   })
 }

@@ -4,68 +4,7 @@ This document tracks features from the original design that have **not yet been 
 
 ---
 
-## 1. Security Processors
-
-AI-based input/output processing to guard against prompt injection, PII leakage, content moderation failures, and system prompt extraction.
-
-### Design
-
-Mastra agents support `inputProcessors` and `outputProcessors` arrays. These run before/after the LLM call.
-
-```typescript
-// Operator creation with security processors
-const operator = new Agent({
-  // ... existing config ...
-  inputProcessors: buildInputProcessors(config),
-  outputProcessors: buildOutputProcessors(config),
-})
-
-function buildInputProcessors(config: PandoraConfig) {
-  const m = config.models.security  // fast/cheap model for classification
-  const p = []
-  p.push(new UnicodeNormalizer({ stripControlChars: true, collapseWhitespace: true }))
-  if (config.security.promptInjection.enabled)
-    p.push(new PromptInjectionDetector({ model: m, strategy: 'block', threshold: config.security.promptInjection.threshold }))
-  if (config.security.piiRedaction.enabled)
-    p.push(new PIIDetector({ model: m, strategy: 'redact' }))
-  if (config.security.moderation.enabled)
-    p.push(new ModerationProcessor({ model: m, strategy: 'block' }))
-  return p
-}
-
-function buildOutputProcessors(config: PandoraConfig) {
-  const m = config.models.security
-  const p = []
-  if (config.security.systemPromptScrubbing.enabled)
-    p.push(new SystemPromptScrubber({ model: m, strategy: 'redact' }))
-  if (config.security.piiRedaction.enabled)
-    p.push(new PIIDetector({ model: m, strategy: 'redact' }))
-  p.push(new TokenLimiterProcessor({ limit: 4000, strategy: 'truncate' }))
-  return p
-}
-```
-
-### Config
-
-```typescript
-security: {
-  promptInjection: { enabled: boolean, threshold: number },
-  piiRedaction: { enabled: boolean },
-  moderation: { enabled: boolean },
-  systemPromptScrubbing: { enabled: boolean },
-}
-```
-
-### What's Needed
-
-- Investigate Mastra's current processor support (API may have changed since draft)
-- Config schema: add `security` section + `models.security` field
-- Operator creation: wire processors based on config
-- UI: Security processors toggle in Config or Security page
-
----
-
-## 2. MCP Tool Support
+## 1. MCP Tool Support
 
 External tools via Model Context Protocol.
 
@@ -89,7 +28,7 @@ MCP tools are treated as untrusted: description validation, user approval for ne
 
 ---
 
-## 3. Tool Generation Flow
+## 2. Tool Generation Flow
 
 Users describe what they want in natural language; an LLM generates the tool; the SES Compartment sandboxes it.
 
@@ -135,7 +74,7 @@ async function(input) {
 
 ---
 
-## 4. Dockerfile
+## 3. Dockerfile
 
 Docker containerization for self-hosted deployment.
 
@@ -148,7 +87,7 @@ Docker containerization for self-hosted deployment.
 
 ---
 
-## 5. Environment Status Page
+## 4. Environment Status Page
 
 A unified view of the deployment environment. Low priority — health endpoint + discovery endpoints already cover most of this per-plugin.
 
