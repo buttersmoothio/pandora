@@ -1,8 +1,39 @@
 # Memory API
 
-Read memory observations and monitoring status.
+Read and update working memory, observations, and monitoring status.
 
 ## Endpoints
+
+### Get Working Memory
+
+```
+GET /api/memory/working
+Authorization: Bearer <token>
+```
+
+Returns the current working memory content, or `null` if no working memory exists yet.
+
+```json
+{
+  "content": "<working_memory_data>\n- User's name is Alex\n- Prefers TypeScript\n</working_memory_data>"
+}
+```
+
+### Update Working Memory
+
+```
+PUT /api/memory/working
+Authorization: Bearer <token>
+Content-Type: application/json
+```
+
+Overwrites working memory content.
+
+```json
+{
+  "content": "<working_memory_data>\n- User's name is Alex\n- Prefers TypeScript\n</working_memory_data>"
+}
+```
 
 ### Get Observations
 

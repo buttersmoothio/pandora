@@ -1,8 +1,9 @@
 'use client'
 
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { CheckIcon, ChevronsUpDownIcon, Loader2Icon } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
+import { toast } from 'sonner'
 import { Streamdown } from 'streamdown'
 import { ProviderLogo } from '@/components/provider-logo'
 import { Badge } from '@/components/ui/badge'
@@ -19,6 +20,7 @@ import { Label } from '@/components/ui/label'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Progress } from '@/components/ui/progress'
 import { Switch } from '@/components/ui/switch'
+import { Textarea } from '@/components/ui/textarea'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { useConfig, useUpdateConfig } from '@/hooks/use-config'
 import { useModels } from '@/hooks/use-models'
@@ -66,6 +68,50 @@ function useOMRecord() {
     queryFn: () => apiFetch<RecordResponse>('/api/memory/record'),
     refetchInterval: POLL_INTERVAL,
   })
+}
+
+const WORKING_MEMORY_KEY = ['working-memory'] as const
+
+function useWorkingMemory() {
+  return useQuery({
+    queryKey: WORKING_MEMORY_KEY,
+    queryFn: () => apiFetch<{ content: string | null }>('/api/memory/working'),
+  })
+}
+
+function useUpdateWorkingMemory() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (content: string) =>
+      apiFetch<{ content: string }>('/api/memory/working', {
+        method: 'PUT',
+        body: JSON.stringify({ content }),
+      }),
+    onSuccess: (data) => {
+      queryClient.setQueryData(WORKING_MEMORY_KEY, data)
+    },
+    onError: (err: Error) => {
+      toast.error(`Failed to save: ${err.message}`)
+    },
+  })
+}
+
+/** Extract the data portion from the raw working memory string. */
+function parseWorkingMemoryData(raw: string): string {
+  const match = raw.match(/<working_memory_data>([\s\S]*?)<\/working_memory_data>/)
+  return match ? match[1].trim() : raw.trim()
+}
+
+/** Reconstruct the full working memory string, replacing only the data portion. */
+function replaceWorkingMemoryData(raw: string, newData: string): string {
+  const hasWrapper = /<working_memory_data>[\s\S]*?<\/working_memory_data>/.test(raw)
+  if (hasWrapper) {
+    return raw.replace(
+      /<working_memory_data>[\s\S]*?<\/working_memory_data>/,
+      `<working_memory_data>\n${newData}\n</working_memory_data>`,
+    )
+  }
+  return newData
 }
 
 function formatTokens(tokens: number) {
@@ -162,71 +208,6 @@ function MemoryProgress({
         <TooltipContent>{tooltip}</TooltipContent>
       </Tooltip>
     </TooltipProvider>
-  )
-}
-
-function MonitoringSection() {
-  const { data: config } = useConfig()
-  const { data: recordData } = useOMRecord()
-
-  if (!config?.memory.enabled) return null
-
-  const record = recordData?.record ?? null
-  const thresholds = recordData?.thresholds ?? null
-
-  if (!(record && thresholds)) return null
-
-  return (
-    <Card>
-      <CardHeader className="flex flex-row items-start justify-between space-y-0">
-        <div className="flex flex-col gap-1.5">
-          <CardTitle>Status</CardTitle>
-          <CardDescription>Current memory activity and usage.</CardDescription>
-        </div>
-        <div className="flex items-center gap-2">
-          {record.isObserving && (
-            <Badge variant="secondary" className="gap-1.5">
-              <Loader2Icon className="size-3 animate-spin" />
-              Processing
-            </Badge>
-          )}
-          {record.isReflecting && (
-            <Badge variant="secondary" className="gap-1.5">
-              <Loader2Icon className="size-3 animate-spin" />
-              Condensing
-            </Badge>
-          )}
-          {!(record.isObserving || record.isReflecting) && <Badge variant="outline">Idle</Badge>}
-        </div>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-5">
-        <MemoryProgress
-          label="Observation capacity"
-          tokens={record.observationTokenCount}
-          threshold={thresholds.observationTokens}
-          tooltip="Active observation size. Condensed automatically when full."
-        />
-
-        <div className="grid grid-cols-3 gap-4 text-center">
-          <div className="flex flex-col gap-0.5">
-            <span className="font-mono text-sm">{formatTokens(record.totalTokensObserved)}</span>
-            <span className="text-muted-foreground text-xs">Processed</span>
-          </div>
-          <div className="flex flex-col gap-0.5">
-            <span className="font-mono text-sm">{record.generationCount}</span>
-            <span className="text-muted-foreground text-xs">
-              {record.generationCount === 1 ? 'Condensation' : 'Condensations'}
-            </span>
-          </div>
-          <div className="flex flex-col gap-0.5">
-            <span className="font-mono text-sm">
-              {record.lastObservedAt ? timeAgo(record.lastObservedAt) : '—'}
-            </span>
-            <span className="text-muted-foreground text-xs">Last active</span>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
   )
 }
 
@@ -417,73 +398,183 @@ function MemorySection() {
   )
 }
 
-function ObservationsSection() {
-  const { data: config } = useConfig()
+function ShortTermSection() {
+  const { data, isLoading } = useWorkingMemory()
+  const updateMemory = useUpdateWorkingMemory()
+  const [editContent, setEditContent] = useState('')
+  const [editing, setEditing] = useState(false)
+
+  const rawContent = data?.content ?? null
+  const displayContent = rawContent ? parseWorkingMemoryData(rawContent) : null
+
+  function startEditing() {
+    if (displayContent) setEditContent(displayContent)
+    setEditing(true)
+  }
+
+  function cancelEditing() {
+    setEditContent(displayContent ?? '')
+    setEditing(false)
+  }
+
+  function saveEdit() {
+    if (!rawContent) return
+    const updated = replaceWorkingMemoryData(rawContent, editContent.trim())
+    updateMemory.mutate(updated, { onSuccess: () => setEditing(false) })
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Short-term Memory</CardTitle>
+        <CardDescription>
+          Key facts and context, available immediately in every conversation.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <div className="flex items-center gap-2 text-muted-foreground text-sm">
+            <Loader2Icon className="size-4 animate-spin" />
+            Loading...
+          </div>
+        ) : displayContent ? (
+          <div className="flex flex-col gap-4">
+            {editing ? (
+              <>
+                <Textarea
+                  rows={10}
+                  value={editContent}
+                  onChange={(e) => setEditContent(e.target.value)}
+                />
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" onClick={cancelEditing}>
+                    Cancel
+                  </Button>
+                  <Button disabled={updateMemory.isPending} onClick={saveEdit}>
+                    {updateMemory.isPending ? (
+                      <Loader2Icon className="size-4 animate-spin" />
+                    ) : (
+                      'Save'
+                    )}
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="max-h-80 overflow-y-auto rounded-md border bg-muted/50 p-4">
+                  <Streamdown className="[&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+                    {displayContent}
+                  </Streamdown>
+                </div>
+                <Button variant="outline" className="self-end" onClick={startEditing}>
+                  Edit
+                </Button>
+              </>
+            )}
+          </div>
+        ) : (
+          <p className="text-muted-foreground text-sm">
+            Nothing here yet. Key facts will appear as your agent learns more about you.
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+function LongTermSection() {
   const { data: obsData, isLoading } = useObservations()
   const { data: recordData } = useOMRecord()
   const toolNames = useToolNames()
 
-  if (!config?.memory.enabled) return null
-
   const raw = obsData?.observations ?? null
   const record = recordData?.record ?? null
+  const thresholds = recordData?.thresholds ?? null
   const sections = useMemo(
     () => (raw ? parseObservationSections(raw, toolNames) : []),
     [raw, toolNames],
   )
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex items-center justify-between">
-        <div className="flex flex-col gap-1">
-          <h2 className="font-semibold text-lg tracking-tight">Observations</h2>
-          <p className="text-muted-foreground text-sm">
-            What your agent currently remembers. Managed automatically as you chat.
-          </p>
+    <Card>
+      <CardHeader className="flex flex-row items-start justify-between space-y-0">
+        <div className="flex flex-col gap-1.5">
+          <CardTitle>Long-term Memory</CardTitle>
+          <CardDescription>
+            Observations built up over time from your conversations.
+          </CardDescription>
         </div>
-        {record && record.generationCount > 0 && (
-          <span className="text-muted-foreground text-xs">
-            Condensed {record.generationCount} {record.generationCount === 1 ? 'time' : 'times'}
-          </span>
+        <div className="flex items-center gap-2">
+          {record?.isObserving && (
+            <Badge variant="secondary" className="gap-1.5">
+              <Loader2Icon className="size-3 animate-spin" />
+              Processing
+            </Badge>
+          )}
+          {record?.isReflecting && (
+            <Badge variant="secondary" className="gap-1.5">
+              <Loader2Icon className="size-3 animate-spin" />
+              Condensing
+            </Badge>
+          )}
+          {record && !(record.isObserving || record.isReflecting) && (
+            <Badge variant="outline">Idle</Badge>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        {record && thresholds && (
+          <div className="flex flex-col gap-3 rounded-md border bg-muted/50 p-4">
+            <MemoryProgress
+              label="Observation capacity"
+              tokens={record.observationTokenCount}
+              threshold={thresholds.observationTokens}
+              tooltip="Active observation size. Condensed automatically when full."
+            />
+            <div className="flex items-center gap-4 text-xs text-muted-foreground">
+              <span>{formatTokens(record.totalTokensObserved)} processed</span>
+              <span>
+                {record.generationCount}{' '}
+                {record.generationCount === 1 ? 'condensation' : 'condensations'}
+              </span>
+              {record.lastObservedAt && <span>Last active {timeAgo(record.lastObservedAt)}</span>}
+            </div>
+          </div>
         )}
-      </div>
-      {isLoading ? (
-        <Card>
-          <CardContent className="flex items-center gap-2 pt-6 text-muted-foreground text-sm">
+
+        {isLoading ? (
+          <div className="flex items-center gap-2 text-muted-foreground text-sm">
             <Loader2Icon className="size-4 animate-spin" />
             Loading...
-          </CardContent>
-        </Card>
-      ) : sections.length > 0 ? (
-        sections.map((section) => (
-          <Card key={section.title ?? 'summary'}>
-            {section.title && (
-              <CardHeader className="pb-2">
-                <CardDescription>{section.title}</CardDescription>
-              </CardHeader>
-            )}
-            <CardContent className={cn('max-h-64 overflow-y-auto', section.title ? '' : 'pt-6')}>
-              <Streamdown className="[&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
-                {section.content}
-              </Streamdown>
-            </CardContent>
-          </Card>
-        ))
-      ) : (
-        <Card>
-          <CardContent className="pt-6">
-            <p className="text-muted-foreground text-sm">
-              No observations yet. Start chatting and memories will appear here automatically.
-            </p>
-          </CardContent>
-        </Card>
-      )}
-    </div>
+          </div>
+        ) : sections.length > 0 ? (
+          <div className="flex flex-col gap-3">
+            {sections.map((section) => (
+              <div
+                key={section.title ?? 'summary'}
+                className="max-h-64 overflow-y-auto rounded-md border bg-muted/50 p-4"
+              >
+                {section.title && (
+                  <p className="mb-2 text-muted-foreground text-xs">{section.title}</p>
+                )}
+                <Streamdown className="[&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+                  {section.content}
+                </Streamdown>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-muted-foreground text-sm">
+            Nothing here yet. Observations are created once enough conversation has accumulated.
+          </p>
+        )}
+      </CardContent>
+    </Card>
   )
 }
 
 export default function MemoryPage() {
-  const { isLoading, error } = useConfig()
+  const { data: config, isLoading, error } = useConfig()
 
   if (isLoading) {
     return (
@@ -505,8 +596,12 @@ export default function MemoryPage() {
     <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 p-6">
       <h1 className="font-semibold text-2xl">Memory</h1>
       <MemorySection />
-      <MonitoringSection />
-      <ObservationsSection />
+      {config?.memory.enabled && (
+        <>
+          <ShortTermSection />
+          <LongTermSection />
+        </>
+      )}
     </div>
   )
 }

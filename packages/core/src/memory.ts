@@ -1,26 +1,28 @@
 import { Memory } from '@mastra/memory'
-import type { Config } from './config'
+import { type Config, DEFAULT_WORKING_MEMORY_TEMPLATE } from './config'
 import { getLogger } from './logger'
+
+const workingMemoryConfig = { enabled: true, template: DEFAULT_WORKING_MEMORY_TEMPLATE } as const
 
 /**
  * Create a Memory instance configured from Pandora config.
  *
- * When memory is enabled, uses Observational Memory with resource scope
- * for cross-thread persistent memory. The Observer/Reflector model defaults
- * to the operator's model unless explicitly overridden in config.
+ * When memory is enabled, uses both Observational Memory (resource scope)
+ * and Working Memory for cross-thread persistent context. The Observer/Reflector
+ * model defaults to the operator's model unless explicitly overridden in config.
  */
 export function createMemory(config: Config) {
   const log = getLogger()
 
   if (!config.memory.enabled) {
-    log.debug('Memory: observational memory disabled')
+    log.debug('Memory: disabled')
     return new Memory({ options: { generateTitle: true } })
   }
 
   const model =
     config.memory.model ?? `${config.models.operator.provider}/${config.models.operator.model}`
 
-  log.debug('Memory: observational memory enabled', { model, scope: 'resource' })
+  log.debug('Memory: enabled', { model, scope: 'resource' })
 
   return new Memory({
     options: {
@@ -29,6 +31,7 @@ export function createMemory(config: Config) {
         model,
         scope: 'resource',
       },
+      workingMemory: workingMemoryConfig,
     },
   })
 }

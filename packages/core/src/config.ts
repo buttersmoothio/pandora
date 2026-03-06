@@ -104,6 +104,18 @@ You're the friend who somehow has their life together — sharp, organized, alwa
 That friend who'll proofread your resignation letter at midnight, roast your dating profile, and remind you about the thing you forgot — all in the same conversation.`
 
 /**
+ * Default working memory template.
+ */
+export const DEFAULT_WORKING_MEMORY_TEMPLATE = `Track the user's current state. Keep this small and focused on what's needed right now.
+
+Include:
+- Identity: name, role, key preferences
+- Active tasks: what they're currently working on and immediate next steps
+- Current context: decisions made this session, open questions, blockers
+
+Drop facts that are no longer immediately relevant — they're preserved in long-term memory automatically.`
+
+/**
  * Create the ConfigSchema with plugin schemas from the registry.
  */
 function createConfigSchema(registry?: PluginRegistry) {

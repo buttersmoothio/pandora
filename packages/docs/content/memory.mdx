@@ -4,13 +4,17 @@ Pandora's memory is configured on the **Memory** page in the web UI. After chang
 
 ## How It Works
 
-When memory is enabled, Pandora automatically watches your conversations and builds up observations — concise notes about what happened, what you discussed, and what matters. These observations persist across all threads, so context from one conversation is available in every other.
+When memory is enabled, Pandora uses two complementary systems:
 
-As conversations grow, older message history is compressed into observations. When observations themselves grow large enough, they're further condensed through reflection. The result is a three-tier system:
+- **Working memory** — a persistent scratchpad of important facts about you and your context. Available immediately from the first message in any thread, so your agent always has baseline context.
+- **Observational memory** — background agents watch your conversations and build up observations (concise notes about what happened, what you discussed, and what matters). These observations persist across all threads.
 
-1. **Recent messages** — exact conversation history for the current exchange
-2. **Observations** — compressed notes from past conversations
-3. **Reflections** — condensed observations when memory grows very long
+As conversations grow, older message history is compressed into observations. When observations themselves grow large enough, they're further condensed through reflection. The result is a multi-tier system:
+
+1. **Working memory** — key facts, available instantly in every thread
+2. **Recent messages** — exact conversation history for the current exchange
+3. **Observations** — compressed notes from past conversations
+4. **Reflections** — condensed observations when memory grows very long
 
 This happens in the background — you don't need to do anything. Pandora decides what to remember automatically.
 
@@ -28,11 +32,15 @@ A fast model with a large context window works best for memory processing, since
 
 The **Memory** page includes a **Status** card that shows memory activity:
 
-- **Progress bars** — two bars show how much conversation is waiting to be remembered and how full the current memories are. When the first bar fills, Pandora processes new conversations into observations. When the second bar fills, existing observations are condensed.
+- **Observation capacity** — shows how full the current observations are. When the bar fills, existing observations are condensed automatically.
 - **Activity indicator** — shows whether Pandora is currently processing memories or idle.
 - **Stats** — how much has been processed overall, how many times memories have been condensed, and when the last processing happened.
 
 Status updates automatically every few seconds.
+
+## Working Memory
+
+The **Memory** page shows the current working memory — key facts your agent has noted. Pandora manages this automatically, but you can also edit it directly to correct or add information.
 
 ## Viewing Observations
 

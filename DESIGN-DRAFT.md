@@ -135,33 +135,7 @@ async function(input) {
 
 ---
 
-## 4. Working Memory
-
-Per-resource persistent preferences and context. Preferences set via Telegram are available in web chat.
-
-Mastra Memory supports `workingMemory: { enabled: true }` — structured data that persists across conversations for a given resource (user).
-
-### What's Needed
-
-- Verify Mastra's current working memory API
-- Config schema: add `memory.workingMemory: { enabled: boolean }` (or similar)
-- Wire through in `packages/core/src/memory/index.ts` when creating the Memory instance
-
----
-
-## 5. Observational Memory
-
-Background compression of conversation history for 60-80% context reduction.
-
-### What's Needed
-
-- Investigate whether Mastra Memory currently supports observational/compression features
-- If supported: expose in config and wire through
-- If not: evaluate alternatives or defer
-
----
-
-## 6. Dockerfile
+## 4. Dockerfile
 
 Docker containerization for self-hosted deployment.
 
@@ -174,7 +148,7 @@ Docker containerization for self-hosted deployment.
 
 ---
 
-## 7. Environment Status Page
+## 5. Environment Status Page
 
 A unified view of the deployment environment. Low priority — health endpoint + discovery endpoints already cover most of this per-plugin.
 
