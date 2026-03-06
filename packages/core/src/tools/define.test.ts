@@ -15,6 +15,7 @@ function makeTestTool(overrides?: Partial<Tool>): Tool {
       type: 'object',
       properties: { value: { type: 'string' } },
     },
+    annotations: { readOnlyHint: true },
     execute: async (input) => ({ echo: (input as { value: string }).value }),
     ...overrides,
   }
@@ -69,10 +70,10 @@ describe('bindTool', () => {
     expect(tool.mcp?.annotations).toEqual(annotations)
   })
 
-  it('omits mcp when no annotations', () => {
+  it('always sets mcp annotations', () => {
     const def = makeTestTool()
     const tool = bindTool(def, defaultEnv, defaultConfig, `test-plugin:${def.id}`)
-    expect(tool.mcp).toBeUndefined()
+    expect(tool.mcp?.annotations).toEqual({ readOnlyHint: true })
   })
 
   it('rejects with timeout error when execute exceeds timeout', async () => {
@@ -117,7 +118,7 @@ describe('buildManifest', () => {
       description: 'A test tool',
       permissions: undefined,
       sandbox: 'compartment',
-      annotations: undefined,
+      annotations: { readOnlyHint: true },
       timeout: DEFAULT_TOOL_TIMEOUT,
     })
   })

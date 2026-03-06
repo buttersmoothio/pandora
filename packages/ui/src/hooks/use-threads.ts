@@ -63,7 +63,6 @@ export function useDeleteThread() {
     onSuccess: (_data, threadId) => {
       queryClient.invalidateQueries({ queryKey: THREADS_KEY })
       queryClient.removeQueries({ queryKey: ['thread', threadId] })
-      toast.success('Thread deleted')
     },
     onError: (err: Error) => {
       toast.error(`Failed to delete thread: ${err.message}`)

@@ -179,4 +179,84 @@ describe('Schedule routes', () => {
       expect(res.status).toBe(400)
     })
   })
+
+  describe('Heartbeat routes', () => {
+    describe('GET /api/schedule/heartbeat', () => {
+      it('returns default heartbeat config', async () => {
+        const res = await authRequest('/api/schedule/heartbeat')
+        expect(res.status).toBe(200)
+
+        const body = (await res.json()) as {
+          enabled: boolean
+          cron: string
+          tasks: unknown[]
+          nextRun: string | null
+          isRunning: boolean
+        }
+        expect(body.enabled).toBe(false)
+        expect(body.cron).toBe('*/30 * * * *')
+        expect(body.tasks).toEqual([])
+        expect(body.isRunning).toBe(false)
+      })
+    })
+
+    describe('PATCH /api/schedule/heartbeat', () => {
+      it('updates heartbeat config', async () => {
+        const res = await authRequest('/api/schedule/heartbeat', {
+          method: 'PATCH',
+          body: JSON.stringify({
+            enabled: true,
+            cron: '*/15 * * * *',
+            tasks: [{ id: crypto.randomUUID(), description: 'Check email', enabled: true }],
+          }),
+        })
+        expect(res.status).toBe(200)
+
+        const body = (await res.json()) as { enabled: boolean; cron: string; tasks: unknown[] }
+        expect(body.enabled).toBe(true)
+        expect(body.cron).toBe('*/15 * * * *')
+        expect(body.tasks).toHaveLength(1)
+      })
+
+      it('sets and clears active hours', async () => {
+        // Set
+        const setRes = await authRequest('/api/schedule/heartbeat', {
+          method: 'PATCH',
+          body: JSON.stringify({
+            activeHours: { start: '08:00', end: '22:00' },
+          }),
+        })
+        expect(setRes.status).toBe(200)
+        const setBody = (await setRes.json()) as { activeHours?: { start: string; end: string } }
+        expect(setBody.activeHours).toEqual({ start: '08:00', end: '22:00' })
+
+        // Clear
+        const clearRes = await authRequest('/api/schedule/heartbeat', {
+          method: 'PATCH',
+          body: JSON.stringify({ activeHours: null }),
+        })
+        expect(clearRes.status).toBe(200)
+        const clearBody = (await clearRes.json()) as { activeHours?: unknown }
+        expect(clearBody.activeHours).toBeUndefined()
+      })
+
+      it('sets and clears destination', async () => {
+        const setRes = await authRequest('/api/schedule/heartbeat', {
+          method: 'PATCH',
+          body: JSON.stringify({ destination: 'Web Inbox' }),
+        })
+        expect(setRes.status).toBe(200)
+        const setBody = (await setRes.json()) as { destination?: string }
+        expect(setBody.destination).toBe('Web Inbox')
+
+        const clearRes = await authRequest('/api/schedule/heartbeat', {
+          method: 'PATCH',
+          body: JSON.stringify({ destination: null }),
+        })
+        expect(clearRes.status).toBe(200)
+        const clearBody = (await clearRes.json()) as { destination?: string }
+        expect(clearBody.destination).toBeUndefined()
+      })
+    })
+  })
 })

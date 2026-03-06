@@ -1,8 +1,9 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
 import type { ScheduledTask } from '../config'
-import { applyTaskPatch, updateConfig } from '../config'
+import { applyTaskPatch, HeartbeatCheckSchema, updateConfig } from '../config'
 import { getLogger } from '../logger'
+import { HEARTBEAT_TASK_ID } from '../scheduler/heartbeat'
 import type { Env } from './helpers'
 
 const CreateTaskSchema = z
@@ -55,6 +56,75 @@ scheduleRoutes.get('/', (c) => {
   return c.json({ enabled: runtime.config.schedule.enabled, tasks })
 })
 
+// -- Heartbeat --
+
+const HeartbeatUpdateSchema = z.object({
+  enabled: z.boolean().optional(),
+  cron: z.string().min(1).optional(),
+  tasks: z.array(HeartbeatCheckSchema).optional(),
+  destination: z.string().optional().nullable(),
+  activeHours: z
+    .object({
+      start: z.string().regex(/^\d{2}:\d{2}$/),
+      end: z.string().regex(/^\d{2}:\d{2}$/),
+    })
+    .optional()
+    .nullable(),
+})
+
+scheduleRoutes.get('/heartbeat', (c) => {
+  const runtime = c.var.runtime
+  const heartbeat = runtime.config.schedule.heartbeat
+  return c.json({
+    ...heartbeat,
+    nextRun: heartbeat.enabled
+      ? (runtime.scheduler.nextRun(HEARTBEAT_TASK_ID)?.toISOString() ?? null)
+      : null,
+    isRunning: runtime.scheduler.isRunning(HEARTBEAT_TASK_ID),
+  })
+})
+
+scheduleRoutes.patch('/heartbeat', async (c) => {
+  const log = getLogger()
+  try {
+    const body = await c.req.json()
+    const patch = HeartbeatUpdateSchema.parse(body)
+    const runtime = c.var.runtime
+
+    const current = runtime.config.schedule.heartbeat
+    // Build a patch object where `null` values signal deletion to deepMerge
+    // biome-ignore lint/suspicious/noExplicitAny: null signals deletion in deepMerge
+    const heartbeatPatch: Record<string, any> = { ...current }
+
+    if (patch.enabled !== undefined) heartbeatPatch.enabled = patch.enabled
+    if (patch.cron !== undefined) heartbeatPatch.cron = patch.cron
+    if (patch.tasks !== undefined) heartbeatPatch.tasks = patch.tasks
+    if (patch.destination === null) heartbeatPatch.destination = null
+    else if (patch.destination !== undefined) heartbeatPatch.destination = patch.destination
+    if (patch.activeHours === null) heartbeatPatch.activeHours = null
+    else if (patch.activeHours !== undefined) heartbeatPatch.activeHours = patch.activeHours
+
+    const config = await updateConfig(
+      runtime.storage.config,
+      // biome-ignore lint/suspicious/noExplicitAny: heartbeatPatch uses null for deepMerge deletion
+      { schedule: { ...runtime.config.schedule, heartbeat: heartbeatPatch } } as any,
+      runtime.registry,
+    )
+    runtime.config = config
+    runtime.syncSchedule()
+
+    return c.json(config.schedule.heartbeat)
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      const messages = err.issues.map((i) => `${i.path.join('.')}: ${i.message}`)
+      return c.json({ error: messages.join(', ') }, 400)
+    }
+    const message = err instanceof Error ? err.message : 'Unknown error'
+    log.error('Heartbeat update failed', { error: message })
+    return c.json({ error: message }, 500)
+  }
+})
+
 // Get single task
 scheduleRoutes.get('/:id', (c) => {
   const runtime = c.var.runtime
@@ -81,7 +151,7 @@ scheduleRoutes.post('/', async (c) => {
 
     const config = await updateConfig(
       runtime.storage.config,
-      { schedule: { enabled: runtime.config.schedule.enabled, tasks } },
+      { schedule: { ...runtime.config.schedule, tasks } },
       runtime.registry,
     )
     runtime.config = config
@@ -119,7 +189,7 @@ scheduleRoutes.patch('/:id', async (c) => {
 
     const config = await updateConfig(
       runtime.storage.config,
-      { schedule: { enabled: runtime.config.schedule.enabled, tasks } },
+      { schedule: { ...runtime.config.schedule, tasks } },
       runtime.registry,
     )
     runtime.config = config
@@ -150,7 +220,7 @@ scheduleRoutes.delete('/:id', async (c) => {
 
     const config = await updateConfig(
       runtime.storage.config,
-      { schedule: { enabled: runtime.config.schedule.enabled, tasks } },
+      { schedule: { ...runtime.config.schedule, tasks } },
       runtime.registry,
     )
     runtime.config = config

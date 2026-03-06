@@ -29,6 +29,32 @@ const ScheduledTaskSchema = z.object({
 export type ScheduledTask = z.infer<typeof ScheduledTaskSchema>
 export { ScheduledTaskSchema }
 
+/**
+ * Heartbeat configuration
+ */
+const ActiveHoursSchema = z.object({
+  start: z.string().regex(/^\d{2}:\d{2}$/, 'Must be HH:mm format'),
+  end: z.string().regex(/^\d{2}:\d{2}$/, 'Must be HH:mm format'),
+})
+
+const HeartbeatCheckSchema = z.object({
+  id: z.uuid(),
+  description: z.string().min(1, 'Description is required'),
+  enabled: z.boolean().default(true),
+})
+
+const HeartbeatConfigSchema = z.object({
+  enabled: z.boolean(),
+  cron: z.string().min(1).default('*/30 * * * *'),
+  tasks: z.array(HeartbeatCheckSchema).default([]),
+  destination: z.string().optional(),
+  activeHours: ActiveHoursSchema.optional(),
+})
+
+export type HeartbeatCheck = z.infer<typeof HeartbeatCheckSchema>
+export type HeartbeatConfig = z.infer<typeof HeartbeatConfigSchema>
+export { HeartbeatCheckSchema, HeartbeatConfigSchema }
+
 /** Optional fields that can be cleared with `null`. */
 type ClearableTaskFields = 'maxRuns' | 'cron' | 'runAt' | 'destination'
 
@@ -201,8 +227,17 @@ function createConfigSchema(registry?: PluginRegistry) {
       .object({
         enabled: z.boolean(),
         tasks: z.array(ScheduledTaskSchema),
+        heartbeat: HeartbeatConfigSchema.default(() => ({
+          enabled: false,
+          cron: '*/30 * * * *',
+          tasks: [],
+        })),
       })
-      .default(() => ({ enabled: true, tasks: [] })),
+      .default(() => ({
+        enabled: true,
+        tasks: [],
+        heartbeat: { enabled: false, cron: '*/30 * * * *', tasks: [] },
+      })),
 
     /** Whether the first-run onboarding wizard has been completed */
     onboardingComplete: z.boolean().default(false),

@@ -531,7 +531,7 @@ function LongTermSection() {
               threshold={thresholds.observationTokens}
               tooltip="Active observation size. Condensed automatically when full."
             />
-            <div className="flex items-center gap-4 text-xs text-muted-foreground">
+            <div className="flex items-center gap-4 text-muted-foreground text-xs">
               <span>{formatTokens(record.totalTokensObserved)} processed</span>
               <span>
                 {record.generationCount}{' '}

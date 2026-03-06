@@ -17,6 +17,7 @@ const exaSearch: Tool<ExaSearchInput, SearchResult[]> = {
   id: 'exa_search',
   name: 'Exa Search',
   description: 'Search the web using Exa for current information, news, and facts.',
+  annotations: { readOnlyHint: true },
   parameters: {
     type: 'object',
     properties: {

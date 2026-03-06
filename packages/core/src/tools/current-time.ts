@@ -5,6 +5,7 @@ export function createCurrentTimeTool(timezone: string) {
   return createTool({
     id: 'current_time',
     description: 'Get the current date and time',
+    mcp: { annotations: { readOnlyHint: true } },
     inputSchema: z.object({}),
     execute: async () => {
       const now = new Date()

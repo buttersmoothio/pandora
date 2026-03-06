@@ -18,6 +18,7 @@ const braveSearch: Tool<BraveSearchInput, SearchResult[]> = {
   id: 'brave_search',
   name: 'Brave Search',
   description: 'Search the web using Brave Search for current information, news, and facts.',
+  annotations: { readOnlyHint: true },
   parameters: {
     type: 'object',
     properties: {

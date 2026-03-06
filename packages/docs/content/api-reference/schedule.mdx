@@ -103,6 +103,59 @@ Returns available notification destinations:
 
 Always includes `"Web Inbox"`. Channel destinations appear when a channel plugin with notification support is enabled.
 
+## Heartbeat
+
+### Get Heartbeat
+
+```
+GET /api/schedule/heartbeat
+Authorization: Bearer <token>
+```
+
+Returns the heartbeat configuration and runtime status.
+
+```json
+{
+  "enabled": false,
+  "cron": "*/30 * * * *",
+  "tasks": [
+    { "id": "a1b2c3d4-...", "description": "Check inbox for urgent emails", "enabled": true }
+  ],
+  "destination": "Telegram",
+  "activeHours": { "start": "08:00", "end": "22:00" },
+  "nextRun": "2026-03-05T08:30:00.000Z",
+  "isRunning": false
+}
+```
+
+### Update Heartbeat
+
+```
+PATCH /api/schedule/heartbeat
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "enabled": true,
+  "cron": "*/15 * * * *",
+  "tasks": [
+    { "id": "a1b2c3d4-...", "description": "Check inbox for urgent emails", "enabled": true }
+  ]
+}
+```
+
+Accepts a partial heartbeat config. Set optional fields to `null` to clear them (e.g., `"activeHours": null`).
+
+| Field | Type | Description |
+|---|---|---|
+| `enabled` | `boolean` | Whether heartbeat is active |
+| `cron` | `string` | Interval as a cron expression (default: `*/30 * * * *`) |
+| `tasks` | `array` | Checklist items. Each has `id` (UUID), `description` (string), and `enabled` (boolean). |
+| `destination` | `string \| null` | Where to send alerts. One of the values from `/api/schedule/destinations`. |
+| `activeHours` | `object \| null` | Optional. `{ "start": "HH:mm", "end": "HH:mm" }`. Restricts heartbeat to a time window. |
+| `nextRun` | `string \| null` | Read-only. Next scheduled heartbeat time (ISO 8601). |
+| `isRunning` | `boolean` | Read-only. Whether a heartbeat run is in progress. |
+
 ## Task Schema
 
 | Field | Type | Required | Description |

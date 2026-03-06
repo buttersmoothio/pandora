@@ -27,6 +27,35 @@ If no destination is set, the task runs quietly and the conversation is availabl
 
 Available destinations always include **Web Inbox**. Other destinations appear when a channel plugin with notification support (like Telegram) is enabled.
 
+## Heartbeat
+
+The heartbeat is a special periodic check that runs on a configurable interval (default: every 30 minutes). Instead of executing a single prompt like a regular task, the heartbeat evaluates a **checklist** of items and only notifies you when something needs attention.
+
+### When to use heartbeat vs a regular task
+
+| Use case | Recommended |
+|---|---|
+| Check inbox, calendar, and notifications together | Heartbeat |
+| Send a daily report at 9 AM sharp | Regular task |
+| Monitor for urgent messages | Heartbeat |
+| Run a weekly deep analysis | Regular task |
+| Remind me in 20 minutes | Regular one-time task |
+
+### Configuration
+
+On the **Schedules** page, the Heartbeat card lets you configure:
+
+- **Interval** — cron expression controlling how often the heartbeat runs.
+- **Checklist** — a structured list of things to check each run. Each item can be individually toggled on or off.
+- **Notify Via** — where to send alerts when something needs attention.
+- **Active Hours** — optional time window to restrict heartbeats (e.g. 8 AM to 10 PM). Outside this window, heartbeats are silently skipped.
+
+### How it works
+
+Each heartbeat run creates a fresh conversation thread. The agent evaluates each enabled checklist item using its available tools. If something needs attention, it sends a notification via the configured destination. If nothing is urgent, it does nothing — no message, no noise.
+
+Heartbeat threads appear in the sidebar with a pulse icon, making them easy to distinguish from regular conversations and scheduled task threads.
+
 ## Pausing
 
 Individual tasks can be toggled on and off. There's also a master toggle on the Schedules page that pauses all scheduled tasks at once.

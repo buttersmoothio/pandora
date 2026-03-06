@@ -15,6 +15,7 @@ const perplexitySearch: Tool<PerplexitySearchInput, PerplexitySearchResult> = {
   id: 'perplexity_search',
   name: 'Perplexity Search',
   description: 'Search the web using Perplexity Sonar for current information, news, and facts.',
+  annotations: { readOnlyHint: true },
   parameters: {
     type: 'object',
     properties: {

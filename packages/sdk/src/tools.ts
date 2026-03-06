@@ -39,7 +39,7 @@ export interface ToolAnnotations {
   /** Display title for the tool in UI. */
   title?: string
   /** Tool does not modify state (safe to run without confirmation). */
-  readOnlyHint?: boolean
+  readOnlyHint: boolean
   /** Tool may perform destructive/irreversible operations. */
   destructiveHint?: boolean
   /** Calling with same args produces no additional effect. */
@@ -59,7 +59,7 @@ export interface ToolManifest {
   /** Where this tool's code executes. */
   sandbox: SandboxMode
   /** MCP-compatible annotations for UI hints. */
-  annotations?: ToolAnnotations
+  annotations: ToolAnnotations
   /** Execution timeout in milliseconds. */
   timeout: number
 }
@@ -72,7 +72,7 @@ export interface Tool<TIn = unknown, TOut = unknown> {
   /** JSON Schema for input validation. */
   parameters?: Record<string, unknown>
   /** MCP-compatible annotations. */
-  annotations?: ToolAnnotations
+  annotations: ToolAnnotations
   /** Execution timeout in ms. */
   timeout?: number
   /** Sandbox mode override. */

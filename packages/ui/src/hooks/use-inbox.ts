@@ -59,7 +59,6 @@ export function useArchiveInboxMessage() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: INBOX_KEY })
-      toast.success('Message archived')
     },
     onError: (err: Error) => {
       toast.error(`Failed to archive message: ${err.message}`)
@@ -78,7 +77,6 @@ export function useUnarchiveInboxMessage() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: INBOX_KEY })
-      toast.success('Message restored')
     },
     onError: (err: Error) => {
       toast.error(`Failed to restore message: ${err.message}`)
@@ -96,7 +94,6 @@ export function useDeleteInboxMessage() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: INBOX_KEY })
-      toast.success('Message deleted')
     },
     onError: (err: Error) => {
       toast.error(`Failed to delete message: ${err.message}`)

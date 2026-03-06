@@ -27,7 +27,11 @@ webhookRoutes.all('/:encodedKey', async (c) => {
       return c.json({ error: 'Unauthorized' }, 401)
     }
 
-    const { channel } = createGateways({ mastra: runtime.mastra, env: c.var.envVars })
+    const { channel } = createGateways({
+      mastra: runtime.mastra,
+      env: c.var.envVars,
+      interactiveTools: runtime.interactiveTools,
+    })
     const response = adapter.webhook.handle(c.req.raw, channel(nsKey))
 
     return response

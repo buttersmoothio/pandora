@@ -53,6 +53,6 @@ export function bindTool(
         ),
       ])
     },
-    ...(def.annotations && { mcp: { annotations: def.annotations } }),
+    mcp: { annotations: def.annotations },
   })
 }

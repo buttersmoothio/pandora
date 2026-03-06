@@ -16,6 +16,7 @@ function makeToolPlugin(overrides?: Partial<RegisteredPlugin>): RegisteredPlugin
           id: 'greet',
           name: 'Greet',
           description: 'Greet someone',
+          annotations: { readOnlyHint: true },
           execute: async () => ({ hello: 'world' }),
         },
       ],
@@ -63,6 +64,7 @@ describe('loadTools', () => {
                 id: 'dynamic-tool',
                 name: 'Dynamic',
                 description: 'Dynamically resolved',
+                annotations: { readOnlyHint: true },
                 execute: async () => ({}),
               },
             ],
@@ -139,6 +141,7 @@ describe('loadTools', () => {
               id: 'greet',
               name: 'Greet',
               description: 'Greet someone',
+              annotations: { readOnlyHint: true },
               execute: async () => ({ hello: 'world' }),
             },
           ],
@@ -175,7 +178,15 @@ describe('loadTools', () => {
       makeToolPlugin({
         id: 'plugin-a',
         tools: {
-          entries: [{ id: 'tool-a', name: 'Tool A', description: 'A', execute: async () => ({}) }],
+          entries: [
+            {
+              id: 'tool-a',
+              name: 'Tool A',
+              description: 'A',
+              annotations: { readOnlyHint: true },
+              execute: async () => ({}),
+            },
+          ],
           manifests: new Map(),
         },
       }),
@@ -185,7 +196,15 @@ describe('loadTools', () => {
       makeToolPlugin({
         id: 'plugin-b',
         tools: {
-          entries: [{ id: 'tool-b', name: 'Tool B', description: 'B', execute: async () => ({}) }],
+          entries: [
+            {
+              id: 'tool-b',
+              name: 'Tool B',
+              description: 'B',
+              annotations: { readOnlyHint: true },
+              execute: async () => ({}),
+            },
+          ],
           manifests: new Map(),
         },
       }),

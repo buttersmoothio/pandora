@@ -7,11 +7,18 @@ import { getLogger } from '../logger'
 import { createMemory } from '../memory'
 import type { Scheduler } from '../scheduler'
 import { createScheduler } from '../scheduler'
+import {
+  buildHeartbeatPrompt,
+  createHeartbeatTask,
+  HEARTBEAT_TASK_ID,
+  isWithinActiveHours,
+} from '../scheduler/heartbeat'
 import { createScheduleTools } from '../scheduler/tools'
 import type { StorageResult } from '../storage'
 import { createStorage } from '../storage'
 import { createCurrentTimeTool } from '../tools/current-time'
-import type { WebGateway } from './gateways'
+import type { ToolRecord } from '../tools/types'
+import type { InteractiveTools, WebGateway } from './gateways'
 import { createGateways } from './gateways'
 import { loadAgents } from './load-agents'
 import { loadChannels } from './load-channels'
@@ -32,6 +39,7 @@ export interface PandoraRuntime {
   mastra: Mastra
   channels: Map<string, Channel>
   channelNames: Map<string, string>
+  interactiveTools: InteractiveTools
   scheduler: Scheduler
 
   syncSchedule(): void
@@ -60,13 +68,14 @@ export async function createRuntime(
   // 4. Scheduler
   const taskHandler = createTaskHandler(runtimeRef, env)
   const onComplete = async (taskId: string) => {
+    if (taskId === HEARTBEAT_TASK_ID) return
     log.info('[scheduler] task completed, removing from schedule', { taskId })
     const rt = runtimeRef.current
     if (!rt) return
     const tasks = rt.config.schedule.tasks.filter((t) => t.id !== taskId)
     const updated = await updateConfig(
       storage.config,
-      { schedule: { enabled: rt.config.schedule.enabled, tasks } },
+      { schedule: { ...rt.config.schedule, tasks } },
       registry,
     )
     rt.config = updated
@@ -81,6 +90,7 @@ export async function createRuntime(
     mastra: state.mastra,
     channels: state.channels,
     channelNames: state.channelNames,
+    interactiveTools: state.interactiveTools,
     web: state.web,
     scheduler,
 
@@ -92,7 +102,11 @@ export async function createRuntime(
 
     syncSchedule() {
       if (runtime.config.schedule.enabled) {
-        runtime.scheduler.sync(runtime.config.schedule.tasks, runtime.config.timezone)
+        const tasks = [...runtime.config.schedule.tasks]
+        if (runtime.config.schedule.heartbeat.enabled) {
+          tasks.push(createHeartbeatTask(runtime.config.schedule.heartbeat))
+        }
+        runtime.scheduler.sync(tasks, runtime.config.timezone)
       } else {
         runtime.scheduler.stop()
       }
@@ -111,6 +125,7 @@ export async function createRuntime(
       runtime.mastra = fresh.mastra
       runtime.channels = fresh.channels
       runtime.channelNames = fresh.channelNames
+      runtime.interactiveTools = fresh.interactiveTools
       runtime.web = fresh.web
 
       // Sync schedule after reload
@@ -171,21 +186,26 @@ async function buildState(
         destinations,
       })
     : {}
-  const tools = { ...builtinTools, ...pluginTools, ...scheduleTools }
-  log.info('[runtime] loaded tools', { toolIds: Object.keys(tools) })
+  const allTools = { ...builtinTools, ...pluginTools, ...scheduleTools }
+  const backgroundTools = getBackgroundTools(allTools)
+  const interactiveTools: InteractiveTools = {}
+  for (const [key, tool] of Object.entries(allTools)) {
+    if (!(key in backgroundTools)) interactiveTools[key] = tool
+  }
+  log.info('[runtime] loaded tools', { toolIds: Object.keys(allTools) })
 
   // 5. Memory
   const memory = createMemory(config)
 
   // 6. Subagents
-  const subagents = await loadAgents(registry, config, memory, env, tools)
+  const subagents = await loadAgents(registry, config, memory, env, allTools)
   if (Object.keys(subagents).length > 0) {
     log.info('[runtime] loaded subagents', { agentIds: Object.keys(subagents) })
   }
 
-  // 7. Operator agent
+  // 7. Operator agent (background-only tools; interactive tools added via toolsets)
   const { createOperator } = await import('../agents/operator')
-  const operator = createOperator(config, tools, memory, subagents)
+  const operator = createOperator(config, backgroundTools, memory, subagents)
 
   // 8. Mastra instance
   const { Mastra } = await import('@mastra/core')
@@ -197,9 +217,9 @@ async function buildState(
   })
 
   // 9. Gateways
-  const { web } = createGateways({ mastra, env })
+  const { web } = createGateways({ mastra, env, interactiveTools })
 
-  return { config, mastra, channels, channelNames, web }
+  return { config, mastra, channels, channelNames, interactiveTools, web }
 }
 
 function createTaskHandler(
@@ -213,6 +233,47 @@ function createTaskHandler(
       log.error('[scheduler] runtime not available for task', { taskId: task.id })
       return
     }
+
+    // Heartbeat: special handling
+    if (task.id === HEARTBEAT_TASK_ID) {
+      const heartbeat = runtime.config.schedule.heartbeat
+      if (!isWithinActiveHours(heartbeat.activeHours, runtime.config.timezone)) {
+        log.info('[scheduler] heartbeat skipped — outside active hours')
+        return
+      }
+      const prompt = buildHeartbeatPrompt(heartbeat.tasks)
+      if (!prompt) {
+        log.info('[scheduler] heartbeat skipped — no enabled checks')
+        return
+      }
+      const threadId = `heartbeat-${crypto.randomUUID()}`
+      const agent = runtime.mastra.getAgent('operator')
+      const sendToTools = createSendToTools({
+        inboxStore: runtime.storage.inbox,
+        threadId,
+        channels: runtime.channels,
+        channelNames: runtime.channelNames,
+        destination: heartbeat.destination,
+      })
+      log.info('[scheduler] executing heartbeat')
+      await agent.generate(
+        [{ id: crypto.randomUUID(), role: 'user', parts: [{ type: 'text', text: prompt }] }],
+        {
+          memory: {
+            thread: {
+              id: threadId,
+              metadata: { root: true, source: 'heartbeat' },
+            },
+            resource: 'default',
+          },
+          toolsets: { notifications: sendToTools },
+        },
+      )
+      log.info('[scheduler] heartbeat complete')
+      return
+    }
+
+    // Regular scheduled task
     const threadId = `schedule-${task.id}`
     const agent = runtime.mastra.getAgent('operator')
     const sendToTools = createSendToTools({
@@ -242,9 +303,26 @@ function createTaskHandler(
   }
 }
 
+/** Filter tools to only read-only, non-approval tools for background execution. */
+function getBackgroundTools(tools: ToolRecord): ToolRecord {
+  const result: ToolRecord = {}
+  for (const [key, tool] of Object.entries(tools)) {
+    // biome-ignore lint/suspicious/noExplicitAny: tool shape varies across Mastra/AI SDK types
+    const t = tool as any
+    if (t.requireApproval) continue
+    if (!t.mcp?.annotations?.readOnlyHint) continue
+    result[key] = tool
+  }
+  return result
+}
+
 async function startRealtimeChannels(runtime: PandoraRuntime): Promise<void> {
   const log = getLogger()
-  const { channel } = createGateways({ mastra: runtime.mastra, env: {} })
+  const { channel } = createGateways({
+    mastra: runtime.mastra,
+    env: {},
+    interactiveTools: runtime.interactiveTools,
+  })
 
   for (const [nsKey, adapter] of runtime.channels) {
     if (!adapter.realtime) continue

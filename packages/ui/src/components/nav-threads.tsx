@@ -1,6 +1,12 @@
 'use client'
 
-import { ClockIcon, MessageSquareIcon, MoreHorizontalIcon, TrashIcon } from 'lucide-react'
+import {
+  ClockIcon,
+  HeartPulseIcon,
+  MessageSquareIcon,
+  MoreHorizontalIcon,
+  TrashIcon,
+} from 'lucide-react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useState } from 'react'
@@ -31,6 +37,11 @@ import {
   SidebarMenuItem,
 } from '@/components/ui/sidebar'
 import { useDeleteThread, useThreads } from '@/hooks/use-threads'
+
+const SOURCE_ICONS: Record<string, typeof MessageSquareIcon> = {
+  heartbeat: HeartPulseIcon,
+  schedule: ClockIcon,
+}
 
 export function NavThreads() {
   const { data } = useThreads()
@@ -65,10 +76,12 @@ export function NavThreads() {
                         <span className="absolute size-2.5 animate-ping rounded-full bg-blue-400 opacity-75" />
                         <span className="size-2 rounded-full bg-blue-500" />
                       </span>
-                    ) : thread.metadata?.source === 'schedule' ? (
-                      <ClockIcon />
                     ) : (
-                      <MessageSquareIcon />
+                      (() => {
+                        const Icon =
+                          SOURCE_ICONS[thread.metadata?.source as string] ?? MessageSquareIcon
+                        return <Icon />
+                      })()
                     )}
                     <span>{thread.title || 'Untitled'}</span>
                   </Link>

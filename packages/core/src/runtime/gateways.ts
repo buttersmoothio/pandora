@@ -23,6 +23,7 @@ import type {
   Usage,
 } from '@pandorakit/sdk/channels'
 import { getLogger } from '../logger'
+import type { ToolRecord } from '../tools/types'
 
 const RESOURCE_ID = 'default'
 
@@ -180,9 +181,12 @@ export interface WebGateway {
 
 // -- Channel Gateway --
 
+export type InteractiveTools = ToolRecord
+
 interface GatewayDeps {
   mastra: Mastra
   env: Record<string, string | undefined>
+  interactiveTools?: InteractiveTools
 }
 
 interface PendingThread {
@@ -194,7 +198,11 @@ export function createGateways(deps: GatewayDeps): {
   channel: (channelId?: string) => ChannelGateway
   web: WebGateway
 } {
-  const { mastra, env } = deps
+  const { mastra, env, interactiveTools } = deps
+  const interactiveToolset: Record<string, ToolRecord> | undefined =
+    interactiveTools && Object.keys(interactiveTools).length > 0
+      ? { interactive: interactiveTools }
+      : undefined
 
   // Shared pending threads state
   const pendingThreads = new Map<string, PendingThread>()
@@ -226,6 +234,7 @@ export function createGateways(deps: GatewayDeps): {
       const agent = mastra.getAgent('operator')
       const result = await agent.generate(buildMessages(parts), {
         memory: memoryOption(threadId, chId, externalId),
+        toolsets: interactiveToolset,
       })
       return buildResult(result)
     },
@@ -234,6 +243,7 @@ export function createGateways(deps: GatewayDeps): {
       const agent = mastra.getAgent('operator')
       const output = await agent.stream(buildMessages(parts), {
         memory: memoryOption(threadId, chId, externalId),
+        toolsets: interactiveToolset,
       })
 
       return {
@@ -299,7 +309,10 @@ export function createGateways(deps: GatewayDeps): {
         : { thread: threadId, resource: RESOURCE_ID }
 
       const agent = mastra.getAgent('operator')
-      const output = await agent.stream(buildMessages(parts), { memory })
+      const output = await agent.stream(buildMessages(parts), {
+        memory,
+        toolsets: interactiveToolset,
+      })
 
       return toAISdkStream(output, {
         from: 'agent',

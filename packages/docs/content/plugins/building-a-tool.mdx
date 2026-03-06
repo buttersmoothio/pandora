@@ -231,18 +231,20 @@ The standard tool export interface. All plugins use this — no framework depend
 | `timeout` | `number` | No | Execution timeout in milliseconds. Defaults to `60000` (60 s) |
 | `sandbox` | `SandboxMode` | No | Override sandbox mode (`'compartment'` or `'host'`). Normally set from the manifest |
 | `permissions` | `ToolPermissions` | No | Override permissions. Normally set from the manifest |
-| `annotations` | `ToolAnnotations` | No | MCP-compatible UI hints |
+| `annotations` | `ToolAnnotations` | Yes | MCP-compatible behavior hints. `readOnlyHint` determines whether the tool is available during background execution (scheduled tasks, heartbeat) |
 
 ### `ToolAnnotations`
 
 ```ts
 interface ToolAnnotations {
   title?: string              // Display title in UI
-  readOnlyHint?: boolean      // Safe to run without confirmation
+  readOnlyHint: boolean       // Required — true if the tool only reads data, false if it modifies state
   destructiveHint?: boolean   // May perform irreversible operations
   idempotentHint?: boolean    // Same args = no additional effect
 }
 ```
+
+Tools with `readOnlyHint: true` are available during both interactive and background execution (scheduled tasks, heartbeat). Tools with `readOnlyHint: false` are only available during interactive sessions (web, channels).
 
 ### `EnvVarDescriptor`
 

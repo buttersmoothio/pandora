@@ -18,6 +18,7 @@ const tavilySearch: Tool<TavilySearchInput, SearchResult[]> = {
   id: 'tavily_search',
   name: 'Tavily Search',
   description: 'Search the web using Tavily for current information, news, and facts.',
+  annotations: { readOnlyHint: true },
   parameters: {
     type: 'object',
     properties: {
