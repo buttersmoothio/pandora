@@ -30,6 +30,13 @@ memoryRoutes.get('/record', async (c) => {
   if (!om) return c.json({ record: null, thresholds: null })
   const record = await om.getRecord('', RESOURCE_ID)
   const { scope, observation, reflection } = om.config
+
+  // pendingMessageTokens on the record is set by OM during processInputStep.
+  // It's a per-thread snapshot that can oscillate between threads, but it
+  // accurately reflects what OM's internal counting sees (including part-level
+  // observation markers). A live recount from our side would overcount because
+  // we can't replicate OM's part-level filtering.
+
   return c.json({
     record,
     thresholds: {

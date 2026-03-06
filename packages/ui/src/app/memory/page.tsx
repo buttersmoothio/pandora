@@ -2,7 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { CheckIcon, ChevronsUpDownIcon, Loader2Icon } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Streamdown } from 'streamdown'
 import { ProviderLogo } from '@/components/provider-logo'
 import { Badge } from '@/components/ui/badge'
@@ -22,6 +22,7 @@ import { Switch } from '@/components/ui/switch'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { useConfig, useUpdateConfig } from '@/hooks/use-config'
 import { useModels } from '@/hooks/use-models'
+import { useToolNames } from '@/hooks/use-plugins'
 import { apiFetch } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
@@ -82,6 +83,45 @@ function timeAgo(dateStr: string) {
   if (hours < 24) return `${hours}h ago`
   const days = Math.floor(hours / 24)
   return `${days}d ago`
+}
+
+interface ObservationSection {
+  title: string | null
+  content: string
+}
+
+/** Clean raw OM text and split into date-based sections for card rendering. */
+function parseObservationSections(
+  raw: string,
+  toolNames: Map<string, string>,
+): ObservationSection[] {
+  const cleaned = raw
+    .replace(/<thread[^>]*>|<\/thread>/gu, '') // strip resource-scope wrapper tags
+    .replace(/`([^`]+)`/g, (_match, id: string) => {
+      const name = toolNames.get(id)
+      return name ? `*${name}*` : `*${id}*`
+    })
+    .trim()
+
+  // Split by "Date: ..." headers
+  const parts = cleaned.split(/(?=^Date:\s)/m)
+  const sections: ObservationSection[] = []
+
+  for (const part of parts) {
+    const trimmed = part.trim()
+    if (!trimmed) continue
+    const dateMatch = trimmed.match(/^Date:\s*(.+)/m)
+    if (dateMatch) {
+      sections.push({
+        title: dateMatch[1].trim(),
+        content: trimmed.replace(/^Date:\s*.+\n?/, '').trim(),
+      })
+    } else {
+      sections.push({ title: null, content: trimmed })
+    }
+  }
+
+  return sections
 }
 
 function MemoryProgress({
@@ -160,20 +200,12 @@ function MonitoringSection() {
         </div>
       </CardHeader>
       <CardContent className="flex flex-col gap-5">
-        <div className="flex flex-col gap-3">
-          <MemoryProgress
-            label="Unprocessed conversations"
-            tokens={record.pendingMessageTokens}
-            threshold={thresholds.messageTokens}
-            tooltip="Conversation content waiting to be processed into observations."
-          />
-          <MemoryProgress
-            label="Memory usage"
-            tokens={record.observationTokenCount}
-            threshold={thresholds.observationTokens}
-            tooltip="Active observation size. Condensed automatically when full."
-          />
-        </div>
+        <MemoryProgress
+          label="Observation capacity"
+          tokens={record.observationTokenCount}
+          threshold={thresholds.observationTokens}
+          tooltip="Active observation size. Condensed automatically when full."
+        />
 
         <div className="grid grid-cols-3 gap-4 text-center">
           <div className="flex flex-col gap-0.5">
@@ -389,44 +421,64 @@ function ObservationsSection() {
   const { data: config } = useConfig()
   const { data: obsData, isLoading } = useObservations()
   const { data: recordData } = useOMRecord()
+  const toolNames = useToolNames()
 
   if (!config?.memory.enabled) return null
 
-  const observations = obsData?.observations ?? null
+  const raw = obsData?.observations ?? null
   const record = recordData?.record ?? null
+  const sections = useMemo(
+    () => (raw ? parseObservationSections(raw, toolNames) : []),
+    [raw, toolNames],
+  )
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-start justify-between space-y-0">
-        <div className="flex flex-col gap-1.5">
-          <CardTitle>Observations</CardTitle>
-          <CardDescription>
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-1">
+          <h2 className="font-semibold text-lg tracking-tight">Observations</h2>
+          <p className="text-muted-foreground text-sm">
             What your agent currently remembers. Managed automatically as you chat.
-          </CardDescription>
+          </p>
         </div>
-        {record && (
-          <span className="text-muted-foreground text-xs">Generation {record.generationCount}</span>
+        {record && record.generationCount > 0 && (
+          <span className="text-muted-foreground text-xs">
+            Condensed {record.generationCount} {record.generationCount === 1 ? 'time' : 'times'}
+          </span>
         )}
-      </CardHeader>
-      <CardContent>
-        {isLoading ? (
-          <div className="flex items-center gap-2 text-muted-foreground text-sm">
+      </div>
+      {isLoading ? (
+        <Card>
+          <CardContent className="flex items-center gap-2 pt-6 text-muted-foreground text-sm">
             <Loader2Icon className="size-4 animate-spin" />
             Loading...
-          </div>
-        ) : observations ? (
-          <div className="max-h-96 overflow-y-auto rounded-md border bg-muted/50 p-4">
-            <Streamdown className="[&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
-              {observations}
-            </Streamdown>
-          </div>
-        ) : (
-          <p className="text-muted-foreground text-sm">
-            No observations yet. Start chatting and memories will appear here automatically.
-          </p>
-        )}
-      </CardContent>
-    </Card>
+          </CardContent>
+        </Card>
+      ) : sections.length > 0 ? (
+        sections.map((section) => (
+          <Card key={section.title ?? 'summary'}>
+            {section.title && (
+              <CardHeader className="pb-2">
+                <CardDescription>{section.title}</CardDescription>
+              </CardHeader>
+            )}
+            <CardContent className={cn('max-h-64 overflow-y-auto', section.title ? '' : 'pt-6')}>
+              <Streamdown className="[&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+                {section.content}
+              </Streamdown>
+            </CardContent>
+          </Card>
+        ))
+      ) : (
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-muted-foreground text-sm">
+              No observations yet. Start chatting and memories will appear here automatically.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+    </div>
   )
 }
 
