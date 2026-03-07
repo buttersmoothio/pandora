@@ -7,6 +7,7 @@ import type {
   EnvVarDescriptor,
   ToolPermissions,
 } from './plugin-types'
+import { useMcpServers } from './use-mcp'
 
 export interface ToolOverview {
   id: string
@@ -144,5 +145,16 @@ function buildToolNameMap(plugins: UnifiedPluginInfo[]): Map<string, string> {
 
 export function useToolNames(): Map<string, string> {
   const { plugins } = usePlugins()
-  return useMemo(() => (plugins ? buildToolNameMap(plugins) : new Map()), [plugins])
+  const { servers } = useMcpServers()
+  return useMemo(() => {
+    const map = plugins ? buildToolNameMap(plugins) : new Map<string, string>()
+    if (servers) {
+      for (const server of servers) {
+        for (const tool of server.tools) {
+          map.set(sanitiseToolId(tool.id), tool.name)
+        }
+      }
+    }
+    return map
+  }, [plugins, servers])
 }

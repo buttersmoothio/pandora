@@ -1,0 +1,108 @@
+# MCP Servers API
+
+Endpoints for discovering MCP server state.
+
+## GET /api/mcp-servers
+
+Returns all configured MCP servers with their runtime state and loaded tools.
+
+```
+GET /api/mcp-servers
+Authorization: Bearer <token>
+```
+
+```json
+{
+  "servers": [
+    {
+      "id": "github",
+      "name": "GitHub",
+      "type": "stdio",
+      "enabled": true,
+      "requireApproval": true,
+      "tools": [
+        { "id": "github_create_issue", "name": "Create Issue", "description": "..." },
+        { "id": "github_list_repos", "name": "List Repos", "description": "..." }
+      ],
+      "error": null
+    }
+  ]
+}
+```
+
+Each server object contains:
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | `string` | Server identifier (from config) |
+| `name` | `string` | Display name |
+| `type` | `'stdio' \| 'sse'` | Transport type |
+| `enabled` | `boolean` | Whether the server is enabled |
+| `requireApproval` | `boolean` | Whether tool calls need user approval |
+| `tools` | `{ id, name, description }[]` | Tools loaded from this server |
+| `error` | `string?` | Connection or load error, if any |
+
+## Managing MCP Servers
+
+MCP servers are managed through the [Configuration API](/api-reference/configuration). Add, update, or remove servers by patching the `mcpServers` key:
+
+### Adding a server
+
+```
+PATCH /api/config
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "mcpServers": {
+    "github": {
+      "command": "bunx",
+      "args": ["@modelcontextprotocol/server-github"],
+      "name": "GitHub",
+      "env": ["GITHUB_PERSONAL_ACCESS_TOKEN"],
+      "enabled": true,
+      "requireApproval": true
+    }
+  }
+}
+```
+
+### Disabling a server
+
+```
+PATCH /api/config
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "mcpServers": {
+    "github": { "enabled": false }
+  }
+}
+```
+
+### Removing a server
+
+```
+PATCH /api/config
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "mcpServers": {
+    "github": null
+  }
+}
+```
+
+### Server config fields
+
+| Field | Required | Description |
+|---|---|---|
+| `command` | One of `command` or `url` | Command to execute for stdio transport |
+| `args` | No | Arguments for the command |
+| `url` | One of `command` or `url` | URL for HTTP/SSE transport |
+| `enabled` | No | Whether the server is active (default: `true`) |
+| `name` | No | Display name (defaults to server ID) |
+| `env` | No | Environment variable names to forward from host to the server process |
+| `requireApproval` | No | Whether tool calls need approval (default: `true`) |

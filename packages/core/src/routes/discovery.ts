@@ -2,6 +2,7 @@ import { PROVIDER_REGISTRY } from '@mastra/core/llm'
 import type { PluginConfig } from '@pandorakit/sdk'
 import type { Channel } from '@pandorakit/sdk/channels'
 import { Hono } from 'hono'
+import type { McpServerConfig } from '../mcp/types'
 import { validatePluginConfig } from '../runtime/config-validate'
 import { encodeNsKey, namespacedKey } from '../runtime/namespace'
 import type { PluginRegistry, RegisteredPlugin } from '../runtime/plugin-registry'
@@ -117,6 +118,27 @@ discoveryRoutes.get('/plugins', (c) => {
   })
 
   return c.json({ plugins: result })
+})
+
+// MCP servers endpoint
+discoveryRoutes.get('/mcp-servers', (c) => {
+  const { mcpManager, config } = c.var.runtime
+
+  const servers = Object.entries(config.mcpServers).map(([id, raw]) => {
+    const sc = raw as McpServerConfig
+    const meta = mcpManager?.serverMeta.get(id)
+    return {
+      id,
+      name: sc.name ?? id,
+      type: sc.command ? 'stdio' : 'sse',
+      enabled: sc.enabled ?? true,
+      requireApproval: sc.requireApproval ?? true,
+      tools: meta?.tools ?? [],
+      error: meta?.error,
+    }
+  })
+
+  return c.json({ servers })
 })
 
 // Models endpoint - returns available providers and models

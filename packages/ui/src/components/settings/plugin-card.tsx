@@ -110,16 +110,24 @@ function hashColor(name: string) {
   return INITIAL_COLORS[Math.abs(hash) % INITIAL_COLORS.length]
 }
 
-function PluginIcon({ plugin, size = 'md' }: { plugin: PluginBase; size?: 'sm' | 'md' }) {
+export function PluginIcon({
+  name,
+  icon,
+  size = 'md',
+}: {
+  name: string
+  icon?: string
+  size?: 'sm' | 'md'
+}) {
   const px = size === 'sm' ? 'size-5' : 'size-10'
   const text = size === 'sm' ? 'text-xs' : 'text-base'
   const rounded = size === 'sm' ? 'rounded' : 'rounded-lg'
 
-  if (plugin.icon) {
+  if (icon) {
     return (
       <Image
-        src={plugin.icon}
-        alt={plugin.name}
+        src={icon}
+        alt={name}
         width={size === 'sm' ? 20 : 40}
         height={size === 'sm' ? 20 : 40}
         className={`${px} ${rounded} object-cover`}
@@ -127,8 +135,8 @@ function PluginIcon({ plugin, size = 'md' }: { plugin: PluginBase; size?: 'sm' |
     )
   }
 
-  const initial = plugin.name.charAt(0).toUpperCase()
-  const color = hashColor(plugin.name)
+  const initial = name.charAt(0).toUpperCase()
+  const color = hashColor(name)
 
   return (
     <div
@@ -143,7 +151,7 @@ function PluginIcon({ plugin, size = 'md' }: { plugin: PluginBase; size?: 'sm' |
 // MetadataItem — label + value pair for the sidebar
 // ---------------------------------------------------------------------------
 
-function MetadataItem({ label, children }: { label: string; children: React.ReactNode }) {
+export function MetadataItem({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-0.5">
       <p className="font-medium text-muted-foreground text-xs uppercase tracking-wider">{label}</p>
@@ -222,7 +230,7 @@ function PluginMetadataSidebar({
 // Section — labeled group inside the dialog
 // ---------------------------------------------------------------------------
 
-function Section({ label, children }: { label: string; children: React.ReactNode }) {
+export function Section({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-2">
       <p className="font-medium text-muted-foreground text-xs uppercase tracking-wider">{label}</p>
@@ -399,7 +407,7 @@ function DialogHeaderContent({
     <DialogHeader className="px-6 pt-6 pb-4">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3">
-          <PluginIcon plugin={plugin} />
+          <PluginIcon name={plugin.name} icon={plugin.icon} />
           <div className="flex min-w-0 flex-col gap-0.5">
             <div className="flex items-center gap-2">
               <DialogTitle className="text-lg">{plugin.name}</DialogTitle>
@@ -633,7 +641,7 @@ export function PluginCard({
 
   return (
     <div className="flex items-center gap-4 rounded-xl border bg-card px-5 py-4 text-card-foreground shadow-sm">
-      <PluginIcon plugin={plugin} size="sm" />
+      <PluginIcon name={plugin.name} icon={plugin.icon} size="sm" />
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <div className="flex items-center gap-2">
           <p className="font-semibold text-sm">{plugin.name}</p>

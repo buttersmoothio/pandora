@@ -8,6 +8,8 @@ export default {
   scheduling: 'Scheduling',
   inbox: 'Inbox',
   plugins: 'Plugins',
+  'mcp-servers': 'MCP Servers',
+  'extending-pandora': 'Extending Pandora',
   security: 'Security',
   deployment: 'Deployment',
   'api-reference': 'API Reference',

@@ -1,0 +1,32 @@
+---
+asIndexPage: true
+---
+
+import { Cards } from 'nextra/components'
+
+# Extending Pandora
+
+Pandora's plugin system lets you add new tools, specialist agents, and messaging channels. Plugins are standalone packages -- drop one into the `packages/` directory and it appears in the UI automatically.
+
+A plugin can provide any combination of:
+
+- **Tools** -- abilities the agent can use (web search, file operations, API calls)
+- **Agents** -- specialist sub-agents that can be delegated to (research, coding)
+- **Channels** -- connections to external messaging platforms (Telegram, Discord)
+
+You can also build a completely custom chat frontend against Pandora's streaming API.
+
+<Cards num={2}>
+  <Cards.Card title="Building a Tool" href="/extending-pandora/building-a-tool" arrow />
+  <Cards.Card title="Building an Agent" href="/extending-pandora/building-an-agent" arrow />
+  <Cards.Card title="Building a Channel" href="/extending-pandora/building-a-channel" arrow />
+  <Cards.Card title="Building a Custom UI" href="/extending-pandora/building-a-custom-ui" arrow />
+</Cards>
+
+## How Plugins Work
+
+Every plugin has a `pandora.manifest.json` at its package root that declares its identity, capabilities, and requirements. Pandora discovers plugins automatically -- no manual registration needed.
+
+Tools, agents, and channels are registered with namespaced IDs: `pluginId:entityId` (e.g. `@pandorakit/tavily-search:tavily_search`). This prevents collisions between plugins that use similar names.
+
+Each plugin must be explicitly enabled on the **Plugins** page. Plugins with missing required environment variables or config fields are skipped at load time.

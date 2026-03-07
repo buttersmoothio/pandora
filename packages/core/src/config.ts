@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { McpServerSchema } from './mcp/schema'
 import type { PluginRegistry } from './runtime/plugin-registry'
 import type { ConfigStore } from './storage/config-store'
 
@@ -211,6 +212,9 @@ function createConfigSchema(registry?: PluginRegistry) {
           }
         }
       }),
+
+    /** MCP server configurations — keyed by user-chosen server ID */
+    mcpServers: z.record(z.string(), McpServerSchema).default(() => ({})),
 
     /** Memory configuration */
     memory: z

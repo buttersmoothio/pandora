@@ -257,7 +257,7 @@ export function createScheduleTools(deps: ScheduleToolDeps): ToolRecord {
           updated.activeHours = undefined
         } else {
           const timeRe = /^\d{2}:\d{2}$/
-          if (!timeRe.test(start) || !timeRe.test(end)) {
+          if (!(timeRe.test(start) && timeRe.test(end))) {
             return { error: 'activeHoursStart and activeHoursEnd must be in HH:MM format' }
           }
           updated.activeHours = { start, end }

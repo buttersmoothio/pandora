@@ -4,6 +4,8 @@ import type { Config } from '../config'
 import { getConfig, updateConfig } from '../config'
 import { createSendToTools } from '../inbox/tools'
 import { getLogger } from '../logger'
+import type { McpManager } from '../mcp'
+import { createMcpManager } from '../mcp'
 import { createMemory } from '../memory'
 import type { Scheduler } from '../scheduler'
 import { createScheduler } from '../scheduler'
@@ -40,6 +42,7 @@ export interface PandoraRuntime {
   channels: Map<string, Channel>
   channelNames: Map<string, string>
   interactiveTools: InteractiveTools
+  mcpManager: McpManager | null
   scheduler: Scheduler
 
   syncSchedule(): void
@@ -91,6 +94,7 @@ export async function createRuntime(
     channels: state.channels,
     channelNames: state.channelNames,
     interactiveTools: state.interactiveTools,
+    mcpManager: state.mcpManager,
     web: state.web,
     scheduler,
 
@@ -117,6 +121,9 @@ export async function createRuntime(
       // Stop realtime channels
       await stopRealtimeChannels(runtime.channels)
 
+      // Disconnect existing MCP servers
+      if (runtime.mcpManager) await runtime.mcpManager.disconnect()
+
       // Re-read config
       const freshConfig = await getConfig(storage.config, registry)
       const fresh = await buildState(registry, freshConfig, env, storage, runtimeRef)
@@ -126,6 +133,7 @@ export async function createRuntime(
       runtime.channels = fresh.channels
       runtime.channelNames = fresh.channelNames
       runtime.interactiveTools = fresh.interactiveTools
+      runtime.mcpManager = fresh.mcpManager
       runtime.web = fresh.web
 
       // Sync schedule after reload
@@ -138,6 +146,7 @@ export async function createRuntime(
     async close() {
       runtime.scheduler.stop()
       await stopRealtimeChannels(runtime.channels)
+      if (runtime.mcpManager) await runtime.mcpManager.disconnect()
       await storage.close?.()
     },
   }
@@ -175,9 +184,10 @@ async function buildState(
   }
   const destinations = ['Web Inbox', ...notifiableNames] as [string, ...string[]]
 
-  // 4. Tools (built-in + plugin tools + schedule tools when enabled)
+  // 4. Tools (built-in + plugin + MCP + schedule tools)
   const builtinTools = { current_time: createCurrentTimeTool(config.timezone) }
   const pluginTools = await loadTools(registry, config, env)
+  const mcpManager = await createMcpManager(config, env)
   const scheduleTools = config.schedule.enabled
     ? createScheduleTools({
         configStore: storage.config,
@@ -186,7 +196,7 @@ async function buildState(
         destinations,
       })
     : {}
-  const allTools = { ...builtinTools, ...pluginTools, ...scheduleTools }
+  const allTools = { ...builtinTools, ...pluginTools, ...mcpManager.tools, ...scheduleTools }
   const backgroundTools = getBackgroundTools(allTools)
   const interactiveTools: InteractiveTools = {}
   for (const [key, tool] of Object.entries(allTools)) {
@@ -219,7 +229,7 @@ async function buildState(
   // 9. Gateways
   const { web } = createGateways({ mastra, env, interactiveTools })
 
-  return { config, mastra, channels, channelNames, interactiveTools, web }
+  return { config, mastra, channels, channelNames, interactiveTools, mcpManager, web }
 }
 
 function createTaskHandler(

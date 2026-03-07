@@ -39,7 +39,8 @@ Docs live in `packages/docs/content/`. Run locally with `cd packages/docs && bun
 | Section | Path | Audience | Purpose |
 |---------|------|----------|---------|
 | Top-level pages | `content/*.mdx` | End users | Day-to-day usage |
-| Plugins | `content/plugins/*.mdx` | Users + developers | Plugin usage and plugin development guides |
+| Plugins | `content/plugins/*.mdx` | Users | Plugin usage and available plugins |
+| Extending Pandora | `content/extending-pandora/*.mdx` | Developers | Building tools, agents, channels, and custom UIs |
 | API Reference | `content/api-reference/*.mdx` | Developers | REST endpoint specs, request/response formats, type definitions |
 
 ### Writing Guidelines

@@ -25,6 +25,22 @@ export interface Config {
     operator: ModelConfig
   }
   plugins: Record<string, { enabled: boolean; [key: string]: unknown }>
+  mcpServers: Record<
+    string,
+    {
+      command?: string
+      args?: string[]
+      url?: string
+      enabled: boolean
+      name?: string
+      permissions?: {
+        network?: string[]
+        env?: string[]
+        fs?: { denyRead?: string[]; allowWrite?: string[]; denyWrite?: string[] }
+      }
+      requireApproval: boolean
+    }
+  >
   memory: {
     enabled: boolean
     model?: string
@@ -69,6 +85,7 @@ export function useUpdateConfig() {
     onSuccess: (data) => {
       queryClient.setQueryData(CONFIG_KEY, data)
       queryClient.invalidateQueries({ queryKey: ['plugins'] })
+      queryClient.invalidateQueries({ queryKey: ['mcp-servers'] })
     },
     onError: (err: Error) => {
       toast.error(`Failed to save: ${err.message}`)

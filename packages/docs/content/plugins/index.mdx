@@ -22,7 +22,7 @@ Every plugin must be explicitly enabled. On the **Plugins** page, toggle a plugi
 
 ## Permissions
 
-Tool plugins show badges for what they can access: **Time**, **Network**, **Env**, **Filesystem**, and **Random**. These correspond to the capabilities granted in the plugin's sandbox -- see [Plugin System](/plugins/plugin-system#permissions) for details.
+Tool plugins show badges for what they can access: **Time**, **Network**, **Env**, **Filesystem**, and **Random**. These correspond to the capabilities granted in the plugin's sandbox -- see [Extending Pandora](/extending-pandora/building-a-tool#permissions) for details.
 
 ## Require Approval
 
@@ -43,12 +43,10 @@ Specialist agents can be given a different AI model than the main one -- useful 
   <Cards.Card title="Telegram" href="/plugins/telegram" arrow />
 </Cards>
 
+## MCP Servers
+
+In addition to plugins, Pandora can connect to external [MCP Servers](/mcp-servers) -- tool servers that follow the Model Context Protocol standard. MCP servers appear alongside plugins on the **Plugins** page under the **MCP Servers** tab.
+
 ## Building Plugins
 
-<Cards num={2}>
-  <Cards.Card title="Plugin System" href="/plugins/plugin-system" arrow />
-  <Cards.Card title="Building a Tool" href="/plugins/building-a-tool" arrow />
-  <Cards.Card title="Building an Agent" href="/plugins/building-an-agent" arrow />
-  <Cards.Card title="Building a Channel" href="/plugins/building-a-channel" arrow />
-  <Cards.Card title="Building a Custom UI" href="/plugins/building-a-custom-ui" arrow />
-</Cards>
+Want to build your own plugin? See [Extending Pandora](/extending-pandora).

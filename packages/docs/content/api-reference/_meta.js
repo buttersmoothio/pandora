@@ -6,6 +6,7 @@ export default {
   'message-parts': 'Message Part Types',
   configuration: 'Configuration API',
   plugins: 'Plugins API',
+  'mcp-servers': 'MCP Servers API',
   schedule: 'Schedule API',
   inbox: 'Inbox API',
 }

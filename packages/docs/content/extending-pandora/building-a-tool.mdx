@@ -75,7 +75,14 @@ The `pandora.manifest.json` declares your plugin's identity, capabilities, and r
 }
 ```
 
-See [Plugin System](/plugins/plugin-system) for a full breakdown of manifest fields, sandbox modes, and permissions.
+The manifest's `provides.tools` entry controls how your tool is loaded:
+
+| Field | Description |
+|---|---|
+| `entry` | Relative path to the entry module |
+| `sandbox` | `"compartment"` (default) or `"host"` |
+| `permissions` | Capabilities to grant in compartment mode |
+| `requireApproval` | Default approval requirement for all tools in this entry |
 
 ### Define the tool
 
@@ -140,6 +147,31 @@ Pandora automatically discovers your plugin via its `pandora.manifest.json`. Use
 Every plugin must be explicitly enabled on the Plugins page. A plugin with required `configFields` is skipped until the user fills them in.
 
 </Steps>
+
+## Sandbox Model
+
+Tool plugins can run in two modes:
+
+- **`compartment`** (default) -- sandboxed. All capabilities are off by default -- no `fetch`, no `Date`, no env access. Each capability is individually granted via the `permissions` declaration in the manifest. TypeScript is supported (type erasure, preserving line numbers).
+- **`host`** -- full process access. Use for tools that need native dependencies (WebSocket connections, platform SDKs).
+
+Agents and channels always run in host mode regardless of the `sandbox` field.
+
+### Permissions
+
+Compartment-sandboxed tools declare what they need:
+
+| Permission | What it grants |
+|---|---|
+| `time` | Access to `Date`, `Date.now()`, and `Intl.DateTimeFormat` |
+| `network` | `fetch` scoped to declared hostnames only |
+| `env` | Access to declared environment variable keys only (snapshot at load time) |
+| `fs` | Filesystem read access scoped to declared path prefixes only |
+| `random` | Access to `Math.random()` (cryptographic randomness is never available) |
+
+Network access is SSRF-protected -- requests to private and internal addresses are blocked.
+
+All sandboxed tools also receive these safe globals: `console` (routed to Pandora's logger), `URL`, `URLSearchParams`, `TextEncoder`, `TextDecoder`, `setTimeout`, `clearTimeout`, `setInterval`, `clearInterval`, `atob`, `btoa`, `queueMicrotask`, `AbortController`, and `AbortSignal`.
 
 ## Dynamic Tool Resolution
 

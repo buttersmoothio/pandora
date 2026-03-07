@@ -1,0 +1,47 @@
+import { Callout } from 'nextra/components'
+
+# MCP Servers
+
+MCP servers extend your agent with additional tools from external sources — without needing a Pandora plugin. Any server that speaks the Model Context Protocol can be connected.
+
+MCP servers are managed on the **Plugins** page under the **MCP Servers** tab.
+
+## Server Types
+
+- **Local** — runs on the same machine as Pandora. Good for tools that need access to local files or services.
+- **Remote** — runs elsewhere, accessed over HTTPS. Good for hosted tools and third-party services.
+
+## Adding a Server
+
+1. Go to the **Plugins** page and select the **MCP Servers** tab.
+2. Click **Add Server**.
+3. Fill in the form:
+   - **Server ID** — a unique name you choose (e.g. `github`, `weather`)
+   - **Transport** — Local or Remote
+   - For local servers: the command and arguments to start the server
+   - For remote servers: the server URL
+4. Click **Add Server** to save.
+
+Once added, the server connects and its tools appear on the server card.
+
+## Environment Variables
+
+Local servers may need API keys or other secrets. List the environment variable names in the `env` field — Pandora forwards their values from the host environment to the server process.
+
+## Tool Approval
+
+By default, the agent asks for your confirmation before using MCP tools. You can change this per-server in the server settings.
+
+## Managing Servers
+
+Click the settings icon on any server card to:
+
+- View the tools it provides
+- Remove the server
+
+Use the toggle on each card to enable or disable a server without removing it.
+
+## Related
+
+- [Plugins](/plugins) — Pandora's native plugin system
+- [MCP Servers API](/api-reference/mcp-servers) — API reference for managing MCP servers programmatically
