@@ -227,14 +227,19 @@ export function createScheduleTools(deps: ScheduleToolDeps): ToolRecord {
     inputSchema: z.object({
       enabled: z.boolean().optional(),
       cron: z.string().min(1).optional(),
-      destination: z.enum(destinations).nullable().optional(),
-      activeHours: z
-        .object({
-          start: z.string().regex(/^\d{2}:\d{2}$/),
-          end: z.string().regex(/^\d{2}:\d{2}$/),
-        })
-        .nullable()
-        .optional(),
+      destination: z.enum(destinations).optional(),
+      activeHoursStart: z
+        .string()
+        .optional()
+        .describe(
+          'Start of active hours in HH:MM format (e.g. "09:00"). Set both start and end to update. Set both to empty string to clear.',
+        ),
+      activeHoursEnd: z
+        .string()
+        .optional()
+        .describe(
+          'End of active hours in HH:MM format (e.g. "22:00"). Set both start and end to update. Set both to empty string to clear.',
+        ),
     }),
     execute: async (input) => {
       const runtime = runtimeRef.current
@@ -244,10 +249,20 @@ export function createScheduleTools(deps: ScheduleToolDeps): ToolRecord {
       const updated = { ...current }
       if (input.enabled !== undefined) updated.enabled = input.enabled
       if (input.cron !== undefined) updated.cron = input.cron
-      if (input.destination === null) updated.destination = undefined
-      else if (input.destination !== undefined) updated.destination = input.destination
-      if (input.activeHours === null) updated.activeHours = undefined
-      else if (input.activeHours !== undefined) updated.activeHours = input.activeHours
+      if (input.destination !== undefined) updated.destination = input.destination || undefined
+      if (input.activeHoursStart !== undefined || input.activeHoursEnd !== undefined) {
+        const start = input.activeHoursStart ?? ''
+        const end = input.activeHoursEnd ?? ''
+        if (start === '' && end === '') {
+          updated.activeHours = undefined
+        } else {
+          const timeRe = /^\d{2}:\d{2}$/
+          if (!timeRe.test(start) || !timeRe.test(end)) {
+            return { error: 'activeHoursStart and activeHoursEnd must be in HH:MM format' }
+          }
+          updated.activeHours = { start, end }
+        }
+      }
 
       return { heartbeat: await saveHeartbeat(runtime, updated) }
     },
