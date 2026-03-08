@@ -284,7 +284,7 @@ function MemorySection() {
                 if (!checked) {
                   setProvider('')
                   setModel('')
-                  updateConfig.mutate({ memory: { enabled, model: undefined } })
+                  updateConfig.mutate({ memory: { enabled, model: null } })
                 }
               }}
             />

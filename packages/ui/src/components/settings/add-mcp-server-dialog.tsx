@@ -1,6 +1,6 @@
 'use client'
 
-import { GlobeIcon, Loader2Icon, PlusIcon, TerminalIcon } from 'lucide-react'
+import { GlobeIcon, Loader2Icon, PlusIcon, TerminalIcon, XIcon } from 'lucide-react'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import {
@@ -19,6 +19,7 @@ import { useUpdateConfig } from '@/hooks/use-config'
 import { cn } from '@/lib/utils'
 
 type Transport = 'stdio' | 'sse'
+type AuthMode = 'none' | 'headers' | 'oauth'
 
 export function AddMcpServerDialog() {
   const [open, setOpen] = useState(false)
@@ -29,6 +30,9 @@ export function AddMcpServerDialog() {
   const [args, setArgs] = useState('')
   const [url, setUrl] = useState('')
   const [requireApproval, setRequireApproval] = useState(true)
+  const [authMode, setAuthMode] = useState<AuthMode>('none')
+  const [headers, setHeaders] = useState<Array<{ id: number; key: string; value: string }>>([])
+  const [nextHeaderId, setNextHeaderId] = useState(0)
   const updateConfig = useUpdateConfig()
 
   function reset() {
@@ -39,6 +43,9 @@ export function AddMcpServerDialog() {
     setArgs('')
     setUrl('')
     setRequireApproval(true)
+    setAuthMode('none')
+    setHeaders([])
+    setNextHeaderId(0)
   }
 
   function handleSubmit(e: React.FormEvent) {
@@ -62,6 +69,17 @@ export function AddMcpServerDialog() {
       if (parsed.length > 0) config.args = parsed
     } else {
       config.url = url.trim()
+
+      if (authMode === 'headers') {
+        const h: Record<string, string> = {}
+        for (const { key, value } of headers) {
+          const k = key.trim()
+          if (k) h[k] = value
+        }
+        if (Object.keys(h).length > 0) config.headers = h
+      } else if (authMode === 'oauth') {
+        config.oauth = true
+      }
     }
 
     updateConfig.mutate(
@@ -109,7 +127,10 @@ export function AddMcpServerDialog() {
                 <button
                   key={key}
                   type="button"
-                  onClick={() => setTransport(key)}
+                  onClick={() => {
+                    setTransport(key)
+                    if (key === 'stdio') setAuthMode('none')
+                  }}
                   className={cn(
                     'inline-flex flex-1 items-center justify-center gap-1.5 rounded-md border px-3 py-2 text-sm transition-colors',
                     transport === key
@@ -176,19 +197,120 @@ export function AddMcpServerDialog() {
             </>
           )}
 
-          {/* SSE field */}
+          {/* SSE fields */}
           {transport === 'sse' && (
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="mcp-url">Server URL</Label>
-              <Input
-                id="mcp-url"
-                type="url"
-                placeholder="https://example.com/mcp"
-                value={url}
-                onChange={(e) => setUrl(e.target.value)}
-                required
-              />
-            </div>
+            <>
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="mcp-url">Server URL</Label>
+                <Input
+                  id="mcp-url"
+                  type="url"
+                  placeholder="https://example.com/mcp"
+                  value={url}
+                  onChange={(e) => setUrl(e.target.value)}
+                  required
+                />
+              </div>
+
+              {/* Auth mode selector */}
+              <div className="flex flex-col gap-2">
+                <Label>Authentication</Label>
+                <div className="flex gap-2">
+                  {(
+                    [
+                      { key: 'none', label: 'None' },
+                      { key: 'headers', label: 'Headers' },
+                      { key: 'oauth', label: 'OAuth' },
+                    ] as const
+                  ).map(({ key, label }) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setAuthMode(key)}
+                      className={cn(
+                        'inline-flex flex-1 items-center justify-center rounded-md border px-3 py-2 text-sm transition-colors',
+                        authMode === key
+                          ? 'border-primary bg-primary text-primary-foreground'
+                          : 'border-border bg-background text-muted-foreground hover:bg-muted',
+                      )}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Headers input */}
+              {authMode === 'headers' && (
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center justify-between">
+                    <Label>Headers</Label>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 gap-1 px-2 text-xs"
+                      onClick={() => {
+                        setHeaders([...headers, { id: nextHeaderId, key: '', value: '' }])
+                        setNextHeaderId(nextHeaderId + 1)
+                      }}
+                    >
+                      <PlusIcon className="size-3" />
+                      Add
+                    </Button>
+                  </div>
+                  {headers.length === 0 && (
+                    <p className="text-muted-foreground text-xs">
+                      Add headers like Authorization for authenticated servers.
+                    </p>
+                  )}
+                  {headers.map((header) => (
+                    <div key={header.id} className="flex gap-2">
+                      <Input
+                        placeholder="Header name"
+                        value={header.key}
+                        onChange={(e) =>
+                          setHeaders(
+                            headers.map((h) =>
+                              h.id === header.id ? { ...h, key: e.target.value } : h,
+                            ),
+                          )
+                        }
+                        className="flex-1"
+                      />
+                      <Input
+                        placeholder="Value"
+                        value={header.value}
+                        onChange={(e) =>
+                          setHeaders(
+                            headers.map((h) =>
+                              h.id === header.id ? { ...h, value: e.target.value } : h,
+                            ),
+                          )
+                        }
+                        className="flex-1"
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="size-9 shrink-0"
+                        onClick={() => setHeaders(headers.filter((h) => h.id !== header.id))}
+                      >
+                        <XIcon className="size-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* OAuth info */}
+              {authMode === 'oauth' && (
+                <p className="text-muted-foreground text-xs">
+                  After adding the server, you will be prompted to authorize access.
+                </p>
+              )}
+            </>
           )}
 
           {/* Require approval */}

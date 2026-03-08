@@ -187,7 +187,7 @@ async function buildState(
   // 4. Tools (built-in + plugin + MCP + schedule tools)
   const builtinTools = { current_time: createCurrentTimeTool(config.timezone) }
   const pluginTools = await loadTools(registry, config, env)
-  const mcpManager = await createMcpManager(config, env)
+  const mcpManager = await createMcpManager(config, env, storage.mcpOAuth)
   const scheduleTools = config.schedule.enabled
     ? createScheduleTools({
         configStore: storage.config,

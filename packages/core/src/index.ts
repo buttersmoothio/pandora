@@ -16,6 +16,7 @@ import { healthRoutes } from './routes/health'
 import type { Env } from './routes/helpers'
 import { createRuntimeMiddleware, getAuthStore } from './routes/helpers'
 import { inboxRoutes } from './routes/inbox'
+import { mcpOAuthRoutes } from './routes/mcp-oauth'
 import { memoryRoutes } from './routes/memory'
 import { scheduleRoutes } from './routes/schedule'
 import { threadRoutes } from './routes/threads'
@@ -69,6 +70,9 @@ app.route('/', healthRoutes)
 
 // Channel webhook routes — BEFORE auth middleware so platforms can POST freely
 app.route('/wh', webhookRoutes)
+
+// MCP OAuth callback — BEFORE auth middleware (browser redirect from OAuth server)
+app.route('/oauth', mcpOAuthRoutes)
 
 // Rate limiting on auth endpoints
 app.use('/api/auth/login', createRateLimiter({ max: 5, windowMs: 60_000 }))

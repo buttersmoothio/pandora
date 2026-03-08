@@ -16,6 +16,10 @@ export const McpServerSchema = z
     env: z.array(z.string()).optional(),
     /** Whether tool calls require user approval (default: true) */
     requireApproval: z.boolean().default(true),
+    /** HTTP headers to send with requests to remote servers */
+    headers: z.record(z.string(), z.string()).optional(),
+    /** Enable OAuth authentication (MCP Auth Specification) */
+    oauth: z.boolean().default(false),
   })
   .refine((s) => s.command || s.url, {
     message: 'Either command or url is required',

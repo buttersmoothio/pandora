@@ -135,6 +135,7 @@ discoveryRoutes.get('/mcp-servers', (c) => {
       requireApproval: sc.requireApproval ?? true,
       tools: meta?.tools ?? [],
       error: meta?.error,
+      authUrl: meta?.authUrl,
     }
   })
 

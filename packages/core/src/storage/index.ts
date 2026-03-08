@@ -1,11 +1,13 @@
 import type { MastraCompositeStore } from '@mastra/core/storage'
 import type { AuthStore } from '../auth/auth-store'
 import type { Config } from '../config'
+import type { McpOAuthStore } from '../mcp/oauth-store'
 import type { ConfigStore } from './config-store'
 import type { InboxStore } from './inbox-store'
 
 export type { MastraCompositeStore, StorageDomains } from '@mastra/core/storage'
 export type { AuthStore } from '../auth/auth-store'
+export type { McpOAuthStore } from '../mcp/oauth-store'
 export type { ConfigStore } from './config-store'
 export type { InboxStore } from './inbox-store'
 
@@ -21,6 +23,8 @@ export interface StorageResult {
   auth: AuthStore
   /** Pandora inbox storage */
   inbox: InboxStore
+  /** MCP OAuth token storage */
+  mcpOAuth: McpOAuthStore
   /** Close all connections (optional cleanup on shutdown) */
   close?(): Promise<void>
 }

@@ -19,10 +19,33 @@ MCP servers are managed on the **Plugins** page under the **MCP Servers** tab.
    - **Server ID** — a unique name you choose (e.g. `github`, `weather`)
    - **Transport** — Local or Remote
    - For local servers: the command and arguments to start the server
-   - For remote servers: the server URL
+   - For remote servers: the server URL and optional authentication
 4. Click **Add Server** to save.
 
 Once added, the server connects and its tools appear on the server card.
+
+## Authentication
+
+Remote servers may require authentication. When adding a remote server, choose an authentication method:
+
+- **None** — no authentication. Use for public servers.
+- **Headers** — send a token or key with every request. The server provider will tell you which header name and value to use.
+- **OAuth** — sign in through the server provider. After adding the server, click the **Authorize** button on the server card to sign in. Pandora keeps you signed in automatically.
+
+### OAuth and Local Installations
+
+OAuth requires the `BASE_URL` environment variable — this tells the server provider where to send you back after signing in.
+
+Many providers require a public HTTPS address and won't accept `localhost`. If you're running Pandora locally, you'll need to temporarily expose it through a tunnel service during the one-time sign-in step.
+
+1. Start a tunnel pointed at your Pandora server.
+2. Set `BASE_URL` to the tunnel's public address.
+3. Add the server and click **Authorize**.
+4. After signing in, the tunnel is no longer needed. You can stop it and revert `BASE_URL`.
+
+<Callout type="info">
+  The tunnel is only needed once when you first connect the server. If your access is ever revoked, you would need it again to re-authorize.
+</Callout>
 
 ## Environment Variables
 
@@ -41,7 +64,3 @@ Click the settings icon on any server card to:
 
 Use the toggle on each card to enable or disable a server without removing it.
 
-## Related
-
-- [Plugins](/plugins) — Pandora's native plugin system
-- [MCP Servers API](/api-reference/mcp-servers) — API reference for managing MCP servers programmatically

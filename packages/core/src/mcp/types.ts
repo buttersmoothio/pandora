@@ -11,4 +11,5 @@ export interface McpServerMeta {
   requireApproval: boolean
   tools: { id: string; name: string; description: string }[]
   error?: string
+  authUrl?: string
 }

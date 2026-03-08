@@ -15,6 +15,7 @@ export interface McpServerInfo {
   requireApproval: boolean
   tools: McpToolOverview[]
   error?: string
+  authUrl?: string
 }
 
 interface McpServersResponse {

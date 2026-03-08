@@ -41,6 +41,7 @@ Each server object contains:
 | `requireApproval` | `boolean` | Whether tool calls need user approval |
 | `tools` | `{ id, name, description }[]` | Tools loaded from this server |
 | `error` | `string?` | Connection or load error, if any |
+| `authUrl` | `string?` | OAuth authorization URL when authorization is pending |
 
 ## Managing MCP Servers
 
@@ -66,6 +67,50 @@ Content-Type: application/json
   }
 }
 ```
+
+### Adding a remote server with headers
+
+```
+PATCH /api/config
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "mcpServers": {
+    "remote-tools": {
+      "url": "https://example.com/mcp",
+      "name": "Remote Tools",
+      "headers": {
+        "Authorization": "Bearer sk-abc123"
+      },
+      "enabled": true,
+      "requireApproval": true
+    }
+  }
+}
+```
+
+### Adding a remote server with OAuth
+
+```
+PATCH /api/config
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "mcpServers": {
+    "oauth-server": {
+      "url": "https://example.com/mcp",
+      "name": "OAuth Server",
+      "oauth": true,
+      "enabled": true,
+      "requireApproval": true
+    }
+  }
+}
+```
+
+After adding, check `GET /api/mcp-servers` for the `authUrl` field. Direct the user to that URL to complete authorization.
 
 ### Disabling a server
 
@@ -106,3 +151,5 @@ Content-Type: application/json
 | `name` | No | Display name (defaults to server ID) |
 | `env` | No | Environment variable names to forward from host to the server process |
 | `requireApproval` | No | Whether tool calls need approval (default: `true`) |
+| `headers` | No | Key-value pairs sent as HTTP headers to remote servers |
+| `oauth` | No | Enable OAuth authentication for remote servers (default: `false`) |

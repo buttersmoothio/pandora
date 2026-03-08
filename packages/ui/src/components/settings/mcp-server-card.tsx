@@ -1,6 +1,13 @@
 'use client'
 
-import { AlertTriangleIcon, CheckCircle2Icon, ChevronDownIcon, SettingsIcon } from 'lucide-react'
+import {
+  AlertTriangleIcon,
+  CheckCircle2Icon,
+  ChevronDownIcon,
+  ExternalLinkIcon,
+  KeyRoundIcon,
+  SettingsIcon,
+} from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -34,6 +41,14 @@ function formatToolName(name: string): string {
 // ---------------------------------------------------------------------------
 
 function McpStatusBadge({ server }: { server: McpServerInfo }) {
+  if (server.authUrl) {
+    return (
+      <span className="inline-flex items-center gap-1 text-amber-600 text-xs dark:text-amber-400">
+        <KeyRoundIcon className="size-3" />
+        Authorization required
+      </span>
+    )
+  }
   if (server.error) {
     return (
       <span className="inline-flex items-center gap-1 text-destructive text-xs">
@@ -97,6 +112,17 @@ export function McpServerCard({ server }: { server: McpServerInfo }) {
         </div>
       </div>
       <div className="flex shrink-0 items-center gap-2">
+        {server.authUrl && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            onClick={() => window.open(server.authUrl, '_blank')}
+          >
+            <ExternalLinkIcon className="size-3.5" />
+            Authorize
+          </Button>
+        )}
         <McpServerDialog server={server}>
           <Button variant="ghost" size="icon" className="size-7" aria-label="Server settings">
             <SettingsIcon className="size-4" />
@@ -152,6 +178,27 @@ function ToolList({ tools }: { tools: McpServerInfo['tools'] }) {
 function DialogMainPanel({ server }: { server: McpServerInfo }) {
   return (
     <div className="flex-1 space-y-5 overflow-y-auto px-6 py-5">
+      {server.authUrl && (
+        <div className="rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2.5">
+          <p className="flex items-center gap-1.5 font-medium text-amber-600 text-sm dark:text-amber-400">
+            <KeyRoundIcon className="size-4" />
+            Authorization Required
+          </p>
+          <p className="mt-1 text-muted-foreground text-sm">
+            This server requires OAuth authorization before its tools can be used.
+          </p>
+          <Button
+            variant="outline"
+            size="sm"
+            className="mt-2 gap-1.5"
+            onClick={() => window.open(server.authUrl, '_blank')}
+          >
+            <ExternalLinkIcon className="size-3.5" />
+            Authorize
+          </Button>
+        </div>
+      )}
+
       {server.error && (
         <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2.5">
           <p className="flex items-center gap-1.5 font-medium text-destructive text-sm">
@@ -216,7 +263,7 @@ function McpServerDialog({
 
   function handleRemove() {
     updateConfig.mutate({
-      mcpServers: { [server.id]: null as never },
+      mcpServers: { [server.id]: null },
     })
   }
 

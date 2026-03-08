@@ -53,11 +53,15 @@ export async function createLibSQLStorage(
   const { SQLInboxStore } = await import('./sql-inbox')
   const inbox = new SQLInboxStore(wrapExecute, 'sqlite')
 
+  const { SQLMcpOAuthStore } = await import('../../mcp/providers/sql-oauth')
+  const mcpOAuth = new SQLMcpOAuthStore(wrapExecute, 'sqlite')
+
   // Initialize stores
   await mastra.init()
   if (config.init) await config.init()
   await auth.init()
   await inbox.init()
+  await mcpOAuth.init()
 
   log.debug('Storage initialized')
 
@@ -66,6 +70,7 @@ export async function createLibSQLStorage(
     config,
     auth,
     inbox,
+    mcpOAuth,
     close: async () => {
       client.close()
     },

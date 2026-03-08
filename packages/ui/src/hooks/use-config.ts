@@ -4,7 +4,10 @@ import { apiFetch } from '@/lib/api'
 
 // Types mirroring packages/core/src/config.ts
 
-export type DeepPartial<T> = { [K in keyof T]?: T[K] extends object ? DeepPartial<T[K]> : T[K] }
+/** Recursive partial where `null` means "delete this key" (matches server-side deepMerge). */
+export type DeepPartial<T> = {
+  [K in keyof T]?: T[K] extends object ? DeepPartial<T[K]> | null : T[K] | null
+}
 
 export interface ModelConfig {
   provider: string
@@ -39,6 +42,8 @@ export interface Config {
         fs?: { denyRead?: string[]; allowWrite?: string[]; denyWrite?: string[] }
       }
       requireApproval: boolean
+      headers?: Record<string, string>
+      oauth?: boolean
     }
   >
   memory: {

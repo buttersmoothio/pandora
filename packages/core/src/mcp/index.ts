@@ -1,3 +1,5 @@
 export { createMcpManager, type McpManager } from './mcp-manager'
+export { ScopedOAuthStorage } from './oauth-adapter'
+export type { McpOAuthStore } from './oauth-store'
 export { McpServerSchema } from './schema'
 export type { McpServerConfig, McpServerMeta } from './types'
