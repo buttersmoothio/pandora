@@ -11,7 +11,7 @@ export interface McpToolOverview {
 export interface McpServerInfo {
   id: string
   name: string
-  type: 'stdio' | 'sse'
+  type: 'stdio' | 'http'
   enabled: boolean
   requireApproval: boolean
   tools: McpToolOverview[]

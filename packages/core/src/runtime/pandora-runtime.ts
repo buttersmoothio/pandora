@@ -313,12 +313,14 @@ function createTaskHandler(
   }
 }
 
-/** Filter tools to only read-only, non-approval tools for background execution. */
+/** Filter tools to only read-only, non-approval MCP tools for background execution. */
 function getBackgroundTools(tools: ToolRecord): ToolRecord {
   const result: ToolRecord = {}
   for (const [key, tool] of Object.entries(tools)) {
-    // biome-ignore lint/suspicious/noExplicitAny: tool shape varies across Mastra/AI SDK types
-    const t = tool as any
+    const t = tool as {
+      requireApproval?: boolean
+      mcp?: { annotations?: { readOnlyHint?: boolean } }
+    }
     if (t.requireApproval) continue
     if (!t.mcp?.annotations?.readOnlyHint) continue
     result[key] = tool

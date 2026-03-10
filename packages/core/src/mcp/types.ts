@@ -6,7 +6,7 @@ export type McpServerConfig = z.infer<typeof McpServerSchema>
 export interface McpServerMeta {
   id: string
   name: string
-  type: 'stdio' | 'sse'
+  type: 'stdio' | 'http'
   enabled: boolean
   requireApproval: boolean
   tools: { id: string; name: string; description: string }[]

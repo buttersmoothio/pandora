@@ -134,7 +134,7 @@ discoveryRoutes.get('/mcp-servers', (c) => {
     return {
       id,
       name: sc.name ?? id,
-      type: sc.command ? 'stdio' : 'sse',
+      type: sc.command ? 'stdio' : 'http',
       enabled: sc.enabled ?? true,
       requireApproval: sc.requireApproval ?? true,
       tools: meta?.tools ?? [],

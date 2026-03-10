@@ -1,4 +1,9 @@
-import type { MastraMCPServerDefinition } from '@mastra/mcp'
+import type {
+  MastraFetchLike,
+  MastraMCPServerDefinition,
+  OAuthClientInformation,
+  OAuthTokens,
+} from '@mastra/mcp'
 import { MCPClient, MCPOAuthClientProvider } from '@mastra/mcp'
 import type { Config } from '../config'
 import { getLogger } from '../logger'
@@ -6,6 +11,16 @@ import type { ToolRecord } from '../tools/types'
 import { ScopedOAuthStorage } from './oauth-adapter'
 import type { McpOAuthStore } from './oauth-store'
 import type { McpServerConfig, McpServerMeta } from './types'
+
+/**
+ * Narrowed tool shape for MCP tools returned by @mastra/mcp MCPClient.listTools().
+ * Avoids `any` casts when accessing MCP-specific properties on the broad ToolRecord union.
+ */
+interface McpToolShape {
+  description?: string
+  mcp?: { annotations?: { title?: string; readOnlyHint?: boolean } }
+  requireApproval?: boolean
+}
 
 export interface McpManager {
   /** All loaded MCP tools, keyed by MCPClient's namespaced ID. */
@@ -19,8 +34,8 @@ export interface McpManager {
 }
 
 /** Create a custom fetch that injects static headers. */
-function createHeaderFetch(headers: Record<string, string>) {
-  return (url: string | URL, init?: RequestInit) => {
+function createHeaderFetch(headers: Record<string, string>): MastraFetchLike {
+  return (url, init) => {
     const merged = new Headers(init?.headers)
     for (const [k, v] of Object.entries(headers)) {
       merged.set(k, v)
@@ -64,13 +79,9 @@ function buildHttpDef(
     log.warn(`[mcp] OAuth requires BASE_URL env var, skipping OAuth for server "${id}"`)
   }
 
-  if (customFetch) {
-    // biome-ignore lint/suspicious/noExplicitAny: building a union type incrementally
-    const def: any = { url: parsedUrl, fetch: customFetch }
-    return def as MastraMCPServerDefinition
-  }
-
-  return { url: parsedUrl }
+  return customFetch
+    ? ({ url: parsedUrl, fetch: customFetch } as MastraMCPServerDefinition)
+    : { url: parsedUrl }
 }
 
 /** Build an OAuth-enabled HTTP server definition. */
@@ -80,7 +91,7 @@ function buildOAuthDef(
   baseUrl: string,
   oauthStore: McpOAuthStore,
   pendingAuthUrls: Map<string, string>,
-  customFetch: ReturnType<typeof createHeaderFetch> | undefined,
+  customFetch: MastraFetchLike | undefined,
 ): MastraMCPServerDefinition {
   const log = getLogger()
   const storage = new ScopedOAuthStorage(oauthStore, id)
@@ -102,10 +113,11 @@ function buildOAuthDef(
     },
   })
 
-  // biome-ignore lint/suspicious/noExplicitAny: building a union type incrementally
-  const def: any = { url: parsedUrl, authProvider }
-  if (customFetch) def.fetch = customFetch
-  return def as MastraMCPServerDefinition
+  return {
+    url: parsedUrl,
+    authProvider,
+    ...(customFetch ? { fetch: customFetch } : {}),
+  } as MastraMCPServerDefinition
 }
 
 /** Register tools from MCPClient into the tool record and server metadata. */
@@ -118,11 +130,11 @@ function registerTools(
   for (const [namespacedKey, tool] of Object.entries(mcpTools)) {
     const underscoreIdx = namespacedKey.indexOf('_')
     const serverId = underscoreIdx > -1 ? namespacedKey.slice(0, underscoreIdx) : namespacedKey
+    const t = tool as McpToolShape
 
     const serverConfig = config.mcpServers[serverId] as McpServerConfig | undefined
     if (serverConfig?.requireApproval !== false) {
-      // biome-ignore lint/suspicious/noExplicitAny: tool shape varies
-      ;(tool as any).requireApproval = true
+      t.requireApproval = true
     }
 
     tools[namespacedKey] = tool
@@ -132,9 +144,8 @@ function registerTools(
       const shortName = underscoreIdx > -1 ? namespacedKey.slice(underscoreIdx + 1) : namespacedKey
       meta.tools.push({
         id: namespacedKey,
-        name: shortName,
-        // biome-ignore lint/suspicious/noExplicitAny: tool shape varies
-        description: (tool as any).description ?? '',
+        name: t.mcp?.annotations?.title ?? shortName,
+        description: t.description ?? '',
       })
     }
   }
@@ -145,7 +156,7 @@ function buildMeta(id: string, sc: McpServerConfig): McpServerMeta {
   return {
     id,
     name: sc.name ?? id,
-    type: sc.command ? 'stdio' : 'sse',
+    type: sc.command ? 'stdio' : 'http',
     enabled: sc.enabled ?? true,
     requireApproval: sc.requireApproval ?? true,
     tools: [],
@@ -211,50 +222,34 @@ const EMPTY_MANAGER: McpManager = {
   },
 }
 
-/** Exchange an authorization code for OAuth tokens. */
+/** Exchange an authorization code for OAuth tokens via the MCP SDK. */
 async function exchangeOAuthCode(
   serverUrl: string,
   callbackUrl: string,
   code: string,
   codeVerifier: string,
-  clientInfo: { client_id: string; client_secret?: string },
-) {
-  const { discoverOAuthProtectedResourceMetadata, discoverAuthorizationServerMetadata } =
-    await import('@modelcontextprotocol/sdk/client/auth.js')
+  clientInfo: OAuthClientInformation,
+): Promise<OAuthTokens> {
+  const {
+    discoverOAuthProtectedResourceMetadata,
+    discoverAuthorizationServerMetadata,
+    exchangeAuthorization,
+  } = await import('@modelcontextprotocol/sdk/client/auth.js')
 
   const resourceMeta = await discoverOAuthProtectedResourceMetadata(new URL(serverUrl))
   const authServerUrl = resourceMeta.authorization_servers?.[0]
   if (!authServerUrl) throw new Error('No authorization server found in resource metadata')
 
   const authMeta = await discoverAuthorizationServerMetadata(new URL(authServerUrl))
-  if (!authMeta) throw new Error('Could not discover authorization server metadata')
 
-  const tokenEndpoint = authMeta.token_endpoint
-  if (!tokenEndpoint) throw new Error('No token endpoint found in authorization server metadata')
-
-  const body = new URLSearchParams({
-    grant_type: 'authorization_code',
-    code,
-    redirect_uri: callbackUrl,
-    client_id: clientInfo.client_id,
-    code_verifier: codeVerifier,
+  return exchangeAuthorization(authServerUrl, {
+    metadata: authMeta,
+    clientInformation: clientInfo,
+    authorizationCode: code,
+    codeVerifier,
+    redirectUri: callbackUrl,
+    resource: new URL(serverUrl),
   })
-  if (clientInfo.client_secret) {
-    body.set('client_secret', clientInfo.client_secret)
-  }
-
-  const response = await fetch(tokenEndpoint, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body,
-  })
-
-  if (!response.ok) {
-    const errorText = await response.text()
-    throw new Error(`Token exchange failed: ${response.status} ${errorText}`)
-  }
-
-  return response.json()
 }
 
 /**

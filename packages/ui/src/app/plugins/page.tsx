@@ -44,8 +44,9 @@ export default function PluginsPage() {
   // Count how many plugins match each filter
   const counts = useMemo(() => {
     const pc = plugins?.length ?? 0
+    const mc = mcpServers?.length ?? 0
     return {
-      all: pc,
+      all: pc + mc,
       tools: plugins?.filter((p) => p.provides.tools).length ?? 0,
       agents: plugins?.filter((p) => p.provides.agents).length ?? 0,
       channels: plugins?.filter((p) => p.provides.channels).length ?? 0,
@@ -55,7 +56,8 @@ export default function PluginsPage() {
 
   const mcpEnabled = useMemo(() => mcpServers?.filter((s) => s.enabled) ?? [], [mcpServers])
   const mcpDisabled = useMemo(() => mcpServers?.filter((s) => !s.enabled) ?? [], [mcpServers])
-  const showMcpTab = filter === 'mcp'
+  const showMcp = filter === 'all' || filter === 'mcp'
+  const showPlugins = filter !== 'mcp'
 
   if (isLoading || mcpLoading) {
     return (
@@ -97,59 +99,38 @@ export default function PluginsPage() {
         ))}
       </div>
 
-      {/* MCP Servers tab */}
-      {showMcpTab && (
-        <>
-          <div className="flex justify-end">
-            <AddMcpServerDialog />
-          </div>
-
-          {mcpEnabled.length > 0 && (
-            <section className="flex flex-col gap-4">
-              {mcpEnabled.map((server) => (
-                <McpServerCard key={server.id} server={server} />
-              ))}
-            </section>
-          )}
-
-          {mcpDisabled.length > 0 && (
-            <>
-              <p className="text-muted-foreground text-xs uppercase tracking-wider">Disabled</p>
-              <section className="flex flex-col gap-4 opacity-75">
-                {mcpDisabled.map((server) => (
-                  <McpServerCard key={server.id} server={server} />
-                ))}
-              </section>
-            </>
-          )}
-
-          {(!mcpServers || mcpServers.length === 0) && (
-            <p className="text-center text-muted-foreground text-sm">No servers configured</p>
-          )}
-        </>
+      {filter === 'mcp' && (
+        <div className="flex justify-end">
+          <AddMcpServerDialog />
+        </div>
       )}
 
-      {/* Plugin tabs */}
-      {!showMcpTab && (
+      {/* Enabled */}
+      <section className="flex flex-col gap-4">
+        {showPlugins &&
+          enabled.map((plugin) => <UnifiedPluginCard key={plugin.id} plugin={plugin} />)}
+        {showMcp && mcpEnabled.map((server) => <McpServerCard key={server.id} server={server} />)}
+      </section>
+
+      {showMcp && filter === 'mcp' && (!mcpServers || mcpServers.length === 0) && (
+        <div className="flex flex-col items-center gap-3 py-8">
+          <p className="text-center text-muted-foreground text-sm">No servers configured</p>
+          <AddMcpServerDialog />
+        </div>
+      )}
+
+      {/* Disabled */}
+      {(showPlugins && disabled.length > 0) || (showMcp && mcpDisabled.length > 0) ? (
         <>
-          <section className="flex flex-col gap-4">
-            {enabled.map((plugin) => (
-              <UnifiedPluginCard key={plugin.id} plugin={plugin} />
-            ))}
+          <p className="text-muted-foreground text-xs uppercase tracking-wider">Disabled</p>
+          <section className="flex flex-col gap-4 opacity-75">
+            {showPlugins &&
+              disabled.map((plugin) => <UnifiedPluginCard key={plugin.id} plugin={plugin} />)}
+            {showMcp &&
+              mcpDisabled.map((server) => <McpServerCard key={server.id} server={server} />)}
           </section>
-
-          {disabled.length > 0 && (
-            <>
-              <p className="text-muted-foreground text-xs uppercase tracking-wider">Disabled</p>
-              <section className="flex flex-col gap-4 opacity-75">
-                {disabled.map((plugin) => (
-                  <UnifiedPluginCard key={plugin.id} plugin={plugin} />
-                ))}
-              </section>
-            </>
-          )}
         </>
-      )}
+      ) : null}
     </div>
   )
 }

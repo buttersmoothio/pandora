@@ -99,6 +99,9 @@ export function McpServerCard({ server }: { server: McpServerInfo }) {
             {server.type === 'stdio' ? 'Local' : 'Remote'}
           </Badge>
         </div>
+        <p className="text-muted-foreground text-sm">
+          {server.type === 'stdio' ? 'Local process' : 'Remote server'}
+        </p>
         <div className="mt-0.5 flex items-center gap-1.5 text-muted-foreground text-xs">
           <McpStatusBadge server={server} />
           {server.enabled && !server.error && server.tools.length > 0 && (

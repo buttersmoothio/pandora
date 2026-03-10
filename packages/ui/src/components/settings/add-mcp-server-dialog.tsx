@@ -38,7 +38,7 @@ const formSchema = z.discriminatedUnion('transport', [
     requireApproval: z.boolean(),
   }),
   z.object({
-    transport: z.literal('sse'),
+    transport: z.literal('http'),
     name: z.string().min(1, 'Name is required'),
     url: z.url({ error: 'Must be a valid URL' }),
     authMode: z.enum(['none', 'headers', 'oauth']),
@@ -57,8 +57,8 @@ const STDIO_DEFAULTS: FormValues = {
   requireApproval: true,
 }
 
-const SSE_DEFAULTS: FormValues = {
-  transport: 'sse',
+const HTTP_DEFAULTS: FormValues = {
+  transport: 'http',
   name: '',
   url: '',
   authMode: 'none',
@@ -107,7 +107,7 @@ export function AddMcpServerDialog() {
   })
 
   const transport = form.watch('transport')
-  const authMode = transport === 'sse' ? form.watch('authMode') : 'none'
+  const authMode = transport === 'http' ? form.watch('authMode') : 'none'
 
   const headerFields = useFieldArray({
     control: form.control,
@@ -115,13 +115,13 @@ export function AddMcpServerDialog() {
     name: 'headers' as any,
   })
 
-  function switchTransport(t: 'stdio' | 'sse') {
+  function switchTransport(t: 'stdio' | 'http') {
     const name = form.getValues('name')
     const requireApproval = form.getValues('requireApproval')
     form.reset(
       t === 'stdio'
         ? { ...STDIO_DEFAULTS, name, requireApproval }
-        : { ...SSE_DEFAULTS, name, requireApproval },
+        : { ...HTTP_DEFAULTS, name, requireApproval },
     )
   }
 
@@ -165,7 +165,7 @@ export function AddMcpServerDialog() {
                 {(
                   [
                     { key: 'stdio', label: 'Local (stdio)', icon: TerminalIcon },
-                    { key: 'sse', label: 'Remote (HTTP)', icon: GlobeIcon },
+                    { key: 'http', label: 'Remote (HTTP)', icon: GlobeIcon },
                   ] as const
                 ).map(({ key, label, icon: Icon }) => (
                   <button
@@ -233,8 +233,8 @@ export function AddMcpServerDialog() {
               </>
             )}
 
-            {/* SSE fields */}
-            {transport === 'sse' && (
+            {/* HTTP fields */}
+            {transport === 'http' && (
               <>
                 <FormField
                   control={form.control}

@@ -1,3 +1,4 @@
+import { getLogger } from '../../logger'
 import type { McpOAuthStore } from '../oauth-store'
 
 const TABLE_NAME = 'pandora_mcp_oauth'
@@ -98,7 +99,8 @@ export class SQLMcpOAuthStore implements McpOAuthStore {
       const rows = await this.execute(this.selectSQL, [key])
       if (!rows || rows.length === 0) return undefined
       return (rows[0] as { value: string }).value
-    } catch {
+    } catch (err) {
+      getLogger().debug('[mcp-oauth] get failed', { key, error: String(err) })
       return undefined
     }
   }
@@ -110,8 +112,8 @@ export class SQLMcpOAuthStore implements McpOAuthStore {
   async delete(key: string): Promise<void> {
     try {
       await this.execute(this.deleteSQL, [key])
-    } catch {
-      // Table might not exist
+    } catch (err) {
+      getLogger().debug('[mcp-oauth] delete failed', { key, error: String(err) })
     }
   }
 }
