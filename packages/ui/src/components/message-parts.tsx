@@ -15,7 +15,7 @@ type ToolPart = ToolUIPart | DynamicToolUIPart
 type TextPart = Extract<UIMessage['parts'][number], { type: 'text' }>
 type PartGroup = { type: 'text'; part: TextPart } | { type: 'tools'; parts: ToolPart[] }
 
-function groupParts(parts: UIMessage['parts']): PartGroup[] {
+export function groupParts(parts: UIMessage['parts']): PartGroup[] {
   const groups: PartGroup[] = []
   for (const part of parts) {
     if (part.type === 'text') {

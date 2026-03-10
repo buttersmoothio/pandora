@@ -96,7 +96,7 @@ export function usePlugins() {
  * Sanitise a namespaced tool key the same way the AI SDK does
  * (`@pandorakit/brave-search:brave_search` → `_pandorakit_brave-search_brave_search`).
  */
-function sanitiseToolId(id: string): string {
+export function sanitiseToolId(id: string): string {
   return id.replace(/[^a-zA-Z0-9_-]/g, '_')
 }
 
@@ -124,7 +124,7 @@ export function useChannelNames(): Map<string, string> {
   }, [plugins])
 }
 
-function buildToolNameMap(plugins: UnifiedPluginInfo[]): Map<string, string> {
+export function buildToolNameMap(plugins: UnifiedPluginInfo[]): Map<string, string> {
   const map = new Map<string, string>()
   for (const plugin of plugins) {
     if (plugin.provides.tools) {
