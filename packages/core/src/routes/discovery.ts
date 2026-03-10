@@ -2,6 +2,10 @@ import { PROVIDER_REGISTRY } from '@mastra/core/llm'
 import type { PluginConfig } from '@pandorakit/sdk'
 import type { Channel } from '@pandorakit/sdk/channels'
 import { Hono } from 'hono'
+import { z } from 'zod'
+import { updateConfig } from '../config'
+import { getLogger } from '../logger'
+import { McpServerSchema } from '../mcp/schema'
 import type { McpServerConfig } from '../mcp/types'
 import { validatePluginConfig } from '../runtime/config-validate'
 import { encodeNsKey, namespacedKey } from '../runtime/namespace'
@@ -140,6 +144,34 @@ discoveryRoutes.get('/mcp-servers', (c) => {
   })
 
   return c.json({ servers })
+})
+
+// Add a new MCP server — generates UUID server-side
+discoveryRoutes.post('/mcp-servers', async (c) => {
+  const log = getLogger()
+  try {
+    const runtime = c.var.runtime
+    const body = await c.req.json()
+    const serverConfig = McpServerSchema.parse(body)
+    const id = crypto.randomUUID()
+
+    await updateConfig(
+      runtime.storage.config,
+      { mcpServers: { [id]: serverConfig } },
+      runtime.registry,
+    )
+    await runtime.reload()
+
+    log.info('MCP server added', { id })
+    return c.json({ id, ...serverConfig }, 201)
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      const messages = err.issues.map((i) => `${i.path.join('.')}: ${i.message}`)
+      return c.json({ error: messages.join(', ') }, 400)
+    }
+    const message = err instanceof Error ? err.message : 'Invalid server config'
+    return c.json({ error: message }, 400)
+  }
 })
 
 // Models endpoint - returns available providers and models

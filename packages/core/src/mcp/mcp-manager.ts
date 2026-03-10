@@ -18,83 +18,94 @@ export interface McpManager {
   handleOAuthCallback(code: string, state: string): Promise<string>
 }
 
-/** Build a stdio or HTTP server definition. */
-function buildServerDef(
+/** Create a custom fetch that injects static headers. */
+function createHeaderFetch(headers: Record<string, string>) {
+  return (url: string | URL, init?: RequestInit) => {
+    const merged = new Headers(init?.headers)
+    for (const [k, v] of Object.entries(headers)) {
+      merged.set(k, v)
+    }
+    return fetch(url, { ...init, headers: merged })
+  }
+}
+
+/** Build a stdio server definition. */
+function buildStdioDef(
+  command: string,
+  sc: McpServerConfig,
+  hostEnv: Record<string, string | undefined>,
+): MastraMCPServerDefinition {
+  const env: Record<string, string> = {}
+  for (const name of sc.env ?? []) {
+    if (hostEnv[name]) env[name] = hostEnv[name]
+  }
+  return { command, args: sc.args ?? [], env }
+}
+
+/** Build an HTTP server definition with optional auth. */
+function buildHttpDef(
   id: string,
+  serverUrl: string,
   sc: McpServerConfig,
   hostEnv: Record<string, string | undefined>,
   oauthStore: McpOAuthStore | undefined,
   pendingAuthUrls: Map<string, string>,
-): MastraMCPServerDefinition | undefined {
+): MastraMCPServerDefinition {
   const log = getLogger()
+  const parsedUrl = new URL(serverUrl)
+  const customFetch =
+    sc.headers && Object.keys(sc.headers).length > 0 ? createHeaderFetch(sc.headers) : undefined
 
-  if (sc.command) {
-    // Forward only declared env vars from host
-    const env: Record<string, string> = {}
-    for (const name of sc.env ?? []) {
-      if (hostEnv[name]) env[name] = hostEnv[name]
+  if (sc.oauth && oauthStore) {
+    const baseUrl = hostEnv.BASE_URL
+    if (baseUrl) {
+      return buildOAuthDef(id, parsedUrl, baseUrl, oauthStore, pendingAuthUrls, customFetch)
     }
-    return { command: sc.command, args: sc.args ?? [], env }
+    log.warn(`[mcp] OAuth requires BASE_URL env var, skipping OAuth for server "${id}"`)
   }
 
-  if (sc.url) {
-    // Build HTTP server definition with optional auth
-    const hasHeaders = sc.headers && Object.keys(sc.headers).length > 0
-
-    // Custom fetch for static headers
-    const customFetch = hasHeaders
-      ? (url: string | URL, init?: RequestInit) => {
-          const headers = new Headers(init?.headers)
-          for (const [k, v] of Object.entries(sc.headers!)) {
-            headers.set(k, v)
-          }
-          return fetch(url, { ...init, headers })
-        }
-      : undefined
-
-    // OAuth auth provider
-    if (sc.oauth && oauthStore) {
-      const baseUrl = hostEnv.BASE_URL
-      if (baseUrl) {
-        const storage = new ScopedOAuthStorage(oauthStore, id)
-        const callbackUrl = `${baseUrl.replace(/\/$/, '')}/oauth/mcp/callback`
-        const authProvider = new MCPOAuthClientProvider({
-          redirectUrl: callbackUrl,
-          clientMetadata: {
-            redirect_uris: [callbackUrl],
-            client_name: 'Pandora',
-            grant_types: ['authorization_code', 'refresh_token'],
-            response_types: ['code'],
-          },
-          storage,
-          onRedirectToAuthorization: async (url: URL) => {
-            const state = url.searchParams.get('state')
-            if (state) await oauthStore.set(`state:${state}`, id)
-            pendingAuthUrls.set(id, url.toString())
-            log.info(`[mcp] OAuth authorization required for server "${id}"`)
-          },
-        })
-
-        // biome-ignore lint/suspicious/noExplicitAny: building a union type incrementally
-        const def: any = { url: new URL(sc.url), authProvider }
-        if (customFetch) def.fetch = customFetch
-        return def as MastraMCPServerDefinition
-      } else {
-        log.warn(`[mcp] OAuth requires BASE_URL env var, skipping OAuth for server "${id}"`)
-      }
-    }
-
-    // No OAuth — plain URL with optional headers
-    if (customFetch) {
-      // biome-ignore lint/suspicious/noExplicitAny: building a union type incrementally
-      const def: any = { url: new URL(sc.url), fetch: customFetch }
-      return def as MastraMCPServerDefinition
-    }
-
-    return { url: new URL(sc.url) }
+  if (customFetch) {
+    // biome-ignore lint/suspicious/noExplicitAny: building a union type incrementally
+    const def: any = { url: parsedUrl, fetch: customFetch }
+    return def as MastraMCPServerDefinition
   }
 
-  return undefined
+  return { url: parsedUrl }
+}
+
+/** Build an OAuth-enabled HTTP server definition. */
+function buildOAuthDef(
+  id: string,
+  parsedUrl: URL,
+  baseUrl: string,
+  oauthStore: McpOAuthStore,
+  pendingAuthUrls: Map<string, string>,
+  customFetch: ReturnType<typeof createHeaderFetch> | undefined,
+): MastraMCPServerDefinition {
+  const log = getLogger()
+  const storage = new ScopedOAuthStorage(oauthStore, id)
+  const callbackUrl = `${baseUrl.replace(/\/$/, '')}/oauth/mcp/callback`
+  const authProvider = new MCPOAuthClientProvider({
+    redirectUrl: callbackUrl,
+    clientMetadata: {
+      redirect_uris: [callbackUrl],
+      client_name: 'Pandora',
+      grant_types: ['authorization_code', 'refresh_token'],
+      response_types: ['code'],
+    },
+    storage,
+    onRedirectToAuthorization: async (url: URL) => {
+      const state = url.searchParams.get('state')
+      if (state) await oauthStore.set(`state:${state}`, id)
+      pendingAuthUrls.set(id, url.toString())
+      log.info(`[mcp] OAuth authorization required for server "${id}"`)
+    },
+  })
+
+  // biome-ignore lint/suspicious/noExplicitAny: building a union type incrementally
+  const def: any = { url: parsedUrl, authProvider }
+  if (customFetch) def.fetch = customFetch
+  return def as MastraMCPServerDefinition
 }
 
 /** Register tools from MCPClient into the tool record and server metadata. */
@@ -129,6 +140,31 @@ function registerTools(
   }
 }
 
+/** Build metadata for a single server config. */
+function buildMeta(id: string, sc: McpServerConfig): McpServerMeta {
+  return {
+    id,
+    name: sc.name ?? id,
+    type: sc.command ? 'stdio' : 'sse',
+    enabled: sc.enabled ?? true,
+    requireApproval: sc.requireApproval ?? true,
+    tools: [],
+  }
+}
+
+/** Build a server definition from config. */
+function buildDef(
+  id: string,
+  sc: McpServerConfig,
+  env: Record<string, string | undefined>,
+  oauthStore: McpOAuthStore | undefined,
+  pendingAuthUrls: Map<string, string>,
+): MastraMCPServerDefinition | undefined {
+  if (sc.command) return buildStdioDef(sc.command, sc, env)
+  if (sc.url) return buildHttpDef(id, sc.url, sc, env, oauthStore, pendingAuthUrls)
+  return undefined
+}
+
 /** Build server definitions and metadata from config. */
 function buildServers(
   config: Config,
@@ -142,31 +178,24 @@ function buildServers(
 
   for (const [id, server] of Object.entries(config.mcpServers)) {
     const sc = server as McpServerConfig
-    const baseMeta: McpServerMeta = {
-      id,
-      name: sc.name ?? id,
-      type: sc.command ? 'stdio' : 'sse',
-      enabled: sc.enabled ?? true,
-      requireApproval: sc.requireApproval ?? true,
-      tools: [],
-    }
+    const meta = buildMeta(id, sc)
 
-    if (!baseMeta.enabled) {
-      metas.set(id, baseMeta)
+    if (!meta.enabled) {
+      metas.set(id, meta)
       continue
     }
 
     try {
-      const def = buildServerDef(id, sc, env, oauthStore, pendingAuthUrls)
+      const def = buildDef(id, sc, env, oauthStore, pendingAuthUrls)
       if (def) {
         servers[id] = def
         log.debug(`[mcp] server configured: ${id}`)
       }
-      metas.set(id, baseMeta)
+      metas.set(id, meta)
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error'
       log.error(`[mcp] failed to configure server ${id}`, { error: message })
-      metas.set(id, { ...baseMeta, error: message })
+      metas.set(id, { ...meta, error: message })
     }
   }
 
@@ -180,6 +209,52 @@ const EMPTY_MANAGER: McpManager = {
   handleOAuthCallback: async () => {
     throw new Error('No MCP servers configured')
   },
+}
+
+/** Exchange an authorization code for OAuth tokens. */
+async function exchangeOAuthCode(
+  serverUrl: string,
+  callbackUrl: string,
+  code: string,
+  codeVerifier: string,
+  clientInfo: { client_id: string; client_secret?: string },
+) {
+  const { discoverOAuthProtectedResourceMetadata, discoverAuthorizationServerMetadata } =
+    await import('@modelcontextprotocol/sdk/client/auth.js')
+
+  const resourceMeta = await discoverOAuthProtectedResourceMetadata(new URL(serverUrl))
+  const authServerUrl = resourceMeta.authorization_servers?.[0]
+  if (!authServerUrl) throw new Error('No authorization server found in resource metadata')
+
+  const authMeta = await discoverAuthorizationServerMetadata(new URL(authServerUrl))
+  if (!authMeta) throw new Error('Could not discover authorization server metadata')
+
+  const tokenEndpoint = authMeta.token_endpoint
+  if (!tokenEndpoint) throw new Error('No token endpoint found in authorization server metadata')
+
+  const body = new URLSearchParams({
+    grant_type: 'authorization_code',
+    code,
+    redirect_uri: callbackUrl,
+    client_id: clientInfo.client_id,
+    code_verifier: codeVerifier,
+  })
+  if (clientInfo.client_secret) {
+    body.set('client_secret', clientInfo.client_secret)
+  }
+
+  const response = await fetch(tokenEndpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body,
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    throw new Error(`Token exchange failed: ${response.status} ${errorText}`)
+  }
+
+  return response.json()
 }
 
 /**
@@ -240,7 +315,6 @@ export async function createMcpManager(
     async handleOAuthCallback(code: string, state: string): Promise<string> {
       if (!oauthStore) throw new Error('OAuth store not available')
 
-      // Look up which server this callback is for
       const serverId = await oauthStore.get(`state:${state}`)
       if (!serverId) throw new Error('Invalid or expired OAuth state')
 
@@ -253,56 +327,19 @@ export async function createMcpManager(
       const callbackUrl = `${baseUrl.replace(/\/$/, '')}/oauth/mcp/callback`
       const storage = new ScopedOAuthStorage(oauthStore, serverId)
 
-      // Load code verifier and client info from storage
       const codeVerifier = await storage.get('code_verifier')
       const clientInfoStr = await storage.get('client_info')
       if (!codeVerifier) throw new Error('Missing code verifier — OAuth flow may have expired')
       if (!clientInfoStr) throw new Error('Missing client info — OAuth flow may have expired')
 
-      const clientInfo = JSON.parse(clientInfoStr)
-      const serverUrl = serverConfig.url
-
-      // Discover OAuth metadata from the MCP server
-      const { discoverOAuthProtectedResourceMetadata, discoverAuthorizationServerMetadata } =
-        await import('@modelcontextprotocol/sdk/client/auth.js')
-
-      const resourceMeta = await discoverOAuthProtectedResourceMetadata(new URL(serverUrl))
-      const authServerUrl = resourceMeta.authorization_servers?.[0]
-      if (!authServerUrl) throw new Error('No authorization server found in resource metadata')
-
-      const authMeta = await discoverAuthorizationServerMetadata(new URL(authServerUrl))
-      if (!authMeta) throw new Error('Could not discover authorization server metadata')
-      const tokenEndpoint = authMeta.token_endpoint
-      if (!tokenEndpoint)
-        throw new Error('No token endpoint found in authorization server metadata')
-
-      // Exchange authorization code for tokens
-      const body = new URLSearchParams({
-        grant_type: 'authorization_code',
+      const tokens = await exchangeOAuthCode(
+        serverConfig.url,
+        callbackUrl,
         code,
-        redirect_uri: callbackUrl,
-        client_id: clientInfo.client_id,
-        code_verifier: codeVerifier,
-      })
-      if (clientInfo.client_secret) {
-        body.set('client_secret', clientInfo.client_secret)
-      }
-
-      const tokenResponse = await fetch(tokenEndpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body,
-      })
-
-      if (!tokenResponse.ok) {
-        const errorText = await tokenResponse.text()
-        throw new Error(`Token exchange failed: ${tokenResponse.status} ${errorText}`)
-      }
-
-      const tokens = await tokenResponse.json()
+        codeVerifier,
+        JSON.parse(clientInfoStr),
+      )
       await storage.set('tokens', JSON.stringify(tokens))
-
-      // Clean up state mapping
       await oauthStore.delete(`state:${state}`)
 
       log.info(`[mcp] OAuth authorization completed for server "${serverId}"`)

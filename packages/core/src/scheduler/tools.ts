@@ -22,6 +22,22 @@ export interface ScheduleToolDeps {
   destinations: [string, ...string[]]
 }
 
+const TIME_RE = /^\d{2}:\d{2}$/
+
+function parseActiveHours(
+  startInput: string | undefined,
+  endInput: string | undefined,
+): { changed: boolean; value?: { start: string; end: string }; error?: string } {
+  if (startInput === undefined && endInput === undefined) return { changed: false }
+  const start = startInput ?? ''
+  const end = endInput ?? ''
+  if (start === '' && end === '') return { changed: true, value: undefined }
+  if (!(TIME_RE.test(start) && TIME_RE.test(end))) {
+    return { changed: false, error: 'activeHoursStart and activeHoursEnd must be in HH:MM format' }
+  }
+  return { changed: true, value: { start, end } }
+}
+
 export function createScheduleTools(deps: ScheduleToolDeps): ToolRecord {
   const { configStore, registry, runtimeRef, destinations } = deps
 
@@ -250,19 +266,10 @@ export function createScheduleTools(deps: ScheduleToolDeps): ToolRecord {
       if (input.enabled !== undefined) updated.enabled = input.enabled
       if (input.cron !== undefined) updated.cron = input.cron
       if (input.destination !== undefined) updated.destination = input.destination || undefined
-      if (input.activeHoursStart !== undefined || input.activeHoursEnd !== undefined) {
-        const start = input.activeHoursStart ?? ''
-        const end = input.activeHoursEnd ?? ''
-        if (start === '' && end === '') {
-          updated.activeHours = undefined
-        } else {
-          const timeRe = /^\d{2}:\d{2}$/
-          if (!(timeRe.test(start) && timeRe.test(end))) {
-            return { error: 'activeHoursStart and activeHoursEnd must be in HH:MM format' }
-          }
-          updated.activeHours = { start, end }
-        }
-      }
+
+      const activeHoursResult = parseActiveHours(input.activeHoursStart, input.activeHoursEnd)
+      if (activeHoursResult.error) return { error: activeHoursResult.error }
+      if (activeHoursResult.changed) updated.activeHours = activeHoursResult.value
 
       return { heartbeat: await saveHeartbeat(runtime, updated) }
     },

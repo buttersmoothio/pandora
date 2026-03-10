@@ -4,31 +4,7 @@ This document tracks features from the original design that have **not yet been 
 
 ---
 
-## 1. MCP Tool Support
-
-External tools via Model Context Protocol.
-
-### Design
-
-```typescript
-import { MCPClient } from '@mastra/mcp'
-
-const mcpTools = await new MCPClient({
-  servers: config.mcpServers,
-}).getTools()
-```
-
-MCP tools are treated as untrusted: description validation, user approval for new servers, all communication logged. Tool annotations already support MCP-compatible metadata (`readOnlyHint`, `destructiveHint`, etc.).
-
-### What's Needed
-
-- `@mastra/mcp` integration (check current Mastra support)
-- Config: MCP server list (name, command/URL, args)
-- UI: MCP server management in Tools page (add/remove servers, view available tools)
-
----
-
-## 2. Tool Generation Flow
+## 1. Tool Generation Flow
 
 Users describe what they want in natural language; an LLM generates the tool; the SES Compartment sandboxes it.
 
@@ -74,7 +50,7 @@ async function(input) {
 
 ---
 
-## 3. Dockerfile
+## 2. Dockerfile
 
 Docker containerization for self-hosted deployment.
 
@@ -87,7 +63,7 @@ Docker containerization for self-hosted deployment.
 
 ---
 
-## 4. Environment Status Page
+## 3. Environment Status Page
 
 A unified view of the deployment environment. Low priority — health endpoint + discovery endpoints already cover most of this per-plugin.
 

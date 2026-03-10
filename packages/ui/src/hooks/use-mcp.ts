@@ -1,4 +1,5 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
 import { apiFetch } from '@/lib/api'
 
 export interface McpToolOverview {
@@ -34,4 +35,23 @@ export function useMcpServers() {
     ...query,
     servers: query.data?.servers,
   }
+}
+
+export function useAddMcpServer() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (serverConfig: Record<string, unknown>) =>
+      apiFetch<{ id: string }>('/api/mcp-servers', {
+        method: 'POST',
+        body: JSON.stringify(serverConfig),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: MCP_SERVERS_KEY })
+      queryClient.invalidateQueries({ queryKey: ['config'] })
+    },
+    onError: (err: Error) => {
+      toast.error(`Failed to add server: ${err.message}`)
+    },
+  })
 }
