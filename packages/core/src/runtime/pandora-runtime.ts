@@ -86,6 +86,9 @@ export async function createRuntime(
   }
   const scheduler = createScheduler(taskHandler, onComplete, config.timezone)
 
+  // Serialization lock for reload — prevents concurrent mutations from racing
+  let reloadLock: Promise<void> = Promise.resolve()
+
   const runtime: PandoraRuntime = {
     registry,
     storage,
@@ -117,30 +120,41 @@ export async function createRuntime(
     },
 
     async reload() {
-      log.info('[runtime] reloading')
-      // Stop realtime channels
-      await stopRealtimeChannels(runtime.channels)
+      const prev = reloadLock
+      let resolve!: () => void
+      reloadLock = new Promise((r) => {
+        resolve = r
+      })
+      await prev
 
-      // Disconnect existing MCP servers
-      if (runtime.mcpManager) await runtime.mcpManager.disconnect()
+      try {
+        log.info('[runtime] reloading')
+        // Stop realtime channels
+        await stopRealtimeChannels(runtime.channels)
 
-      // Re-read config
-      const freshConfig = await getConfig(storage.config, registry)
-      const fresh = await buildState(registry, freshConfig, env, storage, runtimeRef)
+        // Disconnect existing MCP servers
+        if (runtime.mcpManager) await runtime.mcpManager.disconnect()
 
-      runtime.config = fresh.config
-      runtime.mastra = fresh.mastra
-      runtime.channels = fresh.channels
-      runtime.channelNames = fresh.channelNames
-      runtime.interactiveTools = fresh.interactiveTools
-      runtime.mcpManager = fresh.mcpManager
-      runtime.web = fresh.web
+        // Re-read config
+        const freshConfig = await getConfig(storage.config, registry)
+        const fresh = await buildState(registry, freshConfig, env, storage, runtimeRef)
 
-      // Sync schedule after reload
-      runtime.syncSchedule()
+        runtime.config = fresh.config
+        runtime.mastra = fresh.mastra
+        runtime.channels = fresh.channels
+        runtime.channelNames = fresh.channelNames
+        runtime.interactiveTools = fresh.interactiveTools
+        runtime.mcpManager = fresh.mcpManager
+        runtime.web = fresh.web
 
-      // Start realtime channels
-      await startRealtimeChannels(runtime)
+        // Sync schedule after reload
+        runtime.syncSchedule()
+
+        // Start realtime channels
+        await startRealtimeChannels(runtime)
+      } finally {
+        resolve()
+      }
     },
 
     async close() {
