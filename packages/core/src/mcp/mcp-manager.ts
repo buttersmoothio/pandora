@@ -12,6 +12,9 @@ import { ScopedOAuthStorage } from './oauth-adapter'
 import type { McpOAuthStore } from './oauth-store'
 import type { McpServerConfig, McpServerMeta } from './types'
 
+/** OAuth state entries expire after 10 minutes. */
+const STATE_TTL_MS = 10 * 60 * 1000
+
 /**
  * Narrowed tool shape for MCP tools returned by @mastra/mcp MCPClient.listTools().
  * Avoids `any` casts when accessing MCP-specific properties on the broad ToolRecord union.
@@ -107,7 +110,11 @@ function buildOAuthDef(
     storage,
     onRedirectToAuthorization: async (url: URL) => {
       const state = url.searchParams.get('state')
-      if (state) await oauthStore.set(`state:${state}`, id)
+      if (state)
+        await oauthStore.set(
+          `state:${state}`,
+          JSON.stringify({ serverId: id, createdAt: Date.now() }),
+        )
       pendingAuthUrls.set(id, url.toString())
       log.info(`[mcp] OAuth authorization required for server "${id}"`)
     },
@@ -310,8 +317,15 @@ export async function createMcpManager(
     async handleOAuthCallback(code: string, state: string): Promise<string> {
       if (!oauthStore) throw new Error('OAuth store not available')
 
-      const serverId = await oauthStore.get(`state:${state}`)
-      if (!serverId) throw new Error('Invalid or expired OAuth state')
+      const raw = await oauthStore.get(`state:${state}`)
+      if (!raw) throw new Error('Invalid or expired OAuth state')
+
+      const parsed = JSON.parse(raw) as { serverId: string; createdAt: number }
+      if (Date.now() - parsed.createdAt > STATE_TTL_MS) {
+        await oauthStore.delete(`state:${state}`)
+        throw new Error('OAuth state has expired')
+      }
+      const serverId = parsed.serverId
 
       const serverConfig = config.mcpServers[serverId] as McpServerConfig | undefined
       if (!serverConfig?.url) throw new Error(`Server "${serverId}" not found or has no URL`)

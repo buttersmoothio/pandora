@@ -403,10 +403,36 @@ describe('createMcpManager', () => {
       expect(store.get).toHaveBeenCalledWith('state:bad-state')
     })
 
+    it('throws when state has expired', async () => {
+      mockListTools.mockResolvedValueOnce({})
+      const expiredState = JSON.stringify({
+        serverId: 'srv',
+        createdAt: Date.now() - 11 * 60 * 1000, // 11 minutes ago
+      })
+      const store = mockOAuthStore({
+        get: vi.fn().mockResolvedValue(expiredState),
+      })
+
+      const manager = await createMcpManager(
+        mockConfig({ srv: { url: 'https://test.com' } }),
+        {},
+        store,
+      )
+
+      await expect(manager.handleOAuthCallback('code', 'state')).rejects.toThrow(
+        'OAuth state has expired',
+      )
+      expect(store.delete).toHaveBeenCalledWith('state:state')
+    })
+
     it('throws when server not found in config', async () => {
       mockListTools.mockResolvedValueOnce({})
       const store = mockOAuthStore({
-        get: vi.fn().mockResolvedValue('nonexistent-server'),
+        get: vi
+          .fn()
+          .mockResolvedValue(
+            JSON.stringify({ serverId: 'nonexistent-server', createdAt: Date.now() }),
+          ),
       })
 
       const manager = await createMcpManager(
@@ -423,7 +449,7 @@ describe('createMcpManager', () => {
     it('throws when BASE_URL is not set', async () => {
       mockListTools.mockResolvedValueOnce({})
       const store = mockOAuthStore({
-        get: vi.fn().mockResolvedValue('srv'),
+        get: vi.fn().mockResolvedValue(JSON.stringify({ serverId: 'srv', createdAt: Date.now() })),
       })
 
       const manager = await createMcpManager(
@@ -441,7 +467,8 @@ describe('createMcpManager', () => {
       mockListTools.mockResolvedValueOnce({})
       const store = mockOAuthStore({
         get: vi.fn().mockImplementation(async (key: string) => {
-          if (key === 'state:my-state') return 'srv'
+          if (key === 'state:my-state')
+            return JSON.stringify({ serverId: 'srv', createdAt: Date.now() })
           return undefined // missing code_verifier
         }),
       })
@@ -461,7 +488,8 @@ describe('createMcpManager', () => {
       mockListTools.mockResolvedValueOnce({})
       const store = mockOAuthStore({
         get: vi.fn().mockImplementation(async (key: string) => {
-          if (key === 'state:my-state') return 'srv'
+          if (key === 'state:my-state')
+            return JSON.stringify({ serverId: 'srv', createdAt: Date.now() })
           if (key === 'srv:code_verifier') return 'verifier123'
           return undefined // missing client_info
         }),
@@ -500,7 +528,8 @@ describe('createMcpManager', () => {
 
       const store = mockOAuthStore({
         get: vi.fn().mockImplementation(async (key: string) => {
-          if (key === 'state:my-state') return 'srv'
+          if (key === 'state:my-state')
+            return JSON.stringify({ serverId: 'srv', createdAt: Date.now() })
           if (key === 'srv:code_verifier') return 'verifier123'
           if (key === 'srv:client_info') return '{"client_id":"cid"}'
           return undefined
