@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
+import { headers } from 'next/headers'
 import './globals.css'
 
 import { AppSidebar } from '@/components/app-sidebar'
@@ -25,15 +26,17 @@ export const metadata: Metadata = {
   description: 'Pandora AI Assistant',
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  const nonce = (await headers()).get('x-nonce') ?? undefined
+
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        <ThemeProvider>
+        <ThemeProvider nonce={nonce}>
           <QueryProvider>
             <AuthProvider>
               <OnboardingGuard>
