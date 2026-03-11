@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import { authRequest } from '../test-helpers'
 
+interface McpServer {
+  id: string
+  name: string
+  type: string
+  enabled: boolean
+  requireApproval: boolean
+  tools: unknown[]
+}
+
 describe('Discovery routes', () => {
   describe('GET /api/plugins', () => {
     it('returns plugin list with expected structure', async () => {
@@ -51,5 +60,65 @@ describe('Discovery routes', () => {
         expect(typeof provider.configured).toBe('boolean')
       }
     })
+  })
+
+  describe('GET /api/mcp-servers', () => {
+    it('returns servers array', async () => {
+      const res = await authRequest('/api/mcp-servers')
+      expect(res.status).toBe(200)
+
+      const body = (await res.json()) as { servers: McpServer[] }
+      expect(Array.isArray(body.servers)).toBe(true)
+    })
+  })
+
+  describe('POST /api/mcp-servers', () => {
+    it('returns 400 when neither command nor url provided', async () => {
+      const res = await authRequest('/api/mcp-servers', {
+        method: 'POST',
+        body: JSON.stringify({ name: 'Invalid' }),
+      })
+      expect(res.status).toBe(400)
+    })
+
+    it('returns 400 for invalid url', async () => {
+      const res = await authRequest('/api/mcp-servers', {
+        method: 'POST',
+        body: JSON.stringify({ url: 'not-a-url' }),
+      })
+      expect(res.status).toBe(400)
+    })
+
+    // reload() tries to connect MCP servers which times out in test
+    it('creates server, persists it, and returns correct defaults', async () => {
+      const createRes = await authRequest('/api/mcp-servers', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: 'Test Server',
+          command: 'node',
+          args: ['server.js'],
+        }),
+      })
+      expect(createRes.status).toBe(201)
+
+      const created = (await createRes.json()) as {
+        id: string
+        name: string
+        command: string
+      }
+      expect(typeof created.id).toBe('string')
+      expect(created.name).toBe('Test Server')
+      expect(created.command).toBe('node')
+
+      // Verify it appears in GET with correct defaults
+      const listRes = await authRequest('/api/mcp-servers')
+      const body = (await listRes.json()) as { servers: McpServer[] }
+      const found = body.servers.find((s) => s.id === created.id)
+      expect(found).toBeDefined()
+      expect(found?.name).toBe('Test Server')
+      expect(found?.type).toBe('stdio')
+      expect(found?.enabled).toBe(true)
+      expect(found?.requireApproval).toBe(true)
+    }, 15_000)
   })
 })

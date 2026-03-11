@@ -206,6 +206,8 @@ export function createGateways(deps: GatewayDeps): {
 
   // Shared pending threads state
   const pendingThreads = new Map<string, PendingThread>()
+  // Serialize concurrent resolveThread calls for the same key
+  const resolveLocks = new Map<string, Promise<string>>()
 
   function memoryOption(threadId: string, channelId?: string, externalId?: string) {
     if (channelId && externalId) {
@@ -276,19 +278,32 @@ export function createGateways(deps: GatewayDeps): {
       const pending = pendingThreads.get(key)
       if (pending) return pending.threadId
 
-      const memory = await getMemory(mastra)
-      const result = await memory.listThreads({
-        filter: {
-          resourceId: RESOURCE_ID,
-          metadata: { channel: chId, externalId },
-        },
-        orderBy: { field: 'updatedAt', direction: 'DESC' },
-        perPage: 1,
-      })
+      // Serialize concurrent lookups for the same key
+      const existing = resolveLocks.get(key)
+      if (existing) return existing
 
-      if (result.threads.length > 0) return result.threads[0].id
+      const promise = (async () => {
+        const memory = await getMemory(mastra)
+        const result = await memory.listThreads({
+          filter: {
+            resourceId: RESOURCE_ID,
+            metadata: { channel: chId, externalId },
+          },
+          orderBy: { field: 'updatedAt', direction: 'DESC' },
+          perPage: 1,
+        })
 
-      return this.newThread(chId, externalId)
+        if (result.threads.length > 0) return result.threads[0].id
+
+        return this.newThread(chId, externalId)
+      })()
+
+      resolveLocks.set(key, promise)
+      try {
+        return await promise
+      } finally {
+        resolveLocks.delete(key)
+      }
     },
 
     newThread(chId, externalId) {

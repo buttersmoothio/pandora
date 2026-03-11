@@ -59,6 +59,29 @@ describe('createGateways', () => {
       expect(resolved).toBe(threadId)
     })
 
+    it('concurrent resolveThread calls for same key return same thread', async () => {
+      const mockMemory = {
+        listThreads: vi.fn().mockResolvedValue({ threads: [] }),
+      }
+      mockGetAgent.mockReturnValue({
+        getMemory: vi.fn().mockResolvedValue(mockMemory),
+      })
+
+      const result = createGateways({ mastra: mockMastra as never, env: {} })
+      const gw = result.channel()
+
+      // Fire two concurrent resolveThread calls for the same user
+      const [id1, id2] = await Promise.all([
+        gw.resolveThread('telegram', 'race-user'),
+        gw.resolveThread('telegram', 'race-user'),
+      ])
+
+      // Both must resolve to the same thread
+      expect(id1).toBe(id2)
+      // Memory should only be queried once (second call reuses the lock)
+      expect(mockMemory.listThreads).toHaveBeenCalledTimes(1)
+    })
+
     it('resolveThread queries memory when no pending thread exists', async () => {
       const mockMemory = {
         listThreads: vi.fn().mockResolvedValue({ threads: [{ id: 'existing-thread' }] }),

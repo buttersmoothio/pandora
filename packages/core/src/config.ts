@@ -1,3 +1,4 @@
+import { PROVIDER_REGISTRY } from '@mastra/core/llm'
 import { z } from 'zod'
 import { McpServerSchema } from './mcp/schema'
 import type { PluginRegistry } from './runtime/plugin-registry'
@@ -192,7 +193,32 @@ function createConfigSchema(registry?: PluginRegistry) {
           provider: 'anthropic',
           model: 'claude-sonnet-4-20250514',
         },
-      })),
+      }))
+      .superRefine((models, ctx) => {
+        for (const [key, mc] of Object.entries(models)) {
+          const provider = (
+            PROVIDER_REGISTRY as Record<
+              string,
+              (typeof PROVIDER_REGISTRY)[keyof typeof PROVIDER_REGISTRY]
+            >
+          )[mc.provider]
+          if (!provider) {
+            ctx.addIssue({
+              code: 'custom',
+              path: [key, 'provider'],
+              message: `Unknown provider "${mc.provider}"`,
+            })
+            continue
+          }
+          if (!provider.models.includes(mc.model)) {
+            ctx.addIssue({
+              code: 'custom',
+              path: [key, 'model'],
+              message: `Unknown model "${mc.model}" for provider "${mc.provider}"`,
+            })
+          }
+        }
+      }),
 
     /** Plugin configurations — keyed by plugin (manifest) ID */
     plugins: z

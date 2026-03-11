@@ -9,10 +9,9 @@ export const HEARTBEAT_TASK_ID = '__heartbeat__'
 export function isWithinActiveHours(
   activeHours: { start: string; end: string } | undefined,
   timezone: string,
+  now: Date = new Date(),
 ): boolean {
   if (!activeHours) return true
-
-  const now = new Date()
   const currentTime = new Intl.DateTimeFormat('en-GB', {
     timeZone: timezone,
     hour: '2-digit',

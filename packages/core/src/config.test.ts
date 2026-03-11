@@ -80,6 +80,30 @@ describe('Config', () => {
         }),
       ).rejects.toThrow()
     })
+
+    it('rejects unknown provider', async () => {
+      await expect(
+        updateConfig(configStore, {
+          models: { operator: { provider: 'fakeprovider', model: 'some-model' } },
+        }),
+      ).rejects.toThrow(/Unknown provider/)
+    })
+
+    it('rejects unknown model for valid provider', async () => {
+      await expect(
+        updateConfig(configStore, {
+          models: { operator: { provider: 'anthropic', model: 'nonexistent-model' } },
+        }),
+      ).rejects.toThrow(/Unknown model/)
+    })
+
+    it('accepts valid provider and model', async () => {
+      const updated = await updateConfig(configStore, {
+        models: { operator: { provider: 'openai', model: 'gpt-4o' } },
+      })
+      expect(updated.models.operator.provider).toBe('openai')
+      expect(updated.models.operator.model).toBe('gpt-4o')
+    })
   })
 
   describe('deepMerge via updateConfig', () => {

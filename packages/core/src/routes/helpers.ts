@@ -50,6 +50,11 @@ export function extractStringEnv(raw: Record<string, unknown>): Record<string, s
 /** Cached runtime for server mode */
 let _runtime: PandoraRuntime | null = null
 
+/** Access the cached runtime (for shutdown hooks) */
+export function getCachedRuntime(): PandoraRuntime | null {
+  return _runtime
+}
+
 /**
  * Create middleware that initializes PandoraRuntime on every request.
  * In server mode, the runtime is cached for the process lifetime.

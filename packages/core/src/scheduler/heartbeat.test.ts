@@ -3,37 +3,54 @@ import type { HeartbeatCheck } from '../config'
 import { buildHeartbeatPrompt, createHeartbeatTask, isWithinActiveHours } from './heartbeat'
 
 describe('isWithinActiveHours', () => {
+  // Use a January date to avoid DST ambiguity.
+  // 2026-01-15T14:30:00Z → 14:30 UTC, 09:30 EST (UTC-5), 23:30 JST (UTC+9)
+  const now = new Date('2026-01-15T14:30:00Z')
+
   it('returns true when no active hours configured', () => {
-    expect(isWithinActiveHours(undefined, 'UTC')).toBe(true)
+    expect(isWithinActiveHours(undefined, 'UTC', now)).toBe(true)
   })
 
-  it('returns true during active hours (normal range)', () => {
-    // Build a 2-hour window around the current UTC time
-    const now = new Date()
-    const startHour = Math.max(0, now.getUTCHours() - 1)
-    const endHour = Math.min(23, now.getUTCHours() + 1)
-    const start = `${startHour.toString().padStart(2, '0')}:00`
-    const end = `${endHour.toString().padStart(2, '0')}:59`
-
-    expect(isWithinActiveHours({ start, end }, 'UTC')).toBe(true)
+  it('returns true when current time is inside the window', () => {
+    expect(isWithinActiveHours({ start: '14:00', end: '15:00' }, 'UTC', now)).toBe(true)
   })
 
-  it('returns false outside active hours (normal range)', () => {
-    // Use a 1-minute window 12 hours away from now
-    const now = new Date()
-    const farHour = (now.getUTCHours() + 12) % 24
-    const start = `${farHour.toString().padStart(2, '0')}:00`
-    const end = `${farHour.toString().padStart(2, '0')}:01`
-
-    expect(isWithinActiveHours({ start, end }, 'UTC')).toBe(false)
+  it('returns true at exact start boundary', () => {
+    expect(isWithinActiveHours({ start: '14:30', end: '16:00' }, 'UTC', now)).toBe(true)
   })
 
-  it('handles overnight range', () => {
-    // 22:00 - 06:00 means active late night through early morning
-    const now = new Date()
-    const hour = now.getUTCHours()
-    const expected = hour >= 22 || hour < 6
-    expect(isWithinActiveHours({ start: '22:00', end: '06:00' }, 'UTC')).toBe(expected)
+  it('returns false at exact end boundary (exclusive)', () => {
+    expect(isWithinActiveHours({ start: '12:00', end: '14:30' }, 'UTC', now)).toBe(false)
+  })
+
+  it('returns false when current time is outside the window', () => {
+    expect(isWithinActiveHours({ start: '08:00', end: '12:00' }, 'UTC', now)).toBe(false)
+  })
+
+  it('handles overnight range — inside after-start portion', () => {
+    // 23:30 JST is inside 22:00-06:00
+    expect(isWithinActiveHours({ start: '22:00', end: '06:00' }, 'Asia/Tokyo', now)).toBe(true)
+  })
+
+  it('handles overnight range — inside before-end portion', () => {
+    // 09:30 EST is inside 20:00-10:00
+    expect(
+      isWithinActiveHours({ start: '20:00', end: '10:00' }, 'America/New_York', now),
+    ).toBe(true)
+  })
+
+  it('handles overnight range — outside the window', () => {
+    // 14:30 UTC is outside 16:00-04:00
+    expect(isWithinActiveHours({ start: '16:00', end: '04:00' }, 'UTC', now)).toBe(false)
+  })
+
+  it('respects timezone conversion', () => {
+    // 09:30 EST → outside 10:00-17:00
+    expect(
+      isWithinActiveHours({ start: '10:00', end: '17:00' }, 'America/New_York', now),
+    ).toBe(false)
+    // 23:30 JST → inside 23:00-23:59
+    expect(isWithinActiveHours({ start: '23:00', end: '23:59' }, 'Asia/Tokyo', now)).toBe(true)
   })
 })
 
