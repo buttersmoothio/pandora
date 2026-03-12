@@ -10,20 +10,19 @@ const chatRoutes = new Hono<Env>()
 // Chat endpoint - thread-based streaming
 chatRoutes.post('/', async (c) => {
   const log = getLogger()
+
+  const body = await c.req.json<{ parts?: MessagePart[]; threadId?: string }>().catch(() => null)
+  if (!(body && Array.isArray(body.parts)) || body.parts.length === 0) {
+    return c.json({ error: 'parts must be a non-empty array' }, 400)
+  }
+
+  const { parts, threadId: clientThreadId } = body
+  const threadId = clientThreadId ?? crypto.randomUUID()
+  const isNewThread = !clientThreadId
+
+  log.info('Chat request received', { threadId, partsCount: parts.length })
+
   try {
-    const { parts, threadId: clientThreadId } = await c.req.json<{
-      parts?: MessagePart[]
-      threadId?: string
-    }>()
-    if (!Array.isArray(parts) || parts.length === 0) {
-      return c.json({ error: 'parts must be a non-empty array' }, 400)
-    }
-
-    const threadId = clientThreadId ?? crypto.randomUUID()
-    const isNewThread = !clientThreadId
-
-    log.info('Chat request received', { threadId, partsCount: parts.length })
-
     const runtime = c.var.runtime
     const stream = await runtime.web.stream({
       threadId,
@@ -52,20 +51,24 @@ chatRoutes.post('/', async (c) => {
 // Tool approval endpoint — approve or deny a pending tool call
 chatRoutes.post('/approve', async (c) => {
   const log = getLogger()
-  try {
-    const { runId, toolCallId, approved, threadId, messageId } = await c.req.json<{
+
+  const body = await c.req
+    .json<{
       runId?: string
       toolCallId?: string
       approved?: boolean
       threadId?: string
       messageId?: string
     }>()
-    if (!(runId && threadId)) {
-      return c.json({ error: 'runId and threadId are required' }, 400)
-    }
+    .catch(() => null)
+  if (!(body?.runId && body?.threadId)) {
+    return c.json({ error: 'runId and threadId are required' }, 400)
+  }
 
-    log.info('Tool approval', { threadId, runId, toolCallId, approved })
+  const { runId, toolCallId, approved, threadId, messageId } = body
+  log.info('Tool approval', { threadId, runId, toolCallId, approved })
 
+  try {
     const runtime = c.var.runtime
     const stream = approved
       ? await runtime.web.approveToolCall({ runId, toolCallId, threadId, messageId })

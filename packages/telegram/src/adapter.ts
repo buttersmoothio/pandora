@@ -196,6 +196,9 @@ export function createTelegramAdapter(token: string, ownerId: string): Channel {
             parts,
           })
           await sendResult(ctx, result, pendingApprovals, nextId)
+        } catch (err) {
+          const message = err instanceof Error ? err.message : 'Something went wrong.'
+          await reply(ctx, message)
         } finally {
           clearInterval(typingInterval)
         }
@@ -222,12 +225,17 @@ export function createTelegramAdapter(token: string, ownerId: string): Channel {
 
         await ctx.replyWithChatAction('typing')
         const nextId = () => String(++approvalCounter)
-        const result =
-          action === 'a'
-            ? await runtime.approveToolCall({ runId, toolCallId })
-            : await runtime.declineToolCall({ runId, toolCallId })
+        try {
+          const result =
+            action === 'a'
+              ? await runtime.approveToolCall({ runId, toolCallId })
+              : await runtime.declineToolCall({ runId, toolCallId })
 
-        await sendResult(ctx, result, pendingApprovals, nextId)
+          await sendResult(ctx, result, pendingApprovals, nextId)
+        } catch (err) {
+          const message = err instanceof Error ? err.message : 'Something went wrong.'
+          await reply(ctx, message)
+        }
       })
 
       bot.catch((err) => {

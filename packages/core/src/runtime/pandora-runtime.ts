@@ -22,13 +22,13 @@ import type { StorageResult } from '../storage'
 import { createStorage } from '../storage'
 import { createCurrentTimeTool } from '../tools/current-time'
 import type { ToolRecord } from '../tools/types'
-import type { InteractiveTools, WebGateway } from './gateways'
-import { createGateways } from './gateways'
+import { createChannelGateway } from './channel-gateway'
 import { loadAgents } from './load-agents'
 import { loadChannels } from './load-channels'
 import { loadTools } from './load-tools'
 import type { PluginRegistry } from './plugin-registry'
 import { getActiveStreamIds, getResumeStream, storeStream } from './stream-store'
+import { createWebGateway, type WebGateway } from './web-gateway'
 
 export interface PandoraRuntime {
   readonly registry: PluginRegistry
@@ -43,7 +43,7 @@ export interface PandoraRuntime {
   mastra: Mastra
   channels: Map<string, Channel>
   channelNames: Map<string, string>
-  interactiveTools: InteractiveTools
+  interactiveTools: ToolRecord
   mcpManager: McpManager | null
   fileDisk: Disk
   scheduler: Scheduler
@@ -217,7 +217,7 @@ async function buildState(
     : {}
   const allTools = { ...builtinTools, ...pluginTools, ...mcpManager.tools, ...scheduleTools }
   const backgroundTools = getBackgroundTools(allTools)
-  const interactiveTools: InteractiveTools = {}
+  const interactiveTools: ToolRecord = {}
   for (const [key, tool] of Object.entries(allTools)) {
     if (!(key in backgroundTools)) interactiveTools[key] = tool
   }
@@ -250,8 +250,8 @@ async function buildState(
     logger: getLogger(env),
   })
 
-  // 9. Gateways
-  const { web } = createGateways({ mastra, env, interactiveTools })
+  // 9. Web gateway
+  const web = createWebGateway({ mastra, interactiveTools })
 
   return { config, mastra, channels, channelNames, interactiveTools, mcpManager, fileDisk, web }
 }
@@ -354,7 +354,7 @@ function getBackgroundTools(tools: ToolRecord): ToolRecord {
 
 async function startRealtimeChannels(runtime: PandoraRuntime): Promise<void> {
   const log = getLogger()
-  const { channel } = createGateways({
+  const channel = createChannelGateway({
     mastra: runtime.mastra,
     env: {},
     interactiveTools: runtime.interactiveTools,

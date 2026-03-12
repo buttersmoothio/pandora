@@ -125,11 +125,12 @@ vi.mock('./load-channels', () => ({
   loadChannels: vi.fn().mockResolvedValue({ channels: new Map(), channelNames: new Map() }),
 }))
 
-vi.mock('./gateways', () => ({
-  createGateways: vi.fn().mockReturnValue({
-    web: stubWebGateway,
-    channel: vi.fn(),
-  }),
+vi.mock('./web-gateway', () => ({
+  createWebGateway: vi.fn().mockReturnValue(stubWebGateway),
+}))
+
+vi.mock('./channel-gateway', () => ({
+  createChannelGateway: vi.fn().mockReturnValue(vi.fn()),
 }))
 
 vi.mock('../agents/operator', () => ({

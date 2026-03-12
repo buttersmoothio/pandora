@@ -323,6 +323,34 @@ A few things to notice about the transport setup:
 - **`prepareSendMessagesRequest`** extracts just the last user message's `parts` — Pandora manages the conversation history server-side, so you only need to send the new message.
 - **`threadId`** is passed in the body so the server knows which conversation to continue.
 
+### Error Handling
+
+The `useChat` hook provides an `error` object and an `onError` callback for handling failures. Errors from the streaming API (unsupported file types, rate limits, provider issues) are delivered as in-band SSE error events and surfaced through these properties.
+
+```tsx
+const { messages, sendMessage, status, error } = useChat({
+  transport: /* ... */,
+  onError: (err) => {
+    // Show a toast, log, or display inline — err.message has the details
+    toast.error(err.message || 'Something went wrong')
+  },
+})
+
+// You can also render error state inline
+if (status === 'error' && error) {
+  return (
+    <div>
+      <p>Something went wrong: {error.message}</p>
+      <button onClick={() => sendMessage({ text: lastMessage })}>
+        Retry
+      </button>
+    </div>
+  )
+}
+```
+
+Validation errors (missing or invalid `parts`) return a JSON `400` response. These cause the fetch to reject, which `onError` also catches.
+
 ### Key useChat Properties
 
 | Property | Type | Description |

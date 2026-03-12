@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { createRateLimiter } from '../auth/rate-limit'
 import { getLogger } from '../logger'
-import { createGateways } from '../runtime/gateways'
+import { createChannelGateway } from '../runtime/channel-gateway'
 import { decodeNsKey } from '../runtime/namespace'
 import type { Env } from './helpers'
 
@@ -27,7 +27,7 @@ webhookRoutes.all('/:encodedKey', async (c) => {
       return c.json({ error: 'Unauthorized' }, 401)
     }
 
-    const { channel } = createGateways({
+    const channel = createChannelGateway({
       mastra: runtime.mastra,
       env: c.var.envVars,
       interactiveTools: runtime.interactiveTools,

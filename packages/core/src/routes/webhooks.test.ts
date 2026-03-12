@@ -4,11 +4,8 @@ import { encodeNsKey } from '../runtime/namespace'
 import type { Env } from './helpers'
 import { webhookRoutes } from './webhooks'
 
-vi.mock('../runtime/gateways', () => ({
-  createGateways: () => ({
-    channel: () => ({}),
-    web: () => ({}),
-  }),
+vi.mock('../runtime/channel-gateway', () => ({
+  createChannelGateway: () => vi.fn(() => ({})),
 }))
 
 function createMockApp(channels: Map<string, unknown>) {

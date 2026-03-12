@@ -53,10 +53,10 @@ The stream body is a [`UIMessageStream`](https://ai-sdk.dev/docs/ai-sdk-ui/readi
 
 ### Errors
 
-| Status | Error | Cause |
+| Status | Format | Cause |
 |---|---|---|
-| `400` | `parts must be a non-empty array` | `parts` is missing, empty, or not an array |
-| `500` | `{error message}` | Server-side failure |
+| `400` | JSON `{ "error": "parts must be a non-empty array" }` | `parts` is missing, empty, or not an array |
+| `500` | JSON `{ "error": "<message>" }` | AI or provider failure (unsupported file type, rate limit, etc.) |
 
 ## POST /api/chat/approve
 
@@ -94,10 +94,10 @@ Authorization: Bearer <token>
 
 ### Errors
 
-| Status | Error | Cause |
+| Status | Format | Cause |
 |---|---|---|
-| `400` | `runId and threadId are required` | Missing required fields |
-| `500` | `{error message}` | Server-side failure |
+| `400` | JSON `{ "error": "runId and threadId are required" }` | Missing required fields |
+| `500` | JSON `{ "error": "<message>" }` | AI or provider failure |
 
 ## GET /api/chat/:threadId/stream
 
