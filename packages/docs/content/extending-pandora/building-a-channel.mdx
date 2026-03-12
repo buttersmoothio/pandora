@@ -200,7 +200,7 @@ The `ChannelGateway` object passed to your adapter provides everything you need:
 
 ### Sending File Attachments
 
-If your platform supports file uploads (images, documents, etc.), include them as `file` parts alongside text:
+If your platform supports file uploads (images, documents, etc.), include them as `file` parts alongside text. You can send raw binary data or a data URL string — both work:
 
 ```ts
 const parts = [
@@ -210,12 +210,11 @@ const parts = [
 // Add any attached files from the platform
 for (const attachment of message.attachments) {
   const response = await fetch(attachment.url)
-  const buffer = await response.arrayBuffer()
-  const base64 = Buffer.from(buffer).toString('base64')
+  const buffer = new Uint8Array(await response.arrayBuffer())
   parts.push({
     type: 'file',
-    url: `data:${attachment.contentType};base64,${base64}`,
-    mediaType: attachment.contentType,
+    data: buffer,
+    mimeType: attachment.contentType,
     filename: attachment.name,
   })
 }
@@ -223,7 +222,9 @@ for (const attachment of message.attachments) {
 const result = await runtime.generate({ threadId, parts })
 ```
 
-File data sent as data URLs is automatically uploaded to storage and replaced with a storage URL before persisting, so large files don't bloat the database.
+The `data` field accepts a `Uint8Array`, `ArrayBuffer`, or a `data:` URL string. Binary data is automatically converted to a data URL before processing.
+
+File attachments are uploaded to storage and replaced with a storage URL before persisting, so large files don't bloat the database.
 
 ## Webhook Mode
 
