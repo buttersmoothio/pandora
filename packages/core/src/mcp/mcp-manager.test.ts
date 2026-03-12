@@ -338,7 +338,7 @@ describe('createMcpManager', () => {
         good: { url: 'https://good.test' },
       })
       // Manually add a bad server that bypasses Zod validation
-      ;(badConfig.mcpServers as Record<string, unknown>).bad = {
+      ;(badConfig as { mcpServers: Record<string, unknown> }).mcpServers.bad = {
         url: 'not-a-url',
         enabled: true,
       }

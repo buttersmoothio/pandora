@@ -283,8 +283,8 @@ describe('createGateways', () => {
       vi.mocked(toAISdkStream).mockReturnValueOnce(
         new ReadableStream({
           start(controller) {
-            controller.enqueue({ type: 'data-tool-call-suspended' })
-            controller.enqueue({ type: 'text-delta', textDelta: 'hello' })
+            controller.enqueue({ type: 'data-tool-call-suspended', data: null })
+            controller.enqueue({ type: 'text-delta', id: 't1', delta: 'hello' })
             controller.close()
           },
         }),
@@ -307,11 +307,11 @@ describe('createGateways', () => {
         chunks.push(value)
       }
       expect(chunks).toHaveLength(1)
-      expect(chunks[0]).toEqual({ type: 'text-delta', textDelta: 'hello' })
+      expect(chunks[0]).toEqual({ type: 'text-delta', id: 't1', delta: 'hello' })
     })
 
     it('passes through regular chunks unchanged', async () => {
-      const chunk = { type: 'text-delta', textDelta: 'world' }
+      const chunk = { type: 'text-delta' as const, id: 't1', delta: 'world' }
       vi.mocked(toAISdkStream).mockReturnValueOnce(
         new ReadableStream({
           start(controller) {

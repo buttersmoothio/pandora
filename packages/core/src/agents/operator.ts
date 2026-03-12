@@ -1,6 +1,8 @@
 import { Agent as MastraAgent } from '@mastra/core/agent'
 import type { MastraMemory } from '@mastra/core/memory'
+import type { Disk } from 'flydrive'
 import type { Config } from '../config'
+import { createAttachmentProcessor } from '../files/attachment-processor'
 import { getLogger } from '../logger'
 import { resolveModel } from '../models'
 import type { ToolRecord } from '../tools/types'
@@ -36,6 +38,8 @@ export function createOperator(
   config: Config,
   tools: ToolRecord,
   memory: MastraMemory,
+  fileDisk: Disk,
+  baseUrl: string,
   subagents?: AgentRecord,
 ): MastraAgent {
   getLogger().debug('Operator agent created', {
@@ -52,5 +56,7 @@ export function createOperator(
     tools,
     memory,
     agents: subagents ?? {},
+    inputProcessors: [createAttachmentProcessor(fileDisk, baseUrl)],
+    outputProcessors: [createAttachmentProcessor(fileDisk, baseUrl)],
   })
 }

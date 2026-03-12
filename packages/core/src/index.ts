@@ -12,6 +12,7 @@ import { loadAllPlugins } from './manifest'
 import { chatRoutes } from './routes/chat'
 import { configRoutes } from './routes/config'
 import { discoveryRoutes } from './routes/discovery'
+import { fileRoutes } from './routes/files'
 import { healthRoutes } from './routes/health'
 import type { Env } from './routes/helpers'
 import { createRuntimeMiddleware, getAuthStore } from './routes/helpers'
@@ -73,6 +74,9 @@ app.route('/wh', webhookRoutes)
 
 // MCP OAuth callback — BEFORE auth middleware (browser redirect from OAuth server)
 app.route('/oauth', mcpOAuthRoutes)
+
+// File serving — BEFORE auth middleware so Mastra can download assets internally
+app.route('/api/files', fileRoutes)
 
 // Rate limiting on auth endpoints
 app.use('/api/auth/login', createRateLimiter({ max: 5, windowMs: 60_000 }))

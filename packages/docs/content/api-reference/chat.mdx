@@ -21,6 +21,18 @@ Authorization: Bearer <token>
 }
 ```
 
+To include file attachments, add `file` parts alongside the text. Files must be sent as data URLs:
+
+```json
+{
+  "parts": [
+    { "type": "text", "text": "What's in this image?" },
+    { "type": "file", "mediaType": "image/png", "url": "data:image/png;base64,...", "filename": "photo.png" }
+  ],
+  "threadId": "abc123"
+}
+```
+
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `parts` | `ContentPart[]` | Yes | User message parts — see [request parts](/api-reference/message-parts#request-parts). At minimum one text part. |

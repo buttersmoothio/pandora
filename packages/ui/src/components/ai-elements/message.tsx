@@ -4,10 +4,20 @@ import { cjk } from '@streamdown/cjk'
 import { code } from '@streamdown/code'
 import { math } from '@streamdown/math'
 import { mermaid } from '@streamdown/mermaid'
-import type { UIMessage } from 'ai'
-import { ChevronLeftIcon, ChevronRightIcon } from 'lucide-react'
+import type { FileUIPart, UIMessage } from 'ai'
+import { ChevronLeftIcon, ChevronRightIcon, PaperclipIcon, XIcon } from 'lucide-react'
+import Image from 'next/image'
 import type { ComponentProps, HTMLAttributes, ReactElement } from 'react'
-import { createContext, memo, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import {
+  Children,
+  createContext,
+  memo,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react'
 import { Streamdown } from 'streamdown'
 import { Button } from '@/components/ui/button'
 import { ButtonGroup, ButtonGroupText } from '@/components/ui/button-group'
@@ -289,3 +299,72 @@ export const MessageToolbar = ({ className, children, ...props }: MessageToolbar
     {children}
   </div>
 )
+
+// ---------------------------------------------------------------------------
+// Attachments
+// ---------------------------------------------------------------------------
+
+export type MessageAttachmentsProps = ComponentProps<'div'>
+
+export const MessageAttachments = ({ className, children, ...props }: MessageAttachmentsProps) => {
+  if (!children || Children.count(children) === 0) return null
+  return (
+    <div className={cn('flex flex-wrap gap-2', className)} {...props}>
+      {children}
+    </div>
+  )
+}
+
+export type MessageAttachmentProps = ComponentProps<'div'> & {
+  data: FileUIPart
+  onRemove?: () => void
+}
+
+function isImageType(mediaType?: string): boolean {
+  return !!mediaType && mediaType.startsWith('image/')
+}
+
+export const MessageAttachment = ({
+  data,
+  onRemove,
+  className,
+  ...props
+}: MessageAttachmentProps) => {
+  const label = data.filename || 'Attachment'
+
+  return (
+    <div
+      className={cn(
+        'group/attachment relative inline-flex overflow-hidden rounded-lg border bg-muted',
+        className,
+      )}
+      {...props}
+    >
+      {isImageType(data.mediaType) ? (
+        <Image
+          alt={label}
+          className="size-24 object-cover"
+          height={96}
+          src={data.url}
+          unoptimized
+          width={96}
+        />
+      ) : (
+        <div className="flex size-24 flex-col items-center justify-center gap-1 px-2 text-center">
+          <PaperclipIcon className="size-5 text-muted-foreground" />
+          <span className="max-w-full truncate text-muted-foreground text-xs">{label}</span>
+        </div>
+      )}
+      {onRemove && (
+        <button
+          aria-label={`Remove ${label}`}
+          className="absolute top-1 right-1 rounded-full bg-background/80 p-0.5 opacity-0 transition-opacity group-hover/attachment:opacity-100"
+          onClick={onRemove}
+          type="button"
+        >
+          <XIcon className="size-3.5" />
+        </button>
+      )}
+    </div>
+  )
+}

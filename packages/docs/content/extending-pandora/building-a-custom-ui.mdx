@@ -135,6 +135,19 @@ const res = await apiFetch('/api/chat', {
 })
 ```
 
+### Sending Files
+
+To send file attachments alongside text, pass a `files` array to `sendMessage`:
+
+```ts
+sendMessage({
+  text: "What's in this image?",
+  files: [new File([blob], 'photo.png', { type: 'image/png' })],
+})
+```
+
+Files are included as `file` parts in the request body. The server uploads them to storage and replaces inline data with a storage URL before persisting, so they don't bloat the database.
+
 ### Reading the Stream
 
 The response body is a Server-Sent Events (SSE) stream. You can read it manually or use the AI SDK's `readUIMessageStream` utility to get structured message objects:
@@ -338,6 +351,12 @@ function MessageParts({ message }: { message: UIMessage }) {
                 <summary>Thinking...</summary>
                 {part.text}
               </details>
+            )
+          case 'file':
+            return part.mediaType?.startsWith('image/') ? (
+              <img key={i} src={part.url} alt={part.filename || 'attachment'} />
+            ) : (
+              <a key={i} href={part.url} download>{part.filename || 'File'}</a>
             )
           case 'source-url':
             return <a key={i} href={part.url}>{part.title || part.url}</a>

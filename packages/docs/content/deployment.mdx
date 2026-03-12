@@ -36,6 +36,8 @@ Core variables that apply to all deployments:
 | `FRONTEND_URL` | -- | URL of your UI (always included in CORS origins) |
 | `CORS_ORIGINS` | `http://localhost:3000` | Comma-separated allowed origins, or `*` for all |
 | `LOG_LEVEL` | `error` | Log verbosity: `debug`, `info`, `warn`, or `error` |
+| `FILE_STORAGE_PATH` | `data/uploads` | Local directory for uploaded file attachments |
+| `BASE_URL` | `http://localhost:{PORT}` | Public base URL of the server (used to serve uploaded files) |
 
 Plugins may require their own API keys (e.g. `TAVILY_API_KEY`, `BRAVE_API_KEY`). See each plugin's documentation for details.
 

@@ -1,7 +1,9 @@
 import type { Mastra } from '@mastra/core'
 import type { Channel } from '@pandorakit/sdk/channels'
+import type { Disk } from 'flydrive'
 import type { Config } from '../config'
 import { getConfig, updateConfig } from '../config'
+import { createFileDisk } from '../files/disk'
 import { createSendToTools } from '../inbox/tools'
 import { getLogger } from '../logger'
 import type { McpManager } from '../mcp'
@@ -43,6 +45,7 @@ export interface PandoraRuntime {
   channelNames: Map<string, string>
   interactiveTools: InteractiveTools
   mcpManager: McpManager | null
+  fileDisk: Disk
   scheduler: Scheduler
 
   syncSchedule(): void
@@ -98,6 +101,7 @@ export async function createRuntime(
     channelNames: state.channelNames,
     interactiveTools: state.interactiveTools,
     mcpManager: state.mcpManager,
+    fileDisk: state.fileDisk,
     web: state.web,
     scheduler,
 
@@ -145,6 +149,7 @@ export async function createRuntime(
         runtime.channelNames = fresh.channelNames
         runtime.interactiveTools = fresh.interactiveTools
         runtime.mcpManager = fresh.mcpManager
+        runtime.fileDisk = fresh.fileDisk
         runtime.web = fresh.web
 
         // Sync schedule after reload
@@ -218,7 +223,12 @@ async function buildState(
   }
   log.info('[runtime] loaded tools', { toolIds: Object.keys(allTools) })
 
-  // 5. Memory
+  // 5. File storage
+  const fileDisk = createFileDisk(env)
+  const port = env.PORT || '4111'
+  const baseUrl = env.BASE_URL || `http://localhost:${port}`
+
+  // 6. Memory
   const memory = createMemory(config)
 
   // 6. Subagents
@@ -229,7 +239,7 @@ async function buildState(
 
   // 7. Operator agent (background-only tools; interactive tools added via toolsets)
   const { createOperator } = await import('../agents/operator')
-  const operator = createOperator(config, backgroundTools, memory, subagents)
+  const operator = createOperator(config, backgroundTools, memory, fileDisk, baseUrl, subagents)
 
   // 8. Mastra instance
   const { Mastra } = await import('@mastra/core')
@@ -243,7 +253,7 @@ async function buildState(
   // 9. Gateways
   const { web } = createGateways({ mastra, env, interactiveTools })
 
-  return { config, mastra, channels, channelNames, interactiveTools, mcpManager, web }
+  return { config, mastra, channels, channelNames, interactiveTools, mcpManager, fileDisk, web }
 }
 
 function createTaskHandler(

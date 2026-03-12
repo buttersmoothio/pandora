@@ -1,9 +1,19 @@
 'use client'
 
-import type { ChatAddToolApproveResponseFunction, DynamicToolUIPart, ToolUIPart } from 'ai'
+import type {
+  ChatAddToolApproveResponseFunction,
+  DynamicToolUIPart,
+  FileUIPart,
+  ToolUIPart,
+} from 'ai'
 import { isToolUIPart, type UIMessage } from 'ai'
 import { CheckIcon, XIcon } from 'lucide-react'
-import { MessageContent, MessageResponse } from '@/components/ai-elements/message'
+import {
+  MessageAttachment,
+  MessageAttachments,
+  MessageContent,
+  MessageResponse,
+} from '@/components/ai-elements/message'
 import { Reasoning, ReasoningContent, ReasoningTrigger } from '@/components/ai-elements/reasoning'
 import { Shimmer } from '@/components/ai-elements/shimmer'
 import { Source, Sources, SourcesContent, SourcesTrigger } from '@/components/ai-elements/sources'
@@ -13,13 +23,23 @@ import { useToolNames } from '@/hooks/use-plugins'
 
 type ToolPart = ToolUIPart | DynamicToolUIPart
 type TextPart = Extract<UIMessage['parts'][number], { type: 'text' }>
-type PartGroup = { type: 'text'; part: TextPart } | { type: 'tools'; parts: ToolPart[] }
+type PartGroup =
+  | { type: 'text'; part: TextPart }
+  | { type: 'tools'; parts: ToolPart[] }
+  | { type: 'files'; parts: FileUIPart[] }
 
 export function groupParts(parts: UIMessage['parts']): PartGroup[] {
   const groups: PartGroup[] = []
   for (const part of parts) {
     if (part.type === 'text') {
       groups.push({ type: 'text', part })
+    } else if (part.type === 'file') {
+      const last = groups.at(-1)
+      if (last?.type === 'files') {
+        last.parts.push(part)
+      } else {
+        groups.push({ type: 'files', parts: [part] })
+      }
     } else if (isToolUIPart(part)) {
       const last = groups.at(-1)
       if (last?.type === 'tools') {
@@ -93,6 +113,16 @@ export function MessageParts({
                 <span>{group.part.text}</span>
               )}
             </MessageContent>
+          )
+        }
+
+        if (group.type === 'files') {
+          return (
+            <MessageAttachments key={`${message.id}-files-${gi}`}>
+              {group.parts.map((part, fi) => (
+                <MessageAttachment data={part} key={`${message.id}-file-${gi}-${fi}`} />
+              ))}
+            </MessageAttachments>
           )
         }
 

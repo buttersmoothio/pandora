@@ -63,24 +63,17 @@ import { cn } from '@/lib/utils'
 // Helpers
 // ============================================================================
 
-const convertBlobUrlToDataUrl = async (url: string): Promise<string | null> => {
-  try {
-    const response = await fetch(url)
-    const blob = await response.blob()
-    // FileReader uses callback-based API, wrapping in Promise is necessary
-    // oxlint-disable-next-line eslint-plugin-promise(avoid-new)
-    return new Promise((resolve) => {
-      const reader = new FileReader()
-      // oxlint-disable-next-line eslint-plugin-unicorn(prefer-add-event-listener)
-      reader.onloadend = () => resolve(reader.result as string)
-      // oxlint-disable-next-line eslint-plugin-unicorn(prefer-add-event-listener)
-      reader.onerror = () => resolve(null)
-      reader.readAsDataURL(blob)
-    })
-  } catch {
-    return null
-  }
-}
+const readFileAsDataUrl = (file: File): Promise<string> =>
+  // FileReader uses callback-based API, wrapping in Promise is necessary
+  // oxlint-disable-next-line eslint-plugin-promise(avoid-new)
+  new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    // oxlint-disable-next-line eslint-plugin-unicorn(prefer-add-event-listener)
+    reader.onloadend = () => resolve(reader.result as string)
+    // oxlint-disable-next-line eslint-plugin-unicorn(prefer-add-event-listener)
+    reader.onerror = () => reject(new Error('Failed to read file'))
+    reader.readAsDataURL(file)
+  })
 
 // ============================================================================
 // Provider Context & Types
@@ -164,57 +157,28 @@ export const PromptInputProvider = ({
       return
     }
 
-    setAttachmentFiles((prev) => [
-      ...prev,
-      ...incoming.map((file) => ({
+    // Read files as data URLs immediately so they're available for sendMessage.
+    // Blob URLs can't be fetched server-side and AI SDK may bypass submit-time conversion.
+    Promise.all(
+      incoming.map(async (file) => ({
         filename: file.name,
         id: nanoid(),
         mediaType: file.type,
         type: 'file' as const,
-        url: URL.createObjectURL(file),
+        url: await readFileAsDataUrl(file),
       })),
-    ])
+    ).then((newFiles) => {
+      setAttachmentFiles((prev) => [...prev, ...newFiles])
+    })
   }, [])
 
   const remove = useCallback((id: string) => {
-    setAttachmentFiles((prev) => {
-      const found = prev.find((f) => f.id === id)
-      if (found?.url) {
-        URL.revokeObjectURL(found.url)
-      }
-      return prev.filter((f) => f.id !== id)
-    })
+    setAttachmentFiles((prev) => prev.filter((f) => f.id !== id))
   }, [])
 
   const clear = useCallback(() => {
-    setAttachmentFiles((prev) => {
-      for (const f of prev) {
-        if (f.url) {
-          URL.revokeObjectURL(f.url)
-        }
-      }
-      return []
-    })
+    setAttachmentFiles([])
   }, [])
-
-  // Keep a ref to attachments for cleanup on unmount (avoids stale closure)
-  const attachmentsRef = useRef(attachmentFiles)
-
-  useEffect(() => {
-    attachmentsRef.current = attachmentFiles
-  }, [attachmentFiles])
-
-  // Cleanup blob URLs on unmount to prevent memory leaks
-  useEffect(
-    () => () => {
-      for (const f of attachmentsRef.current) {
-        if (f.url) {
-          URL.revokeObjectURL(f.url)
-        }
-      }
-    },
-    [],
-  )
 
   const openFileDialog = useCallback(() => {
     openRef.current?.()
@@ -380,13 +344,6 @@ export const PromptInput = ({
     (SourceDocumentUIPart & { id: string })[]
   >([])
 
-  // Keep a ref to files for cleanup on unmount (avoids stale closure)
-  const filesRef = useRef(files)
-
-  useEffect(() => {
-    filesRef.current = files
-  }, [files])
-
   const openFileDialogLocal = useCallback(() => {
     inputRef.current?.click()
   }, [])
@@ -435,41 +392,34 @@ export const PromptInput = ({
         return
       }
 
-      setItems((prev) => {
-        const capacity =
-          typeof maxFiles === 'number' ? Math.max(0, maxFiles - prev.length) : undefined
-        const capped = typeof capacity === 'number' ? sized.slice(0, capacity) : sized
-        if (typeof capacity === 'number' && sized.length > capacity) {
-          onError?.({
-            code: 'max_files',
-            message: 'Too many files. Some were not added.',
-          })
-        }
-        const next: (FileUIPart & { id: string })[] = []
-        for (const file of capped) {
-          next.push({
-            filename: file.name,
-            id: nanoid(),
-            mediaType: file.type,
-            type: 'file',
-            url: URL.createObjectURL(file),
-          })
-        }
-        return [...prev, ...next]
+      const capacity =
+        typeof maxFiles === 'number' ? Math.max(0, maxFiles - items.length) : undefined
+      const capped = typeof capacity === 'number' ? sized.slice(0, capacity) : sized
+      if (typeof capacity === 'number' && sized.length > capacity) {
+        onError?.({
+          code: 'max_files',
+          message: 'Too many files. Some were not added.',
+        })
+      }
+
+      // Read files as data URLs so they can be sent to the server
+      Promise.all(
+        capped.map(async (file) => ({
+          filename: file.name,
+          id: nanoid(),
+          mediaType: file.type,
+          type: 'file' as const,
+          url: await readFileAsDataUrl(file),
+        })),
+      ).then((next) => {
+        setItems((prev) => [...prev, ...next])
       })
     },
     [matchesAccept, maxFiles, maxFileSize, onError],
   )
 
   const removeLocal = useCallback(
-    (id: string) =>
-      setItems((prev) => {
-        const found = prev.find((file) => file.id === id)
-        if (found?.url) {
-          URL.revokeObjectURL(found.url)
-        }
-        return prev.filter((file) => file.id !== id)
-      }),
+    (id: string) => setItems((prev) => prev.filter((file) => file.id !== id)),
     [],
   )
 
@@ -514,17 +464,7 @@ export const PromptInput = ({
   )
 
   const clearAttachments = useCallback(
-    () =>
-      usingProvider
-        ? controller?.attachments.clear()
-        : setItems((prev) => {
-            for (const file of prev) {
-              if (file.url) {
-                URL.revokeObjectURL(file.url)
-              }
-            }
-            return []
-          }),
+    () => (usingProvider ? controller?.attachments.clear() : setItems([])),
     [usingProvider, controller],
   )
 
@@ -613,20 +553,6 @@ export const PromptInput = ({
     }
   }, [add, globalDrop])
 
-  useEffect(
-    () => () => {
-      if (!usingProvider) {
-        for (const f of filesRef.current) {
-          if (f.url) {
-            URL.revokeObjectURL(f.url)
-          }
-        }
-      }
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- cleanup only on unmount; filesRef always current
-    [usingProvider],
-  )
-
   const handleChange: ChangeEventHandler<HTMLInputElement> = useCallback(
     (event) => {
       if (event.currentTarget.files) {
@@ -678,29 +604,15 @@ export const PromptInput = ({
             return (formData.get('message') as string) || ''
           })()
 
-      // Reset form immediately after capturing text to avoid race condition
-      // where user input during async blob conversion would be lost
       if (!usingProvider) {
         form.reset()
       }
 
-      try {
-        // Convert blob URLs to data URLs asynchronously
-        const convertedFiles: FileUIPart[] = await Promise.all(
-          files.map(async ({ id: _id, ...item }) => {
-            if (item.url?.startsWith('blob:')) {
-              const dataUrl = await convertBlobUrlToDataUrl(item.url)
-              // If conversion failed, keep the original blob URL
-              return {
-                ...item,
-                url: dataUrl ?? item.url,
-              }
-            }
-            return item
-          }),
-        )
+      // Files already have data URLs (converted at add time), strip internal id
+      const cleanFiles: FileUIPart[] = files.map(({ id: _id, ...item }) => item)
 
-        const result = onSubmit({ files: convertedFiles, text }, event)
+      try {
+        const result = onSubmit({ files: cleanFiles, text }, event)
 
         // Handle both sync and async onSubmit
         if (result instanceof Promise) {

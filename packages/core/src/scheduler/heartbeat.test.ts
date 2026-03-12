@@ -34,9 +34,9 @@ describe('isWithinActiveHours', () => {
 
   it('handles overnight range — inside before-end portion', () => {
     // 09:30 EST is inside 20:00-10:00
-    expect(
-      isWithinActiveHours({ start: '20:00', end: '10:00' }, 'America/New_York', now),
-    ).toBe(true)
+    expect(isWithinActiveHours({ start: '20:00', end: '10:00' }, 'America/New_York', now)).toBe(
+      true,
+    )
   })
 
   it('handles overnight range — outside the window', () => {
@@ -46,9 +46,9 @@ describe('isWithinActiveHours', () => {
 
   it('respects timezone conversion', () => {
     // 09:30 EST → outside 10:00-17:00
-    expect(
-      isWithinActiveHours({ start: '10:00', end: '17:00' }, 'America/New_York', now),
-    ).toBe(false)
+    expect(isWithinActiveHours({ start: '10:00', end: '17:00' }, 'America/New_York', now)).toBe(
+      false,
+    )
     // 23:30 JST → inside 23:00-23:59
     expect(isWithinActiveHours({ start: '23:00', end: '23:59' }, 'Asia/Tokyo', now)).toBe(true)
   })

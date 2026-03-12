@@ -16,13 +16,20 @@ import {
 import { Message } from '@/components/ai-elements/message'
 import {
   PromptInput,
+  PromptInputActionAddAttachments,
+  PromptInputActionMenu,
+  PromptInputActionMenuContent,
+  PromptInputActionMenuTrigger,
   PromptInputBody,
   PromptInputFooter,
+  PromptInputHeader,
   PromptInputSubmit,
   PromptInputTextarea,
+  PromptInputTools,
 } from '@/components/ai-elements/prompt-input'
 import { type BranchRef, MessageBranchNav } from '@/components/chat/branch-nav'
 import { EditMessageForm } from '@/components/chat/edit-message-form'
+import { InputAttachments } from '@/components/chat/input-attachments'
 import { MessageParts } from '@/components/message-parts'
 import { Button } from '@/components/ui/button'
 import { useConfig } from '@/hooks/use-config'
@@ -263,11 +270,26 @@ export function ThreadChat({
       </Conversation>
 
       <div className="border-t p-4">
-        <PromptInput onSubmit={(msg) => sendMessage({ text: msg.text })}>
+        <PromptInput
+          globalDrop
+          multiple
+          onSubmit={(msg) => sendMessage({ text: msg.text, files: msg.files })}
+        >
+          <PromptInputHeader>
+            <InputAttachments />
+          </PromptInputHeader>
           <PromptInputBody>
             <PromptInputTextarea placeholder="Send a message..." />
           </PromptInputBody>
           <PromptInputFooter>
+            <PromptInputTools>
+              <PromptInputActionMenu>
+                <PromptInputActionMenuTrigger />
+                <PromptInputActionMenuContent>
+                  <PromptInputActionAddAttachments />
+                </PromptInputActionMenuContent>
+              </PromptInputActionMenu>
+            </PromptInputTools>
             <PromptInputSubmit status={status} />
           </PromptInputFooter>
         </PromptInput>

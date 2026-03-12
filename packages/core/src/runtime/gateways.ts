@@ -27,9 +27,32 @@ import type { ToolRecord } from '../tools/types'
 
 const RESOURCE_ID = 'default'
 
+/**
+ * Normalize parts so both web UI (FileUIPart with url) and channel adapters
+ * (FilePart with binary data) produce a consistent format for the agent.
+ */
+function normalizePart(part: MessagePart): unknown {
+  // Channel format: { type: 'file', data, mimeType } — convert binary to data: URL
+  if (part.type === 'file' && 'data' in part && !('url' in part)) {
+    const fp = part as {
+      data: string | ArrayBuffer | Uint8Array
+      mimeType: string
+      filename?: string
+    }
+    const base64 = Buffer.from(fp.data as ArrayBuffer).toString('base64')
+    return {
+      type: 'file',
+      url: `data:${fp.mimeType};base64,${base64}`,
+      mediaType: fp.mimeType,
+      filename: fp.filename,
+    }
+  }
+  return part
+}
+
 // biome-ignore lint/suspicious/noExplicitAny: SDK MessagePart is a structural subset of Mastra's
 function buildMessages(parts: MessagePart[]): any[] {
-  return [{ id: crypto.randomUUID(), role: 'user' as const, parts }]
+  return [{ id: crypto.randomUUID(), role: 'user' as const, parts: parts.map(normalizePart) }]
 }
 
 async function getMemory(mastra: Mastra): Promise<Memory> {
