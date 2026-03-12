@@ -138,33 +138,37 @@ export function createTelegramAdapter(token: string, ownerId: string): Channel {
         }
       }
 
+      /** Extract a photo part from the message, if present. */
+      async function extractPhoto(ctx: Context): Promise<MessagePart | null> {
+        const photo = ctx.message?.photo
+        if (!photo || photo.length === 0) return null
+        const largest = photo[photo.length - 1]
+        return downloadFile(ctx, largest.file_id, 'image/jpeg')
+      }
+
+      /** Extract a document part from the message, if present. */
+      async function extractDocument(ctx: Context): Promise<MessagePart | null> {
+        const doc = ctx.message?.document
+        if (!doc) return null
+        return downloadFile(
+          ctx,
+          doc.file_id,
+          doc.mime_type ?? 'application/octet-stream',
+          doc.file_name,
+        )
+      }
+
       /** Build parts from a message that may contain text + files. */
       async function extractParts(ctx: Context): Promise<MessagePart[]> {
         const parts: MessagePart[] = []
-        const caption = ctx.message?.caption?.trim()
 
-        // Photo — pick the largest resolution
-        const photo = ctx.message?.photo
-        if (photo && photo.length > 0) {
-          const largest = photo[photo.length - 1]
-          const part = await downloadFile(ctx, largest.file_id, 'image/jpeg')
-          if (part) parts.push(part)
-        }
+        const photoPart = await extractPhoto(ctx)
+        if (photoPart) parts.push(photoPart)
 
-        // Document (PDF, images sent as files, etc.)
-        const doc = ctx.message?.document
-        if (doc) {
-          const part = await downloadFile(
-            ctx,
-            doc.file_id,
-            doc.mime_type ?? 'application/octet-stream',
-            doc.file_name,
-          )
-          if (part) parts.push(part)
-        }
+        const docPart = await extractDocument(ctx)
+        if (docPart) parts.push(docPart)
 
-        // Text or caption
-        const text = ctx.message?.text?.trim() ?? caption
+        const text = ctx.message?.text?.trim() ?? ctx.message?.caption?.trim()
         if (text) {
           parts.push({ type: 'text', text })
         }
@@ -177,7 +181,7 @@ export function createTelegramAdapter(token: string, ownerId: string): Channel {
         const parts = await extractParts(ctx)
         if (parts.length === 0) return
 
-        const chatId = String(ctx.chat!.id)
+        const chatId = String(ctx.chat?.id)
         const threadId = await runtime.resolveThread(CHANNEL_ID, chatId)
 
         await ctx.replyWithChatAction('typing')
@@ -208,6 +212,26 @@ export function createTelegramAdapter(token: string, ownerId: string): Channel {
       bot.on('message:photo', handleMessage)
       bot.on('message:document', handleMessage)
 
+      /** Resolve a tool approval callback (approve or deny). */
+      async function handleApproval(
+        ctx: Context,
+        action: string,
+        pending: { runId: string; toolCallId: string },
+      ): Promise<void> {
+        const { runId, toolCallId } = pending
+        await ctx.answerCallbackQuery(action === 'a' ? 'Approved' : 'Denied')
+        await ctx.editMessageReplyMarkup({ reply_markup: { inline_keyboard: [] } })
+
+        await ctx.replyWithChatAction('typing')
+        const nextId = () => String(++approvalCounter)
+        const result =
+          action === 'a'
+            ? await runtime.approveToolCall({ runId, toolCallId })
+            : await runtime.declineToolCall({ runId, toolCallId })
+
+        await sendResult(ctx, result, pendingApprovals, nextId)
+      }
+
       bot.callbackQuery(/^(a|d):(\d+)$/, async (ctx) => {
         const match = ctx.match
         if (!match || typeof match === 'string') return
@@ -219,19 +243,8 @@ export function createTelegramAdapter(token: string, ownerId: string): Channel {
         }
         pendingApprovals.delete(id)
 
-        const { runId, toolCallId } = pending
-        await ctx.answerCallbackQuery(action === 'a' ? 'Approved' : 'Denied')
-        await ctx.editMessageReplyMarkup({ reply_markup: { inline_keyboard: [] } })
-
-        await ctx.replyWithChatAction('typing')
-        const nextId = () => String(++approvalCounter)
         try {
-          const result =
-            action === 'a'
-              ? await runtime.approveToolCall({ runId, toolCallId })
-              : await runtime.declineToolCall({ runId, toolCallId })
-
-          await sendResult(ctx, result, pendingApprovals, nextId)
+          await handleApproval(ctx, action, pending)
         } catch (err) {
           const message = err instanceof Error ? err.message : 'Something went wrong.'
           await reply(ctx, message)

@@ -415,7 +415,7 @@ export const PromptInput = ({
         setItems((prev) => [...prev, ...next])
       })
     },
-    [matchesAccept, maxFiles, maxFileSize, onError],
+    [matchesAccept, maxFiles, maxFileSize, onError, items.length],
   )
 
   const removeLocal = useCallback(
