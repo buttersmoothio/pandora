@@ -6,9 +6,11 @@
       "cache": false
     },
     "build": {
+      "dependsOn": ["^build"],
       "outputs": [".next/**", "!.next/cache/**", "dist/**"]
     },
     "typecheck": {
+      "dependsOn": ["^build"],
       "cache": true
     },
     "test": {

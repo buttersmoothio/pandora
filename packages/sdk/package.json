@@ -2,14 +2,42 @@
   "name": "@pandorakit/sdk",
   "version": "0.0.1",
   "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/buttersmoothio/pandora.git",
+    "directory": "packages/sdk"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
-    ".": "./src/index.ts",
-    "./tools": "./src/tools.ts",
-    "./channels": "./src/channels.ts",
-    "./agents": "./src/agents.ts",
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./tools": {
+      "import": "./dist/tools.js",
+      "types": "./dist/tools.d.ts"
+    },
+    "./channels": {
+      "import": "./dist/channels.js",
+      "types": "./dist/channels.d.ts"
+    },
+    "./agents": {
+      "import": "./dist/agents.js",
+      "types": "./dist/agents.d.ts"
+    },
     "./schemas/pandora.manifest.schema.json": "./schemas/pandora.manifest.schema.json"
   },
+  "files": [
+    "dist",
+    "schemas"
+  ],
   "scripts": {
+    "build": "tsup",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {

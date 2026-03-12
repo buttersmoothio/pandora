@@ -8,7 +8,7 @@
   "version": "0.1.0",
   "license": "MIT",
   "homepage": "https://exa.ai",
-  "repository": "https://github.com/mprasanjith/pandora/tree/master/packages/exa-search",
+  "repository": "https://github.com/buttersmoothio/pandora/tree/master/packages/exa-search",
   "pandora": ">=0.0.1",
   "provides": {
     "tools": {

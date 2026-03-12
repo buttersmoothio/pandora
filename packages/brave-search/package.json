@@ -2,14 +2,35 @@
   "name": "@pandorakit/brave-search",
   "version": "0.0.1",
   "type": "module",
-  "exports": {
-    ".": "./src/index.ts"
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/buttersmoothio/pandora.git",
+    "directory": "packages/brave-search"
   },
+  "publishConfig": {
+    "access": "public"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
   "scripts": {
+    "build": "tsup",
     "test": "vitest run --passWithNoTests",
     "test:watch": "vitest",
     "test:coverage": "vitest --coverage",
     "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "@pandorakit/sdk": "workspace:*"
   },
   "devDependencies": {
     "@pandorakit/sdk": "workspace:*",

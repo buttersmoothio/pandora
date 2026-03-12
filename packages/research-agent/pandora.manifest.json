@@ -7,7 +7,7 @@
   "author": "Pandora",
   "version": "0.1.0",
   "license": "MIT",
-  "repository": "https://github.com/mprasanjith/pandora/tree/master/packages/research-agent",
+  "repository": "https://github.com/buttersmoothio/pandora/tree/master/packages/research-agent",
   "pandora": ">=0.0.1",
   "provides": {
     "agents": [
