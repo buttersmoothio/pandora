@@ -1,4 +1,9 @@
-import type { Channel, ChannelRealtime, GenerateResult } from '@pandorakit/sdk/channels'
+import type {
+  Channel,
+  ChannelRealtime,
+  GenerateResult,
+  MessagePart,
+} from '@pandorakit/sdk/channels'
 import type { Context } from 'grammy'
 import { Bot, GrammyError, HttpError, InlineKeyboard } from 'grammy'
 import { markdownToHtml } from './format'
@@ -113,11 +118,66 @@ export function createTelegramAdapter(token: string, ownerId: string): Channel {
         })
       }
 
-      bot.on('message:text', async (ctx) => {
-        const text = ctx.message.text.trim()
-        if (!text) return
+      /** Download a Telegram file and return it as a file part. */
+      async function downloadFile(
+        ctx: Context,
+        fileId: string,
+        mimeType: string,
+        filename?: string,
+      ): Promise<MessagePart | null> {
+        try {
+          const file = await ctx.api.getFile(fileId)
+          if (!file.file_path) return null
+          const url = `https://api.telegram.org/file/bot${token}/${file.file_path}`
+          const res = await fetch(url)
+          if (!res.ok) return null
+          const buffer = new Uint8Array(await res.arrayBuffer())
+          return { type: 'file', data: buffer, mimeType, filename }
+        } catch {
+          return null
+        }
+      }
 
-        const chatId = String(ctx.chat.id)
+      /** Build parts from a message that may contain text + files. */
+      async function extractParts(ctx: Context): Promise<MessagePart[]> {
+        const parts: MessagePart[] = []
+        const caption = ctx.message?.caption?.trim()
+
+        // Photo — pick the largest resolution
+        const photo = ctx.message?.photo
+        if (photo && photo.length > 0) {
+          const largest = photo[photo.length - 1]
+          const part = await downloadFile(ctx, largest.file_id, 'image/jpeg')
+          if (part) parts.push(part)
+        }
+
+        // Document (PDF, images sent as files, etc.)
+        const doc = ctx.message?.document
+        if (doc) {
+          const part = await downloadFile(
+            ctx,
+            doc.file_id,
+            doc.mime_type ?? 'application/octet-stream',
+            doc.file_name,
+          )
+          if (part) parts.push(part)
+        }
+
+        // Text or caption
+        const text = ctx.message?.text?.trim() ?? caption
+        if (text) {
+          parts.push({ type: 'text', text })
+        }
+
+        return parts
+      }
+
+      /** Handle any user message (text, photo, document). */
+      async function handleMessage(ctx: Context): Promise<void> {
+        const parts = await extractParts(ctx)
+        if (parts.length === 0) return
+
+        const chatId = String(ctx.chat!.id)
         const threadId = await runtime.resolveThread(CHANNEL_ID, chatId)
 
         await ctx.replyWithChatAction('typing')
@@ -133,13 +193,17 @@ export function createTelegramAdapter(token: string, ownerId: string): Channel {
             threadId,
             channelId: CHANNEL_ID,
             externalId: chatId,
-            parts: [{ type: 'text', text }],
+            parts,
           })
           await sendResult(ctx, result, pendingApprovals, nextId)
         } finally {
           clearInterval(typingInterval)
         }
-      })
+      }
+
+      bot.on('message:text', handleMessage)
+      bot.on('message:photo', handleMessage)
+      bot.on('message:document', handleMessage)
 
       bot.callbackQuery(/^(a|d):(\d+)$/, async (ctx) => {
         const match = ctx.match

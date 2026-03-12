@@ -42,8 +42,8 @@ function normalizePart(part: MessagePart): unknown {
     const base64 = Buffer.from(fp.data as ArrayBuffer).toString('base64')
     return {
       type: 'file',
-      url: `data:${fp.mimeType};base64,${base64}`,
-      mediaType: fp.mimeType,
+      data: `data:${fp.mimeType};base64,${base64}`,
+      mimeType: fp.mimeType,
       filename: fp.filename,
     }
   }

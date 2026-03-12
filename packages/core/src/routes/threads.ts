@@ -2,6 +2,7 @@ import { AIV5Adapter } from '@mastra/core/agent/message-list'
 import type { Memory } from '@mastra/memory'
 import type { UIMessage } from 'ai'
 import { Hono } from 'hono'
+import { resolveFileUrls } from '../files/attachment-processor'
 import { getLogger } from '../logger'
 import type { Env } from './helpers'
 import { getMemoryOrFail, isServerless } from './helpers'
@@ -120,7 +121,12 @@ threadRoutes.get('/:id', async (c) => {
       resourceId: 'default',
     })
 
-    const messages = rawMessages.map((m) => {
+    // Resolve relative /api/files/ URLs to absolute before toUIMessage,
+    // which uses new URL() and rejects relative paths.
+    const baseUrl = c.var.envVars.BASE_URL ?? `http://localhost:${c.var.envVars.PORT ?? '4111'}`
+    const resolved = resolveFileUrls(rawMessages, baseUrl)
+
+    const messages = resolved.map((m) => {
       const uiMsg = AIV5Adapter.toUIMessage(m)
 
       // Mastra sets `pendingToolApprovals` metadata when the agent is suspended

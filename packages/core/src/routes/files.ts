@@ -1,4 +1,5 @@
 import { Hono } from 'hono'
+import mime from 'mime'
 import type { Env } from './helpers'
 
 const fileRoutes = new Hono<Env>()
@@ -10,9 +11,11 @@ fileRoutes.get('/:key{.+}', async (c) => {
 
   try {
     const [bytes, meta] = await Promise.all([disk.getBytes(key), disk.getMetaData(key)])
+    const contentType = meta.contentType ?? mime.getType(key) ?? 'application/octet-stream'
+
     return new Response(bytes, {
       headers: {
-        'Content-Type': meta.contentType ?? 'application/octet-stream',
+        'Content-Type': contentType,
         'Content-Length': String(meta.contentLength),
         'Cache-Control': 'private, max-age=31536000, immutable',
       },

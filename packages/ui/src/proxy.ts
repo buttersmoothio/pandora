@@ -9,7 +9,7 @@ export function proxy(request: NextRequest) {
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' 'wasm-unsafe-eval'`,
     "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: blob:",
+    `img-src 'self' data: blob: ${apiUrl}`,
     "font-src 'self'",
     `connect-src 'self' ${apiUrl}`,
     "worker-src 'self' blob:",

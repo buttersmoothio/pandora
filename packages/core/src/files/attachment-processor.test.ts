@@ -1,6 +1,6 @@
 import type { MastraDBMessage } from '@mastra/core/memory'
 import { describe, expect, it, vi } from 'vitest'
-import { createAttachmentProcessor } from './attachment-processor'
+import { createAttachmentProcessor, resolveFileUrls } from './attachment-processor'
 
 const BASE_URL = 'http://localhost:4111'
 
@@ -273,7 +273,7 @@ describe('processOutputResult', () => {
     await processOutputResult(disk, [msg])
 
     const putCall = (disk.put as ReturnType<typeof vi.fn>).mock.calls[0]
-    expect(putCall[0]).toMatch(/\/file$/)
+    expect(putCall[0]).toMatch(/\/file\.png$/)
   })
 
   it('generates date-prefixed keys with UUID', async () => {
@@ -291,5 +291,38 @@ describe('processOutputResult', () => {
     expect(segments[2]).toMatch(/^\d{2}$/)
     expect(segments[3]).toMatch(/^[a-f0-9-]{36}$/)
     expect(segments[4]).toBe('test.png')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// resolveFileUrls — resolve relative /api/files/ URLs to absolute
+// ---------------------------------------------------------------------------
+
+describe('resolveFileUrls', () => {
+  it('resolves relative file URLs to absolute', () => {
+    const msg = makeMessage([
+      { type: 'file', data: '/api/files/attachments/2026/03/abc/photo.png', mimeType: 'image/png' },
+    ])
+
+    const result = resolveFileUrls([msg], BASE_URL)
+
+    const part = (result[0].content as { parts: unknown[] }).parts[0] as Record<string, unknown>
+    expect(part.data).toBe('http://localhost:4111/api/files/attachments/2026/03/abc/photo.png')
+  })
+
+  it('skips non-file-storage URLs', () => {
+    const msg = makeMessage([
+      { type: 'file', data: 'https://cdn.example.com/photo.png', mimeType: 'image/png' },
+    ])
+
+    const result = resolveFileUrls([msg], BASE_URL)
+    expect(result[0]).toBe(msg)
+  })
+
+  it('skips text parts', () => {
+    const msg = makeMessage([{ type: 'text', text: 'hello' }])
+
+    const result = resolveFileUrls([msg], BASE_URL)
+    expect(result[0]).toBe(msg)
   })
 })

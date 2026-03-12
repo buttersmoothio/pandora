@@ -6,6 +6,7 @@ import type {
   ProcessOutputResultArgs,
 } from '@mastra/core/processors'
 import type { Disk } from 'flydrive'
+import mime from 'mime'
 import { getLogger } from '../logger'
 
 const FILE_URL_PREFIX = '/api/files/'
@@ -14,12 +15,13 @@ const FILE_URL_PREFIX = '/api/files/'
  * Generate a unique storage key for an attachment.
  * Format: attachments/YYYY/MM/<uuid>/<filename>
  */
-function generateKey(filename?: string): string {
+function generateKey(filename?: string, mimeType?: string): string {
   const now = new Date()
   const yyyy = now.getFullYear()
   const mm = String(now.getMonth() + 1).padStart(2, '0')
   const id = crypto.randomUUID()
-  const name = filename || 'file'
+  const ext = mimeType ? mime.getExtension(mimeType) : null
+  const name = filename || (ext ? `file.${ext}` : 'file')
   return `attachments/${yyyy}/${mm}/${id}/${name}`
 }
 
@@ -65,7 +67,7 @@ async function uploadPart(
   const parsed = parseDataUrl(part.data)
   if (!parsed) return part
 
-  const key = generateKey(part.filename)
+  const key = generateKey(part.filename, parsed.mimeType)
   try {
     await disk.put(key, parsed.buffer, { contentType: parsed.mimeType })
     const storageUrl = await disk.getUrl(key)
@@ -101,7 +103,7 @@ async function uploadMessageAttachments(
 }
 
 // ---------------------------------------------------------------------------
-// URL resolution — relative storage URLs ↔ absolute
+// URL resolution — relative storage URLs → absolute
 // ---------------------------------------------------------------------------
 
 function resolveMessageUrls(msg: MastraDBMessage, baseUrl: string): MastraDBMessage {
@@ -131,6 +133,14 @@ function stripBaseUrlFromMessage(msg: MastraDBMessage, baseUrl: string): MastraD
   })
 
   return modified ? { ...msg, content: { ...msg.content, parts: newParts } } : msg
+}
+
+/**
+ * Resolve relative `/api/files/...` URLs in DB messages to absolute URLs.
+ * Needed before `toUIMessage` which uses `new URL()` to validate file URLs.
+ */
+export function resolveFileUrls(messages: MastraDBMessage[], baseUrl: string): MastraDBMessage[] {
+  return messages.map((msg) => resolveMessageUrls(msg, baseUrl))
 }
 
 /**
