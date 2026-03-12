@@ -1,3 +1,4 @@
+import type { MessageList } from '@mastra/core/agent'
 import type { MastraDBMessage } from '@mastra/core/memory'
 import type {
   InputProcessor,
@@ -172,11 +173,24 @@ export function createAttachmentProcessor(
       return { messages: resolved }
     },
 
-    async processOutputResult({ messages }: ProcessOutputResultArgs): Promise<MastraDBMessage[]> {
+    async processOutputResult({
+      messages,
+      messageList,
+    }: ProcessOutputResultArgs): Promise<MastraDBMessage[] | MessageList> {
       const uploaded = await Promise.all(
         messages.map((msg) => uploadMessageAttachments(msg, disk, log)),
       )
-      return uploaded.map((msg) => stripBaseUrlFromMessage(msg, baseUrl))
+      const processed = uploaded.map((msg) => stripBaseUrlFromMessage(msg, baseUrl))
+
+      // Return the messageList when no messages changed to avoid a Mastra bug where
+      // returning an array causes messages to be removed and re-added with an incorrect
+      // source ("memory" instead of "response"), preventing the OM processor from
+      // persisting the final text.
+      if (processed.every((msg, i) => msg === messages[i])) {
+        return messageList
+      }
+
+      return processed
     },
   }
 }

@@ -67,15 +67,18 @@ async function processOutputResult(
   const processor = createAttachmentProcessor(disk, BASE_URL)
   const fn = processor.processOutputResult
   if (!fn) throw new Error('processOutputResult not defined')
+  const mockMessageList = { __mock: true } as never
   const result = await fn({
     messages,
-    messageList: {} as never,
+    messageList: mockMessageList,
     state: {},
     abort: () => {
       throw new Error('aborted')
     },
     retryCount: 0,
   })
+  // When no messages were modified, the processor returns the messageList
+  if (result === mockMessageList) return messages
   return result as MastraDBMessage[]
 }
 
