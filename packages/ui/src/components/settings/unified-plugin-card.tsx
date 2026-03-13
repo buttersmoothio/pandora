@@ -290,8 +290,8 @@ function ToolList({
       </div>
       {provides.tools.alerts.length > 0 && (
         <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-3 text-sm">
-          {provides.tools.alerts.map((a, i) => (
-            <p key={`${i}-${a.message}`} className="text-muted-foreground text-xs">
+          {provides.tools.alerts.map((a) => (
+            <p key={a.message} className="text-muted-foreground text-xs">
               {a.message}
             </p>
           ))}

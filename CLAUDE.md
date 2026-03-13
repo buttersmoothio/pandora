@@ -26,9 +26,7 @@ Type checking: `bun run typecheck`
 
 ## Code Style
 
-Biome — single quotes, no semicolons, 2-space indent, trailing commas, 100 char line width.
-
-Run `bun run check:fix` before committing.
+Biome handles formatting and most lint rules — run `bun run check:fix` before committing.
 
 ## Coding Standards
 
@@ -36,13 +34,9 @@ Run `bun run check:fix` before committing.
 
 - Use `interface` for contracts and object shapes (stores, registries, component props). Use `type` for unions, intersections, mapped types, and inferred types.
 - Derive types from Zod schemas with `z.infer<typeof Schema>`. Export both the schema and the type.
-- Use union types (`'a' | 'b'`) instead of `enum`. Use `as const` arrays with `ReadonlySet` when you need runtime membership checks.
+- Use `as const` arrays with `ReadonlySet` when you need runtime membership checks.
 - Avoid `as` casts — restructure code or use type guards to narrow naturally. Never use `as any` or `as unknown as T`.
-- Always annotate return types explicitly on exported functions, methods, and public class members. Enforced by Biome `useExplicitType`.
-- Avoid non-null assertions (`!`).
-- Use `??` instead of `||` for defaults — `||` swallows `0`, `''`, and `false`.
 - Never silently swallow errors in catch blocks. At minimum, log them.
-- No wildcard re-exports (`export *`). Use explicit named exports.
 
 ### Module Organization
 
@@ -53,7 +47,7 @@ Run `bun run check:fix` before committing.
 
 ### Logging
 
-- Use `getLogger()` from `../logger` — never use `console.log` / `console.error` directly.
+- Use `getLogger()` from `../logger`.
 - Prefix log messages with the module name in brackets: `[runtime]`, `[scheduler]`, `[stream-store]`.
 - Structured data goes in the second argument: `log.info('[runtime] loaded tools', { toolIds })`.
 

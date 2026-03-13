@@ -24,28 +24,30 @@ import { useToolNames } from '@/hooks/use-plugins'
 type ToolPart = ToolUIPart | DynamicToolUIPart
 type TextPart = Extract<UIMessage['parts'][number], { type: 'text' }>
 type PartGroup =
-  | { type: 'text'; part: TextPart }
-  | { type: 'tools'; parts: ToolPart[] }
-  | { type: 'files'; parts: FileUIPart[] }
+  | { type: 'text'; key: string; part: TextPart }
+  | { type: 'tools'; key: string; parts: ToolPart[] }
+  | { type: 'files'; key: string; parts: FileUIPart[] }
 
 export function groupParts(parts: UIMessage['parts']): PartGroup[] {
   const groups: PartGroup[] = []
+  let textIdx = 0
+  let fileIdx = 0
   for (const part of parts) {
     if (part.type === 'text') {
-      groups.push({ type: 'text', part })
+      groups.push({ type: 'text', key: `text-${textIdx++}`, part })
     } else if (part.type === 'file') {
       const last = groups.at(-1)
       if (last?.type === 'files') {
         last.parts.push(part)
       } else {
-        groups.push({ type: 'files', parts: [part] })
+        groups.push({ type: 'files', key: `files-${fileIdx++}`, parts: [part] })
       }
     } else if (isToolUIPart(part)) {
       const last = groups.at(-1)
       if (last?.type === 'tools') {
         last.parts.push(part)
       } else {
-        groups.push({ type: 'tools', parts: [part] })
+        groups.push({ type: 'tools', key: part.toolCallId, parts: [part] })
       }
     }
   }
@@ -103,10 +105,10 @@ export function MessageParts({
         </Reasoning>
       )}
 
-      {groupParts(message.parts).map((group, gi) => {
+      {groupParts(message.parts).map((group) => {
         if (group.type === 'text') {
           return (
-            <MessageContent key={`${message.id}-text-${gi}`}>
+            <MessageContent key={`${message.id}-${group.key}`}>
               {message.role === 'assistant' ? (
                 <MessageResponse>{group.part.text}</MessageResponse>
               ) : (
@@ -118,9 +120,9 @@ export function MessageParts({
 
         if (group.type === 'files') {
           return (
-            <MessageAttachments key={`${message.id}-files-${gi}`}>
-              {group.parts.map((part, fi) => (
-                <MessageAttachment data={part} key={`${message.id}-file-${gi}-${fi}`} />
+            <MessageAttachments key={`${message.id}-${group.key}`}>
+              {group.parts.map((part) => (
+                <MessageAttachment data={part} key={`${message.id}-${part.url}`} />
               ))}
             </MessageAttachments>
           )
@@ -128,8 +130,8 @@ export function MessageParts({
 
         if (group.type === 'tools') {
           return (
-            <div key={`${message.id}-tools-${gi}`} className="flex flex-col gap-0">
-              {group.parts.map((part, ti) => {
+            <div key={`${message.id}-${group.key}`} className="flex flex-col gap-0">
+              {group.parts.map((part) => {
                 const state = part.state
                 const isAwaitingApproval = state === 'approval-requested'
                 const resolvedName =
@@ -139,7 +141,7 @@ export function MessageParts({
 
                 return (
                   <Tool
-                    key={`${message.id}-tool-${gi}-${ti}`}
+                    key={`${message.id}-${part.toolCallId}`}
                     className="w-fit max-w-full"
                     defaultOpen={isAwaitingApproval}
                   >

@@ -516,13 +516,14 @@ export function PluginInfoDialog({
 
   const hasEnvVars = plugin.envVars.length > 0
   const hasConfigFields = plugin.envConfigured && plugin.configFields.length > 0
-  const hasSidebar =
-    plugin.author ||
-    plugin.version ||
-    plugin.license ||
-    plugin.homepage ||
-    plugin.repository ||
-    permissions
+  const hasSidebar = [
+    plugin.author,
+    plugin.version,
+    plugin.license,
+    plugin.homepage,
+    plugin.repository,
+    permissions,
+  ].some(Boolean)
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -668,8 +669,8 @@ export function PluginCard({
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <div className="flex items-center gap-2">
           <p className="font-semibold text-sm">{plugin.name}</p>
-          {infos.map((info, i) => (
-            <Badge key={`${i}-${info.message}`} variant="outline">
+          {infos.map((info) => (
+            <Badge key={info.message} variant="outline">
               {info.message}
             </Badge>
           ))}
