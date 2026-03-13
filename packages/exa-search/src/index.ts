@@ -35,12 +35,15 @@ const exaSearch: Tool<ExaSearchInput, SearchResult[]> = {
   execute: async (input, context): Promise<SearchResult[]> => {
     const { logger } = context
     const apiKey = context.env.EXA_API_KEY
-    logger.log(`Searching: "${input.query}"`)
+    if (!apiKey) {
+      throw new Error('EXA_API_KEY is not configured')
+    }
+    logger.log('[exa-search] searching', { query: input.query })
     const response = await fetch(EXA_API_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': apiKey as string,
+        'x-api-key': apiKey,
       },
       body: JSON.stringify({
         query: input.query,
@@ -50,7 +53,10 @@ const exaSearch: Tool<ExaSearchInput, SearchResult[]> = {
     })
 
     if (!response.ok) {
-      logger.error(`API error: ${response.status} ${response.statusText}`)
+      logger.error('[exa-search] API error', {
+        status: response.status,
+        statusText: response.statusText,
+      })
       throw new Error(`Exa API error: ${response.status} ${response.statusText}`)
     }
 
@@ -62,7 +68,7 @@ const exaSearch: Tool<ExaSearchInput, SearchResult[]> = {
       url: r.url,
       description: r.text ?? '',
     }))
-    logger.log(`Found ${results.length} results`)
+    logger.log('[exa-search] found results', { count: results.length })
     return results
   },
 }

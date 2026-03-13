@@ -41,7 +41,7 @@ const tavilySearch: Tool<TavilySearchInput, SearchResult[]> = {
   execute: async (input, context): Promise<SearchResult[]> => {
     const { logger } = context
     const apiKey = context.env.TAVILY_API_KEY
-    logger.log(`Searching: "${input.query}"`)
+    logger.log('[tavily-search] searching', { query: input.query })
     const response = await fetch(TAVILY_API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -54,7 +54,10 @@ const tavilySearch: Tool<TavilySearchInput, SearchResult[]> = {
     })
 
     if (!response.ok) {
-      logger.error(`API error: ${response.status} ${response.statusText}`)
+      logger.error('[tavily-search] API error', {
+        status: response.status,
+        statusText: response.statusText,
+      })
       throw new Error(`Tavily API error: ${response.status} ${response.statusText}`)
     }
 
@@ -66,7 +69,7 @@ const tavilySearch: Tool<TavilySearchInput, SearchResult[]> = {
       url: r.url,
       description: r.content,
     }))
-    logger.log(`Found ${results.length} results`)
+    logger.log('[tavily-search] found results', { count: results.length })
     return results
   },
 }

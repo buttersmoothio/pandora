@@ -27,7 +27,7 @@ const perplexitySearch: Tool<PerplexitySearchInput, PerplexitySearchResult> = {
   execute: async (input, context): Promise<PerplexitySearchResult> => {
     const { logger } = context
     const apiKey = context.env.PERPLEXITY_API_KEY
-    logger.log(`Searching: "${input.query}"`)
+    logger.log('[perplexity-search] searching', { query: input.query })
     const response = await fetch(PERPLEXITY_API_URL, {
       method: 'POST',
       headers: {
@@ -41,7 +41,10 @@ const perplexitySearch: Tool<PerplexitySearchInput, PerplexitySearchResult> = {
     })
 
     if (!response.ok) {
-      logger.error(`API error: ${response.status} ${response.statusText}`)
+      logger.error('[perplexity-search] API error', {
+        status: response.status,
+        statusText: response.statusText,
+      })
       throw new Error(`Perplexity API error: ${response.status} ${response.statusText}`)
     }
 
@@ -53,7 +56,7 @@ const perplexitySearch: Tool<PerplexitySearchInput, PerplexitySearchResult> = {
     const content = data.choices?.[0]?.message?.content ?? ''
     const citations = data.citations ?? []
 
-    logger.log(`Got response with ${citations.length} citations`)
+    logger.log('[perplexity-search] got response', { citationCount: citations.length })
     return {
       answer: content,
       citations: citations.map((url, i) => ({

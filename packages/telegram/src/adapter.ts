@@ -31,7 +31,8 @@ async function reply(ctx: Context, text: string): Promise<void> {
   for (const chunk of splitMessage(text)) {
     try {
       await ctx.reply(chunk, { parse_mode: 'HTML' })
-    } catch {
+    } catch (_htmlErr) {
+      // HTML parse failed — fall back to plain text
       await ctx.reply(chunk)
     }
   }
@@ -142,7 +143,11 @@ export function createTelegramAdapter(token: string, ownerId: string): Channel {
           }
           const buffer = new Uint8Array(await res.arrayBuffer())
           return { type: 'file', data: buffer, mimeType, filename }
-        } catch {
+        } catch (err) {
+          runtime.logger.warn('[telegram] file download failed', {
+            fileId,
+            error: err instanceof Error ? err.message : 'Unknown error',
+          })
           return null
         }
       }
@@ -221,6 +226,7 @@ export function createTelegramAdapter(token: string, ownerId: string): Channel {
           await sendResult(ctx, result, pendingApprovals, nextId)
         } catch (err) {
           const message = err instanceof Error ? err.message : 'Something went wrong.'
+          runtime.logger.error('[telegram] message handling failed', { error: message })
           await reply(ctx, message)
         } finally {
           clearInterval(typingInterval)
@@ -268,6 +274,7 @@ export function createTelegramAdapter(token: string, ownerId: string): Channel {
           await handleApproval(ctx, action, pending)
         } catch (err) {
           const message = err instanceof Error ? err.message : 'Something went wrong.'
+          runtime.logger.error('[telegram] tool approval failed', { error: message })
           await reply(ctx, message)
         }
       })
@@ -275,11 +282,11 @@ export function createTelegramAdapter(token: string, ownerId: string): Channel {
       bot.catch((err) => {
         const e = err.error
         if (e instanceof GrammyError) {
-          runtime.logger.error('Telegram API error', { error: e.description })
+          runtime.logger.error('[telegram] API error', { error: e.description })
         } else if (e instanceof HttpError) {
-          runtime.logger.error('Telegram network error', { error: e.message })
+          runtime.logger.error('[telegram] network error', { error: e.message })
         } else {
-          runtime.logger.error('Grammy error', { error: e })
+          runtime.logger.error('[telegram] unexpected error', { error: e })
         }
       })
 
@@ -291,7 +298,7 @@ export function createTelegramAdapter(token: string, ownerId: string): Channel {
       if (bot) {
         try {
           await bot.stop()
-        } catch {
+        } catch (_stopErr) {
           // 409 "Conflict" is expected when cancelling long-polling
         }
         bot = null
@@ -311,7 +318,8 @@ export function createTelegramAdapter(token: string, ownerId: string): Channel {
       for (const chunk of splitMessage(text)) {
         try {
           await bot.api.sendMessage(Number(ownerId), chunk, { parse_mode: 'HTML' })
-        } catch {
+        } catch (_htmlErr) {
+          // HTML parse failed — fall back to plain text
           await bot.api.sendMessage(Number(ownerId), chunk)
         }
       }

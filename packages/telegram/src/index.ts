@@ -10,5 +10,8 @@ export const factory: ChannelFactory = (
   if (!token) {
     return null
   }
-  return createTelegramAdapter(token, config.ownerId as string)
+  if (typeof config.ownerId !== 'string' || !config.ownerId) {
+    return null
+  }
+  return createTelegramAdapter(token, config.ownerId)
 }

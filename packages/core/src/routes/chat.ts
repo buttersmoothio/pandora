@@ -11,7 +11,12 @@ const chatRoutes: Hono<Env> = new Hono<Env>()
 chatRoutes.post('/', async (c) => {
   const log = getLogger()
 
-  const body = await c.req.json<{ parts?: MessagePart[]; threadId?: string }>().catch(() => null)
+  const body = await c.req.json<{ parts?: MessagePart[]; threadId?: string }>().catch((err) => {
+    log.debug('[chat] invalid request body', {
+      error: err instanceof Error ? err.message : 'parse failed',
+    })
+    return null
+  })
   if (!(body && Array.isArray(body.parts)) || body.parts.length === 0) {
     return c.json({ error: 'parts must be a non-empty array' }, 400)
   }
@@ -60,7 +65,12 @@ chatRoutes.post('/approve', async (c) => {
       threadId?: string
       messageId?: string
     }>()
-    .catch(() => null)
+    .catch((err) => {
+      log.debug('[chat] invalid approval body', {
+        error: err instanceof Error ? err.message : 'parse failed',
+      })
+      return null
+    })
   if (!(body?.runId && body?.threadId)) {
     return c.json({ error: 'runId and threadId are required' }, 400)
   }

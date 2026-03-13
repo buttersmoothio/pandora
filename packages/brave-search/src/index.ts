@@ -41,6 +41,9 @@ const braveSearch: Tool<BraveSearchInput, SearchResult[]> = {
   execute: async (input, context): Promise<SearchResult[]> => {
     const { logger } = context
     const apiKey = context.env.BRAVE_API_KEY
+    if (!apiKey) {
+      throw new Error('BRAVE_API_KEY is not configured')
+    }
     const params = new URLSearchParams({ q: input.query })
     if (input.count) {
       params.set('count', String(input.count))
@@ -49,17 +52,20 @@ const braveSearch: Tool<BraveSearchInput, SearchResult[]> = {
       params.set('freshness', input.freshness)
     }
 
-    logger.log(`Searching: "${input.query}"`)
+    logger.log('[brave-search] searching', { query: input.query })
     const response = await fetch(`${BRAVE_API_URL}?${params}`, {
       headers: {
         Accept: 'application/json',
         'Accept-Encoding': 'gzip',
-        'X-Subscription-Token': apiKey as string,
+        'X-Subscription-Token': apiKey,
       },
     })
 
     if (!response.ok) {
-      logger.error(`API error: ${response.status} ${response.statusText}`)
+      logger.error('[brave-search] API error', {
+        status: response.status,
+        statusText: response.statusText,
+      })
       throw new Error(`Brave Search API error: ${response.status} ${response.statusText}`)
     }
 
@@ -71,7 +77,7 @@ const braveSearch: Tool<BraveSearchInput, SearchResult[]> = {
       url: r.url,
       description: r.description,
     }))
-    logger.log(`Found ${results.length} results`)
+    logger.log('[brave-search] found results', { count: results.length })
     return results
   },
 }
