@@ -11,7 +11,7 @@ function getSubtle(): SubtleCrypto {
   return globalThis.crypto.subtle
 }
 
-function toBase64(buffer: ArrayBuffer): string {
+function toBase64(buffer: ArrayBufferLike): string {
   const bytes = new Uint8Array(buffer)
   let binary = ''
   for (const byte of bytes) {
@@ -29,7 +29,7 @@ function fromBase64(base64: string): Uint8Array {
   return bytes
 }
 
-function toHex(buffer: ArrayBuffer): string {
+function toHex(buffer: ArrayBufferLike): string {
   const bytes = new Uint8Array(buffer)
   let hex = ''
   for (const byte of bytes) {
@@ -38,7 +38,7 @@ function toHex(buffer: ArrayBuffer): string {
   return hex
 }
 
-function toBase64Url(buffer: ArrayBuffer): string {
+function toBase64Url(buffer: ArrayBufferLike): string {
   return toBase64(buffer).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 }
 
@@ -48,7 +48,7 @@ function toBase64Url(buffer: ArrayBuffer): string {
  */
 export async function hashPassword(
   password: string,
-  iterations = PBKDF2_ITERATIONS,
+  iterations: number = PBKDF2_ITERATIONS,
 ): Promise<{ hash: string; salt: string; iterations: number }> {
   const salt = globalThis.crypto.getRandomValues(new Uint8Array(SALT_BYTES))
   const encoder = new TextEncoder()
@@ -69,7 +69,7 @@ export async function hashPassword(
 
   return {
     hash: toBase64(derived),
-    salt: toBase64(salt.buffer as ArrayBuffer),
+    salt: toBase64(salt.buffer),
     iterations,
   }
 }
@@ -108,7 +108,7 @@ export async function verifyPassword(
  */
 export async function generateSessionToken(): Promise<{ token: string; tokenHash: string }> {
   const bytes = globalThis.crypto.getRandomValues(new Uint8Array(TOKEN_BYTES))
-  const token = toBase64Url(bytes.buffer as ArrayBuffer)
+  const token = toBase64Url(bytes.buffer)
 
   const hashBuffer = await getSubtle().digest('SHA-256', bytes)
   const tokenHash = toHex(hashBuffer)
@@ -133,7 +133,9 @@ export async function hashToken(token: string): Promise<string> {
  * Pure JS for cross-runtime compatibility.
  */
 export function timingSafeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false
+  if (a.length !== b.length) {
+    return false
+  }
 
   let mismatch = 0
   for (let i = 0; i < a.length; i++) {

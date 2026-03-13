@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { useUpdateWorkingMemory, useWorkingMemory } from '@/hooks/use-memory'
 import { parseWorkingMemoryData, replaceWorkingMemoryData } from '@/lib/memory-utils'
 
-export function ShortTermSection() {
+export function ShortTermSection(): React.JSX.Element {
   const { data, isLoading } = useWorkingMemory()
   const updateMemory = useUpdateWorkingMemory()
   const [editContent, setEditContent] = useState('')
@@ -18,18 +18,22 @@ export function ShortTermSection() {
   const rawContent = data?.content ?? null
   const displayContent = rawContent ? parseWorkingMemoryData(rawContent) : null
 
-  function startEditing() {
-    if (displayContent) setEditContent(displayContent)
+  function startEditing(): void {
+    if (displayContent) {
+      setEditContent(displayContent)
+    }
     setEditing(true)
   }
 
-  function cancelEditing() {
+  function cancelEditing(): void {
     setEditContent(displayContent ?? '')
     setEditing(false)
   }
 
-  function saveEdit() {
-    if (!rawContent) return
+  function saveEdit(): void {
+    if (!rawContent) {
+      return
+    }
     const updated = replaceWorkingMemoryData(rawContent, editContent.trim())
     updateMemory.mutate(updated, { onSuccess: () => setEditing(false) })
   }
@@ -55,7 +59,9 @@ export function ShortTermSection() {
                 <Textarea
                   rows={10}
                   value={editContent}
-                  onChange={(e) => setEditContent(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>): void =>
+                    setEditContent(e.target.value)
+                  }
                 />
                 <div className="flex justify-end gap-2">
                   <Button variant="outline" onClick={cancelEditing}>

@@ -9,12 +9,14 @@ import { cn } from '@/lib/utils'
 type MotionHTMLProps = MotionProps & Record<string, unknown>
 
 // Cache motion components at module level to avoid creating during render
-const motionComponentCache = new Map<
+const motionComponentCache: Map<
   keyof JSX.IntrinsicElements,
   React.ComponentType<MotionHTMLProps>
->()
+> = new Map()
 
-const getMotionComponent = (element: keyof JSX.IntrinsicElements) => {
+const getMotionComponent = (
+  element: keyof JSX.IntrinsicElements,
+): React.ComponentType<MotionHTMLProps> => {
   let component = motionComponentCache.get(element)
   if (!component) {
     component = motion.create(element)
@@ -37,7 +39,7 @@ const ShimmerComponent = ({
   className,
   duration = 2,
   spread = 2,
-}: TextShimmerProps) => {
+}: TextShimmerProps): React.JSX.Element => {
   const MotionComponent = getMotionComponent(Component as keyof JSX.IntrinsicElements)
 
   const dynamicSpread = useMemo(() => (children?.length ?? 0) * spread, [children, spread])
@@ -69,4 +71,4 @@ const ShimmerComponent = ({
   )
 }
 
-export const Shimmer = memo(ShimmerComponent)
+export const Shimmer: React.NamedExoticComponent<TextShimmerProps> = memo(ShimmerComponent)

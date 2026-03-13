@@ -1,12 +1,15 @@
 import { describe, expect, it } from 'vitest'
+import type { Config } from '../../config'
 import { DEFAULTS } from '../../config'
 import { loadChannels } from '../load-channels'
 import type { RegisteredPlugin } from '../plugin-registry'
 import { createPluginRegistry } from '../plugin-registry'
 
-function configWith(...pluginIds: string[]) {
+function configWith(...pluginIds: string[]): Config {
   const plugins: Record<string, { enabled: boolean }> = {}
-  for (const id of pluginIds) plugins[id] = { enabled: true }
+  for (const id of pluginIds) {
+    plugins[id] = { enabled: true }
+  }
   return { ...DEFAULTS, plugins }
 }
 
@@ -17,7 +20,7 @@ function makeChannelPlugin(overrides?: Partial<RegisteredPlugin>): RegisteredPlu
     envVars: [],
     configFields: [],
     channels: {
-      factory: (env) =>
+      factory: (env: Record<string, string | undefined>) =>
         env.TEST_TOKEN
           ? { id: 'test', name: 'Test', realtime: { start: async () => {}, stop: async () => {} } }
           : null,

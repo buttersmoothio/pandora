@@ -11,7 +11,7 @@ const workingMemoryConfig = { enabled: true, template: DEFAULT_WORKING_MEMORY_TE
  * and Working Memory for cross-thread persistent context. The Observer/Reflector
  * model defaults to the operator's model unless explicitly overridden in config.
  */
-export function createMemory(config: Config) {
+export function createMemory(config: Config): Memory {
   const log = getLogger()
 
   if (!config.memory.enabled) {

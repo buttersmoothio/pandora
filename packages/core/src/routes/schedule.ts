@@ -1,12 +1,21 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
-import type { ScheduledTask } from '../config'
+import type { HeartbeatCheck, ScheduledTask } from '../config'
 import { applyTaskPatch, HeartbeatCheckSchema, updateConfig } from '../config'
 import { getLogger } from '../logger'
 import { HEARTBEAT_TASK_ID } from '../scheduler/heartbeat'
 import type { Env } from './helpers'
 
-const CreateTaskSchema = z
+const CreateTaskSchema: z.ZodType<{
+  name: string
+  cron?: string
+  runAt?: string
+  prompt: string
+  enabled: boolean
+  timezone?: string
+  maxRuns?: number
+  destination?: string
+}> = z
   .object({
     name: z.string().min(1),
     cron: z.string().min(1).optional(),
@@ -21,7 +30,16 @@ const CreateTaskSchema = z
     message: 'Exactly one of "cron" or "runAt" is required',
   })
 
-const UpdateTaskSchema = z.object({
+const UpdateTaskSchema: z.ZodType<{
+  name?: string
+  cron?: string | null
+  runAt?: string | null
+  prompt?: string
+  enabled?: boolean
+  timezone?: string | null
+  maxRuns?: number | null
+  destination?: string | null
+}> = z.object({
   name: z.string().min(1).optional(),
   cron: z.string().min(1).optional().nullable(),
   runAt: z.string().optional().nullable(),
@@ -32,7 +50,7 @@ const UpdateTaskSchema = z.object({
   destination: z.string().optional().nullable(),
 })
 
-const scheduleRoutes = new Hono<Env>()
+const scheduleRoutes: Hono<Env> = new Hono<Env>()
 
 // List available notification destinations
 scheduleRoutes.get('/destinations', (c) => {
@@ -40,7 +58,9 @@ scheduleRoutes.get('/destinations', (c) => {
   const destinations: string[] = ['Web Inbox']
   for (const [friendlyName, nsKey] of channelNames) {
     const channel = channels.get(nsKey)
-    if (channel?.notify) destinations.push(friendlyName)
+    if (channel?.notify) {
+      destinations.push(friendlyName)
+    }
   }
   return c.json({ destinations })
 })
@@ -58,7 +78,13 @@ scheduleRoutes.get('/', (c) => {
 
 // -- Heartbeat --
 
-const HeartbeatUpdateSchema = z.object({
+const HeartbeatUpdateSchema: z.ZodType<{
+  enabled?: boolean
+  cron?: string
+  tasks?: HeartbeatCheck[]
+  destination?: string | null
+  activeHours?: { start: string; end: string } | null
+}> = z.object({
   enabled: z.boolean().optional(),
   cron: z.string().min(1).optional(),
   tasks: z.array(HeartbeatCheckSchema).optional(),
@@ -96,13 +122,25 @@ scheduleRoutes.patch('/heartbeat', async (c) => {
     // biome-ignore lint/suspicious/noExplicitAny: null signals deletion in deepMerge
     const heartbeatPatch: Record<string, any> = { ...current }
 
-    if (patch.enabled !== undefined) heartbeatPatch.enabled = patch.enabled
-    if (patch.cron !== undefined) heartbeatPatch.cron = patch.cron
-    if (patch.tasks !== undefined) heartbeatPatch.tasks = patch.tasks
-    if (patch.destination === null) heartbeatPatch.destination = null
-    else if (patch.destination !== undefined) heartbeatPatch.destination = patch.destination
-    if (patch.activeHours === null) heartbeatPatch.activeHours = null
-    else if (patch.activeHours !== undefined) heartbeatPatch.activeHours = patch.activeHours
+    if (patch.enabled !== undefined) {
+      heartbeatPatch.enabled = patch.enabled
+    }
+    if (patch.cron !== undefined) {
+      heartbeatPatch.cron = patch.cron
+    }
+    if (patch.tasks !== undefined) {
+      heartbeatPatch.tasks = patch.tasks
+    }
+    if (patch.destination === null) {
+      heartbeatPatch.destination = null
+    } else if (patch.destination !== undefined) {
+      heartbeatPatch.destination = patch.destination
+    }
+    if (patch.activeHours === null) {
+      heartbeatPatch.activeHours = null
+    } else if (patch.activeHours !== undefined) {
+      heartbeatPatch.activeHours = patch.activeHours
+    }
 
     const config = await updateConfig(
       runtime.storage.config,
@@ -129,7 +167,9 @@ scheduleRoutes.patch('/heartbeat', async (c) => {
 scheduleRoutes.get('/:id', (c) => {
   const runtime = c.var.runtime
   const task = runtime.config.schedule.tasks.find((t) => t.id === c.req.param('id'))
-  if (!task) return c.json({ error: 'Task not found' }, 404)
+  if (!task) {
+    return c.json({ error: 'Task not found' }, 404)
+  }
 
   return c.json({
     ...task,
@@ -180,12 +220,16 @@ scheduleRoutes.patch('/:id', async (c) => {
 
     let found = false
     const tasks = runtime.config.schedule.tasks.map((t) => {
-      if (t.id !== id) return t
+      if (t.id !== id) {
+        return t
+      }
       found = true
       return applyTaskPatch(t, patch)
     })
 
-    if (!found) return c.json({ error: 'Task not found' }, 404)
+    if (!found) {
+      return c.json({ error: 'Task not found' }, 404)
+    }
 
     const config = await updateConfig(
       runtime.storage.config,
@@ -216,7 +260,9 @@ scheduleRoutes.delete('/:id', async (c) => {
 
     const before = runtime.config.schedule.tasks.length
     const tasks = runtime.config.schedule.tasks.filter((t) => t.id !== id)
-    if (tasks.length === before) return c.json({ error: 'Task not found' }, 404)
+    if (tasks.length === before) {
+      return c.json({ error: 'Task not found' }, 404)
+    }
 
     const config = await updateConfig(
       runtime.storage.config,

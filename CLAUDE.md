@@ -38,7 +38,7 @@ Run `bun run check:fix` before committing.
 - Derive types from Zod schemas with `z.infer<typeof Schema>`. Export both the schema and the type.
 - Use union types (`'a' | 'b'`) instead of `enum`. Use `as const` arrays with `ReadonlySet` when you need runtime membership checks.
 - Avoid `as` casts — restructure code or use type guards to narrow naturally. Never use `as any` or `as unknown as T`.
-- Let TypeScript infer return types. Only annotate when inference is wrong or too wide.
+- Always annotate return types explicitly on exported functions, methods, and public class members. Enforced by Biome `useExplicitType`.
 - Avoid non-null assertions (`!`).
 - Use `??` instead of `||` for defaults — `||` swallows `0`, `''`, and `false`.
 - Never silently swallow errors in catch blocks. At minimum, log them.

@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import type { Config } from '../../config'
 import { DEFAULTS, getConfig } from '../../config'
 import { loadTools } from '../load-tools'
 import { createRuntime } from '../pandora-runtime'
@@ -6,6 +7,31 @@ import type { PluginRegistry } from '../plugin-registry'
 import { createPluginRegistry } from '../plugin-registry'
 
 // ── Hoisted stubs (available inside vi.mock factories) ─────────────────
+
+type MockFn = ReturnType<typeof vi.fn>
+
+interface HoistedStubs {
+  stubStorage: {
+    mastra: Record<string, never>
+    config: { get: MockFn; set: MockFn }
+    auth: Record<string, never>
+    inbox: Record<string, never>
+    mcpOAuth: Record<string, never>
+    close: MockFn
+  }
+  stubScheduler: { sync: MockFn; stop: MockFn; nextRun: MockFn; isRunning: MockFn }
+  stubMcpManager: {
+    tools: Record<string, never>
+    serverMeta: Map<string, unknown>
+    disconnect: MockFn
+    handleOAuthCallback: MockFn
+  }
+  stubMastra: { getAgent: MockFn }
+  stubWebGateway: { stream: MockFn; approveToolCall: MockFn; declineToolCall: MockFn }
+  mockSchedulerSync: MockFn
+  mockSchedulerStop: MockFn
+  mockMcpDisconnect: MockFn
+}
 
 const {
   stubStorage,
@@ -16,7 +42,7 @@ const {
   mockSchedulerSync,
   mockSchedulerStop,
   mockMcpDisconnect,
-} = vi.hoisted(() => {
+}: HoistedStubs = vi.hoisted(() => {
   const mockSchedulerSync = vi.fn()
   const mockSchedulerStop = vi.fn()
   const stubScheduler = {
@@ -161,7 +187,7 @@ vi.mock('../../logger', () => ({
 
 // ── Helpers ────────────────────────────────────────────────────────────
 
-const stubConfig = { ...DEFAULTS }
+const stubConfig: Config = { ...DEFAULTS }
 
 function makeRegistry(): PluginRegistry {
   return createPluginRegistry()

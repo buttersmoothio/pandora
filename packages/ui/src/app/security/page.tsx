@@ -22,7 +22,7 @@ import { useSessions } from '@/hooks/use-sessions'
 import { apiFetchRaw, setToken } from '@/lib/api'
 import { useAuth } from '@/providers/auth-provider'
 
-function ChangePasswordSection() {
+function ChangePasswordSection(): React.JSX.Element {
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -30,18 +30,24 @@ function ChangePasswordSection() {
   const [isPending, setIsPending] = useState(false)
 
   function validate(): string | null {
-    if (newPassword.length < 8) return 'New password must be at least 8 characters'
-    if (newPassword !== confirmPassword) return 'Passwords do not match'
+    if (newPassword.length < 8) {
+      return 'New password must be at least 8 characters'
+    }
+    if (newPassword !== confirmPassword) {
+      return 'Passwords do not match'
+    }
     return null
   }
 
   function mapError(data: { error?: string }, status: number): string {
     const code = data?.error ?? ''
-    if (code === 'invalid_credentials') return 'Current password is incorrect'
+    if (code === 'invalid_credentials') {
+      return 'Current password is incorrect'
+    }
     return code || `Request failed (${status})`
   }
 
-  async function handleSubmit(e: FormEvent) {
+  async function handleSubmit(e: FormEvent): Promise<void> {
     e.preventDefault()
     setError('')
 
@@ -92,7 +98,9 @@ function ChangePasswordSection() {
               id="current-password"
               type="password"
               value={currentPassword}
-              onChange={(e) => setCurrentPassword(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                setCurrentPassword(e.target.value)
+              }
               required
             />
           </div>
@@ -102,7 +110,7 @@ function ChangePasswordSection() {
               id="new-password"
               type="password"
               value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewPassword(e.target.value)}
               required
               minLength={8}
             />
@@ -113,7 +121,9 @@ function ChangePasswordSection() {
               id="confirm-password"
               type="password"
               value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                setConfirmPassword(e.target.value)
+              }
               required
               minLength={8}
             />
@@ -128,7 +138,7 @@ function ChangePasswordSection() {
   )
 }
 
-function SessionsSection() {
+function SessionsSection(): React.JSX.Element {
   const { data: sessions, isLoading, error, refetch } = useSessions()
   const { logout } = useAuth()
   const [isRevoking, setIsRevoking] = useState(false)
@@ -136,7 +146,7 @@ function SessionsSection() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [revokeTarget, setRevokeTarget] = useState<{ id: string; current?: boolean } | null>(null)
 
-  async function handleRevokeAll() {
+  async function handleRevokeAll(): Promise<void> {
     setIsRevoking(true)
     try {
       await apiFetchRaw('/api/auth/sessions', { method: 'DELETE' })
@@ -150,8 +160,10 @@ function SessionsSection() {
     }
   }
 
-  async function handleRevokeOne() {
-    if (!revokeTarget) return
+  async function handleRevokeOne(): Promise<void> {
+    if (!revokeTarget) {
+      return
+    }
     setRevokingId(revokeTarget.id)
     try {
       const res = await apiFetchRaw(`/api/auth/sessions/${revokeTarget.id}`, { method: 'DELETE' })
@@ -177,7 +189,7 @@ function SessionsSection() {
     }
   }
 
-  function formatDate(iso: string) {
+  function formatDate(iso: string): string {
     return new Date(iso).toLocaleDateString(undefined, {
       year: 'numeric',
       month: 'short',
@@ -269,7 +281,10 @@ function SessionsSection() {
         )}
       </CardContent>
 
-      <Dialog open={!!revokeTarget} onOpenChange={(open) => !open && setRevokeTarget(null)}>
+      <Dialog
+        open={!!revokeTarget}
+        onOpenChange={(open: boolean) => !open && setRevokeTarget(null)}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Revoke session?</DialogTitle>
@@ -293,7 +308,7 @@ function SessionsSection() {
   )
 }
 
-export default function SecurityPage() {
+export default function SecurityPage(): React.JSX.Element {
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 p-6">
       <h1 className="font-semibold text-2xl">Security</h1>

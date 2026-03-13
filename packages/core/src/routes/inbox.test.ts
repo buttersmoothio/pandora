@@ -30,7 +30,7 @@ function createMockInbox(overrides: Partial<InboxStore> = {}): InboxStore {
   }
 }
 
-function createApp(inbox: InboxStore) {
+function createApp(inbox: InboxStore): Hono<Env> {
   const app = new Hono<Env>()
   app.use('*', async (c, next) => {
     c.set('runtime', { storage: { inbox } } as never)

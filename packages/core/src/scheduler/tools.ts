@@ -28,10 +28,14 @@ function parseActiveHours(
   startInput: string | undefined,
   endInput: string | undefined,
 ): { changed: boolean; value?: { start: string; end: string }; error?: string } {
-  if (startInput === undefined && endInput === undefined) return { changed: false }
+  if (startInput === undefined && endInput === undefined) {
+    return { changed: false }
+  }
   const start = startInput ?? ''
   const end = endInput ?? ''
-  if (start === '' && end === '') return { changed: true, value: undefined }
+  if (start === '' && end === '') {
+    return { changed: true, value: undefined }
+  }
   if (!(TIME_RE.test(start) && TIME_RE.test(end))) {
     return { changed: false, error: 'activeHoursStart and activeHoursEnd must be in HH:MM format' }
   }
@@ -53,7 +57,9 @@ export function createScheduleTools(deps: ScheduleToolDeps): ToolRecord {
     inputSchema: z.object({}),
     execute: async () => {
       const runtime = runtimeRef.current
-      if (!runtime) return { tasks: [] }
+      if (!runtime) {
+        return { tasks: [] }
+      }
 
       const tasks = runtime.config.schedule.tasks.map((task) => ({
         ...task,
@@ -76,9 +82,11 @@ export function createScheduleTools(deps: ScheduleToolDeps): ToolRecord {
     },
   })
 
-  const createTask = async (input: Omit<ScheduledTask, 'id'>) => {
+  const createTask = async (input: Omit<ScheduledTask, 'id'>): Promise<Record<string, unknown>> => {
     const runtime = runtimeRef.current
-    if (!runtime) return { error: 'Runtime not available' }
+    if (!runtime) {
+      return { error: 'Runtime not available' }
+    }
 
     const task: ScheduledTask = { ...input, id: crypto.randomUUID() }
     const tasks = [...runtime.config.schedule.tasks, task]
@@ -110,10 +118,13 @@ export function createScheduleTools(deps: ScheduleToolDeps): ToolRecord {
       enabled: z.boolean().default(true).describe('Whether the task is active'),
       destination: destinationSchema,
     }),
-    execute: async (input) => {
+    // biome-ignore lint/nursery/useExplicitType: input type inferred from inputSchema
+    execute: async (input): Promise<Record<string, unknown>> => {
       const tz = runtimeRef.current?.config.timezone
       const parsed = chrono.parseDate(input.runAt, { instant: new Date(), timezone: tz })
-      if (!parsed) return { error: `Could not parse time: "${input.runAt}"` }
+      if (!parsed) {
+        return { error: `Could not parse time: "${input.runAt}"` }
+      }
       return createTask({ ...input, runAt: parsed.toISOString() })
     },
   })
@@ -141,7 +152,8 @@ export function createScheduleTools(deps: ScheduleToolDeps): ToolRecord {
         .describe('Max number of runs (omit to run forever)'),
       destination: destinationSchema,
     }),
-    execute: async (input) => createTask(input),
+    // biome-ignore lint/nursery/useExplicitType: input type inferred from inputSchema
+    execute: async (input): Promise<Record<string, unknown>> => createTask(input),
   })
 
   const update_schedule = createTool({
@@ -162,24 +174,33 @@ export function createScheduleTools(deps: ScheduleToolDeps): ToolRecord {
       maxRuns: z.number().int().positive().optional().describe('New max runs'),
       destination: destinationSchema,
     }),
-    execute: async (input) => {
+    // biome-ignore lint/nursery/useExplicitType: input type inferred from inputSchema
+    execute: async (input): Promise<Record<string, unknown>> => {
       const runtime = runtimeRef.current
-      if (!runtime) return { error: 'Runtime not available' }
+      if (!runtime) {
+        return { error: 'Runtime not available' }
+      }
 
       const { id, ...patch } = input
       if (patch.runAt) {
         const tz = runtime.config.timezone
         const parsed = chrono.parseDate(patch.runAt, { instant: new Date(), timezone: tz })
-        if (!parsed) return { error: `Could not parse time: "${patch.runAt}"` }
+        if (!parsed) {
+          return { error: `Could not parse time: "${patch.runAt}"` }
+        }
         patch.runAt = parsed.toISOString()
       }
       const tasks = runtime.config.schedule.tasks.map((t) => {
-        if (t.id !== id) return t
+        if (t.id !== id) {
+          return t
+        }
         return applyTaskPatch(t, patch)
       })
 
       const found = tasks.some((t) => t.id === id)
-      if (!found) return { error: `Task ${id} not found` }
+      if (!found) {
+        return { error: `Task ${id} not found` }
+      }
 
       const config = await updateConfig(
         configStore,
@@ -200,13 +221,18 @@ export function createScheduleTools(deps: ScheduleToolDeps): ToolRecord {
     inputSchema: z.object({
       id: z.uuid().describe('Task ID to delete'),
     }),
-    execute: async (input) => {
+    // biome-ignore lint/nursery/useExplicitType: input type inferred from inputSchema
+    execute: async (input): Promise<Record<string, unknown>> => {
       const runtime = runtimeRef.current
-      if (!runtime) return { error: 'Runtime not available' }
+      if (!runtime) {
+        return { error: 'Runtime not available' }
+      }
 
       const before = runtime.config.schedule.tasks.length
       const tasks = runtime.config.schedule.tasks.filter((t) => t.id !== input.id)
-      if (tasks.length === before) return { error: `Task ${input.id} not found` }
+      if (tasks.length === before) {
+        return { error: `Task ${input.id} not found` }
+      }
 
       const config = await updateConfig(
         configStore,
@@ -257,19 +283,32 @@ export function createScheduleTools(deps: ScheduleToolDeps): ToolRecord {
           'End of active hours in HH:MM format (e.g. "22:00"). Set both start and end to update. Set both to empty string to clear.',
         ),
     }),
-    execute: async (input) => {
+    // biome-ignore lint/nursery/useExplicitType: input type inferred from inputSchema
+    execute: async (input): Promise<Record<string, unknown>> => {
       const runtime = runtimeRef.current
-      if (!runtime) return { error: 'Runtime not available' }
+      if (!runtime) {
+        return { error: 'Runtime not available' }
+      }
 
       const current = runtime.config.schedule.heartbeat
       const updated = { ...current }
-      if (input.enabled !== undefined) updated.enabled = input.enabled
-      if (input.cron !== undefined) updated.cron = input.cron
-      if (input.destination !== undefined) updated.destination = input.destination || undefined
+      if (input.enabled !== undefined) {
+        updated.enabled = input.enabled
+      }
+      if (input.cron !== undefined) {
+        updated.cron = input.cron
+      }
+      if (input.destination !== undefined) {
+        updated.destination = input.destination || undefined
+      }
 
       const activeHoursResult = parseActiveHours(input.activeHoursStart, input.activeHoursEnd)
-      if (activeHoursResult.error) return { error: activeHoursResult.error }
-      if (activeHoursResult.changed) updated.activeHours = activeHoursResult.value
+      if (activeHoursResult.error) {
+        return { error: activeHoursResult.error }
+      }
+      if (activeHoursResult.changed) {
+        updated.activeHours = activeHoursResult.value
+      }
 
       return { heartbeat: await saveHeartbeat(runtime, updated) }
     },
@@ -283,9 +322,12 @@ export function createScheduleTools(deps: ScheduleToolDeps): ToolRecord {
     inputSchema: z.object({
       description: z.string().min(1),
     }),
-    execute: async (input) => {
+    // biome-ignore lint/nursery/useExplicitType: input type inferred from inputSchema
+    execute: async (input): Promise<Record<string, unknown>> => {
       const runtime = runtimeRef.current
-      if (!runtime) return { error: 'Runtime not available' }
+      if (!runtime) {
+        return { error: 'Runtime not available' }
+      }
 
       const check = { id: crypto.randomUUID(), description: input.description, enabled: true }
       const heartbeat = {
@@ -304,14 +346,19 @@ export function createScheduleTools(deps: ScheduleToolDeps): ToolRecord {
     inputSchema: z.object({
       id: z.uuid(),
     }),
-    execute: async (input) => {
+    // biome-ignore lint/nursery/useExplicitType: input type inferred from inputSchema
+    execute: async (input): Promise<Record<string, unknown>> => {
       const runtime = runtimeRef.current
-      if (!runtime) return { error: 'Runtime not available' }
+      if (!runtime) {
+        return { error: 'Runtime not available' }
+      }
 
       const current = runtime.config.schedule.heartbeat
       const before = current.tasks.length
       const tasks = current.tasks.filter((t) => t.id !== input.id)
-      if (tasks.length === before) return { error: `Check ${input.id} not found` }
+      if (tasks.length === before) {
+        return { error: `Check ${input.id} not found` }
+      }
 
       await saveHeartbeat(runtime, { ...current, tasks })
       return { deleted: input.id }
@@ -325,18 +372,25 @@ export function createScheduleTools(deps: ScheduleToolDeps): ToolRecord {
     inputSchema: z.object({
       id: z.uuid(),
     }),
-    execute: async (input) => {
+    // biome-ignore lint/nursery/useExplicitType: input type inferred from inputSchema
+    execute: async (input): Promise<Record<string, unknown>> => {
       const runtime = runtimeRef.current
-      if (!runtime) return { error: 'Runtime not available' }
+      if (!runtime) {
+        return { error: 'Runtime not available' }
+      }
 
       const current = runtime.config.schedule.heartbeat
       let toggled = null
       const tasks = current.tasks.map((t) => {
-        if (t.id !== input.id) return t
+        if (t.id !== input.id) {
+          return t
+        }
         toggled = { ...t, enabled: !t.enabled }
         return toggled
       })
-      if (!toggled) return { error: `Check ${input.id} not found` }
+      if (!toggled) {
+        return { error: `Check ${input.id} not found` }
+      }
 
       await saveHeartbeat(runtime, { ...current, tasks })
       return { updated: toggled }

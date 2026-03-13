@@ -5,7 +5,7 @@ import { createChannelGateway } from '../runtime/channel-gateway'
 import { decodeNsKey } from '../runtime/namespace'
 import type { Env } from './helpers'
 
-const webhookRoutes = new Hono<Env>()
+const webhookRoutes: Hono<Env> = new Hono<Env>()
 
 webhookRoutes.use('/*', createRateLimiter({ max: 60, windowMs: 60_000 }))
 

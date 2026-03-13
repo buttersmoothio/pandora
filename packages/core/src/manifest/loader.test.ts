@@ -4,14 +4,18 @@ import type { DiscoveredPlugin } from './discover'
 import type { ProvidesEntry, ProvidesKey } from './schema'
 
 // Mock the compartment loader
-const mockLoadInCompartment = vi.fn()
+const mockLoadInCompartment: ReturnType<typeof vi.fn> = vi.fn()
 vi.mock('./compartment-loader', () => ({
   loadInCompartment: (...args: unknown[]) => mockLoadInCompartment(...args),
 }))
 
+// biome-ignore lint/nursery/useExplicitType: dynamic import type is inferred
 const { loadEntry } = await import('./loader')
 
-function makePlugin(id = 'test-plugin', packageDir = '/plugins/test'): DiscoveredPlugin {
+function makePlugin(
+  id: string = 'test-plugin',
+  packageDir: string = '/plugins/test',
+): DiscoveredPlugin {
   return {
     manifest: {
       manifestVersion: 1,

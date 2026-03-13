@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import mime from 'mime'
 import type { Env } from './helpers'
 
-const fileRoutes = new Hono<Env>()
+const fileRoutes: Hono<Env> = new Hono<Env>()
 
 // Serve files from FlyDrive storage
 fileRoutes.get('/:key{.+}', async (c) => {

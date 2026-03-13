@@ -50,6 +50,8 @@ describe('createStorage', () => {
   })
 
   afterAll(async () => {
-    if (storage?.close) await storage.close()
+    if (storage?.close) {
+      await storage.close()
+    }
   })
 })

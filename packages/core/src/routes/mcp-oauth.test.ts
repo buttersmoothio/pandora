@@ -7,7 +7,7 @@ function createMockApp(mocks: {
   handleOAuthCallback?: ReturnType<typeof vi.fn>
   reload?: ReturnType<typeof vi.fn>
   envVars?: Record<string, string | undefined>
-}) {
+}): Hono<Env> {
   const app = new Hono<Env>()
   app.use('*', async (c, next) => {
     c.set('runtime', {

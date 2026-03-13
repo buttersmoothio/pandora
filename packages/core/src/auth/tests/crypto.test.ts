@@ -5,7 +5,7 @@ import {
   hashToken,
   timingSafeEqual,
   verifyPassword,
-} from './crypto'
+} from '../crypto'
 
 describe('hashPassword / verifyPassword', () => {
   it('hashes and verifies a password', async () => {

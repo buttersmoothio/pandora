@@ -43,7 +43,7 @@ const SOURCE_ICONS: Record<string, typeof MessageSquareIcon> = {
   schedule: ClockIcon,
 }
 
-export function NavThreads() {
+export function NavThreads(): React.JSX.Element | null {
   const { data } = useThreads()
   const pathname = usePathname()
   const router = useRouter()
@@ -54,7 +54,9 @@ export function NavThreads() {
   const activeStreamIds = data?.activeStreamIds ?? []
   const currentThreadId = pathname.startsWith('/chat/') ? pathname.split('/')[2] : null
 
-  if (threads.length === 0) return null
+  if (threads.length === 0) {
+    return null
+  }
 
   return (
     <SidebarGroup>
@@ -96,7 +98,7 @@ export function NavThreads() {
                   <DropdownMenuContent side="right" align="start">
                     <DropdownMenuItem
                       variant="destructive"
-                      onClick={() => setDeleteTarget(thread.id)}
+                      onClick={(): void => setDeleteTarget(thread.id)}
                     >
                       <TrashIcon />
                       Delete
@@ -109,7 +111,14 @@ export function NavThreads() {
         </SidebarMenu>
       </SidebarGroupContent>
 
-      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+      <AlertDialog
+        open={!!deleteTarget}
+        onOpenChange={(open: boolean): void => {
+          if (!open) {
+            setDeleteTarget(null)
+          }
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete thread?</AlertDialogTitle>
@@ -124,11 +133,13 @@ export function NavThreads() {
             <AlertDialogAction asChild>
               <Button
                 variant="destructive"
-                onClick={() => {
-                  if (!deleteTarget) return
+                onClick={(): void => {
+                  if (!deleteTarget) {
+                    return
+                  }
                   const threadId = deleteTarget
                   deleteThread.mutate(threadId, {
-                    onSuccess: () => {
+                    onSuccess: (): void => {
                       if (pathname === `/chat/${threadId}`) {
                         router.push('/')
                       }

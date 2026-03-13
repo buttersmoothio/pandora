@@ -1,3 +1,4 @@
+import type { MiddlewareHandler } from 'hono'
 import { createMiddleware } from 'hono/factory'
 import { getLogger } from '../logger'
 
@@ -17,16 +18,20 @@ interface RateLimiterOptions {
  * Create an in-memory rate limiter middleware for Hono.
  * Tracks requests per IP with periodic cleanup of expired entries.
  */
-export function createRateLimiter({ max, windowMs }: RateLimiterOptions) {
+export function createRateLimiter({ max, windowMs }: RateLimiterOptions): MiddlewareHandler {
   const store = new Map<string, RateLimitEntry>()
   let lastCleanup = Date.now()
 
-  function cleanup(now: number) {
+  function cleanup(now: number): void {
     // Run cleanup at most once per window
-    if (now - lastCleanup < windowMs) return
+    if (now - lastCleanup < windowMs) {
+      return
+    }
     lastCleanup = now
     for (const [key, entry] of store) {
-      if (entry.resetAt <= now) store.delete(key)
+      if (entry.resetAt <= now) {
+        store.delete(key)
+      }
     }
   }
 
@@ -41,7 +46,7 @@ export function createRateLimiter({ max, windowMs }: RateLimiterOptions) {
       entry.count++
       if (entry.count > max) {
         const retryAfter = Math.ceil((entry.resetAt - now) / 1000)
-        getLogger().warn('Rate limit exceeded', { ip, retryAfter })
+        getLogger().warn('[rate-limit] exceeded', { ip, retryAfter })
         c.header('Retry-After', String(retryAfter))
         c.header('X-RateLimit-Limit', String(max))
         c.header('X-RateLimit-Remaining', '0')

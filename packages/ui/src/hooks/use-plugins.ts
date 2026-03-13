@@ -76,11 +76,13 @@ interface PluginsResponse {
 
 export const PLUGINS_KEY = ['plugins'] as const
 
-function fetchPlugins() {
+function fetchPlugins(): Promise<PluginsResponse> {
   return apiFetch<PluginsResponse>('/api/plugins')
 }
 
-export function usePlugins() {
+export function usePlugins(): {
+  plugins: UnifiedPluginInfo[] | undefined
+} & ReturnType<typeof useQuery<PluginsResponse>> {
   const query = useQuery({
     queryKey: PLUGINS_KEY,
     queryFn: fetchPlugins,
@@ -112,7 +114,9 @@ export function useChannelNames(): Map<string, string> {
   const { plugins } = usePlugins()
   return useMemo(() => {
     const map = new Map<string, string>()
-    if (!plugins) return map
+    if (!plugins) {
+      return map
+    }
     for (const plugin of plugins) {
       if (plugin.provides.channels?.loaded) {
         // The nsKey is `pluginId:channelId` — we don't know the channelId here,

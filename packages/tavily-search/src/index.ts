@@ -37,7 +37,8 @@ const tavilySearch: Tool<TavilySearchInput, SearchResult[]> = {
     },
     required: ['query'],
   },
-  execute: async (input, context) => {
+  // biome-ignore lint/nursery/useExplicitType: input/context types inferred from Tool generic
+  execute: async (input, context): Promise<SearchResult[]> => {
     const { logger } = context
     const apiKey = context.env.TAVILY_API_KEY
     logger.log(`Searching: "${input.query}"`)
@@ -70,4 +71,4 @@ const tavilySearch: Tool<TavilySearchInput, SearchResult[]> = {
   },
 }
 
-export const tools = [tavilySearch]
+export const tools: Tool<TavilySearchInput, SearchResult[]>[] = [tavilySearch]

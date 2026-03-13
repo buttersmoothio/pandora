@@ -1,6 +1,7 @@
 // SES lockdown — must run before any other code
 import './ses-lockdown'
 
+import type { Context } from 'hono'
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { logger } from 'hono/logger'
@@ -22,15 +23,16 @@ import { memoryRoutes } from './routes/memory'
 import { scheduleRoutes } from './routes/schedule'
 import { threadRoutes } from './routes/threads'
 import { webhookRoutes } from './routes/webhooks'
+import type { PluginRegistry } from './runtime/plugin-registry'
 
 // Re-export for plugin authors
 export { loadAllPlugins } from './manifest'
 
 // Discover and register all manifest-based plugins
-const registry = await loadAllPlugins()
+const registry: PluginRegistry = await loadAllPlugins()
 
 // Create Hono app
-const app = new Hono<Env>()
+const app: Hono<Env> = new Hono<Env>()
 
 // Middleware
 app.use('*', logger())
@@ -38,22 +40,28 @@ app.use('*', createRuntimeMiddleware(registry))
 app.use(
   '*',
   cors({
-    origin: (origin, c) => {
+    origin: (origin: string, c: Context): string => {
       const envVars = c.var.envVars
       const corsOrigins = envVars.CORS_ORIGINS
 
-      if (corsOrigins === '*') return origin
+      if (corsOrigins === '*') {
+        return origin
+      }
 
       const allowed = new Set<string>()
 
       // FRONTEND_URL is always allowed if set
-      if (envVars.FRONTEND_URL) allowed.add(envVars.FRONTEND_URL)
+      if (envVars.FRONTEND_URL) {
+        allowed.add(envVars.FRONTEND_URL)
+      }
 
       if (corsOrigins) {
         // Explicit origins override the default
         for (const o of corsOrigins.split(',')) {
           const trimmed = o.trim()
-          if (trimmed) allowed.add(trimmed)
+          if (trimmed) {
+            allowed.add(trimmed)
+          }
         }
       } else if (!envVars.FRONTEND_URL) {
         // Default: allow the bundled UI

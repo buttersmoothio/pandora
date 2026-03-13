@@ -43,7 +43,7 @@
       },
       "style": {
         "noNegationElse": "warn",
-        "useBlockStatements": "off",
+        "useBlockStatements": "warn",
         "useCollapsedElseIf": "warn",
         "useConsistentArrayType": {
           "level": "warn",
@@ -54,10 +54,11 @@
         "useShorthandAssign": "warn"
       },
       "suspicious": {
-        "noConsole": "off",
-        "noDebugger": "warn"
+        "noConsole": "warn",
+        "noDebugger": "error"
       },
       "nursery": {
+        "useExplicitType": "warn",
         "useSortedClasses": {
           "level": "warn",
           "options": {}
@@ -107,6 +108,19 @@
           "a11y": {
             "useSemanticElements": "off",
             "useKeyWithClickEvents": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["packages/ui/**"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noConsole": "off"
+          },
+          "nursery": {
+            "useExplicitType": "off"
           }
         }
       }

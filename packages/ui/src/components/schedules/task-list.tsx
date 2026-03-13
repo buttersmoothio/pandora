@@ -1,6 +1,7 @@
 'use client'
 
 import { Loader2Icon, Trash2Icon } from 'lucide-react'
+import type React from 'react'
 import { useState } from 'react'
 import { TaskDialog } from '@/components/schedules/task-dialog'
 import { Badge } from '@/components/ui/badge'
@@ -17,7 +18,7 @@ import { useConfig } from '@/hooks/use-config'
 import { type ScheduleTask, useDeleteSchedule, useSchedules } from '@/hooks/use-schedules'
 import { formatInTimezone } from '@/lib/timezone'
 
-export function TaskList() {
+export function TaskList(): React.JSX.Element {
   const { data: config } = useConfig()
   const timezone = config?.timezone ?? 'UTC'
   const { data, isLoading, error } = useSchedules()
@@ -50,8 +51,10 @@ export function TaskList() {
     return <p className="text-muted-foreground text-sm">No scheduled tasks yet.</p>
   }
 
-  function formatNextRun(iso: string | null) {
-    if (!iso) return 'Not scheduled'
+  function formatNextRun(iso: string | null): string {
+    if (!iso) {
+      return 'Not scheduled'
+    }
     return formatInTimezone(iso, timezone, fmt)
   }
 
@@ -84,14 +87,14 @@ export function TaskList() {
               </div>
             </div>
             <div className="flex shrink-0 gap-1">
-              <Button variant="ghost" size="sm" onClick={() => setEditTask(task)}>
+              <Button variant="ghost" size="sm" onClick={(): void => setEditTask(task)}>
                 Edit
               </Button>
               <Button
                 variant="ghost"
                 size="sm"
                 className="text-destructive hover:text-destructive"
-                onClick={() => setDeleteTarget(task)}
+                onClick={(): void => setDeleteTarget(task)}
               >
                 <Trash2Icon className="size-4" />
               </Button>
@@ -103,10 +106,21 @@ export function TaskList() {
       <TaskDialog
         task={editTask}
         open={!!editTask}
-        onOpenChange={(open) => !open && setEditTask(undefined)}
+        onOpenChange={(open: boolean): void => {
+          if (!open) {
+            setEditTask(undefined)
+          }
+        }}
       />
 
-      <Dialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+      <Dialog
+        open={!!deleteTarget}
+        onOpenChange={(open: boolean): void => {
+          if (!open) {
+            setDeleteTarget(null)
+          }
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete schedule?</DialogTitle>
@@ -115,16 +129,16 @@ export function TaskList() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteTarget(null)}>
+            <Button variant="outline" onClick={(): void => setDeleteTarget(null)}>
               Cancel
             </Button>
             <Button
               variant="destructive"
               disabled={deleteSchedule.isPending}
-              onClick={() => {
+              onClick={(): void => {
                 if (deleteTarget) {
                   deleteSchedule.mutate(deleteTarget.id, {
-                    onSuccess: () => setDeleteTarget(null),
+                    onSuccess: (): void => setDeleteTarget(null),
                   })
                 }
               }}

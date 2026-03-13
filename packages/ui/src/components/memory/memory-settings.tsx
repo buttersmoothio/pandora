@@ -19,7 +19,7 @@ import { useConfig, useUpdateConfig } from '@/hooks/use-config'
 import { useModels } from '@/hooks/use-models'
 import { cn } from '@/lib/utils'
 
-export function MemorySection() {
+export function MemorySection(): React.JSX.Element {
   const { data: config } = useConfig()
   const { data: modelsData } = useModels()
   const updateConfig = useUpdateConfig()
@@ -49,7 +49,9 @@ export function MemorySection() {
 
   const allProviders = modelsData?.providers ?? []
   const providers = [...allProviders].sort((a, b) => {
-    if (a.configured !== b.configured) return a.configured ? -1 : 1
+    if (a.configured !== b.configured) {
+      return a.configured ? -1 : 1
+    }
     return a.name.localeCompare(b.name)
   })
   const selectedProvider = allProviders.find((p) => p.id === provider)
@@ -68,7 +70,7 @@ export function MemorySection() {
         <Switch
           id="memory-enabled"
           checked={enabled}
-          onCheckedChange={(checked) => {
+          onCheckedChange={(checked: boolean): void => {
             setEnabled(checked)
             updateConfig.mutate({ memory: { enabled: checked } })
           }}
@@ -87,7 +89,7 @@ export function MemorySection() {
             <Switch
               id="model-override"
               checked={override}
-              onCheckedChange={(checked) => {
+              onCheckedChange={(checked: boolean): void => {
                 setOverride(checked)
                 if (!checked) {
                   setProvider('')
@@ -123,9 +125,11 @@ export function MemorySection() {
                             <CommandItem
                               key={p.id}
                               value={p.name}
-                              onSelect={() => {
+                              onSelect={(): void => {
                                 setProvider(p.id)
-                                if (provider !== p.id) setModel('')
+                                if (provider !== p.id) {
+                                  setModel('')
+                                }
                                 setProviderOpen(false)
                               }}
                             >
@@ -171,7 +175,7 @@ export function MemorySection() {
                             <CommandItem
                               key={m}
                               value={m}
-                              onSelect={() => {
+                              onSelect={(): void => {
                                 setModel(m)
                                 setModelOpen(false)
                               }}
@@ -194,7 +198,9 @@ export function MemorySection() {
               <Button
                 className="self-end"
                 disabled={updateConfig.isPending || !provider || !model}
-                onClick={() => updateConfig.mutate({ memory: { enabled, model: memoryModel } })}
+                onClick={(): void => {
+                  updateConfig.mutate({ memory: { enabled, model: memoryModel } })
+                }}
               >
                 {updateConfig.isPending ? <Loader2Icon className="size-4 animate-spin" /> : 'Save'}
               </Button>

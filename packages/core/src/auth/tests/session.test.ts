@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { AuthStore, RefreshToken, Session } from './auth-store'
-import { hashToken } from './crypto'
-import { createTokenPair, rotateTokens, verifySessionToken } from './session'
+import type { AuthStore, RefreshToken, Session } from '../auth-store'
+import { hashToken } from '../crypto'
+import { createTokenPair, rotateTokens, verifySessionToken } from '../session'
 
 function createMockStore(): AuthStore {
   const sessions = new Map<string, Session>()
@@ -17,7 +17,9 @@ function createMockStore(): AuthStore {
     }),
     getSession: vi.fn(async (tokenHash: string) => {
       const session = sessions.get(tokenHash)
-      if (!session) return null
+      if (!session) {
+        return null
+      }
       if (new Date(session.expiresAt) <= new Date()) {
         sessions.delete(tokenHash)
         return null

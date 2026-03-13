@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { executeInCompartment } from './compartment'
 
-const mockLogger = {
+const mockLogger: Record<string, ReturnType<typeof vi.fn>> = {
   debug: vi.fn(),
   info: vi.fn(),
   warn: vi.fn(),

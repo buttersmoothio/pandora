@@ -5,7 +5,7 @@ import { getActiveStreamIds, getResumeStream, storeStream } from '../stream-stor
 function chunkedStream(chunks: string[]): ReadableStream<string> {
   let i = 0
   return new ReadableStream<string>({
-    pull(controller) {
+    pull(controller: ReadableStreamDefaultController<string>): void {
       if (i < chunks.length) {
         controller.enqueue(chunks[i++])
       } else {
@@ -16,14 +16,14 @@ function chunkedStream(chunks: string[]): ReadableStream<string> {
 }
 
 /** Wait a tick for microtasks to flush. */
-const tick = () => new Promise((r) => setTimeout(r, 10))
+const tick = (): Promise<unknown> => new Promise((r) => setTimeout(r, 10))
 
 describe('storeStream', () => {
   it('marks stream as active until reader completes', async () => {
     // Create a manually-controlled stream
     let closeStream: () => void = () => {}
     const manual = new ReadableStream<string>({
-      start(controller) {
+      start(controller: ReadableStreamDefaultController<string>): void {
         closeStream = () => controller.close()
       },
     })
@@ -42,7 +42,7 @@ describe('storeStream', () => {
   it('replaces an existing entry for the same chatId', async () => {
     let closeFirst: () => void = () => {}
     const first = new ReadableStream<string>({
-      start(controller) {
+      start(controller: ReadableStreamDefaultController<string>): void {
         closeFirst = () => controller.close()
       },
     })
@@ -53,7 +53,7 @@ describe('storeStream', () => {
     // Replace with a new stream
     let closeSecond: () => void = () => {}
     const second = new ReadableStream<string>({
-      start(controller) {
+      start(controller: ReadableStreamDefaultController<string>): void {
         closeSecond = () => controller.close()
       },
     })
@@ -87,8 +87,8 @@ describe('getResumeStream', () => {
     let enqueue: (v: string) => void = () => {}
     let close: () => void = () => {}
     const manual = new ReadableStream<string>({
-      start(controller) {
-        enqueue = (v) => controller.enqueue(v)
+      start(controller: ReadableStreamDefaultController<string>): void {
+        enqueue = (v: string) => controller.enqueue(v)
         close = () => controller.close()
       },
     })
@@ -103,7 +103,9 @@ describe('getResumeStream', () => {
 
     // Get resume stream — should see buffered + future chunks
     const resume = getResumeStream('resume-replay')
-    if (!resume) throw new Error('expected resume stream')
+    if (!resume) {
+      throw new Error('expected resume stream')
+    }
 
     const reader = resume.getReader()
 
@@ -125,7 +127,7 @@ describe('getResumeStream', () => {
   it('allows cancel without error', async () => {
     let close: () => void = () => {}
     const manual = new ReadableStream<string>({
-      start(controller) {
+      start(controller: ReadableStreamDefaultController<string>): void {
         close = () => controller.close()
       },
     })
@@ -134,7 +136,9 @@ describe('getResumeStream', () => {
     await tick()
 
     const resume = getResumeStream('resume-cancel')
-    if (!resume) throw new Error('expected resume stream')
+    if (!resume) {
+      throw new Error('expected resume stream')
+    }
 
     // Cancel the resume stream
     await resume.cancel()
@@ -149,7 +153,7 @@ describe('getActiveStreamIds', () => {
   it('only returns in-flight stream IDs', async () => {
     let closeActive: () => void = () => {}
     const active = new ReadableStream<string>({
-      start(controller) {
+      start(controller: ReadableStreamDefaultController<string>): void {
         closeActive = () => controller.close()
       },
     })

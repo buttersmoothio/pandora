@@ -4,7 +4,7 @@ import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/ca
 import { Switch } from '@/components/ui/switch'
 import { useConfig, useUpdateConfig } from '@/hooks/use-config'
 
-export function MasterToggle() {
+export function MasterToggle(): React.JSX.Element {
   const { data: config } = useConfig()
   const updateConfig = useUpdateConfig()
   const enabled = config?.schedule.enabled ?? false
@@ -24,7 +24,7 @@ export function MasterToggle() {
           <Switch
             checked={enabled}
             disabled={updateConfig.isPending}
-            onCheckedChange={(checked) =>
+            onCheckedChange={(checked: boolean): void =>
               updateConfig.mutate({
                 schedule: { enabled: checked, tasks: config?.schedule.tasks ?? [] },
               })

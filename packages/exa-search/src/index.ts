@@ -31,7 +31,8 @@ const exaSearch: Tool<ExaSearchInput, SearchResult[]> = {
     },
     required: ['query'],
   },
-  execute: async (input, context) => {
+  // biome-ignore lint/nursery/useExplicitType: input/context types inferred from Tool generic
+  execute: async (input, context): Promise<SearchResult[]> => {
     const { logger } = context
     const apiKey = context.env.EXA_API_KEY
     logger.log(`Searching: "${input.query}"`)
@@ -66,4 +67,4 @@ const exaSearch: Tool<ExaSearchInput, SearchResult[]> = {
   },
 }
 
-export const tools = [exaSearch]
+export const tools: Tool<ExaSearchInput, SearchResult[]>[] = [exaSearch]

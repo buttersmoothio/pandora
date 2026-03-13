@@ -4,7 +4,7 @@ import { updateConfig } from '../config'
 import { getLogger } from '../logger'
 import type { Env } from './helpers'
 
-const configRoutes = new Hono<Env>()
+const configRoutes: Hono<Env> = new Hono<Env>()
 
 // Config endpoint - get current config
 configRoutes.get('/', async (c) => {

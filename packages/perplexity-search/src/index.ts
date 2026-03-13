@@ -23,7 +23,8 @@ const perplexitySearch: Tool<PerplexitySearchInput, PerplexitySearchResult> = {
     },
     required: ['query'],
   },
-  execute: async (input, context) => {
+  // biome-ignore lint/nursery/useExplicitType: input/context types inferred from Tool generic
+  execute: async (input, context): Promise<PerplexitySearchResult> => {
     const { logger } = context
     const apiKey = context.env.PERPLEXITY_API_KEY
     logger.log(`Searching: "${input.query}"`)
@@ -63,4 +64,4 @@ const perplexitySearch: Tool<PerplexitySearchInput, PerplexitySearchResult> = {
   },
 }
 
-export const tools = [perplexitySearch]
+export const tools: Tool<PerplexitySearchInput, PerplexitySearchResult>[] = [perplexitySearch]

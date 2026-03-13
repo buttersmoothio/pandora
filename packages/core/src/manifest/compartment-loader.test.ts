@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { addTsExtensions, loadInCompartment } from './compartment-loader'
 
-const testDir = join(tmpdir(), 'pandora-compartment-test')
+const testDir: string = join(tmpdir(), 'pandora-compartment-test')
 
 function writePluginFiles(
   name: string,

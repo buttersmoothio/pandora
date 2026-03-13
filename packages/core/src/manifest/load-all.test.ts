@@ -3,8 +3,8 @@ import type { DiscoveredPlugin } from './discover'
 import type { PluginManifest } from './schema'
 
 // Mock dependencies
-const mockDiscoverPlugins = vi.fn()
-const mockLoadEntry = vi.fn()
+const mockDiscoverPlugins: ReturnType<typeof vi.fn> = vi.fn()
+const mockLoadEntry: ReturnType<typeof vi.fn> = vi.fn()
 
 vi.mock('./discover', () => ({
   discoverPlugins: (...args: unknown[]) => mockDiscoverPlugins(...args),
@@ -14,6 +14,7 @@ vi.mock('./loader', () => ({
   loadEntry: (...args: unknown[]) => mockLoadEntry(...args),
 }))
 
+// biome-ignore lint/nursery/useExplicitType: dynamic import type is inferred
 const { loadAllPlugins } = await import('./load-all')
 
 function makeManifest(overrides: Partial<PluginManifest> = {}): PluginManifest {
@@ -27,7 +28,10 @@ function makeManifest(overrides: Partial<PluginManifest> = {}): PluginManifest {
   }
 }
 
-function makeDiscovered(manifest: PluginManifest, packageDir = '/plugins/test'): DiscoveredPlugin {
+function makeDiscovered(
+  manifest: PluginManifest,
+  packageDir: string = '/plugins/test',
+): DiscoveredPlugin {
   return {
     manifest,
     packageDir,

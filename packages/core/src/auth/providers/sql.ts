@@ -1,3 +1,4 @@
+import { getLogger } from '../../logger'
 import type { AuthStore, PasswordCredential, RefreshToken, Session } from '../auth-store'
 
 const CREDENTIALS_TABLE = 'pandora_auth_credentials'
@@ -154,7 +155,9 @@ export class SQLAuthStore implements AuthStore {
         `SELECT hash, salt, iterations, created_at FROM ${CREDENTIALS_TABLE} WHERE id = ${this.param(1)}`,
         [OWNER_KEY],
       )
-      if (!rows || rows.length === 0) return null
+      if (!rows || rows.length === 0) {
+        return null
+      }
 
       const row = rows[0] as { hash: string; salt: string; iterations: number; created_at: string }
       return {
@@ -163,7 +166,8 @@ export class SQLAuthStore implements AuthStore {
         iterations: row.iterations,
         createdAt: row.created_at,
       }
-    } catch {
+    } catch (err) {
+      getLogger().debug('[auth-store] getCredential failed', { error: String(err) })
       return null
     }
   }
@@ -286,7 +290,9 @@ export class SQLAuthStore implements AuthStore {
         `SELECT token_hash, expires_at, created_at, user_agent, ip FROM ${SESSIONS_TABLE} WHERE token_hash = ${this.param(1)}`,
         [tokenHash],
       )
-      if (!rows || rows.length === 0) return null
+      if (!rows || rows.length === 0) {
+        return null
+      }
 
       const row = rows[0] as {
         token_hash: string
@@ -310,7 +316,8 @@ export class SQLAuthStore implements AuthStore {
         userAgent: row.user_agent ?? undefined,
         ip: row.ip ?? undefined,
       }
-    } catch {
+    } catch (err) {
+      getLogger().debug('[auth-store] getSession failed', { error: String(err) })
       return null
     }
   }
@@ -348,7 +355,9 @@ export class SQLAuthStore implements AuthStore {
         `SELECT token_hash, session_hash, expires_at, created_at, user_agent, ip, used FROM ${REFRESH_TOKENS_TABLE} WHERE token_hash = ${this.param(1)}`,
         [tokenHash],
       )
-      if (!rows || rows.length === 0) return null
+      if (!rows || rows.length === 0) {
+        return null
+      }
 
       const row = rows[0] as {
         token_hash: string
@@ -369,7 +378,8 @@ export class SQLAuthStore implements AuthStore {
         ip: row.ip ?? undefined,
         used: !!row.used,
       }
-    } catch {
+    } catch (err) {
+      getLogger().debug('[auth-store] getRefreshToken failed', { error: String(err) })
       return null
     }
   }
@@ -413,7 +423,8 @@ export class SQLAuthStore implements AuthStore {
         userAgent: row.user_agent ?? undefined,
         ip: row.ip ?? undefined,
       }))
-    } catch {
+    } catch (err) {
+      getLogger().debug('[auth-store] listSessions failed', { error: String(err) })
       return []
     }
   }

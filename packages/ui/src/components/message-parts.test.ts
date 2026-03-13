@@ -1,11 +1,18 @@
 import { describe, expect, it } from 'vitest'
 import { groupParts } from './message-parts'
 
-function textPart(text: string) {
+function textPart(text: string): { type: 'text'; text: string } {
   return { type: 'text' as const, text }
 }
 
-function toolPart(toolName: string) {
+function toolPart(toolName: string): {
+  type: `tool-${string}`
+  toolCallId: string
+  toolName: string
+  state: 'output-available'
+  input: Record<string, never>
+  output: string
+} {
   return {
     type: `tool-${toolName}` as const,
     toolCallId: `call-${toolName}`,
@@ -55,8 +62,12 @@ describe('groupParts', () => {
     expect(groups[0].type).toBe('tools')
     expect(groups[1].type).toBe('text')
     expect(groups[2].type).toBe('tools')
-    if (groups[0].type === 'tools') expect(groups[0].parts).toHaveLength(1)
-    if (groups[2].type === 'tools') expect(groups[2].parts).toHaveLength(2)
+    if (groups[0].type === 'tools') {
+      expect(groups[0].parts).toHaveLength(1)
+    }
+    if (groups[2].type === 'tools') {
+      expect(groups[2].parts).toHaveLength(2)
+    }
   })
 
   it('returns empty array for empty input', () => {

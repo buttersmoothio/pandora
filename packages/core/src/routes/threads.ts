@@ -12,12 +12,18 @@ type BranchRef = { id: string; title?: string }
 type ForkInfo = { sourceThreadId: string; forkPointIndex: number; siblings: BranchRef[] }
 
 /** Map clones to fork-point message IDs using explicit forkPointMessageId metadata. */
-function buildForksMap(clones: Awaited<ReturnType<Memory['listClones']>>) {
+function buildForksMap(
+  clones: Awaited<ReturnType<Memory['listClones']>>,
+): Record<string, BranchRef[]> {
   const forks: Record<string, BranchRef[]> = {}
   for (const clone of clones) {
     const forkPointId = clone.metadata?.forkPointMessageId
-    if (typeof forkPointId !== 'string') continue
-    if (!forks[forkPointId]) forks[forkPointId] = []
+    if (typeof forkPointId !== 'string') {
+      continue
+    }
+    if (!forks[forkPointId]) {
+      forks[forkPointId] = []
+    }
     forks[forkPointId].push({ id: clone.id, title: clone.title ?? undefined })
   }
   return forks
@@ -30,7 +36,9 @@ async function buildForkInfo(
   rawThread: { metadata?: Record<string, unknown> },
 ): Promise<ForkInfo | null> {
   const cloneMeta = mem.getCloneMetadata(rawThread as Parameters<typeof mem.getCloneMetadata>[0])
-  if (!cloneMeta) return null
+  if (!cloneMeta) {
+    return null
+  }
 
   const { sourceThreadId, lastMessageId } = cloneMeta
   const { messages: sourceMessages } = await mem.recall({
@@ -57,14 +65,14 @@ async function computeBranchInfo(
   mem: Memory,
   threadId: string,
   rawThread: { metadata?: Record<string, unknown> },
-) {
+): Promise<{ forks: Record<string, BranchRef[]>; forkInfo: ForkInfo | null }> {
   const clones = await mem.listClones(threadId)
   const forks = buildForksMap(clones)
   const forkInfo = await buildForkInfo(mem, threadId, rawThread)
   return { forks, forkInfo }
 }
 
-const threadRoutes = new Hono<Env>()
+const threadRoutes: Hono<Env> = new Hono<Env>()
 
 threadRoutes.get('/', async (c) => {
   const log = getLogger()

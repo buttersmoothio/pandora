@@ -1,5 +1,6 @@
 import type {
   Channel,
+  ChannelGateway,
   ChannelRealtime,
   GenerateResult,
   MessagePart,
@@ -11,7 +12,7 @@ import { splitMessage } from './telegram-api'
 
 const CHANNEL_ID = 'telegram'
 
-const NEW_THREAD_GREETINGS = [
+const NEW_THREAD_GREETINGS: string[] = [
   'New conversation started. What\u2019s up?',
   'Fresh start. What are we working on?',
   'Clean slate. Go ahead.',
@@ -38,9 +39,13 @@ async function reply(ctx: Context, text: string): Promise<void> {
 
 /** Format tool args as a readable key-value list */
 function formatArgs(args: unknown): string {
-  if (!args || typeof args !== 'object' || Array.isArray(args)) return ''
+  if (!args || typeof args !== 'object' || Array.isArray(args)) {
+    return ''
+  }
   const entries = Object.entries(args)
-  if (entries.length === 0) return ''
+  if (entries.length === 0) {
+    return ''
+  }
   return entries
     .map(([key, value]) => {
       const formatted = typeof value === 'string' ? value : JSON.stringify(value)
@@ -90,7 +95,7 @@ export function createTelegramAdapter(token: string, ownerId: string): Channel {
   const pendingApprovals = new Map<string, { runId: string; toolCallId: string }>()
 
   const realtime: ChannelRealtime = {
-    async start(runtime) {
+    async start(runtime: ChannelGateway): Promise<void> {
       bot = new Bot(token)
 
       // Owner-only guard: reject messages from non-owners
@@ -127,10 +132,14 @@ export function createTelegramAdapter(token: string, ownerId: string): Channel {
       ): Promise<MessagePart | null> {
         try {
           const file = await ctx.api.getFile(fileId)
-          if (!file.file_path) return null
+          if (!file.file_path) {
+            return null
+          }
           const url = `https://api.telegram.org/file/bot${token}/${file.file_path}`
           const res = await fetch(url)
-          if (!res.ok) return null
+          if (!res.ok) {
+            return null
+          }
           const buffer = new Uint8Array(await res.arrayBuffer())
           return { type: 'file', data: buffer, mimeType, filename }
         } catch {
@@ -141,7 +150,9 @@ export function createTelegramAdapter(token: string, ownerId: string): Channel {
       /** Extract a photo part from the message, if present. */
       async function extractPhoto(ctx: Context): Promise<MessagePart | null> {
         const photo = ctx.message?.photo
-        if (!photo || photo.length === 0) return null
+        if (!photo || photo.length === 0) {
+          return null
+        }
         const largest = photo[photo.length - 1]
         return downloadFile(ctx, largest.file_id, 'image/jpeg')
       }
@@ -149,7 +160,9 @@ export function createTelegramAdapter(token: string, ownerId: string): Channel {
       /** Extract a document part from the message, if present. */
       async function extractDocument(ctx: Context): Promise<MessagePart | null> {
         const doc = ctx.message?.document
-        if (!doc) return null
+        if (!doc) {
+          return null
+        }
         return downloadFile(
           ctx,
           doc.file_id,
@@ -163,10 +176,14 @@ export function createTelegramAdapter(token: string, ownerId: string): Channel {
         const parts: MessagePart[] = []
 
         const photoPart = await extractPhoto(ctx)
-        if (photoPart) parts.push(photoPart)
+        if (photoPart) {
+          parts.push(photoPart)
+        }
 
         const docPart = await extractDocument(ctx)
-        if (docPart) parts.push(docPart)
+        if (docPart) {
+          parts.push(docPart)
+        }
 
         const text = ctx.message?.text?.trim() ?? ctx.message?.caption?.trim()
         if (text) {
@@ -179,7 +196,9 @@ export function createTelegramAdapter(token: string, ownerId: string): Channel {
       /** Handle any user message (text, photo, document). */
       async function handleMessage(ctx: Context): Promise<void> {
         const parts = await extractParts(ctx)
-        if (parts.length === 0) return
+        if (parts.length === 0) {
+          return
+        }
 
         const chatId = String(ctx.chat?.id)
         const threadId = await runtime.resolveThread(CHANNEL_ID, chatId)
@@ -234,7 +253,9 @@ export function createTelegramAdapter(token: string, ownerId: string): Channel {
 
       bot.callbackQuery(/^(a|d):(\d+)$/, async (ctx) => {
         const match = ctx.match
-        if (!match || typeof match === 'string') return
+        if (!match || typeof match === 'string') {
+          return
+        }
         const [, action, id] = match
         const pending = pendingApprovals.get(id)
         if (!pending) {
@@ -266,7 +287,7 @@ export function createTelegramAdapter(token: string, ownerId: string): Channel {
       bot.start()
     },
 
-    async stop() {
+    async stop(): Promise<void> {
       if (bot) {
         try {
           await bot.stop()
@@ -282,7 +303,7 @@ export function createTelegramAdapter(token: string, ownerId: string): Channel {
     id: CHANNEL_ID,
     name: 'Telegram',
     realtime,
-    async notify(message) {
+    async notify(message: { subject: string; body: string }): Promise<void> {
       if (!bot) {
         throw new Error('Telegram bot not started — cannot send notification')
       }

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import type { Config } from '../../config'
 import { DEFAULTS } from '../../config'
 import { loadTools } from '../load-tools'
 import type { RegisteredPlugin } from '../plugin-registry'
@@ -26,9 +27,11 @@ function makeToolPlugin(overrides?: Partial<RegisteredPlugin>): RegisteredPlugin
   }
 }
 
-function configWith(...pluginIds: string[]) {
+function configWith(...pluginIds: string[]): Config {
   const plugins: Record<string, { enabled: boolean }> = {}
-  for (const id of pluginIds) plugins[id] = { enabled: true }
+  for (const id of pluginIds) {
+    plugins[id] = { enabled: true }
+  }
   return { ...DEFAULTS, plugins }
 }
 

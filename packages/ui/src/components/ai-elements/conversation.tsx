@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils'
 
 export type ConversationProps = ComponentProps<typeof StickToBottom>
 
-export const Conversation = ({ className, ...props }: ConversationProps) => (
+export const Conversation = ({ className, ...props }: ConversationProps): React.JSX.Element => (
   <StickToBottom
     className={cn('relative flex-1 overflow-y-hidden', className)}
     initial="smooth"
@@ -21,7 +21,10 @@ export const Conversation = ({ className, ...props }: ConversationProps) => (
 
 export type ConversationContentProps = ComponentProps<typeof StickToBottom.Content>
 
-export const ConversationContent = ({ className, ...props }: ConversationContentProps) => (
+export const ConversationContent = ({
+  className,
+  ...props
+}: ConversationContentProps): React.JSX.Element => (
   <StickToBottom.Content className={cn('flex flex-col gap-8 p-4', className)} {...props} />
 )
 
@@ -38,7 +41,7 @@ export const ConversationEmptyState = ({
   icon,
   children,
   ...props
-}: ConversationEmptyStateProps) => (
+}: ConversationEmptyStateProps): React.JSX.Element => (
   <div
     className={cn(
       'flex size-full flex-col items-center justify-center gap-3 p-8 text-center',
@@ -63,29 +66,31 @@ export type ConversationScrollButtonProps = ComponentProps<typeof Button>
 export const ConversationScrollButton = ({
   className,
   ...props
-}: ConversationScrollButtonProps) => {
+}: ConversationScrollButtonProps): React.JSX.Element | null => {
   const { isAtBottom, scrollToBottom } = useStickToBottomContext()
 
   const handleScrollToBottom = useCallback(() => {
     scrollToBottom()
   }, [scrollToBottom])
 
+  if (isAtBottom) {
+    return null
+  }
+
   return (
-    !isAtBottom && (
-      <Button
-        className={cn(
-          'absolute bottom-4 left-[50%] translate-x-[-50%] rounded-full dark:bg-background dark:hover:bg-muted',
-          className,
-        )}
-        onClick={handleScrollToBottom}
-        size="icon"
-        type="button"
-        variant="outline"
-        {...props}
-      >
-        <ArrowDownIcon className="size-4" />
-      </Button>
-    )
+    <Button
+      className={cn(
+        'absolute bottom-4 left-[50%] translate-x-[-50%] rounded-full dark:bg-background dark:hover:bg-muted',
+        className,
+      )}
+      onClick={handleScrollToBottom}
+      size="icon"
+      type="button"
+      variant="outline"
+      {...props}
+    >
+      <ArrowDownIcon className="size-4" />
+    </Button>
   )
 }
 
@@ -117,7 +122,7 @@ export const ConversationDownload = ({
   className,
   children,
   ...props
-}: ConversationDownloadProps) => {
+}: ConversationDownloadProps): React.JSX.Element => {
   const handleDownload = useCallback(() => {
     const markdown = messagesToMarkdown(messages, formatMessage)
     const blob = new Blob([markdown], { type: 'text/markdown' })

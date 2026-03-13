@@ -74,11 +74,15 @@ export async function createRuntime(
 
   // 4. Scheduler
   const taskHandler = createTaskHandler(runtimeRef, env)
-  const onComplete = async (taskId: string) => {
-    if (taskId === HEARTBEAT_TASK_ID) return
+  const onComplete = async (taskId: string): Promise<void> => {
+    if (taskId === HEARTBEAT_TASK_ID) {
+      return
+    }
     log.info('[scheduler] task completed, removing from schedule', { taskId })
     const rt = runtimeRef.current
-    if (!rt) return
+    if (!rt) {
+      return
+    }
     const tasks = rt.config.schedule.tasks.filter((t) => t.id !== taskId)
     const updated = await updateConfig(
       storage.config,
@@ -112,7 +116,7 @@ export async function createRuntime(
       getActiveIds: getActiveStreamIds,
     },
 
-    syncSchedule() {
+    syncSchedule(): void {
       if (runtime.config.schedule.enabled) {
         const tasks = [...runtime.config.schedule.tasks]
         if (runtime.config.schedule.heartbeat.enabled) {
@@ -124,7 +128,7 @@ export async function createRuntime(
       }
     },
 
-    async reload() {
+    async reload(): Promise<void> {
       const prev = reloadLock
       let resolve: (() => void) | undefined
       reloadLock = new Promise((r) => {
@@ -138,7 +142,9 @@ export async function createRuntime(
         await stopRealtimeChannels(runtime.channels)
 
         // Disconnect existing MCP servers
-        if (runtime.mcpManager) await runtime.mcpManager.disconnect()
+        if (runtime.mcpManager) {
+          await runtime.mcpManager.disconnect()
+        }
 
         // Re-read config
         const freshConfig = await getConfig(storage.config, registry)
@@ -163,10 +169,12 @@ export async function createRuntime(
       }
     },
 
-    async close() {
+    async close(): Promise<void> {
       runtime.scheduler.stop()
       await stopRealtimeChannels(runtime.channels)
-      if (runtime.mcpManager) await runtime.mcpManager.disconnect()
+      if (runtime.mcpManager) {
+        await runtime.mcpManager.disconnect()
+      }
       await storage.close?.()
     },
   }
@@ -191,7 +199,16 @@ async function buildState(
   env: Record<string, string | undefined>,
   storage: StorageResult,
   runtimeRef: { current: PandoraRuntime | null },
-) {
+): Promise<{
+  config: Config
+  mastra: Mastra
+  channels: Map<string, Channel>
+  channelNames: Map<string, string>
+  interactiveTools: ToolRecord
+  mcpManager: McpManager
+  fileDisk: Disk
+  web: WebGateway
+}> {
   const log = getLogger(env)
 
   // 3. Channels (loaded early so schedule tools can enumerate destinations)
@@ -200,7 +217,9 @@ async function buildState(
   const notifiableNames: string[] = []
   for (const [friendlyName, nsKey] of channelNames) {
     const channel = channels.get(nsKey)
-    if (channel?.notify) notifiableNames.push(friendlyName)
+    if (channel?.notify) {
+      notifiableNames.push(friendlyName)
+    }
   }
   const destinations: [string, ...string[]] = ['Web Inbox', ...notifiableNames]
 
@@ -220,7 +239,9 @@ async function buildState(
   const backgroundTools = getBackgroundTools(allTools)
   const interactiveTools: ToolRecord = {}
   for (const [key, tool] of Object.entries(allTools)) {
-    if (!(key in backgroundTools)) interactiveTools[key] = tool
+    if (!(key in backgroundTools)) {
+      interactiveTools[key] = tool
+    }
   }
   log.info('[runtime] loaded tools', { toolIds: Object.keys(allTools) })
 
@@ -258,9 +279,9 @@ async function buildState(
 function createTaskHandler(
   runtimeRef: { current: PandoraRuntime | null },
   env: Record<string, string | undefined>,
-) {
+): (task: ScheduledTask) => Promise<void> {
   const log = getLogger(env)
-  return async (task: ScheduledTask) => {
+  return async (task: ScheduledTask): Promise<void> => {
     const runtime = runtimeRef.current
     if (!runtime) {
       log.error('[scheduler] runtime not available for task', { taskId: task.id })
@@ -340,7 +361,9 @@ function createTaskHandler(
 function getBackgroundTools(tools: ToolRecord): ToolRecord {
   const result: ToolRecord = {}
   for (const [key, tool] of Object.entries(tools)) {
-    if (hasProperty(tool, 'requireApproval') && tool.requireApproval) continue
+    if (hasProperty(tool, 'requireApproval') && tool.requireApproval) {
+      continue
+    }
     if (
       !(
         hasProperty(tool, 'mcp') &&
@@ -369,7 +392,9 @@ async function startRealtimeChannels(runtime: PandoraRuntime): Promise<void> {
   })
 
   for (const [nsKey, adapter] of runtime.channels) {
-    if (!adapter.realtime) continue
+    if (!adapter.realtime) {
+      continue
+    }
     try {
       await adapter.realtime.start(channel(nsKey))
       log.info('[runtime] realtime channel started', { name: adapter.name })
@@ -386,7 +411,9 @@ async function startRealtimeChannels(runtime: PandoraRuntime): Promise<void> {
 async function stopRealtimeChannels(channels: Map<string, Channel>): Promise<void> {
   const log = getLogger()
   for (const adapter of channels.values()) {
-    if (!adapter.realtime) continue
+    if (!adapter.realtime) {
+      continue
+    }
     try {
       await adapter.realtime.stop()
       log.info('[runtime] realtime channel stopped', { name: adapter.name })

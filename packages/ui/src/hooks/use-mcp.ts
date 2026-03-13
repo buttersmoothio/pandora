@@ -1,4 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import {
+  type UseMutationResult,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { apiFetch } from '@/lib/api'
 
@@ -25,7 +30,9 @@ interface McpServersResponse {
 
 export const MCP_SERVERS_KEY = ['mcp-servers'] as const
 
-export function useMcpServers() {
+export function useMcpServers(): {
+  servers: McpServerInfo[] | undefined
+} & ReturnType<typeof useQuery<McpServersResponse>> {
   const query = useQuery({
     queryKey: MCP_SERVERS_KEY,
     queryFn: () => apiFetch<McpServersResponse>('/api/mcp-servers'),
@@ -37,7 +44,11 @@ export function useMcpServers() {
   }
 }
 
-export function useAddMcpServer() {
+export function useAddMcpServer(): UseMutationResult<
+  { id: string },
+  Error,
+  Record<string, unknown>
+> {
   const queryClient = useQueryClient()
 
   return useMutation({

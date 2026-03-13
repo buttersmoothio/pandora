@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { PasswordCredential, RefreshToken, Session } from '../auth-store'
-import { RedisAuthStore } from './kv'
+import type { PasswordCredential, RefreshToken, Session } from '../../auth-store'
+import { RedisAuthStore } from '../kv'
 
 const testCredential: PasswordCredential = {
   hash: 'testhash==',
@@ -9,7 +9,7 @@ const testCredential: PasswordCredential = {
   createdAt: '2024-01-01T00:00:00.000Z',
 }
 
-const futureDate = new Date(Date.now() + 86400000).toISOString()
+const futureDate: string = new Date(Date.now() + 86400000).toISOString()
 
 const testSession: Session = {
   tokenHash: 'abc123def456',

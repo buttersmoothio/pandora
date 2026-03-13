@@ -40,7 +40,8 @@ export function bindTool(
     id: toolId,
     description: def.description,
     inputSchema,
-    execute: (input) => {
+    // biome-ignore lint/nursery/useExplicitType: input type inferred from inputSchema
+    execute: (input): Promise<unknown> => {
       const pluginId = namespacedId.split(':')[0]
       const result = def.execute(input, { env: envVars, logger: createPluginConsole(pluginId) })
       return Promise.race([

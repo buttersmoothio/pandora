@@ -5,7 +5,7 @@ import { getLogger } from '../logger'
 import type { Env } from './helpers'
 import { isServerless } from './helpers'
 
-const chatRoutes = new Hono<Env>()
+const chatRoutes: Hono<Env> = new Hono<Env>()
 
 // Chat endpoint - thread-based streaming
 chatRoutes.post('/', async (c) => {
@@ -34,7 +34,7 @@ chatRoutes.post('/', async (c) => {
     const res = createUIMessageStreamResponse({
       stream,
       ...(!isServerless() && {
-        consumeSseStream: ({ stream: sseStream }) => {
+        consumeSseStream: ({ stream: sseStream }: { stream: ReadableStream<string> }): void => {
           runtime.streams.store(threadId, sseStream)
         },
       }),
@@ -77,7 +77,7 @@ chatRoutes.post('/approve', async (c) => {
     const res = createUIMessageStreamResponse({
       stream,
       ...(!isServerless() && {
-        consumeSseStream: ({ stream: sseStream }) => {
+        consumeSseStream: ({ stream: sseStream }: { stream: ReadableStream<string> }): void => {
           runtime.streams.store(threadId, sseStream)
         },
       }),
@@ -92,9 +92,13 @@ chatRoutes.post('/approve', async (c) => {
 
 // Resume stream endpoint — AI SDK sends GET /api/chat/{threadId}/stream when resume: true
 chatRoutes.get('/:threadId/stream', (c) => {
-  if (isServerless()) return c.body(null, 204)
+  if (isServerless()) {
+    return c.body(null, 204)
+  }
   const stream = c.var.runtime.streams.getResume(c.req.param('threadId'))
-  if (!stream) return c.body(null, 204)
+  if (!stream) {
+    return c.body(null, 204)
+  }
   return new Response(stream.pipeThrough(new TextEncoderStream()), {
     status: 200,
     headers: UI_MESSAGE_STREAM_HEADERS,

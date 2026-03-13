@@ -8,6 +8,7 @@ import {
   KeyRoundIcon,
   SettingsIcon,
 } from 'lucide-react'
+import type React from 'react'
 import { useEffect, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -40,7 +41,7 @@ function formatToolName(name: string): string {
 // Status badge (matching plugin cards)
 // ---------------------------------------------------------------------------
 
-function McpStatusBadge({ server }: { server: McpServerInfo }) {
+function McpStatusBadge({ server }: { server: McpServerInfo }): React.JSX.Element {
   if (server.authUrl) {
     return (
       <span className="inline-flex items-center gap-1 text-amber-600 text-xs dark:text-amber-400">
@@ -72,7 +73,7 @@ function McpStatusBadge({ server }: { server: McpServerInfo }) {
 // Card
 // ---------------------------------------------------------------------------
 
-export function McpServerCard({ server }: { server: McpServerInfo }) {
+export function McpServerCard({ server }: { server: McpServerInfo }): React.JSX.Element {
   const updateConfig = useUpdateConfig()
   const [enabled, setEnabled] = useState(server.enabled)
 
@@ -80,7 +81,7 @@ export function McpServerCard({ server }: { server: McpServerInfo }) {
     setEnabled(server.enabled)
   }, [server.enabled])
 
-  function handleToggle(checked: boolean) {
+  function handleToggle(checked: boolean): void {
     setEnabled(checked)
     updateConfig.mutate({
       mcpServers: {
@@ -120,7 +121,9 @@ export function McpServerCard({ server }: { server: McpServerInfo }) {
             variant="outline"
             size="sm"
             className="gap-1.5"
-            onClick={() => window.open(server.authUrl, '_blank')}
+            onClick={(): void => {
+              window.open(server.authUrl, '_blank')
+            }}
           >
             <ExternalLinkIcon className="size-3.5" />
             Authorize
@@ -145,9 +148,9 @@ export function McpServerCard({ server }: { server: McpServerInfo }) {
 // Collapsible tool list
 // ---------------------------------------------------------------------------
 
-const TOOL_COLLAPSE_THRESHOLD = 8
+const TOOL_COLLAPSE_THRESHOLD: number = 8
 
-function ToolList({ tools }: { tools: McpServerInfo['tools'] }) {
+function ToolList({ tools }: { tools: McpServerInfo['tools'] }): React.JSX.Element {
   const [expanded, setExpanded] = useState(tools.length <= TOOL_COLLAPSE_THRESHOLD)
   const visible = expanded ? tools : tools.slice(0, TOOL_COLLAPSE_THRESHOLD)
   const hiddenCount = tools.length - TOOL_COLLAPSE_THRESHOLD
@@ -163,7 +166,7 @@ function ToolList({ tools }: { tools: McpServerInfo['tools'] }) {
       {!expanded && hiddenCount > 0 && (
         <button
           type="button"
-          onClick={() => setExpanded(true)}
+          onClick={(): void => setExpanded(true)}
           className="flex items-center justify-center gap-1 rounded-md border border-dashed px-3 py-2 text-muted-foreground text-xs transition-colors hover:bg-muted"
         >
           <ChevronDownIcon className="size-3" />
@@ -178,7 +181,7 @@ function ToolList({ tools }: { tools: McpServerInfo['tools'] }) {
 // Dialog body panels (extracted for complexity)
 // ---------------------------------------------------------------------------
 
-function DialogMainPanel({ server }: { server: McpServerInfo }) {
+function DialogMainPanel({ server }: { server: McpServerInfo }): React.JSX.Element {
   return (
     <div className="flex-1 space-y-5 overflow-y-auto px-6 py-5">
       {server.authUrl && (
@@ -194,7 +197,9 @@ function DialogMainPanel({ server }: { server: McpServerInfo }) {
             variant="outline"
             size="sm"
             className="mt-2 gap-1.5"
-            onClick={() => window.open(server.authUrl, '_blank')}
+            onClick={(): void => {
+              window.open(server.authUrl, '_blank')
+            }}
           >
             <ExternalLinkIcon className="size-3.5" />
             Authorize
@@ -224,7 +229,7 @@ function DialogMainPanel({ server }: { server: McpServerInfo }) {
   )
 }
 
-function DialogSidebar({ server }: { server: McpServerInfo }) {
+function DialogSidebar({ server }: { server: McpServerInfo }): React.JSX.Element {
   return (
     <div className="w-full shrink-0 overflow-y-auto border-t bg-muted/30 px-6 py-5 md:w-60 md:border-t-0 md:border-l">
       <div className="flex flex-col gap-4">
@@ -249,7 +254,7 @@ function McpServerDialog({
 }: {
   server: McpServerInfo
   children: React.ReactNode
-}) {
+}): React.JSX.Element {
   const updateConfig = useUpdateConfig()
   const [enabled, setEnabled] = useState(server.enabled)
 
@@ -257,14 +262,14 @@ function McpServerDialog({
     setEnabled(server.enabled)
   }, [server.enabled])
 
-  function handleToggle(next: boolean) {
+  function handleToggle(next: boolean): void {
     setEnabled(next)
     updateConfig.mutate({
       mcpServers: { [server.id]: { enabled: next } },
     })
   }
 
-  function handleRemove() {
+  function handleRemove(): void {
     updateConfig.mutate({
       mcpServers: { [server.id]: null },
     })
@@ -294,7 +299,7 @@ function McpServerDialog({
               variant={enabled ? 'outline' : 'default'}
               size="sm"
               className="shrink-0"
-              onClick={() => handleToggle(!enabled)}
+              onClick={(): void => handleToggle(!enabled)}
               disabled={updateConfig.isPending}
             >
               {enabled ? 'Disable' : 'Enable'}

@@ -28,7 +28,10 @@ function createMockInbox(overrides: Partial<InboxStore> = {}): InboxStore {
   }
 }
 
-function exec(tool: { execute?: (...args: never) => unknown }, input: Record<string, unknown>) {
+function exec(
+  tool: { execute?: (...args: never) => unknown },
+  input: Record<string, unknown>,
+): unknown {
   return (tool.execute as (input: unknown, ctx: unknown) => unknown)?.(input, {})
 }
 
@@ -76,9 +79,12 @@ describe('createSendToTools', () => {
   })
 
   describe('send_to channel', () => {
+    // biome-ignore lint/nursery/useExplicitType: test helper return type is complex
     function setupChannel(notifyImpl?: () => Promise<void>) {
       const inbox = createMockInbox()
-      const mockNotify = vi.fn(notifyImpl ?? (async () => {}))
+      const mockNotify: ReturnType<typeof vi.fn> = vi.fn(
+        notifyImpl ?? (async (): Promise<void> => {}),
+      )
       const channel = { id: 'telegram', name: 'Telegram', notify: mockNotify }
       const channels = new Map([['@pandorakit/telegram:telegram', channel]])
       const channelNames = new Map([['Telegram', '@pandorakit/telegram:telegram']])

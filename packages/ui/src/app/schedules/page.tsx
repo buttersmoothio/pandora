@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { useConfig } from '@/hooks/use-config'
 
-export default function SchedulesPage() {
+export default function SchedulesPage(): React.JSX.Element {
   const [createOpen, setCreateOpen] = useState(false)
   const { data: config } = useConfig()
   const schedulingEnabled = config?.schedule.enabled ?? false
@@ -19,7 +19,7 @@ export default function SchedulesPage() {
     <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 p-6">
       <div className="flex items-center justify-between">
         <h1 className="font-semibold text-2xl">Schedules</h1>
-        <Button size="sm" onClick={() => setCreateOpen(true)}>
+        <Button size="sm" onClick={(): void => setCreateOpen(true)}>
           <PlusIcon className="mr-1 size-4" />
           New Schedule
         </Button>

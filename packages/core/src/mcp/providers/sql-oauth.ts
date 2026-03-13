@@ -97,7 +97,9 @@ export class SQLMcpOAuthStore implements McpOAuthStore {
   async get(key: string): Promise<string | undefined> {
     try {
       const rows = await this.execute(this.selectSQL, [key])
-      if (!rows || rows.length === 0) return undefined
+      if (!rows || rows.length === 0) {
+        return undefined
+      }
       return (rows[0] as { value: string }).value
     } catch (err) {
       getLogger().debug('[mcp-oauth] get failed', { key, error: String(err) })

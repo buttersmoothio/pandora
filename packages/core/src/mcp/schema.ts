@@ -1,5 +1,6 @@
 import { z } from 'zod'
 
+// biome-ignore lint/nursery/useExplicitType: Zod schema type is inferred
 export const McpServerSchema = z
   .object({
     /** Stdio transport: command to execute */

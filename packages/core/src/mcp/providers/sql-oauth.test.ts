@@ -6,7 +6,7 @@ describe('SQLMcpOAuthStore', () => {
     let store: SQLMcpOAuthStore
     let mockExecute: ReturnType<typeof vi.fn>
 
-    function createStore() {
+    function createStore(): void {
       mockExecute = vi.fn().mockResolvedValue([])
       store = new SQLMcpOAuthStore(mockExecute, dialect)
     }

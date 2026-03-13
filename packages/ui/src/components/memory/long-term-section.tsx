@@ -10,7 +10,7 @@ import { useObservations, useOMRecord } from '@/hooks/use-memory'
 import { useToolNames } from '@/hooks/use-plugins'
 import { formatTokens, parseObservationSections, timeAgo } from '@/lib/memory-utils'
 
-export function LongTermSection() {
+export function LongTermSection(): React.JSX.Element {
   const { data: obsData, isLoading } = useObservations()
   const { data: recordData } = useOMRecord()
   const toolNames = useToolNames()

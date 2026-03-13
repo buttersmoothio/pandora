@@ -6,7 +6,7 @@ import { getLogger } from '../../logger'
 import type { StorageResult } from '../index'
 import { SQLConfigStore } from './sql'
 
-const DEFAULT_DB_PATH = resolve(process.cwd(), 'data', 'pandora.db')
+const DEFAULT_DB_PATH: string = resolve(process.cwd(), 'data', 'pandora.db')
 
 function ensureDir(filePath: string): void {
   mkdirSync(dirname(filePath), { recursive: true })
@@ -39,7 +39,7 @@ export async function createLibSQLStorage(
     authToken: env.DATABASE_AUTH_TOKEN,
   })
 
-  const wrapExecute = async (sql: string, params?: unknown[]) => {
+  const wrapExecute = async (sql: string, params?: unknown[]): Promise<unknown[]> => {
     const result = await client.execute(params ? { sql, args: params as InArgs } : sql)
     return result.rows as unknown[]
   }
@@ -58,7 +58,9 @@ export async function createLibSQLStorage(
 
   // Initialize stores
   await mastra.init()
-  if (config.init) await config.init()
+  if (config.init) {
+    await config.init()
+  }
   await auth.init()
   await inbox.init()
   await mcpOAuth.init()

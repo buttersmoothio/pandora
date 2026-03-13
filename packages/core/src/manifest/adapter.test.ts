@@ -134,7 +134,7 @@ describe('adaptManifest', () => {
   })
 
   it('adapts a channel entry', () => {
-    const factory = () => null
+    const factory = (): null => null
 
     const entries: LoadedEntry[] = [
       {

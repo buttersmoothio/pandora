@@ -7,7 +7,7 @@ import { makeReadPowers } from '@endo/compartment-mapper/node-powers.js'
 let cached: ReturnType<typeof makeReadPowers>
 
 /** Singleton ReadPowers for the compartment mapper. */
-export function getReadPowers() {
+export function getReadPowers(): ReturnType<typeof makeReadPowers> {
   cached ??= makeReadPowers({ fs, url, crypto, path })
   return cached
 }

@@ -1,5 +1,10 @@
 import type { Mastra } from '@mastra/core'
-import type { ChannelGateway, StreamResult } from '@pandorakit/sdk/channels'
+import type {
+  ChannelGateway,
+  GenerateResult,
+  MessagePart,
+  StreamResult,
+} from '@pandorakit/sdk/channels'
 import { getLogger } from '../logger'
 import type { ToolRecord } from '../tools/types'
 import {
@@ -44,13 +49,17 @@ export function createChannelGateway(
   const resolveLocks = new Map<string, Promise<string>>()
 
   const mastraLogger = getLogger(env)
-  const logger = {
-    log: (...args: unknown[]) => mastraLogger.info(String(args[0]), ...args.slice(1)),
-    warn: (...args: unknown[]) => mastraLogger.warn(String(args[0]), ...args.slice(1)),
-    error: (...args: unknown[]) => mastraLogger.error(String(args[0]), ...args.slice(1)),
+  const logger: ChannelGateway['logger'] = {
+    log: (...args: unknown[]): void => mastraLogger.info(String(args[0]), ...args.slice(1)),
+    warn: (...args: unknown[]): void => mastraLogger.warn(String(args[0]), ...args.slice(1)),
+    error: (...args: unknown[]): void => mastraLogger.error(String(args[0]), ...args.slice(1)),
   }
 
-  function memoryOption(threadId: string, channelId?: string, externalId?: string) {
+  function memoryOption(
+    threadId: string,
+    channelId?: string,
+    externalId?: string,
+  ): { thread: string | { id: string; metadata: Record<string, unknown> }; resource: string } {
     if (channelId && externalId) {
       const key = `${channelId}:${externalId}`
       const pending = pendingThreads.get(key)
@@ -66,7 +75,17 @@ export function createChannelGateway(
     env,
     logger,
 
-    async generate({ threadId, parts, channelId: chId, externalId }) {
+    async generate({
+      threadId,
+      parts,
+      channelId: chId,
+      externalId,
+    }: {
+      threadId: string
+      parts: MessagePart[]
+      channelId?: string
+      externalId?: string
+    }): Promise<GenerateResult> {
       const agent = mastra.getAgent('operator')
       const result = await agent.generate(buildMessages(parts), {
         memory: memoryOption(threadId, chId, externalId),
@@ -75,7 +94,17 @@ export function createChannelGateway(
       return buildResult(result)
     },
 
-    async stream({ threadId, parts, channelId: chId, externalId }) {
+    async stream({
+      threadId,
+      parts,
+      channelId: chId,
+      externalId,
+    }: {
+      threadId: string
+      parts: MessagePart[]
+      channelId?: string
+      externalId?: string
+    }): Promise<StreamResult> {
       const agent = mastra.getAgent('operator')
       const output = await agent.stream(buildMessages(parts), {
         memory: memoryOption(threadId, chId, externalId),
@@ -95,25 +124,41 @@ export function createChannelGateway(
       } satisfies StreamResult
     },
 
-    async approveToolCall({ runId, toolCallId }) {
+    async approveToolCall({
+      runId,
+      toolCallId,
+    }: {
+      runId: string
+      toolCallId?: string
+    }): Promise<GenerateResult> {
       const agent = mastra.getAgent('operator')
       const result = await agent.approveToolCallGenerate({ runId, toolCallId })
       return buildResult(result)
     },
 
-    async declineToolCall({ runId, toolCallId }) {
+    async declineToolCall({
+      runId,
+      toolCallId,
+    }: {
+      runId: string
+      toolCallId?: string
+    }): Promise<GenerateResult> {
       const agent = mastra.getAgent('operator')
       const result = await agent.declineToolCallGenerate({ runId, toolCallId })
       return buildResult(result)
     },
 
-    async resolveThread(chId, externalId) {
+    async resolveThread(chId: string, externalId: string): Promise<string> {
       const key = `${chId}:${externalId}`
       const pending = pendingThreads.get(key)
-      if (pending) return pending.threadId
+      if (pending) {
+        return pending.threadId
+      }
 
       const existing = resolveLocks.get(key)
-      if (existing) return existing
+      if (existing) {
+        return existing
+      }
 
       const promise = (async () => {
         const memory = await getMemory(mastra)
@@ -126,7 +171,9 @@ export function createChannelGateway(
           perPage: 1,
         })
 
-        if (result.threads.length > 0) return result.threads[0].id
+        if (result.threads.length > 0) {
+          return result.threads[0].id
+        }
 
         return this.newThread(chId, externalId)
       })()
@@ -139,7 +186,7 @@ export function createChannelGateway(
       }
     },
 
-    newThread(chId, externalId) {
+    newThread(chId: string, externalId: string): string {
       const threadId = crypto.randomUUID()
       const key = `${chId}:${externalId}`
       pendingThreads.set(key, {

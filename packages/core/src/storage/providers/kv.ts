@@ -19,7 +19,9 @@ export class RedisConfigStore<T = unknown> implements ConfigStore<T> {
 
   async get(): Promise<T | null> {
     const value = await this.redis.get(CONFIG_KEY)
-    if (!value) return null
+    if (!value) {
+      return null
+    }
     return (typeof value === 'string' ? JSON.parse(value) : value) as T
   }
 

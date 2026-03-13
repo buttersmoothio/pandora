@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { getLogger } from '../logger'
 import type { RegisteredPlugin } from './plugin-registry'
 
-const basePluginSchema = z.object({ enabled: z.boolean() })
+const basePluginSchema: z.ZodObject<{ enabled: z.ZodBoolean }> = z.object({ enabled: z.boolean() })
 
 export interface PluginValidationResult {
   config: PluginConfig | null

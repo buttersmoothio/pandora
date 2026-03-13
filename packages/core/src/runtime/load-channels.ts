@@ -24,10 +24,14 @@ export async function loadChannels(
   const nameCounts = new Map<string, number>()
 
   for (const [, plugin] of registry.plugins) {
-    if (!plugin.channels) continue
+    if (!plugin.channels) {
+      continue
+    }
 
     const { config: pluginConfig } = validatePluginConfig(plugin, config.plugins[plugin.id])
-    if (!pluginConfig) continue
+    if (!pluginConfig) {
+      continue
+    }
 
     try {
       const adapter = plugin.channels.factory(env, pluginConfig)

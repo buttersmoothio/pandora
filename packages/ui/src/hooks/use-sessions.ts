@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { type UseQueryResult, useQuery } from '@tanstack/react-query'
 import { apiFetch } from '@/lib/api'
 
 export interface Session {
@@ -16,10 +16,10 @@ interface SessionsResponse {
 
 const SESSIONS_KEY = ['sessions'] as const
 
-export function useSessions() {
+export function useSessions(): UseQueryResult<Session[]> {
   return useQuery({
     queryKey: SESSIONS_KEY,
     queryFn: () => apiFetch<SessionsResponse>('/api/auth/sessions'),
-    select: (data) => data.sessions,
+    select: (data: SessionsResponse) => data.sessions,
   })
 }

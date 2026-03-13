@@ -41,7 +41,15 @@ export function createWebGateway(deps: WebGatewayDeps): WebGateway {
       : undefined
 
   return {
-    async stream({ threadId, parts, isNewThread }) {
+    async stream({
+      threadId,
+      parts,
+      isNewThread,
+    }: {
+      threadId: string
+      parts: MessagePart[]
+      isNewThread?: boolean
+    }): Promise<ReadableStream> {
       const memory = isNewThread
         ? { thread: { id: threadId, metadata: { root: true } }, resource: RESOURCE_ID }
         : { thread: threadId, resource: RESOURCE_ID }
@@ -59,7 +67,17 @@ export function createWebGateway(deps: WebGatewayDeps): WebGateway {
       }).pipeThrough(createApprovalTransform())
     },
 
-    async approveToolCall({ runId, toolCallId, threadId, messageId }) {
+    async approveToolCall({
+      runId,
+      toolCallId,
+      threadId,
+      messageId,
+    }: {
+      runId: string
+      toolCallId?: string
+      threadId: string
+      messageId?: string
+    }): Promise<ReadableStream> {
       const agent = mastra.getAgent('operator')
       const result = await agent.approveToolCall({
         runId,
@@ -75,7 +93,17 @@ export function createWebGateway(deps: WebGatewayDeps): WebGateway {
       }).pipeThrough(createApprovalTransform())
     },
 
-    async declineToolCall({ runId, toolCallId, threadId, messageId }) {
+    async declineToolCall({
+      runId,
+      toolCallId,
+      threadId,
+      messageId,
+    }: {
+      runId: string
+      toolCallId?: string
+      threadId: string
+      messageId?: string
+    }): Promise<ReadableStream> {
       const agent = mastra.getAgent('operator')
       const result = await agent.declineToolCall({
         runId,

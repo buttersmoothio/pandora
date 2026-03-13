@@ -14,7 +14,7 @@ export function MemoryProgress({
   tokens: number
   threshold: number
   tooltip: string
-}) {
+}): React.JSX.Element {
   const percent = threshold > 0 ? Math.min((tokens / threshold) * 100, 100) : 0
 
   return (

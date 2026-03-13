@@ -39,7 +39,8 @@ export function createSendToTools(deps: SendToToolDeps): ToolRecord {
       body: z.string().min(1).describe('Message body in markdown'),
       destination: z.enum(destinations).describe('Where to deliver the notification'),
     }),
-    execute: async (input) => {
+    // biome-ignore lint/nursery/useExplicitType: input type inferred from inputSchema
+    execute: async (input): Promise<Record<string, unknown>> => {
       const { subject, body, destination } = input
 
       if (destination === 'Web Inbox') {

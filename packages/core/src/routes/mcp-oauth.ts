@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import { getLogger } from '../logger'
 import type { Env } from './helpers'
 
-export const mcpOAuthRoutes = new Hono<Env>()
+export const mcpOAuthRoutes: Hono<Env> = new Hono<Env>()
 
 /** OAuth callback for MCP servers — public (no auth middleware). */
 mcpOAuthRoutes.get('/mcp/callback', async (c) => {
@@ -27,7 +27,9 @@ mcpOAuthRoutes.get('/mcp/callback', async (c) => {
     if (envVars.FRONTEND_URL) {
       const redirectUrl = new URL('/plugins', envVars.FRONTEND_URL)
       redirectUrl.searchParams.set('oauth', 'success')
-      if (serverId) redirectUrl.searchParams.set('server', serverId)
+      if (serverId) {
+        redirectUrl.searchParams.set('server', serverId)
+      }
       return c.redirect(redirectUrl.toString())
     }
 

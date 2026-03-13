@@ -1,10 +1,10 @@
 import type { Mastra } from '@mastra/core'
 import type { Memory } from '@mastra/memory'
-import type { Context } from 'hono'
+import type { Context, MiddlewareHandler } from 'hono'
 import { env, getRuntimeKey } from 'hono/adapter'
 import { createMiddleware } from 'hono/factory'
 import { HTTPException } from 'hono/http-exception'
-import type { AuthStore } from '../auth/auth-store'
+import type { AuthStore, Session } from '../auth/auth-store'
 import { getLogger } from '../logger'
 
 type Runtime = ReturnType<typeof getRuntimeKey>
@@ -30,6 +30,7 @@ export type Bindings = {
 export type Variables = {
   envVars: Record<string, string | undefined>
   runtime: PandoraRuntime
+  session?: Session
 }
 
 export type Env = { Bindings: Bindings; Variables: Variables }
@@ -60,7 +61,7 @@ export function getCachedRuntime(): PandoraRuntime | null {
  * In server mode, the runtime is cached for the process lifetime.
  * In serverless mode, a fresh runtime is created per request.
  */
-export function createRuntimeMiddleware(registry: PluginRegistry) {
+export function createRuntimeMiddleware(registry: PluginRegistry): MiddlewareHandler<Env> {
   return createMiddleware<Env>(async (c, next) => {
     const envVars = extractStringEnv(env(c))
     c.set('envVars', envVars)
@@ -92,6 +93,8 @@ export async function getMemoryOrFail(
 ): Promise<{ mastra: Mastra; memory: Memory }> {
   const { mastra } = c.var.runtime
   const memory = await mastra.getAgent('operator').getMemory()
-  if (!memory) throw new HTTPException(500, { message: 'Memory not configured' })
+  if (!memory) {
+    throw new HTTPException(500, { message: 'Memory not configured' })
+  }
   return { mastra, memory: memory as Memory }
 }

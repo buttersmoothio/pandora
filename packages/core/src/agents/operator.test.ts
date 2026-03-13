@@ -5,7 +5,7 @@ import type { Config } from '../config'
 import { DEFAULTS } from '../config'
 
 // Mock the Agent constructor to capture config
-const mockAgentConstructor = vi.fn()
+const mockAgentConstructor: ReturnType<typeof vi.fn> = vi.fn()
 vi.mock('@mastra/core/agent', () => ({
   Agent: class MockAgent {
     id: string
@@ -19,6 +19,7 @@ vi.mock('@mastra/core/agent', () => ({
 }))
 
 // Import after mock is set up
+// biome-ignore lint/nursery/useExplicitType: dynamic import type is inferred
 const { createOperator } = await import('./operator')
 
 const mockMemory = {} as MastraMemory

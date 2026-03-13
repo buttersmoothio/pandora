@@ -24,10 +24,11 @@ import { createScheduleTools } from './tools'
 function exec(
   tool: { execute?: (...args: never) => unknown },
   input: Record<string, unknown> = {},
-) {
+): unknown {
   return (tool.execute as (input: unknown, ctx: unknown) => unknown)?.(input, {})
 }
 
+// biome-ignore lint/nursery/useExplicitType: test mock factory return type is complex
 function createMockDeps() {
   const config: Config = {
     ...DEFAULTS,

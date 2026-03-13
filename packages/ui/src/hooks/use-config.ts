@@ -1,4 +1,10 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import {
+  type UseMutationResult,
+  type UseQueryResult,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { apiFetch } from '@/lib/api'
 
@@ -67,18 +73,18 @@ export interface Config {
 
 const CONFIG_KEY = ['config'] as const
 
-function fetchConfig() {
+function fetchConfig(): Promise<Config> {
   return apiFetch<Config>('/api/config')
 }
 
-export function useConfig() {
+export function useConfig(): UseQueryResult<Config> {
   return useQuery({
     queryKey: CONFIG_KEY,
     queryFn: fetchConfig,
   })
 }
 
-export function useUpdateConfig() {
+export function useUpdateConfig(): UseMutationResult<Config, Error, DeepPartial<Config>> {
   const queryClient = useQueryClient()
 
   return useMutation({
@@ -87,7 +93,7 @@ export function useUpdateConfig() {
         method: 'PATCH',
         body: JSON.stringify(patch),
       }),
-    onSuccess: (data) => {
+    onSuccess: (data: Config) => {
       queryClient.setQueryData(CONFIG_KEY, data)
       queryClient.invalidateQueries({ queryKey: ['plugins'] })
       queryClient.invalidateQueries({ queryKey: ['mcp-servers'] })

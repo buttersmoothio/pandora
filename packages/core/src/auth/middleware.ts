@@ -1,4 +1,4 @@
-import type { Context } from 'hono'
+import type { Context, MiddlewareHandler } from 'hono'
 import { createMiddleware } from 'hono/factory'
 import { getLogger } from '../logger'
 import type { Env } from '../routes/helpers'
@@ -7,7 +7,12 @@ import { extractBearerToken } from './routes'
 import { verifySessionToken } from './session'
 
 /** Routes that don't require authentication */
-const PUBLIC_PATHS = new Set(['/', '/api/auth/setup', '/api/auth/login', '/api/auth/refresh'])
+const PUBLIC_PATHS: ReadonlySet<string> = new Set([
+  '/',
+  '/api/auth/setup',
+  '/api/auth/login',
+  '/api/auth/refresh',
+])
 
 /**
  * Auth middleware for Hono.
@@ -16,7 +21,9 @@ const PUBLIC_PATHS = new Set(['/', '/api/auth/setup', '/api/auth/login', '/api/a
  * - Extracts token from Authorization: Bearer header
  * - Validates session, rejects with 401 if invalid/expired
  */
-export function authMiddleware(getAuthStore: (c: Context<Env>) => Promise<AuthStore>) {
+export function authMiddleware(
+  getAuthStore: (c: Context<Env>) => Promise<AuthStore>,
+): MiddlewareHandler {
   const log = getLogger()
   return createMiddleware(async (c, next) => {
     const path = c.req.path
@@ -29,13 +36,13 @@ export function authMiddleware(getAuthStore: (c: Context<Env>) => Promise<AuthSt
     const credential = await store.getCredential()
 
     if (!credential) {
-      log.debug('Auth: setup required, no credential found', { path })
+      log.debug('[auth] setup required, no credential found', { path })
       return c.json({ error: 'setup_required' }, 403)
     }
 
     const token = extractBearerToken(c)
     if (!token) {
-      log.debug('Auth: missing bearer token', { path })
+      log.debug('[auth] missing bearer token', { path })
       return c.json({ error: 'unauthorized' }, 401)
     }
 
@@ -43,15 +50,15 @@ export function authMiddleware(getAuthStore: (c: Context<Env>) => Promise<AuthSt
     try {
       session = await verifySessionToken(store, token)
     } catch {
-      log.debug('Auth: session verification failed', { path })
+      log.debug('[auth] session verification failed', { path })
       return c.json({ error: 'unauthorized' }, 401)
     }
     if (!session) {
-      log.debug('Auth: session not found or expired', { path })
+      log.debug('[auth] session not found or expired', { path })
       return c.json({ error: 'unauthorized' }, 401)
     }
 
-    c.set('session' as never, session as never)
+    c.set('session', session)
     return next()
   })
 }

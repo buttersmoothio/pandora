@@ -18,10 +18,10 @@ export function createFileDisk(env: Record<string, string | undefined>): Disk {
       location,
       visibility: 'private',
       urlBuilder: {
-        async generateURL(key: string) {
+        async generateURL(key: string): Promise<string> {
           return `/api/files/${key}`
         },
-        async generateSignedURL(key: string) {
+        async generateSignedURL(key: string): Promise<string> {
           return `/api/files/${key}`
         },
       },

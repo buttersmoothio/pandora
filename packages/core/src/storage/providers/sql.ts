@@ -100,7 +100,9 @@ export class SQLConfigStore<T = unknown> implements ConfigStore<T> {
   async get(): Promise<T | null> {
     try {
       const rows = await this.execute(this.selectSQL, [CONFIG_KEY])
-      if (!rows || rows.length === 0) return null
+      if (!rows || rows.length === 0) {
+        return null
+      }
 
       const row = rows[0] as { value: string | object }
       return (typeof row.value === 'string' ? JSON.parse(row.value) : row.value) as T

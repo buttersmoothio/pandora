@@ -14,19 +14,21 @@ export function EditMessageForm({
   onChange: (text: string) => void
   onCancel: () => void
   onSubmit: () => void
-}) {
+}): React.JSX.Element {
   return (
     <div className="flex w-full flex-col gap-2">
       <Textarea
         value={text}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(e: React.ChangeEvent<HTMLTextAreaElement>): void => onChange(e.target.value)}
         className="min-h-[80px] resize-none"
-        onKeyDown={(e) => {
+        onKeyDown={(e: React.KeyboardEvent<HTMLTextAreaElement>): void => {
           if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault()
             onSubmit()
           }
-          if (e.key === 'Escape') onCancel()
+          if (e.key === 'Escape') {
+            onCancel()
+          }
         }}
         autoFocus
       />

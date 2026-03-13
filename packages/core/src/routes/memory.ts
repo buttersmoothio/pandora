@@ -7,12 +7,12 @@ import { getMemoryOrFail } from './helpers'
 const RESOURCE_ID = 'default'
 
 /** Get the OM processor from memory's input processors. */
-async function getOM(memory: Memory) {
+async function getOM(memory: Memory): Promise<ObservationalMemory | undefined> {
   const processors = await memory.getInputProcessors()
   return processors.find((p): p is ObservationalMemory => p.id === 'observational-memory')
 }
 
-export const memoryRoutes = new Hono<Env>()
+export const memoryRoutes: Hono<Env> = new Hono<Env>()
 
 /** GET /api/memory/working — read current working memory content */
 memoryRoutes.get('/working', async (c) => {
@@ -40,7 +40,9 @@ memoryRoutes.put('/working', async (c) => {
 memoryRoutes.get('/observations', async (c) => {
   const { memory } = await getMemoryOrFail(c)
   const om = await getOM(memory)
-  if (!om) return c.json({ observations: null })
+  if (!om) {
+    return c.json({ observations: null })
+  }
   const observations = await om.getObservations('', RESOURCE_ID)
   return c.json({ observations: observations ?? null })
 })
@@ -49,7 +51,9 @@ memoryRoutes.get('/observations', async (c) => {
 memoryRoutes.get('/record', async (c) => {
   const { memory } = await getMemoryOrFail(c)
   const om = await getOM(memory)
-  if (!om) return c.json({ record: null, thresholds: null })
+  if (!om) {
+    return c.json({ record: null, thresholds: null })
+  }
   const record = await om.getRecord('', RESOURCE_ID)
   const { scope, observation, reflection } = om.config
 

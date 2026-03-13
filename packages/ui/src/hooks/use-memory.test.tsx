@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { renderHook, waitFor } from '@testing-library/react'
+import type React from 'react'
 import type { ReactNode } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import {
@@ -20,13 +21,13 @@ vi.mock('sonner', () => ({
 import { toast } from 'sonner'
 import { apiFetch } from '@/lib/api'
 
-const mockApiFetch = vi.mocked(apiFetch)
+const mockApiFetch: ReturnType<typeof vi.mocked<typeof apiFetch>> = vi.mocked(apiFetch)
 
-function createWrapper() {
+function createWrapper(): ({ children }: { children: ReactNode }) => React.JSX.Element {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
-  return ({ children }: { children: ReactNode }) => (
+  return ({ children }: { children: ReactNode }): React.JSX.Element => (
     <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
   )
 }

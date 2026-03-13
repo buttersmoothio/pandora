@@ -12,7 +12,9 @@ function loadStaticTools(
   envVars: Record<string, string | undefined>,
   pluginConfig: PluginConfig,
 ): ToolRecord {
-  if (!plugin.tools) return {}
+  if (!plugin.tools) {
+    return {}
+  }
   const tools: ToolRecord = {}
   const manifestDefault = plugin.tools.requireApproval ?? false
   const perTool = pluginConfig.requireApproval ?? {}
@@ -38,10 +40,14 @@ export async function loadTools(
   const log = getLogger()
 
   for (const [, plugin] of registry.plugins) {
-    if (!plugin.tools) continue
+    if (!plugin.tools) {
+      continue
+    }
 
     const { config: pluginConfig } = validatePluginConfig(plugin, config.plugins[plugin.id])
-    if (!pluginConfig) continue
+    if (!pluginConfig) {
+      continue
+    }
 
     const missingEnv = (plugin.envVars ?? []).filter(
       (v) => v.required !== false && !envVars[v.name],

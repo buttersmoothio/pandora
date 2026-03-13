@@ -1,11 +1,11 @@
 import { Hono } from 'hono'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { AuthStore, RefreshToken, Session } from './auth-store'
-import { hashPassword, hashToken } from './crypto'
-import { createAuthRoutes } from './routes'
-import { createTokenPair } from './session'
+import type { AuthStore, RefreshToken, Session } from '../auth-store'
+import { hashPassword, hashToken } from '../crypto'
+import { createAuthRoutes } from '../routes'
+import { createTokenPair } from '../session'
 
-const futureDate = new Date(Date.now() + 86400000).toISOString()
+const futureDate: string = new Date(Date.now() + 86400000).toISOString()
 
 function createMockStore(overrides: Partial<AuthStore> = {}): AuthStore {
   return {
@@ -27,7 +27,7 @@ function createMockStore(overrides: Partial<AuthStore> = {}): AuthStore {
   }
 }
 
-function createApp(store: AuthStore) {
+function createApp(store: AuthStore): Hono {
   const app = new Hono()
   app.route(
     '/api/auth',
@@ -36,7 +36,7 @@ function createApp(store: AuthStore) {
   return app
 }
 
-function jsonPost(path: string, body: unknown, headers?: Record<string, string>) {
+function jsonPost(path: string, body: unknown, headers?: Record<string, string>): Request {
   return new Request(`http://localhost${path}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...headers },

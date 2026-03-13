@@ -37,12 +37,17 @@ const braveSearch: Tool<BraveSearchInput, SearchResult[]> = {
     },
     required: ['query'],
   },
-  execute: async (input, context) => {
+  // biome-ignore lint/nursery/useExplicitType: input/context types inferred from Tool generic
+  execute: async (input, context): Promise<SearchResult[]> => {
     const { logger } = context
     const apiKey = context.env.BRAVE_API_KEY
     const params = new URLSearchParams({ q: input.query })
-    if (input.count) params.set('count', String(input.count))
-    if (input.freshness) params.set('freshness', input.freshness)
+    if (input.count) {
+      params.set('count', String(input.count))
+    }
+    if (input.freshness) {
+      params.set('freshness', input.freshness)
+    }
 
     logger.log(`Searching: "${input.query}"`)
     const response = await fetch(`${BRAVE_API_URL}?${params}`, {
@@ -71,4 +76,4 @@ const braveSearch: Tool<BraveSearchInput, SearchResult[]> = {
   },
 }
 
-export const tools = [braveSearch]
+export const tools: Tool<BraveSearchInput, SearchResult[]>[] = [braveSearch]

@@ -23,7 +23,9 @@ export function addTsExtensions(source: string): string {
   return source.replace(
     /((?:from|import)\s*\(?\s*['"])(\.\.?\/[^'"]*?)(['"])/g,
     (_, before: string, path: string, after: string) => {
-      if (HAS_EXT.test(path)) return `${before}${path}${after}`
+      if (HAS_EXT.test(path)) {
+        return `${before}${path}${after}`
+      }
       return `${before}${path}.ts${after}`
     },
   )
@@ -35,7 +37,7 @@ const tsTransform = (
   _specifier: string,
   _location: string,
   _packageLocation: string,
-) => {
+): { bytes: Uint8Array; parser: 'mjs' } => {
   const source = new TextDecoder().decode(bytes)
   const js = addTsExtensions(tsBlankSpace(source))
   return { bytes: new TextEncoder().encode(js), parser: 'mjs' as const }
@@ -45,6 +47,7 @@ const tsTransform = (
  * Parser for language 'ts': delegates to the mjs parser after the ts transform runs.
  * The compartment-mapper requires a parser entry for every language in the extension map.
  */
+// biome-ignore lint/nursery/useExplicitType: parser type extends @endo internal type
 const parserForLanguage = {
   ...defaultParserForLanguage,
   ts: defaultParserForLanguage.mjs,

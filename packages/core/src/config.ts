@@ -7,6 +7,7 @@ import type { ConfigStore } from './storage/config-store'
 /**
  * Model configuration for different use cases
  */
+// biome-ignore lint/nursery/useExplicitType: Zod schema type is inferred
 const ModelConfigSchema = z.object({
   provider: z.string().min(1, 'Provider is required'),
   model: z.string().min(1, 'Model is required'),
@@ -17,6 +18,7 @@ const ModelConfigSchema = z.object({
 /**
  * Scheduled task configuration
  */
+// biome-ignore lint/nursery/useExplicitType: Zod schema type is inferred
 const ScheduledTaskSchema = z.object({
   id: z.uuid(),
   name: z.string().min(1, 'Task name is required'),
@@ -34,17 +36,20 @@ export { ScheduledTaskSchema }
 /**
  * Heartbeat configuration
  */
+// biome-ignore lint/nursery/useExplicitType: Zod schema type is inferred
 const ActiveHoursSchema = z.object({
   start: z.string().regex(/^\d{2}:\d{2}$/, 'Must be HH:mm format'),
   end: z.string().regex(/^\d{2}:\d{2}$/, 'Must be HH:mm format'),
 })
 
+// biome-ignore lint/nursery/useExplicitType: Zod schema type is inferred
 const HeartbeatCheckSchema = z.object({
   id: z.uuid(),
   description: z.string().min(1, 'Description is required'),
   enabled: z.boolean().default(true),
 })
 
+// biome-ignore lint/nursery/useExplicitType: Zod schema type is inferred
 const HeartbeatConfigSchema = z.object({
   enabled: z.boolean(),
   cron: z.string().min(1).default('*/30 * * * *'),
@@ -87,10 +92,16 @@ export function applyTaskPatch(task: ScheduledTask, patch: ScheduledTaskPatch): 
   }
 
   // null means clear optional fields
-  if (maxRuns === null) delete updated.maxRuns
-  else if (maxRuns !== undefined) updated.maxRuns = maxRuns
-  if (destination === null) delete updated.destination
-  else if (destination !== undefined) updated.destination = destination
+  if (maxRuns === null) {
+    delete updated.maxRuns
+  } else if (maxRuns !== undefined) {
+    updated.maxRuns = maxRuns
+  }
+  if (destination === null) {
+    delete updated.destination
+  } else if (destination !== undefined) {
+    updated.destination = destination
+  }
 
   return updated as ScheduledTask
 }
@@ -146,6 +157,7 @@ Drop facts that are no longer immediately relevant — they're preserved in long
 /**
  * Create the ConfigSchema with plugin schemas from the registry.
  */
+// biome-ignore lint/nursery/useExplicitType: Zod schema return type is inferred
 function createConfigSchema(registry?: PluginRegistry) {
   return z.object({
     /** Agent identity */
@@ -163,7 +175,9 @@ function createConfigSchema(registry?: PluginRegistry) {
       .default('UTC')
       .refine(
         (tz: string) => {
-          if (tz === 'UTC') return true
+          if (tz === 'UTC') {
+            return true
+          }
           try {
             Intl.DateTimeFormat(undefined, { timeZone: tz })
             return true
@@ -225,11 +239,15 @@ function createConfigSchema(registry?: PluginRegistry) {
       .record(z.string(), z.looseObject({ enabled: z.boolean() }))
       .default(() => ({}))
       .superRefine((plugins, ctx) => {
-        if (!registry) return
+        if (!registry) {
+          return
+        }
         for (const [id, raw] of Object.entries(plugins)) {
           const plugin = registry.plugins.get(id)
           const schema = plugin?.schema
-          if (!schema) continue
+          if (!schema) {
+            continue
+          }
           const result = z.object({ enabled: z.boolean() }).extend(schema.shape).safeParse(raw)
           if (!result.success) {
             for (const issue of result.error.issues) {
@@ -278,6 +296,7 @@ function createConfigSchema(registry?: PluginRegistry) {
  * Static ConfigSchema for use in exports and type inference.
  * Plugin validation uses the registry-aware version internally.
  */
+// biome-ignore lint/nursery/useExplicitType: Zod schema type is inferred
 export const ConfigSchema = createConfigSchema()
 
 export type Config = z.infer<typeof ConfigSchema>

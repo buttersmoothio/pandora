@@ -1,4 +1,5 @@
 import type { Mastra } from '@mastra/core'
+import type { MastraMemory } from '@mastra/core/memory'
 import type {
   FileChunk,
   FullOutput,
@@ -64,9 +65,11 @@ export function buildMessages(parts: MessagePart[]): any[] {
   return [{ id: crypto.randomUUID(), role: 'user' as const, parts: parts.map(normalizePart) }]
 }
 
-export async function getMemory(mastra: Mastra) {
+export async function getMemory(mastra: Mastra): Promise<MastraMemory> {
   const memory = await mastra.getAgent('operator').getMemory()
-  if (!memory) throw new Error('Memory not configured')
+  if (!memory) {
+    throw new Error('Memory not configured')
+  }
   return memory
 }
 
@@ -161,7 +164,7 @@ interface StreamChunk {
 export function createApprovalTransform(): TransformStream {
   const log = getLogger()
   return new TransformStream({
-    transform(chunk: StreamChunk, controller) {
+    transform(chunk: StreamChunk, controller: TransformStreamDefaultController): void {
       try {
         if (chunk.type === 'data-tool-call-approval') {
           log.info('[ApprovalTransform] data-tool-call-approval → tool-approval-request', {

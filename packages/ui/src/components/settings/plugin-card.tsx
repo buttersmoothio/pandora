@@ -43,12 +43,15 @@ interface PluginConfigDraftCtx {
   setConfig: React.Dispatch<React.SetStateAction<Record<string, unknown>>>
 }
 
-const PluginConfigDraftContext = createContext<PluginConfigDraftCtx | null>(null)
+const PluginConfigDraftContext: React.Context<PluginConfigDraftCtx | null> =
+  createContext<PluginConfigDraftCtx | null>(null)
 
 /** Read/write the draft plugin config inside a PluginInfoDialog. */
-export function usePluginConfigDraft() {
+export function usePluginConfigDraft(): PluginConfigDraftCtx {
   const ctx = useContext(PluginConfigDraftContext)
-  if (!ctx) throw new Error('usePluginConfigDraft must be used within a PluginInfoDialog')
+  if (!ctx) {
+    throw new Error('usePluginConfigDraft must be used within a PluginInfoDialog')
+  }
   return ctx
 }
 
@@ -82,7 +85,7 @@ export interface PluginBase {
 function requiredFieldsFilled(
   configFields: ConfigFieldDescriptor[],
   config: Record<string, unknown>,
-) {
+): boolean {
   return configFields
     .filter((f) => f.required)
     .every((f) => {
@@ -95,7 +98,7 @@ function requiredFieldsFilled(
 // PluginIcon — renders icon URL or letter-initial fallback
 // ---------------------------------------------------------------------------
 
-const INITIAL_COLORS = [
+const INITIAL_COLORS: string[] = [
   'bg-blue-500/15 text-blue-600 dark:text-blue-400',
   'bg-purple-500/15 text-purple-600 dark:text-purple-400',
   'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
@@ -104,9 +107,11 @@ const INITIAL_COLORS = [
   'bg-cyan-500/15 text-cyan-600 dark:text-cyan-400',
 ]
 
-function hashColor(name: string) {
+function hashColor(name: string): string {
   let hash = 0
-  for (const ch of name) hash = ((hash << 5) - hash + ch.charCodeAt(0)) | 0
+  for (const ch of name) {
+    hash = ((hash << 5) - hash + ch.charCodeAt(0)) | 0
+  }
   return INITIAL_COLORS[Math.abs(hash) % INITIAL_COLORS.length]
 }
 
@@ -118,7 +123,7 @@ export function PluginIcon({
   name: string
   icon?: string
   size?: 'sm' | 'md'
-}) {
+}): React.JSX.Element {
   const px = size === 'sm' ? 'size-5' : 'size-10'
   const text = size === 'sm' ? 'text-xs' : 'text-base'
   const rounded = size === 'sm' ? 'rounded' : 'rounded-lg'
@@ -151,7 +156,13 @@ export function PluginIcon({
 // MetadataItem — label + value pair for the sidebar
 // ---------------------------------------------------------------------------
 
-export function MetadataItem({ label, children }: { label: string; children: React.ReactNode }) {
+export function MetadataItem({
+  label,
+  children,
+}: {
+  label: string
+  children: React.ReactNode
+}): React.JSX.Element {
   return (
     <div className="flex flex-col gap-0.5">
       <p className="font-medium text-muted-foreground text-xs uppercase tracking-wider">{label}</p>
@@ -170,7 +181,7 @@ function PluginMetadataSidebar({
 }: {
   plugin: PluginBase
   permissions?: PermissionDisplayProps
-}) {
+}): React.JSX.Element {
   return (
     <div className="flex flex-col gap-4">
       {plugin.author && (
@@ -230,7 +241,13 @@ function PluginMetadataSidebar({
 // Section — labeled group inside the dialog
 // ---------------------------------------------------------------------------
 
-export function Section({ label, children }: { label: string; children: React.ReactNode }) {
+export function Section({
+  label,
+  children,
+}: {
+  label: string
+  children: React.ReactNode
+}): React.JSX.Element {
   return (
     <div className="flex flex-col gap-2">
       <p className="font-medium text-muted-foreground text-xs uppercase tracking-wider">{label}</p>
@@ -249,7 +266,7 @@ export function PluginStatusBadge({
 }: {
   plugin: PluginBase
   configured: boolean
-}) {
+}): React.JSX.Element {
   if (plugin.validationErrors && plugin.validationErrors.length > 0) {
     return (
       <span className="inline-flex items-center gap-1 text-destructive text-xs">
@@ -281,9 +298,11 @@ export function PluginStatusBadge({
 // Alerts (validation errors + warnings)
 // ---------------------------------------------------------------------------
 
-function PluginAlerts({ plugin }: { plugin: PluginBase }) {
+function PluginAlerts({ plugin }: { plugin: PluginBase }): React.JSX.Element | null {
   const warnings = plugin.alerts?.filter((a) => a.level === 'warning') ?? []
-  if ((plugin.validationErrors?.length ?? 0) === 0 && warnings.length === 0) return null
+  if ((plugin.validationErrors?.length ?? 0) === 0 && warnings.length === 0) {
+    return null
+  }
 
   return (
     <div className="flex flex-col gap-2">
@@ -335,8 +354,10 @@ function HeaderActionButton({
   onToggle: (enabled: boolean) => void
   isPending: boolean
   readonly?: boolean
-}) {
-  if (isReadonly) return null
+}): React.JSX.Element | null {
+  if (isReadonly) {
+    return null
+  }
 
   if (plugin.enabled) {
     return (
@@ -344,7 +365,7 @@ function HeaderActionButton({
         variant="outline"
         size="sm"
         className="shrink-0"
-        onClick={() => onToggle(false)}
+        onClick={(): void => onToggle(false)}
         disabled={isPending}
       >
         {isPending && <Loader2Icon className="size-4 animate-spin" />}
@@ -375,7 +396,7 @@ function HeaderActionButton({
       variant="default"
       size="sm"
       className="shrink-0"
-      onClick={() => onToggle(true)}
+      onClick={(): void => onToggle(true)}
       disabled={isPending}
     >
       {isPending && <Loader2Icon className="size-4 animate-spin" />}
@@ -402,7 +423,7 @@ function DialogHeaderContent({
   onToggle: (enabled: boolean) => void
   isPending: boolean
   readonly?: boolean
-}) {
+}): React.JSX.Element {
   return (
     <DialogHeader className="px-6 pt-6 pb-4">
       <div className="flex items-start justify-between gap-3">
@@ -465,7 +486,7 @@ export function PluginInfoDialog({
   permissions,
   children,
   trigger,
-}: PluginInfoDialogProps) {
+}: PluginInfoDialogProps): React.JSX.Element {
   const updateConfig = useUpdateConfig()
   const [open, setOpen] = useState(false)
   const [draft, setDraft] = useState<Record<string, unknown>>(plugin.config)
@@ -481,13 +502,13 @@ export function PluginInfoDialog({
   const configured =
     plugin.envConfigured && requiredFieldsFilled(plugin.configFields, plugin.config)
 
-  function handleToggle(next: boolean) {
+  function handleToggle(next: boolean): void {
     updateConfig.mutate({
       [configKey]: { [plugin.id]: { ...plugin.config, enabled: next } },
     })
   }
 
-  function save() {
+  function save(): void {
     updateConfig.mutate({
       [configKey]: { [plugin.id]: { ...draft, enabled: plugin.enabled } },
     })
@@ -535,7 +556,9 @@ export function PluginInfoDialog({
                         field={field}
                         scopeId={plugin.id}
                         value={draft[field.key]}
-                        onChange={(v) => setDraft((prev) => ({ ...prev, [field.key]: v }))}
+                        onChange={(v: unknown): void =>
+                          setDraft((prev: Record<string, unknown>) => ({ ...prev, [field.key]: v }))
+                        }
                       />
                     ))}
                   </div>
@@ -618,7 +641,7 @@ export function PluginCard({
   permissions,
   summary,
   dialogContent,
-}: PluginCardProps) {
+}: PluginCardProps): React.JSX.Element {
   const updateConfig = useUpdateConfig()
   const [enabled, setEnabled] = useState(plugin.enabled)
 
@@ -632,7 +655,7 @@ export function PluginCard({
 
   const infos = plugin.alerts?.filter((a) => a.level === 'info') ?? []
 
-  function handleToggle(checked: boolean) {
+  function handleToggle(checked: boolean): void {
     setEnabled(checked)
     updateConfig.mutate({
       [configKey]: { [plugin.id]: { ...plugin.config, enabled: checked } },

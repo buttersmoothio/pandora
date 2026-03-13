@@ -5,8 +5,10 @@ const MAX_MESSAGE_LENGTH = 4096
  * Prefers splitting at paragraph boundaries (\n\n), then line breaks (\n),
  * and falls back to hard-splitting at the limit.
  */
-export function splitMessage(text: string, maxLen = MAX_MESSAGE_LENGTH): string[] {
-  if (text.length <= maxLen) return [text]
+export function splitMessage(text: string, maxLen: number = MAX_MESSAGE_LENGTH): string[] {
+  if (text.length <= maxLen) {
+    return [text]
+  }
 
   const chunks: string[] = []
   let remaining = text

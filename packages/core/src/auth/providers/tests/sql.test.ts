@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { PasswordCredential, RefreshToken, Session } from '../auth-store'
-import { SQLAuthStore } from './sql'
+import type { PasswordCredential, RefreshToken, Session } from '../../auth-store'
+import { SQLAuthStore } from '../sql'
 
 const testCredential: PasswordCredential = {
   hash: 'testhash==',
@@ -9,8 +9,8 @@ const testCredential: PasswordCredential = {
   createdAt: '2024-01-01T00:00:00.000Z',
 }
 
-const futureDate = new Date(Date.now() + 86400000).toISOString()
-const pastDate = new Date(Date.now() - 86400000).toISOString()
+const futureDate: string = new Date(Date.now() + 86400000).toISOString()
+const pastDate: string = new Date(Date.now() - 86400000).toISOString()
 
 const testSession: Session = {
   tokenHash: 'abc123def456',
@@ -107,9 +107,13 @@ describe('SQLAuthStore', () => {
         await store.getCredential()
         const sql = calls[0].sql
 
-        if (dialect === 'postgres') expect(sql).toContain('$1')
-        else if (dialect === 'mssql') expect(sql).toContain('@p1')
-        else expect(sql).toContain('?')
+        if (dialect === 'postgres') {
+          expect(sql).toContain('$1')
+        } else if (dialect === 'mssql') {
+          expect(sql).toContain('@p1')
+        } else {
+          expect(sql).toContain('?')
+        }
       })
     })
 
@@ -123,9 +127,13 @@ describe('SQLAuthStore', () => {
         expect(params).toContain(testCredential.hash)
         expect(params).toContain(testCredential.salt)
 
-        if (dialect === 'postgres') expect(sql).toContain('ON CONFLICT')
-        else if (dialect === 'mssql') expect(sql).toContain('MERGE')
-        else expect(sql).toContain('ON CONFLICT')
+        if (dialect === 'postgres') {
+          expect(sql).toContain('ON CONFLICT')
+        } else if (dialect === 'mssql') {
+          expect(sql).toContain('MERGE')
+        } else {
+          expect(sql).toContain('ON CONFLICT')
+        }
       })
     })
 

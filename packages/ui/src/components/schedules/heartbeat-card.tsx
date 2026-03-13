@@ -1,6 +1,7 @@
 'use client'
 
 import { Loader2Icon, PlusIcon, XIcon } from 'lucide-react'
+import type React from 'react'
 import { useEffect, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -23,7 +24,7 @@ import {
   useUpdateHeartbeat,
 } from '@/hooks/use-schedules'
 
-export function HeartbeatCard() {
+export function HeartbeatCard(): React.JSX.Element {
   const { data: heartbeat, isLoading } = useHeartbeat()
   const updateHeartbeat = useUpdateHeartbeat()
   const { data: destinationsData } = useDestinations()
@@ -51,12 +52,14 @@ export function HeartbeatCard() {
 
   const enabled = heartbeat?.enabled ?? false
 
-  function save(patch: Record<string, unknown>) {
+  function save(patch: Record<string, unknown>): void {
     updateHeartbeat.mutate(patch)
   }
 
-  function addTask() {
-    if (!newTaskDescription.trim()) return
+  function addTask(): void {
+    if (!newTaskDescription.trim()) {
+      return
+    }
     const updated = [
       ...tasks,
       { id: crypto.randomUUID(), description: newTaskDescription.trim(), enabled: true },
@@ -66,13 +69,13 @@ export function HeartbeatCard() {
     save({ tasks: updated })
   }
 
-  function removeTask(id: string) {
+  function removeTask(id: string): void {
     const updated = tasks.filter((t) => t.id !== id)
     setTasks(updated)
     save({ tasks: updated })
   }
 
-  function toggleTask(id: string) {
+  function toggleTask(id: string): void {
     const updated = tasks.map((t) => (t.id === id ? { ...t, enabled: !t.enabled } : t))
     setTasks(updated)
     save({ tasks: updated })
@@ -107,7 +110,7 @@ export function HeartbeatCard() {
           <Switch
             checked={enabled}
             disabled={updateHeartbeat.isPending}
-            onCheckedChange={(checked) => save({ enabled: checked })}
+            onCheckedChange={(checked: boolean): void => save({ enabled: checked })}
           />
         </div>
       </CardHeader>
@@ -120,8 +123,12 @@ export function HeartbeatCard() {
               id="heartbeat-cron"
               placeholder="*/30 * * * *"
               value={cron}
-              onChange={(e) => setCron(e.target.value)}
-              onBlur={() => cron.trim() && save({ cron: cron.trim() })}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>): void => setCron(e.target.value)}
+              onBlur={(): void => {
+                if (cron.trim()) {
+                  save({ cron: cron.trim() })
+                }
+              }}
             />
             <p className="text-muted-foreground text-xs">
               Cron expression. Examples: <code>*/30 * * * *</code> (every 30 min),{' '}
@@ -153,7 +160,7 @@ export function HeartbeatCard() {
                 <div key={task.id} className="flex items-center gap-2">
                   <Switch
                     checked={task.enabled}
-                    onCheckedChange={() => toggleTask(task.id)}
+                    onCheckedChange={(): void => toggleTask(task.id)}
                     className="shrink-0"
                   />
                   <span
@@ -165,7 +172,7 @@ export function HeartbeatCard() {
                     variant="ghost"
                     size="sm"
                     className="size-7 shrink-0 p-0 text-muted-foreground hover:text-destructive"
-                    onClick={() => removeTask(task.id)}
+                    onClick={(): void => removeTask(task.id)}
                   >
                     <XIcon className="size-3.5" />
                   </Button>
@@ -176,8 +183,14 @@ export function HeartbeatCard() {
               <Input
                 placeholder="Add a check (e.g. 'Scan inbox for urgent emails')"
                 value={newTaskDescription}
-                onChange={(e) => setNewTaskDescription(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && addTask()}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>): void =>
+                  setNewTaskDescription(e.target.value)
+                }
+                onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>): void => {
+                  if (e.key === 'Enter') {
+                    addTask()
+                  }
+                }}
               />
               <Button
                 variant="outline"
@@ -194,7 +207,7 @@ export function HeartbeatCard() {
             <Label htmlFor="heartbeat-destination">Notify Via</Label>
             <Select
               value={destination}
-              onValueChange={(value) => {
+              onValueChange={(value: string): void => {
                 const dest = value === 'none' ? '' : value
                 setDestination(dest)
                 save({ destination: dest || null })
@@ -222,7 +235,7 @@ export function HeartbeatCard() {
               <Switch
                 id="heartbeat-active-hours"
                 checked={activeHoursEnabled}
-                onCheckedChange={(checked) => {
+                onCheckedChange={(checked: boolean): void => {
                   setActiveHoursEnabled(checked)
                   if (checked) {
                     save({ activeHours: { start: activeStart, end: activeEnd } })
@@ -238,16 +251,20 @@ export function HeartbeatCard() {
                 <Input
                   type="time"
                   value={activeStart}
-                  onChange={(e) => setActiveStart(e.target.value)}
-                  onBlur={() => save({ activeHours: { start: activeStart, end: activeEnd } })}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>): void =>
+                    setActiveStart(e.target.value)
+                  }
+                  onBlur={(): void => save({ activeHours: { start: activeStart, end: activeEnd } })}
                   className="w-28"
                 />
                 <span className="text-muted-foreground text-sm">to</span>
                 <Input
                   type="time"
                   value={activeEnd}
-                  onChange={(e) => setActiveEnd(e.target.value)}
-                  onBlur={() => save({ activeHours: { start: activeStart, end: activeEnd } })}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>): void =>
+                    setActiveEnd(e.target.value)
+                  }
+                  onBlur={(): void => save({ activeHours: { start: activeStart, end: activeEnd } })}
                   className="w-28"
                 />
                 <span className="text-muted-foreground text-xs">({timezone})</span>

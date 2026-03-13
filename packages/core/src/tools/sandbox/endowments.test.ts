@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { buildEndowments, createPluginConsole, isPrivateHostname } from './endowments'
 
-const mockLogger = {
+const mockLogger: Record<string, ReturnType<typeof vi.fn>> = {
   debug: vi.fn(),
   info: vi.fn(),
   warn: vi.fn(),

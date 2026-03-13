@@ -4,7 +4,7 @@ import { extractBearerToken } from '../auth/routes'
 import type { Env } from './helpers'
 import { getRuntimeKey, isServerless } from './helpers'
 
-const healthRoutes = new Hono<Env>()
+const healthRoutes: Hono<Env> = new Hono<Env>()
 
 // Health check - returns runtime info + auth state
 healthRoutes.get('/', async (c) => {

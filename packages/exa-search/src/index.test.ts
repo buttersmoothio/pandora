@@ -1,7 +1,15 @@
 import { describe, expect, it, vi } from 'vitest'
 import { tools } from './index'
 
-const noopLogger = { log: vi.fn(), warn: vi.fn(), error: vi.fn() }
+const noopLogger: {
+  log: ReturnType<typeof vi.fn>
+  warn: ReturnType<typeof vi.fn>
+  error: ReturnType<typeof vi.fn>
+} = {
+  log: vi.fn(),
+  warn: vi.fn(),
+  error: vi.fn(),
+}
 
 describe('exa-search tool definition', () => {
   const tool = tools[0]

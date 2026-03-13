@@ -11,26 +11,34 @@ export class CronerScheduler implements Scheduler {
   constructor(
     private handler: TaskHandler,
     private onComplete?: (taskId: string) => void,
-    timezone = 'UTC',
+    timezone: string = 'UTC',
   ) {
     this.timezone = timezone
   }
 
   sync(tasks: ScheduledTask[], timezone?: string): void {
-    if (timezone) this.timezone = timezone
+    if (timezone) {
+      this.timezone = timezone
+    }
 
-    for (const job of this.jobs.values()) job.stop()
+    for (const job of this.jobs.values()) {
+      job.stop()
+    }
     this.jobs.clear()
 
     for (const task of tasks) {
-      if (task.enabled) this.scheduleTask(task)
+      if (task.enabled) {
+        this.scheduleTask(task)
+      }
     }
   }
 
   private scheduleTask(task: ScheduledTask): void {
     const log = getLogger()
     const schedule = task.runAt ? new Date(task.runAt) : task.cron
-    if (!schedule) return
+    if (!schedule) {
+      return
+    }
 
     try {
       let runs = 0
@@ -71,7 +79,9 @@ export class CronerScheduler implements Scheduler {
   }
 
   stop(): void {
-    for (const job of this.jobs.values()) job.stop()
+    for (const job of this.jobs.values()) {
+      job.stop()
+    }
     this.jobs.clear()
   }
 

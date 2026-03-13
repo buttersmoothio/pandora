@@ -21,7 +21,7 @@ import { useConfig, useUpdateConfig } from '@/hooks/use-config'
 import { useModels } from '@/hooks/use-models'
 import { cn } from '@/lib/utils'
 
-function IdentitySection() {
+function IdentitySection(): React.JSX.Element {
   const { data: config } = useConfig()
   const updateConfig = useUpdateConfig()
   const [name, setName] = useState('')
@@ -41,12 +41,18 @@ function IdentitySection() {
       <CardContent className="flex flex-col gap-4">
         <div className="flex flex-col gap-2">
           <Label htmlFor="identity-name">Name</Label>
-          <Input id="identity-name" value={name} onChange={(e) => setName(e.target.value)} />
+          <Input
+            id="identity-name"
+            value={name}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>): void => setName(e.target.value)}
+          />
         </div>
         <Button
           className="self-end"
           disabled={updateConfig.isPending || !name.trim()}
-          onClick={() => updateConfig.mutate({ identity: { name } })}
+          onClick={(): void => {
+            updateConfig.mutate({ identity: { name } })
+          }}
         >
           {updateConfig.isPending ? <Loader2Icon className="size-4 animate-spin" /> : 'Save'}
         </Button>
@@ -55,9 +61,9 @@ function IdentitySection() {
   )
 }
 
-const TIMEZONES = ['UTC', ...Intl.supportedValuesOf('timeZone')]
+const TIMEZONES: string[] = ['UTC', ...Intl.supportedValuesOf('timeZone')]
 
-function TimezoneSection() {
+function TimezoneSection(): React.JSX.Element {
   const { data: config } = useConfig()
   const updateConfig = useUpdateConfig()
   const [timezone, setTimezone] = useState('')
@@ -96,7 +102,7 @@ function TimezoneSection() {
                     <CommandItem
                       key={tz}
                       value={tz}
-                      onSelect={() => {
+                      onSelect={(): void => {
                         setTimezone(tz)
                         setOpen(false)
                       }}
@@ -115,7 +121,9 @@ function TimezoneSection() {
         <Button
           className="self-end"
           disabled={updateConfig.isPending || !timezone}
-          onClick={() => updateConfig.mutate({ timezone })}
+          onClick={(): void => {
+            updateConfig.mutate({ timezone })
+          }}
         >
           {updateConfig.isPending ? <Loader2Icon className="size-4 animate-spin" /> : 'Save'}
         </Button>
@@ -124,7 +132,7 @@ function TimezoneSection() {
   )
 }
 
-function PersonalitySection() {
+function PersonalitySection(): React.JSX.Element {
   const { data: config } = useConfig()
   const updateConfig = useUpdateConfig()
   const [systemPrompt, setSystemPrompt] = useState('')
@@ -149,13 +157,17 @@ function PersonalitySection() {
               id="system-prompt"
               rows={16}
               value={systemPrompt}
-              onChange={(e) => setSystemPrompt(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLTextAreaElement>): void =>
+                setSystemPrompt(e.target.value)
+              }
             />
             <div className="flex justify-end gap-2">
               <Button
                 variant="outline"
-                onClick={() => {
-                  if (config) setSystemPrompt(config.personality.systemPrompt)
+                onClick={(): void => {
+                  if (config) {
+                    setSystemPrompt(config.personality.systemPrompt)
+                  }
                   setEditing(false)
                 }}
               >
@@ -163,12 +175,12 @@ function PersonalitySection() {
               </Button>
               <Button
                 disabled={updateConfig.isPending || !systemPrompt.trim()}
-                onClick={() =>
+                onClick={(): void => {
                   updateConfig.mutate(
                     { personality: { systemPrompt } },
-                    { onSuccess: () => setEditing(false) },
+                    { onSuccess: (): void => setEditing(false) },
                   )
-                }
+                }}
               >
                 {updateConfig.isPending ? <Loader2Icon className="size-4 animate-spin" /> : 'Save'}
               </Button>
@@ -181,7 +193,7 @@ function PersonalitySection() {
                 {systemPrompt}
               </Streamdown>
             </div>
-            <Button variant="outline" className="self-end" onClick={() => setEditing(true)}>
+            <Button variant="outline" className="self-end" onClick={(): void => setEditing(true)}>
               Edit
             </Button>
           </>
@@ -191,7 +203,7 @@ function PersonalitySection() {
   )
 }
 
-function ModelsSection() {
+function ModelsSection(): React.JSX.Element {
   const { data: config } = useConfig()
   const { data: modelsData } = useModels()
   const updateConfig = useUpdateConfig()
@@ -214,7 +226,9 @@ function ModelsSection() {
   const allProviders = modelsData?.providers ?? []
   // Show configured providers first
   const providers = [...allProviders].sort((a, b) => {
-    if (a.configured !== b.configured) return a.configured ? -1 : 1
+    if (a.configured !== b.configured) {
+      return a.configured ? -1 : 1
+    }
     return a.name.localeCompare(b.name)
   })
   const selectedProvider = allProviders.find((p) => p.id === provider)
@@ -249,9 +263,11 @@ function ModelsSection() {
                       <CommandItem
                         key={p.id}
                         value={p.name}
-                        onSelect={() => {
+                        onSelect={(): void => {
                           setProvider(p.id)
-                          if (provider !== p.id) setModel('')
+                          if (provider !== p.id) {
+                            setModel('')
+                          }
                           setProviderOpen(false)
                         }}
                       >
@@ -297,7 +313,7 @@ function ModelsSection() {
                       <CommandItem
                         key={m}
                         value={m}
-                        onSelect={() => {
+                        onSelect={(): void => {
                           setModel(m)
                           setModelOpen(false)
                         }}
@@ -322,7 +338,9 @@ function ModelsSection() {
               max={2}
               step={0.1}
               value={temperature}
-              onChange={(e) => setTemperature(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>): void =>
+                setTemperature(e.target.value)
+              }
               placeholder="0-2"
             />
           </div>
@@ -333,7 +351,9 @@ function ModelsSection() {
               type="number"
               min={1}
               value={maxTokens}
-              onChange={(e) => setMaxTokens(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>): void =>
+                setMaxTokens(e.target.value)
+              }
               placeholder="Optional"
             />
           </div>
@@ -379,7 +399,7 @@ function ModelsSection() {
         <Button
           className="self-end"
           disabled={updateConfig.isPending || !provider || !model}
-          onClick={() =>
+          onClick={(): void => {
             updateConfig.mutate({
               models: {
                 operator: {
@@ -390,7 +410,7 @@ function ModelsSection() {
                 },
               },
             })
-          }
+          }}
         >
           {updateConfig.isPending ? <Loader2Icon className="size-4 animate-spin" /> : 'Save'}
         </Button>
@@ -399,7 +419,7 @@ function ModelsSection() {
   )
 }
 
-function SetupWizardSection() {
+function SetupWizardSection(): React.JSX.Element {
   const updateConfig = useUpdateConfig()
 
   return (
@@ -414,7 +434,9 @@ function SetupWizardSection() {
         <Button
           variant="outline"
           disabled={updateConfig.isPending}
-          onClick={() => updateConfig.mutate({ onboardingComplete: false })}
+          onClick={(): void => {
+            updateConfig.mutate({ onboardingComplete: false })
+          }}
         >
           {updateConfig.isPending ? (
             <Loader2Icon className="size-4 animate-spin" />
@@ -427,7 +449,7 @@ function SetupWizardSection() {
   )
 }
 
-export default function ConfigPage() {
+export default function ConfigPage(): React.JSX.Element | null {
   const { data: config, isLoading, error } = useConfig()
 
   if (isLoading) {
@@ -446,7 +468,9 @@ export default function ConfigPage() {
     )
   }
 
-  if (!config) return null
+  if (!config) {
+    return null
+  }
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 p-6">

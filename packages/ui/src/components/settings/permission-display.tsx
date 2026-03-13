@@ -8,6 +8,7 @@ import {
   ShieldAlertIcon,
   ShieldCheckIcon,
 } from 'lucide-react'
+import type React from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import type { ToolPermissions } from '@/hooks/plugin-types'
@@ -27,27 +28,30 @@ const PERMISSION_META: Record<
   time: {
     label: 'Date & Time',
     icon: ClockIcon,
-    detail: () => null,
+    detail: (): null => null,
   },
   network: {
     label: 'Network Access',
     icon: GlobeIcon,
-    detail: (v) => (Array.isArray(v) ? `${v.length} host${v.length === 1 ? '' : 's'}` : null),
+    detail: (v: boolean | string[]): string | null =>
+      Array.isArray(v) ? `${v.length} host${v.length === 1 ? '' : 's'}` : null,
   },
   env: {
     label: 'Environment Variables',
     icon: KeyIcon,
-    detail: (v) => (Array.isArray(v) ? `${v.length} key${v.length === 1 ? '' : 's'}` : null),
+    detail: (v: boolean | string[]): string | null =>
+      Array.isArray(v) ? `${v.length} key${v.length === 1 ? '' : 's'}` : null,
   },
   fs: {
     label: 'Filesystem',
     icon: FolderIcon,
-    detail: (v) => (Array.isArray(v) ? `${v.length} path${v.length === 1 ? '' : 's'}` : null),
+    detail: (v: boolean | string[]): string | null =>
+      Array.isArray(v) ? `${v.length} path${v.length === 1 ? '' : 's'}` : null,
   },
   random: {
     label: 'Randomness',
     icon: DicesIcon,
-    detail: () => null,
+    detail: (): null => null,
   },
 }
 
@@ -55,7 +59,7 @@ const PERMISSION_META: Record<
 // SandboxBadge
 // ---------------------------------------------------------------------------
 
-export function SandboxBadge({ sandbox }: { sandbox: 'compartment' | 'host' }) {
+export function SandboxBadge({ sandbox }: { sandbox: 'compartment' | 'host' }): React.JSX.Element {
   if (sandbox === 'compartment') {
     return (
       <Badge variant="outline" className="text-emerald-600 dark:text-emerald-400">
@@ -76,9 +80,17 @@ export function SandboxBadge({ sandbox }: { sandbox: 'compartment' | 'host' }) {
 // PermissionRow (expandable for array permissions)
 // ---------------------------------------------------------------------------
 
-function PermissionRow({ permKey, value }: { permKey: string; value: boolean | string[] }) {
+function PermissionRow({
+  permKey,
+  value,
+}: {
+  permKey: string
+  value: boolean | string[]
+}): React.JSX.Element | null {
   const meta = PERMISSION_META[permKey]
-  if (!meta) return null
+  if (!meta) {
+    return null
+  }
 
   const Icon = meta.icon
   const detailText = meta.detail(value)
@@ -124,7 +136,11 @@ export interface PermissionDisplayProps {
   compact?: boolean
 }
 
-export function PermissionDisplay({ permissions, sandbox, compact }: PermissionDisplayProps) {
+export function PermissionDisplay({
+  permissions,
+  sandbox,
+  compact,
+}: PermissionDisplayProps): React.JSX.Element {
   // Host mode = full access, individual permissions are not enforced
   const activePerms =
     sandbox === 'compartment' && permissions
@@ -146,7 +162,9 @@ export function PermissionDisplay({ permissions, sandbox, compact }: PermissionD
         <SandboxBadge sandbox={sandbox} />
         {activePerms.map(([key]) => {
           const meta = PERMISSION_META[key]
-          if (!meta) return null
+          if (!meta) {
+            return null
+          }
           const Icon = meta.icon
           return (
             <Badge key={key} variant="secondary">
@@ -195,7 +213,9 @@ interface ToolLike {
 }
 
 function mergeArrays(existing: string[] | undefined, incoming: string[] | undefined): string[] {
-  if (!incoming?.length) return existing ?? []
+  if (!incoming?.length) {
+    return existing ?? []
+  }
   return [...new Set([...(existing ?? []), ...incoming])]
 }
 
@@ -203,15 +223,27 @@ export function aggregatePermissions(tools: ToolLike[]): ToolPermissions {
   const result: ToolPermissions = {}
   for (const tool of tools) {
     const p = tool.permissions
-    if (!p) continue
-    if (p.time) result.time = true
-    if (p.random) result.random = true
+    if (!p) {
+      continue
+    }
+    if (p.time) {
+      result.time = true
+    }
+    if (p.random) {
+      result.random = true
+    }
     const net = mergeArrays(result.network, p.network)
-    if (net.length) result.network = net
+    if (net.length) {
+      result.network = net
+    }
     const env = mergeArrays(result.env, p.env)
-    if (env.length) result.env = env
+    if (env.length) {
+      result.env = env
+    }
     const fs = mergeArrays(result.fs, p.fs)
-    if (fs.length) result.fs = fs
+    if (fs.length) {
+      result.fs = fs
+    }
   }
   return result
 }

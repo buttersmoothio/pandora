@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { type UseQueryResult, useQuery } from '@tanstack/react-query'
 import { apiFetch } from '@/lib/api'
 
 export interface ProviderInfo {
@@ -15,7 +15,7 @@ interface ModelsResponse {
   providers: ProviderInfo[]
 }
 
-export function useModels() {
+export function useModels(): UseQueryResult<ModelsResponse> {
   return useQuery({
     queryKey: ['models'],
     queryFn: () => apiFetch<ModelsResponse>('/api/models'),

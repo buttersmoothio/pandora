@@ -1,6 +1,7 @@
 import { PROVIDER_REGISTRY } from '@mastra/core/llm'
 import type { PluginConfig } from '@pandorakit/sdk'
 import type { Channel } from '@pandorakit/sdk/channels'
+import type { ToolPermissions } from '@pandorakit/sdk/tools'
 import { Hono } from 'hono'
 import { z } from 'zod'
 import { updateConfig } from '../config'
@@ -12,8 +13,19 @@ import { encodeNsKey, namespacedKey } from '../runtime/namespace'
 import type { PluginRegistry, RegisteredPlugin } from '../runtime/plugin-registry'
 import type { Env } from './helpers'
 
-function buildToolsProvides(plugin: RegisteredPlugin) {
-  if (!plugin.tools) return undefined
+interface ToolsProvides {
+  toolIds: string[]
+  tools: { id: string; name: string; description: string }[]
+  sandbox: string
+  permissions: ToolPermissions | undefined
+  requireApproval: boolean
+  alerts: never[]
+}
+
+function buildToolsProvides(plugin: RegisteredPlugin): ToolsProvides | undefined {
+  if (!plugin.tools) {
+    return undefined
+  }
   return {
     toolIds: plugin.tools.entries.map((t) => namespacedKey(plugin.id, t.id)),
     tools: plugin.tools.entries.map((t) => ({
@@ -32,19 +44,25 @@ function buildAgentsProvides(
   plugin: RegisteredPlugin,
   registry: PluginRegistry,
   pluginConfig: PluginConfig | undefined,
-) {
-  if (!plugin.agents) return undefined
+): { agentIds: string[]; agents: Record<string, unknown>[]; alerts: never[] } | undefined {
+  if (!plugin.agents) {
+    return undefined
+  }
   const agents = plugin.agents.definitions.map((def) => {
     const manifest = plugin.agents?.manifests.get(def.id)
     const ac = pluginConfig?.agents?.[def.id]
     const tools = (def.useTools ?? [])
       .map((nsId) => {
         const colonIdx = nsId.lastIndexOf(':')
-        if (colonIdx === -1) return undefined
+        if (colonIdx === -1) {
+          return undefined
+        }
         const pId = nsId.slice(0, colonIdx)
         const tId = nsId.slice(colonIdx + 1)
         const tm = registry.plugins.get(pId)?.tools?.manifests.get(tId)
-        if (!tm) return undefined
+        if (!tm) {
+          return undefined
+        }
         return { ...tm, id: nsId }
       })
       .filter((t): t is NonNullable<typeof t> => !!t)
@@ -63,8 +81,20 @@ function buildAgentsProvides(
   }
 }
 
-function buildChannelsProvides(plugin: RegisteredPlugin, channels: Map<string, Channel>) {
-  if (!plugin.channels) return undefined
+function buildChannelsProvides(
+  plugin: RegisteredPlugin,
+  channels: Map<string, Channel>,
+):
+  | {
+      loaded: boolean
+      webhook: boolean | null
+      realtime: boolean | null
+      webhookPath: string | null
+    }
+  | undefined {
+  if (!plugin.channels) {
+    return undefined
+  }
   const entry = [...channels.entries()].find(([key]) => key.startsWith(`${plugin.id}:`))
   const [nsKey, adapter] = entry ?? []
   return {
@@ -75,7 +105,7 @@ function buildChannelsProvides(plugin: RegisteredPlugin, channels: Map<string, C
   }
 }
 
-const discoveryRoutes = new Hono<Env>()
+const discoveryRoutes: Hono<Env> = new Hono<Env>()
 
 // Unified plugins endpoint — one entry per manifest
 discoveryRoutes.get('/plugins', (c) => {
@@ -93,11 +123,17 @@ discoveryRoutes.get('/plugins', (c) => {
       channels?: NonNullable<ReturnType<typeof buildChannelsProvides>>
     } = {}
     const tools = buildToolsProvides(plugin)
-    if (tools) provides.tools = tools
+    if (tools) {
+      provides.tools = tools
+    }
     const agents = buildAgentsProvides(plugin, registry, pluginConfig)
-    if (agents) provides.agents = agents
+    if (agents) {
+      provides.agents = agents
+    }
     const ch = buildChannelsProvides(plugin, channels)
-    if (ch) provides.channels = ch
+    if (ch) {
+      provides.channels = ch
+    }
 
     const { errors: validationErrors } = validatePluginConfig(plugin, pluginConfig)
 

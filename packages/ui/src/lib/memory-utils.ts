@@ -45,19 +45,27 @@ export function replaceWorkingMemoryData(raw: string, newData: string): string {
   return newData
 }
 
-export function formatTokens(tokens: number) {
-  if (tokens >= 1000) return `${(tokens / 1000).toFixed(1)}k`
+export function formatTokens(tokens: number): string {
+  if (tokens >= 1000) {
+    return `${(tokens / 1000).toFixed(1)}k`
+  }
   return String(tokens)
 }
 
-export function timeAgo(dateStr: string) {
+export function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime()
   const seconds = Math.floor(diff / 1000)
-  if (seconds < 60) return 'just now'
+  if (seconds < 60) {
+    return 'just now'
+  }
   const minutes = Math.floor(seconds / 60)
-  if (minutes < 60) return `${minutes}m ago`
+  if (minutes < 60) {
+    return `${minutes}m ago`
+  }
   const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours}h ago`
+  if (hours < 24) {
+    return `${hours}h ago`
+  }
   const days = Math.floor(hours / 24)
   return `${days}d ago`
 }
@@ -80,7 +88,9 @@ export function parseObservationSections(
 
   for (const part of parts) {
     const trimmed = part.trim()
-    if (!trimmed) continue
+    if (!trimmed) {
+      continue
+    }
     const dateMatch = trimmed.match(/^Date:\s*(.+)/m)
     if (dateMatch) {
       sections.push({

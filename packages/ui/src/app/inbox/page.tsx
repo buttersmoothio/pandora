@@ -29,23 +29,35 @@ import { useChannelNames } from '@/hooks/use-plugins'
 function formatRelativeTime(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime()
   const mins = Math.floor(diff / 60_000)
-  if (mins < 1) return 'just now'
-  if (mins < 60) return `${mins}m ago`
+  if (mins < 1) {
+    return 'just now'
+  }
+  if (mins < 60) {
+    return `${mins}m ago`
+  }
   const hours = Math.floor(mins / 60)
-  if (hours < 24) return `${hours}h ago`
+  if (hours < 24) {
+    return `${hours}h ago`
+  }
   const days = Math.floor(hours / 24)
-  if (days < 30) return `${days}d ago`
+  if (days < 30) {
+    return `${days}d ago`
+  }
   return new Date(iso).toLocaleDateString()
 }
 
 /** Resolve a destination nsKey to a human-friendly name. */
 function resolveDestinationName(destination: string, channelNames: Map<string, string>): string {
-  if (destination === 'web') return 'Web Inbox'
+  if (destination === 'web') {
+    return 'Web Inbox'
+  }
   const colonIdx = destination.lastIndexOf(':')
   if (colonIdx !== -1) {
     const pluginId = destination.slice(0, colonIdx)
     const name = channelNames.get(pluginId)
-    if (name) return name
+    if (name) {
+      return name
+    }
   }
   return colonIdx !== -1 ? destination.slice(colonIdx + 1) : destination
 }
@@ -60,7 +72,7 @@ function MessageRow({
   selected: boolean
   channelNames: Map<string, string>
   onSelect: () => void
-}) {
+}): React.JSX.Element {
   const destName = resolveDestinationName(message.destination, channelNames)
 
   return (
@@ -111,7 +123,7 @@ function MessageDetail({
   channelNames: Map<string, string>
   showArchived: boolean
   onDismiss: () => void
-}) {
+}): React.JSX.Element {
   const deleteMessage = useDeleteInboxMessage()
   const archiveMessage = useArchiveInboxMessage()
   const unarchiveMessage = useUnarchiveInboxMessage()
@@ -127,7 +139,7 @@ function MessageDetail({
               variant="ghost"
               size="sm"
               disabled={unarchiveMessage.isPending}
-              onClick={() => {
+              onClick={(): void => {
                 unarchiveMessage.mutate(message.id, { onSuccess: onDismiss })
               }}
             >
@@ -143,7 +155,7 @@ function MessageDetail({
               variant="ghost"
               size="sm"
               disabled={archiveMessage.isPending}
-              onClick={() => {
+              onClick={(): void => {
                 archiveMessage.mutate(message.id, { onSuccess: onDismiss })
               }}
             >
@@ -160,7 +172,7 @@ function MessageDetail({
             size="sm"
             className="text-destructive hover:text-destructive"
             disabled={deleteMessage.isPending}
-            onClick={() => {
+            onClick={(): void => {
               deleteMessage.mutate(message.id, { onSuccess: onDismiss })
             }}
           >
@@ -214,7 +226,7 @@ function MessageDetail({
   )
 }
 
-function EmptyDetail() {
+function EmptyDetail(): React.JSX.Element {
   return (
     <div className="flex flex-1 flex-col items-center justify-center text-muted-foreground">
       <InboxIcon className="mb-3 size-10 opacity-30" />
@@ -223,7 +235,7 @@ function EmptyDetail() {
   )
 }
 
-export default function InboxPage() {
+export default function InboxPage(): React.JSX.Element {
   const [showArchived, setShowArchived] = useState(false)
   const { data, isLoading, error } = useInbox(showArchived)
   const markRead = useMarkInboxRead()
@@ -233,9 +245,11 @@ export default function InboxPage() {
   const messages = data?.messages ?? []
   const selected = messages.find((m) => m.id === selectedId) ?? null
 
-  const handleSelect = (msg: InboxMessage) => {
+  const handleSelect = (msg: InboxMessage): void => {
     setSelectedId(msg.id)
-    if (!msg.read) markRead.mutate(msg.id)
+    if (!msg.read) {
+      markRead.mutate(msg.id)
+    }
   }
 
   if (isLoading) {
@@ -265,7 +279,7 @@ export default function InboxPage() {
               variant="ghost"
               size="sm"
               className="mt-2"
-              onClick={() => setShowArchived(false)}
+              onClick={(): void => setShowArchived(false)}
             >
               Back to Inbox
             </Button>
@@ -279,7 +293,7 @@ export default function InboxPage() {
               variant="ghost"
               size="sm"
               className="mt-2"
-              onClick={() => setShowArchived(true)}
+              onClick={(): void => setShowArchived(true)}
             >
               <ArchiveIcon className="mr-1 size-3.5" />
               View Archive
@@ -304,7 +318,7 @@ export default function InboxPage() {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => {
+            onClick={(): void => {
               setShowArchived(!showArchived)
               setSelectedId(null)
             }}
@@ -324,7 +338,7 @@ export default function InboxPage() {
               message={msg}
               selected={selectedId === msg.id}
               channelNames={channelNames}
-              onSelect={() => handleSelect(msg)}
+              onSelect={(): void => handleSelect(msg)}
             />
           ))}
         </div>
@@ -336,7 +350,7 @@ export default function InboxPage() {
           message={selected}
           channelNames={channelNames}
           showArchived={showArchived}
-          onDismiss={() => setSelectedId(null)}
+          onDismiss={(): void => setSelectedId(null)}
         />
       ) : (
         <EmptyDetail />

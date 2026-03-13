@@ -4,16 +4,19 @@ import { z } from 'zod'
 // Shared sub-schemas (reuse existing descriptor shapes from plugin-types.ts)
 // ---------------------------------------------------------------------------
 
+// biome-ignore lint/nursery/useExplicitType: Zod schema type is inferred
 const envVarDescriptorSchema = z.object({
   name: z.string(),
   required: z.boolean().optional(),
 })
 
+// biome-ignore lint/nursery/useExplicitType: Zod schema type is inferred
 const configFieldOptionSchema = z.object({
   value: z.string(),
   label: z.string(),
 })
 
+// biome-ignore lint/nursery/useExplicitType: Zod schema type is inferred
 const configFieldDescriptorSchema = z.object({
   key: z.string(),
   label: z.string(),
@@ -28,6 +31,7 @@ const configFieldDescriptorSchema = z.object({
 // Tool permissions (matches ToolPermissions from tools/types.ts)
 // ---------------------------------------------------------------------------
 
+// biome-ignore lint/nursery/useExplicitType: Zod schema type is inferred
 const toolPermissionsSchema = z.object({
   time: z.boolean().optional(),
   network: z.array(z.string()).optional(),
@@ -40,6 +44,7 @@ const toolPermissionsSchema = z.object({
 // Provides entry — a single capability entry point
 // ---------------------------------------------------------------------------
 
+// biome-ignore lint/nursery/useExplicitType: Zod schema type is inferred
 const providesEntrySchema = z.object({
   entry: z.string(),
   sandbox: z.enum(['compartment', 'host']).optional(),
@@ -47,6 +52,7 @@ const providesEntrySchema = z.object({
   requireApproval: z.boolean().optional(),
 })
 
+// biome-ignore lint/nursery/useExplicitType: Zod schema type is inferred
 const agentProvidesEntrySchema = z.object({
   entry: z.string(),
   useTools: z.array(z.string()).optional(),
@@ -54,9 +60,11 @@ const agentProvidesEntrySchema = z.object({
 })
 
 /** A single provides entry or an array of entries. */
+// biome-ignore lint/nursery/useExplicitType: Zod schema type is inferred
 const providesValueSchema = z.union([providesEntrySchema, z.array(providesEntrySchema)])
 
 /** A single agent provides entry or an array of them. */
+// biome-ignore lint/nursery/useExplicitType: Zod schema type is inferred
 const agentProvidesValueSchema = z.union([
   agentProvidesEntrySchema,
   z.array(agentProvidesEntrySchema),
@@ -66,6 +74,7 @@ const agentProvidesValueSchema = z.union([
 // Full manifest schema
 // ---------------------------------------------------------------------------
 
+// biome-ignore lint/nursery/useExplicitType: Zod schema type is inferred
 export const pluginManifestSchema = z
   .object({
     $schema: z.string().optional(),
@@ -105,6 +114,8 @@ export type ProvidesKey = keyof PluginManifest['provides']
 export function normalizeProvidesEntries(
   value: z.infer<typeof providesValueSchema> | z.infer<typeof agentProvidesValueSchema> | undefined,
 ): ProvidesEntry[] {
-  if (!value) return []
+  if (!value) {
+    return []
+  }
   return Array.isArray(value) ? value : [value]
 }

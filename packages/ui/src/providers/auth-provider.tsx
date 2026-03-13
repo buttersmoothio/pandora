@@ -1,5 +1,6 @@
 'use client'
 
+import type React from 'react'
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useState } from 'react'
 import { LoginScreen } from '@/components/auth/login-screen'
 import { SetupScreen } from '@/components/auth/setup-screen'
@@ -13,7 +14,7 @@ import {
   setToken,
 } from '@/lib/api'
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4111'
+const API_BASE: string = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4111'
 
 const ERROR_MESSAGES: Record<string, string> = {
   invalid_credentials: 'Invalid password',
@@ -49,11 +50,15 @@ interface AuthContextValue {
   logout: () => Promise<void>
 }
 
-const AuthContext = createContext<AuthContextValue | null>(null)
+const AuthContext: React.Context<AuthContextValue | null> = createContext<AuthContextValue | null>(
+  null,
+)
 
-export function useAuth() {
+export function useAuth(): AuthContextValue {
   const ctx = useContext(AuthContext)
-  if (!ctx) throw new Error('useAuth must be used within AuthProvider')
+  if (!ctx) {
+    throw new Error('useAuth must be used within AuthProvider')
+  }
   return ctx
 }
 
@@ -68,7 +73,7 @@ interface TokenResponse {
   refreshExpiresAt: string
 }
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+export function AuthProvider({ children }: { children: ReactNode }): React.JSX.Element {
   const [status, setStatus] = useState<AuthStatus>('loading')
 
   const checkAuth = useCallback(async () => {

@@ -24,7 +24,7 @@ export interface Endowments {
 
 // --- SSRF protection ---
 
-const PRIVATE_IP_PATTERNS = [
+const PRIVATE_IP_PATTERNS: RegExp[] = [
   /^127\./,
   /^10\./,
   /^172\.(1[6-9]|2\d|3[01])\./,
@@ -104,7 +104,7 @@ function createScopedReadFile(allowedPaths: string[]): Endowments['readFile'] {
 export function createPluginConsole(pluginId: string): PluginLogger {
   const log = getLogger()
   const tag = `plugin:${pluginId}`
-  const fmt = (args: unknown[]) => args.map(String).join(' ')
+  const fmt = (args: unknown[]): string => args.map(String).join(' ')
   return harden({
     log: (...args: unknown[]) => log.debug(fmt(args), { plugin: tag }),
     warn: (...args: unknown[]) => log.warn(fmt(args), { plugin: tag }),
@@ -124,7 +124,7 @@ export const MAX_OUTPUT_BYTES = 1_048_576
 export function buildEndowments(
   permissions: ToolPermissions,
   envVars: Record<string, string | undefined>,
-  pluginId = 'sandbox',
+  pluginId: string = 'sandbox',
 ): Endowments {
   const endowments: Endowments = {
     console: createPluginConsole(pluginId),

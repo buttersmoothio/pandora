@@ -8,9 +8,9 @@ import { authRequest } from './test-helpers'
 // Lightweight test app with mock runtime (bypasses auth)
 // ---------------------------------------------------------------------------
 
-function emptyStream() {
+function emptyStream(): ReadableStream {
   return new ReadableStream({
-    start(c) {
+    start(c: ReadableStreamDefaultController): void {
       c.close()
     },
   })
@@ -22,7 +22,7 @@ function createMockApp(mocks: {
   declineToolCall?: ReturnType<typeof vi.fn>
   store?: ReturnType<typeof vi.fn>
   getResume?: ReturnType<typeof vi.fn>
-}) {
+}): Hono<Env> {
   const app = new Hono<Env>()
   app.use('*', async (c, next) => {
     c.set('runtime', {
@@ -43,7 +43,7 @@ function createMockApp(mocks: {
   return app
 }
 
-function post(app: Hono<Env>, path: string, body: unknown) {
+function post(app: Hono<Env>, path: string, body: unknown): Response | Promise<Response> {
   return app.request(path, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -290,7 +290,7 @@ describe('POST /api/chat/approve streaming', () => {
 describe('GET /api/chat/:threadId/stream resume', () => {
   it('returns 200 with SSE headers when active stream exists', async () => {
     const resumeStream = new ReadableStream<string>({
-      start(controller) {
+      start(controller: ReadableStreamDefaultController<string>): void {
         controller.enqueue('data: test\n\n')
         controller.close()
       },

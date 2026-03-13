@@ -28,7 +28,9 @@ export class RedisAuthStore implements AuthStore {
 
   async getCredential(): Promise<PasswordCredential | null> {
     const value = await this.redis.get(CREDENTIAL_KEY)
-    if (!value) return null
+    if (!value) {
+      return null
+    }
     return (typeof value === 'string' ? JSON.parse(value) : value) as PasswordCredential
   }
 
@@ -86,7 +88,9 @@ export class RedisAuthStore implements AuthStore {
 
     for (const hash of hashes) {
       const session = await this.getSession(hash)
-      if (session) sessions.push(session)
+      if (session) {
+        sessions.push(session)
+      }
     }
 
     return sessions
@@ -130,7 +134,9 @@ export class RedisAuthStore implements AuthStore {
 
   async markRefreshTokenUsed(tokenHash: string): Promise<void> {
     const value = await this.redis.get(REFRESH_PREFIX + tokenHash)
-    if (!value) return
+    if (!value) {
+      return
+    }
     const token = (typeof value === 'string' ? JSON.parse(value) : value) as RefreshToken
     token.used = true
     const ttl = Math.max(1, Math.floor((new Date(token.expiresAt).getTime() - Date.now()) / 1000))

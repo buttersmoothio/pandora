@@ -11,7 +11,9 @@ export function isWithinActiveHours(
   timezone: string,
   now: Date = new Date(),
 ): boolean {
-  if (!activeHours) return true
+  if (!activeHours) {
+    return true
+  }
   const currentTime = new Intl.DateTimeFormat('en-GB', {
     timeZone: timezone,
     hour: '2-digit',
@@ -47,7 +49,9 @@ export function createHeartbeatTask(heartbeat: HeartbeatConfig): ScheduledTask {
  */
 export function buildHeartbeatPrompt(tasks: HeartbeatCheck[]): string {
   const enabled = tasks.filter((t) => t.enabled)
-  if (enabled.length === 0) return ''
+  if (enabled.length === 0) {
+    return ''
+  }
 
   const checklist = enabled.map((t, i) => `${i + 1}. ${t.description}`).join('\n')
 

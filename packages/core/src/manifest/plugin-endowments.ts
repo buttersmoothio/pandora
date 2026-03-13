@@ -13,7 +13,7 @@ import { buildEndowments, createPluginConsole } from '../tools/sandbox/endowment
 export function buildPluginEndowments(
   permissions: ToolPermissions,
   envVars: Record<string, string | undefined>,
-  pluginId = 'plugin',
+  pluginId: string = 'plugin',
 ): Record<string, unknown> {
   const gated = buildEndowments(permissions, envVars, pluginId)
 

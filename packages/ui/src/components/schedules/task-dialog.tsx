@@ -1,6 +1,7 @@
 'use client'
 
 import { Loader2Icon } from 'lucide-react'
+import type React from 'react'
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { ButtonGroup } from '@/components/ui/button-group'
@@ -63,7 +64,7 @@ export function TaskDialog({
   task?: ScheduleTask
   open: boolean
   onOpenChange: (open: boolean) => void
-}) {
+}): React.JSX.Element {
   const { data: config } = useConfig()
   const timezone = config?.timezone ?? 'UTC'
   const createSchedule = useCreateSchedule()
@@ -92,7 +93,7 @@ export function TaskDialog({
 
   const isPending = createSchedule.isPending || updateSchedule.isPending
 
-  function handleSave() {
+  function handleSave(): void {
     const payload = {
       name: form.name,
       ...(form.mode === 'cron'
@@ -137,7 +138,9 @@ export function TaskDialog({
               id="schedule-name"
               placeholder="Morning email check"
               value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>): void =>
+                setForm({ ...form, name: e.target.value })
+              }
             />
           </div>
 
@@ -148,7 +151,7 @@ export function TaskDialog({
                 variant={form.mode === 'cron' ? 'default' : 'outline'}
                 size="sm"
                 type="button"
-                onClick={() => setForm({ ...form, mode: 'cron' })}
+                onClick={(): void => setForm({ ...form, mode: 'cron' })}
               >
                 Recurring
               </Button>
@@ -156,7 +159,7 @@ export function TaskDialog({
                 variant={form.mode === 'runAt' ? 'default' : 'outline'}
                 size="sm"
                 type="button"
-                onClick={() => setForm({ ...form, mode: 'runAt' })}
+                onClick={(): void => setForm({ ...form, mode: 'runAt' })}
               >
                 One-time
               </Button>
@@ -170,7 +173,9 @@ export function TaskDialog({
                 id="schedule-cron"
                 placeholder="0 8 * * *"
                 value={form.cron}
-                onChange={(e) => setForm({ ...form, cron: e.target.value })}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>): void =>
+                  setForm({ ...form, cron: e.target.value })
+                }
               />
               <p className="text-muted-foreground text-xs">
                 Examples: <code>0 8 * * *</code> (daily 8am), <code>*/30 * * * *</code> (every 30
@@ -184,7 +189,9 @@ export function TaskDialog({
                 id="schedule-runat"
                 type="datetime-local"
                 value={form.runAt}
-                onChange={(e) => setForm({ ...form, runAt: e.target.value })}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>): void =>
+                  setForm({ ...form, runAt: e.target.value })
+                }
               />
               <p className="text-muted-foreground text-xs">
                 The task will run once at this date and time.
@@ -199,7 +206,9 @@ export function TaskDialog({
               placeholder="Check my emails and summarize anything important."
               rows={3}
               value={form.prompt}
-              onChange={(e) => setForm({ ...form, prompt: e.target.value })}
+              onChange={(e: React.ChangeEvent<HTMLTextAreaElement>): void =>
+                setForm({ ...form, prompt: e.target.value })
+              }
             />
           </div>
 
@@ -207,7 +216,7 @@ export function TaskDialog({
             <Label htmlFor="schedule-destination">Notify Via</Label>
             <Select
               value={form.destination}
-              onValueChange={(value) =>
+              onValueChange={(value: string): void =>
                 setForm({ ...form, destination: value === 'none' ? '' : value })
               }
             >
@@ -237,7 +246,9 @@ export function TaskDialog({
                 min={1}
                 placeholder="Unlimited"
                 value={form.maxRuns}
-                onChange={(e) => setForm({ ...form, maxRuns: e.target.value })}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>): void =>
+                  setForm({ ...form, maxRuns: e.target.value })
+                }
               />
               <p className="text-muted-foreground text-xs">Leave empty for recurring forever.</p>
             </div>
@@ -247,7 +258,7 @@ export function TaskDialog({
             <Switch
               id="schedule-enabled"
               checked={form.enabled}
-              onCheckedChange={(checked) => setForm({ ...form, enabled: checked })}
+              onCheckedChange={(checked: boolean): void => setForm({ ...form, enabled: checked })}
             />
             <Label htmlFor="schedule-enabled">Enabled</Label>
           </div>

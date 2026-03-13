@@ -30,9 +30,10 @@ interface ReasoningContextValue {
   duration: number | undefined
 }
 
-const ReasoningContext = createContext<ReasoningContextValue | null>(null)
+const ReasoningContext: React.Context<ReasoningContextValue | null> =
+  createContext<ReasoningContextValue | null>(null)
 
-export const useReasoning = () => {
+export const useReasoning = (): ReasoningContextValue => {
   const context = useContext(ReasoningContext)
   if (!context) {
     throw new Error('Reasoning components must be used within Reasoning')
@@ -51,7 +52,7 @@ export type ReasoningProps = ComponentProps<typeof Collapsible> & {
 const AUTO_CLOSE_DELAY = 1000
 const MS_IN_S = 1000
 
-export const Reasoning = memo(
+export const Reasoning: React.NamedExoticComponent<ReasoningProps> = memo(
   ({
     className,
     isStreaming = false,
@@ -108,7 +109,7 @@ export const Reasoning = memo(
           setHasAutoClosed(true)
         }, AUTO_CLOSE_DELAY)
 
-        return () => clearTimeout(timer)
+        return (): void => clearTimeout(timer)
       }
     }, [isStreaming, isOpen, setIsOpen, hasAutoClosed])
 
@@ -143,7 +144,7 @@ export type ReasoningTriggerProps = ComponentProps<typeof CollapsibleTrigger> & 
   getThinkingMessage?: (isStreaming: boolean, duration?: number) => ReactNode
 }
 
-const defaultGetThinkingMessage = (isStreaming: boolean, duration?: number) => {
+const defaultGetThinkingMessage = (isStreaming: boolean, duration?: number): ReactNode => {
   if (isStreaming || duration === 0) {
     return <Shimmer duration={1}>Thinking...</Shimmer>
   }
@@ -153,7 +154,7 @@ const defaultGetThinkingMessage = (isStreaming: boolean, duration?: number) => {
   return <p>Thought for {duration} seconds</p>
 }
 
-export const ReasoningTrigger = memo(
+export const ReasoningTrigger: React.NamedExoticComponent<ReasoningTriggerProps> = memo(
   ({
     className,
     children,
@@ -188,22 +189,29 @@ export type ReasoningContentProps = ComponentProps<typeof CollapsibleContent> & 
   children: string
 }
 
-const streamdownPlugins = { cjk, code, math, mermaid }
+const streamdownPlugins: {
+  cjk: typeof cjk
+  code: typeof code
+  math: typeof math
+  mermaid: typeof mermaid
+} = { cjk, code, math, mermaid }
 
-export const ReasoningContent = memo(({ className, children, ...props }: ReasoningContentProps) => (
-  <CollapsibleContent
-    className={cn(
-      'mt-4 text-sm',
-      'data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-top-2 data-[state=open]:slide-in-from-top-2 text-muted-foreground outline-none data-[state=closed]:animate-out data-[state=open]:animate-in',
-      className,
-    )}
-    {...props}
-  >
-    <Streamdown plugins={streamdownPlugins} {...props}>
-      {children}
-    </Streamdown>
-  </CollapsibleContent>
-))
+export const ReasoningContent: React.NamedExoticComponent<ReasoningContentProps> = memo(
+  ({ className, children, ...props }: ReasoningContentProps) => (
+    <CollapsibleContent
+      className={cn(
+        'mt-4 text-sm',
+        'data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-top-2 data-[state=open]:slide-in-from-top-2 text-muted-foreground outline-none data-[state=closed]:animate-out data-[state=open]:animate-in',
+        className,
+      )}
+      {...props}
+    >
+      <Streamdown plugins={streamdownPlugins} {...props}>
+        {children}
+      </Streamdown>
+    </CollapsibleContent>
+  ),
+)
 
 Reasoning.displayName = 'Reasoning'
 ReasoningTrigger.displayName = 'ReasoningTrigger'

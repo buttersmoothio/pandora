@@ -68,7 +68,9 @@ function adaptAgent(
   entry: AgentProvidesEntry,
   ns: Record<string, unknown>,
 ): { def: Agent; manifest: AgentManifest } | null {
-  if (!isAgent(ns.agent)) return null
+  if (!isAgent(ns.agent)) {
+    return null
+  }
   const agentDef = ns.agent
   agentDef.useTools = entry.useTools ?? []
   agentDef.modelTools = entry.modelTools ?? []
@@ -84,7 +86,9 @@ function adaptAgent(
 }
 
 function adaptChannels(ns: Record<string, unknown>): RegisteredPlugin['channels'] | undefined {
-  if (!isChannelFactory(ns.factory)) return undefined
+  if (!isChannelFactory(ns.factory)) {
+    return undefined
+  }
   return { factory: ns.factory }
 }
 

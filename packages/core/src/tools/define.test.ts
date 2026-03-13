@@ -16,7 +16,10 @@ function makeTestTool(overrides?: Partial<Tool>): Tool {
       properties: { value: { type: 'string' } },
     },
     annotations: { readOnlyHint: true },
-    execute: async (input) => ({ echo: (input as { value: string }).value }),
+    // biome-ignore lint/nursery/useExplicitType: input type inferred from Tool interface
+    execute: async (input): Promise<{ echo: string }> => ({
+      echo: (input as { value: string }).value,
+    }),
     ...overrides,
   }
 }

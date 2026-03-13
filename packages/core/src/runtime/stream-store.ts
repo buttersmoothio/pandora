@@ -7,7 +7,7 @@ interface BufferedStream {
   listeners: Set<() => void>
 }
 
-const _streams = new Map<string, BufferedStream>()
+const _streams: Map<string, BufferedStream> = new Map<string, BufferedStream>()
 
 const CLEANUP_DELAY = 60_000
 
@@ -29,14 +29,18 @@ async function drainStream(
   chatId: string,
   entry: BufferedStream,
   stream: ReadableStream<string>,
-) {
+): Promise<void> {
   const reader = stream.getReader()
   try {
     while (true) {
       const { done, value } = await reader.read()
-      if (done) break
+      if (done) {
+        break
+      }
       entry.chunks.push(value)
-      for (const notify of entry.listeners) notify()
+      for (const notify of entry.listeners) {
+        notify()
+      }
     }
   } catch (err) {
     entry.error = true
@@ -45,7 +49,9 @@ async function drainStream(
     })
   } finally {
     entry.done = true
-    for (const notify of entry.listeners) notify()
+    for (const notify of entry.listeners) {
+      notify()
+    }
     setTimeout(() => _streams.delete(chatId), CLEANUP_DELAY)
   }
 }
@@ -58,14 +64,16 @@ export function getResumeStream(chatId: string): ReadableStream<string> | null {
   const entry = _streams.get(chatId)
   // Only serve in-flight streams. Completed streams return null — the
   // client already has the full response via its initial messages query.
-  if (!entry || entry.done) return null
+  if (!entry || entry.done) {
+    return null
+  }
 
   let cursor = 0
 
   let cleanup: (() => void) | undefined
 
   return new ReadableStream<string>({
-    start(controller) {
+    start(controller: ReadableStreamDefaultController<string>): void {
       const flush = () => {
         while (cursor < entry.chunks.length) {
           controller.enqueue(entry.chunks[cursor++])
@@ -80,7 +88,7 @@ export function getResumeStream(chatId: string): ReadableStream<string> | null {
       entry.listeners.add(flush)
       flush()
     },
-    cancel() {
+    cancel(): void {
       cleanup?.()
     },
   })
@@ -92,7 +100,9 @@ export function getResumeStream(chatId: string): ReadableStream<string> | null {
 export function getActiveStreamIds(): string[] {
   const ids: string[] = []
   for (const [id, entry] of _streams) {
-    if (!entry.done) ids.push(id)
+    if (!entry.done) {
+      ids.push(id)
+    }
   }
   return ids
 }

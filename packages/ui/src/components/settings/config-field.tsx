@@ -21,7 +21,7 @@ export function ConfigField({
   scopeId: string
   value: unknown
   onChange: (value: unknown) => void
-}) {
+}): React.JSX.Element {
   const id = `${scopeId}-${field.key}`
 
   return (
@@ -49,7 +49,7 @@ export function ConfigField({
           type={field.type}
           placeholder={field.placeholder}
           value={(value as string) ?? ''}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>): void => onChange(e.target.value)}
         />
       )}
       {field.description && <p className="text-muted-foreground text-sm">{field.description}</p>}

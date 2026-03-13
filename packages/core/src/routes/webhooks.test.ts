@@ -8,7 +8,7 @@ vi.mock('../runtime/channel-gateway', () => ({
   createChannelGateway: () => vi.fn(() => ({})),
 }))
 
-function createMockApp(channels: Map<string, unknown>) {
+function createMockApp(channels: Map<string, unknown>): Hono<Env> {
   const app = new Hono<Env>()
   app.use('*', async (c, next) => {
     c.set('runtime', {

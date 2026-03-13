@@ -1,8 +1,8 @@
 import { Hono } from 'hono'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { createRateLimiter } from './rate-limit'
+import { createRateLimiter } from '../rate-limit'
 
-const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+const delay = (ms: number): Promise<unknown> => new Promise((resolve) => setTimeout(resolve, ms))
 
 describe('createRateLimiter', () => {
   let app: Hono

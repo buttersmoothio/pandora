@@ -25,9 +25,12 @@ import {
 import { cn } from '@/lib/utils'
 
 // Shiki uses bitflags for font styles: 1=italic, 2=bold, 4=underline
-const isItalic = (fontStyle: number | undefined) => fontStyle && fontStyle & 1
-const isBold = (fontStyle: number | undefined) => fontStyle && fontStyle & 2
-const isUnderline = (fontStyle: number | undefined) => fontStyle && fontStyle & 4
+const isItalic = (fontStyle: number | undefined): number | undefined =>
+  fontStyle ? fontStyle & 1 : undefined
+const isBold = (fontStyle: number | undefined): number | undefined =>
+  fontStyle ? fontStyle & 2 : undefined
+const isUnderline = (fontStyle: number | undefined): number | undefined =>
+  fontStyle ? fontStyle & 4 : undefined
 
 // Transform tokens to include pre-computed keys to avoid noArrayIndexKey lint
 interface KeyedToken {
@@ -39,7 +42,9 @@ interface KeyedLine {
   key: string
 }
 
-const addKeysToTokens = (lines: ThemedToken[][]): KeyedLine[] =>
+const addKeysToTokens: (lines: ThemedToken[][]) => KeyedLine[] = (
+  lines: ThemedToken[][],
+): KeyedLine[] =>
   lines.map((line, lineIdx) => ({
     key: `line-${lineIdx}`,
     tokens: line.map((token, tokenIdx) => ({
@@ -49,7 +54,7 @@ const addKeysToTokens = (lines: ThemedToken[][]): KeyedLine[] =>
   }))
 
 // Token rendering component
-const TokenSpan = ({ token }: { token: ThemedToken }) => (
+const TokenSpan = ({ token }: { token: ThemedToken }): React.JSX.Element => (
   <span
     className="dark:!bg-[var(--shiki-dark-bg)] dark:!text-[var(--shiki-dark)]"
     style={
@@ -74,7 +79,7 @@ const LineSpan = ({
 }: {
   keyedLine: KeyedLine
   showLineNumbers: boolean
-}) => (
+}): React.JSX.Element => (
   <span className={showLineNumbers ? LINE_NUMBER_CLASSES : 'block'}>
     {keyedLine.tokens.length === 0
       ? '\n'
@@ -100,23 +105,23 @@ interface CodeBlockContextType {
 }
 
 // Context
-const CodeBlockContext = createContext<CodeBlockContextType>({
+const CodeBlockContext: React.Context<CodeBlockContextType> = createContext<CodeBlockContextType>({
   code: '',
 })
 
 // Highlighter cache (singleton per language)
-const highlighterCache = new Map<
+const highlighterCache: Map<
   string,
   Promise<HighlighterGeneric<BundledLanguage, BundledTheme>>
->()
+> = new Map()
 
 // Token cache
-const tokensCache = new Map<string, TokenizedCode>()
+const tokensCache: Map<string, TokenizedCode> = new Map()
 
 // Subscribers for async token updates
-const subscribers = new Map<string, Set<(result: TokenizedCode) => void>>()
+const subscribers: Map<string, Set<(result: TokenizedCode) => void>> = new Map()
 
-const getTokensCacheKey = (code: string, language: BundledLanguage) => {
+const getTokensCacheKey = (code: string, language: BundledLanguage): string => {
   const start = code.slice(0, 100)
   const end = code.length > 100 ? code.slice(-100) : ''
   return `${language}:${code.length}:${start}:${end}`
@@ -214,7 +219,7 @@ export const highlightCode = (
     })
     // oxlint-disable-next-line eslint-plugin-promise(prefer-await-to-then), eslint-plugin-promise(prefer-await-to-callbacks)
     .catch((error) => {
-      console.error('Failed to highlight code:', error)
+      console.error('[code-block] Failed to highlight code:', error)
       subscribers.delete(tokensCacheKey)
     })
 
@@ -222,7 +227,7 @@ export const highlightCode = (
 }
 
 // Line number styles using CSS counters
-const LINE_NUMBER_CLASSES = cn(
+const LINE_NUMBER_CLASSES: string = cn(
   'block',
   'before:content-[counter(line)]',
   'before:inline-block',
@@ -235,7 +240,11 @@ const LINE_NUMBER_CLASSES = cn(
   'before:select-none',
 )
 
-const CodeBlockBody = memo(
+const CodeBlockBody: React.NamedExoticComponent<{
+  tokenized: TokenizedCode
+  showLineNumbers: boolean
+  className?: string
+}> = memo(
   ({
     tokenized,
     showLineNumbers,
@@ -289,7 +298,7 @@ export const CodeBlockContainer = ({
   language,
   style,
   ...props
-}: HTMLAttributes<HTMLDivElement> & { language: string }) => (
+}: HTMLAttributes<HTMLDivElement> & { language: string }): React.JSX.Element => (
   <div
     className={cn(
       'group relative w-full overflow-hidden rounded-md border bg-background text-foreground',
@@ -309,7 +318,7 @@ export const CodeBlockHeader = ({
   children,
   className,
   ...props
-}: HTMLAttributes<HTMLDivElement>) => (
+}: HTMLAttributes<HTMLDivElement>): React.JSX.Element => (
   <div
     className={cn(
       'flex items-center justify-between border-b bg-muted/80 px-3 py-2 text-muted-foreground text-xs',
@@ -325,7 +334,7 @@ export const CodeBlockTitle = ({
   children,
   className,
   ...props
-}: HTMLAttributes<HTMLDivElement>) => (
+}: HTMLAttributes<HTMLDivElement>): React.JSX.Element => (
   <div className={cn('flex items-center gap-2', className)} {...props}>
     {children}
   </div>
@@ -335,7 +344,7 @@ export const CodeBlockFilename = ({
   children,
   className,
   ...props
-}: HTMLAttributes<HTMLSpanElement>) => (
+}: HTMLAttributes<HTMLSpanElement>): React.JSX.Element => (
   <span className={cn('font-mono', className)} {...props}>
     {children}
   </span>
@@ -345,7 +354,7 @@ export const CodeBlockActions = ({
   children,
   className,
   ...props
-}: HTMLAttributes<HTMLDivElement>) => (
+}: HTMLAttributes<HTMLDivElement>): React.JSX.Element => (
   <div className={cn('-my-1 -mr-1 flex items-center gap-2', className)} {...props}>
     {children}
   </div>
@@ -359,7 +368,7 @@ export const CodeBlockContent = ({
   code: string
   language: BundledLanguage
   showLineNumbers?: boolean
-}) => {
+}): React.JSX.Element => {
   // Memoized raw tokens for immediate display
   const rawTokens = useMemo(() => createRawTokens(code), [code])
 
@@ -400,7 +409,7 @@ export const CodeBlock = ({
   className,
   children,
   ...props
-}: CodeBlockProps) => {
+}: CodeBlockProps): React.JSX.Element => {
   const contextValue = useMemo(() => ({ code }), [code])
 
   return (
@@ -426,7 +435,7 @@ export const CodeBlockCopyButton = ({
   children,
   className,
   ...props
-}: CodeBlockCopyButtonProps) => {
+}: CodeBlockCopyButtonProps): React.JSX.Element => {
   const [isCopied, setIsCopied] = useState(false)
   const timeoutRef = useRef<number>(0)
   const { code } = useContext(CodeBlockContext)
@@ -450,7 +459,7 @@ export const CodeBlockCopyButton = ({
   }, [code, onCopy, onError, timeout, isCopied])
 
   useEffect(
-    () => () => {
+    (): (() => void) => (): void => {
       window.clearTimeout(timeoutRef.current)
     },
     [],
@@ -473,16 +482,16 @@ export const CodeBlockCopyButton = ({
 
 export type CodeBlockLanguageSelectorProps = ComponentProps<typeof Select>
 
-export const CodeBlockLanguageSelector = (props: CodeBlockLanguageSelectorProps) => (
-  <Select {...props} />
-)
+export const CodeBlockLanguageSelector = (
+  props: CodeBlockLanguageSelectorProps,
+): React.JSX.Element => <Select {...props} />
 
 export type CodeBlockLanguageSelectorTriggerProps = ComponentProps<typeof SelectTrigger>
 
 export const CodeBlockLanguageSelectorTrigger = ({
   className,
   ...props
-}: CodeBlockLanguageSelectorTriggerProps) => (
+}: CodeBlockLanguageSelectorTriggerProps): React.JSX.Element => (
   <SelectTrigger
     className={cn('h-7 border-none bg-transparent px-2 text-xs shadow-none', className)}
     size="sm"
@@ -492,19 +501,21 @@ export const CodeBlockLanguageSelectorTrigger = ({
 
 export type CodeBlockLanguageSelectorValueProps = ComponentProps<typeof SelectValue>
 
-export const CodeBlockLanguageSelectorValue = (props: CodeBlockLanguageSelectorValueProps) => (
-  <SelectValue {...props} />
-)
+export const CodeBlockLanguageSelectorValue = (
+  props: CodeBlockLanguageSelectorValueProps,
+): React.JSX.Element => <SelectValue {...props} />
 
 export type CodeBlockLanguageSelectorContentProps = ComponentProps<typeof SelectContent>
 
 export const CodeBlockLanguageSelectorContent = ({
   align = 'end',
   ...props
-}: CodeBlockLanguageSelectorContentProps) => <SelectContent align={align} {...props} />
+}: CodeBlockLanguageSelectorContentProps): React.JSX.Element => (
+  <SelectContent align={align} {...props} />
+)
 
 export type CodeBlockLanguageSelectorItemProps = ComponentProps<typeof SelectItem>
 
-export const CodeBlockLanguageSelectorItem = (props: CodeBlockLanguageSelectorItemProps) => (
-  <SelectItem {...props} />
-)
+export const CodeBlockLanguageSelectorItem = (
+  props: CodeBlockLanguageSelectorItemProps,
+): React.JSX.Element => <SelectItem {...props} />

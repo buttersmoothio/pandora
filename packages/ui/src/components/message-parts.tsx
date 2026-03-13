@@ -62,7 +62,7 @@ export function MessageParts({
   isLastMessage: boolean
   isStreaming: boolean
   onToolApproval?: ChatAddToolApproveResponseFunction
-}) {
+}): React.JSX.Element {
   const toolNames = useToolNames()
   const reasoningParts = message.parts.filter((p) => p.type === 'reasoning')
   const reasoningText = reasoningParts.map((p) => p.text).join('\n\n')
@@ -154,12 +154,12 @@ export function MessageParts({
                         <div className="flex items-center gap-2">
                           <Button
                             size="sm"
-                            onClick={() =>
+                            onClick={() => {
                               onToolApproval({
                                 id: part.approval.id,
                                 approved: true,
                               })
-                            }
+                            }}
                           >
                             <CheckIcon className="size-3.5" />
                             Approve
@@ -167,12 +167,12 @@ export function MessageParts({
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() =>
+                            onClick={() => {
                               onToolApproval({
                                 id: part.approval.id,
                                 approved: false,
                               })
-                            }
+                            }}
                           >
                             <XIcon className="size-3.5" />
                             Deny

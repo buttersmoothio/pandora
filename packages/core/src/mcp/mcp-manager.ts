@@ -13,7 +13,7 @@ import type { McpOAuthStore } from './oauth-store'
 import type { McpServerConfig, McpServerMeta } from './types'
 
 /** OAuth state entries expire after 10 minutes. */
-const STATE_TTL_MS = 10 * 60 * 1000
+const STATE_TTL_MS: number = 10 * 60 * 1000
 
 /**
  * Narrowed tool shape for MCP tools returned by @mastra/mcp MCPClient.listTools().
@@ -38,7 +38,7 @@ export interface McpManager {
 
 /** Create a custom fetch that injects static headers. */
 function createHeaderFetch(headers: Record<string, string>): MastraFetchLike {
-  return (url, init) => {
+  return (url: string | URL | Request, init?: RequestInit): Promise<Response> => {
     const merged = new Headers(init?.headers)
     for (const [k, v] of Object.entries(headers)) {
       merged.set(k, v)
@@ -55,7 +55,9 @@ function buildStdioDef(
 ): MastraMCPServerDefinition {
   const env: Record<string, string> = {}
   for (const name of sc.env ?? []) {
-    if (hostEnv[name]) env[name] = hostEnv[name]
+    if (hostEnv[name]) {
+      env[name] = hostEnv[name]
+    }
   }
   return { command, args: sc.args ?? [], env }
 }
@@ -108,13 +110,14 @@ function buildOAuthDef(
       response_types: ['code'],
     },
     storage,
-    onRedirectToAuthorization: async (url: URL) => {
+    onRedirectToAuthorization: async (url: URL): Promise<void> => {
       const state = url.searchParams.get('state')
-      if (state)
+      if (state) {
         await oauthStore.set(
           `state:${state}`,
           JSON.stringify({ serverId: id, createdAt: Date.now() }),
         )
+      }
       pendingAuthUrls.set(id, url.toString())
       log.info(`[mcp] OAuth authorization required for server "${id}"`)
     },
@@ -133,7 +136,7 @@ function registerTools(
   config: Config,
   metas: Map<string, McpServerMeta>,
   tools: ToolRecord,
-) {
+): void {
   for (const [namespacedKey, tool] of Object.entries(mcpTools)) {
     const underscoreIdx = namespacedKey.indexOf('_')
     const serverId = underscoreIdx > -1 ? namespacedKey.slice(0, underscoreIdx) : namespacedKey
@@ -178,8 +181,12 @@ function buildDef(
   oauthStore: McpOAuthStore | undefined,
   pendingAuthUrls: Map<string, string>,
 ): MastraMCPServerDefinition | undefined {
-  if (sc.command) return buildStdioDef(sc.command, sc, env)
-  if (sc.url) return buildHttpDef(id, sc.url, sc, env, oauthStore, pendingAuthUrls)
+  if (sc.command) {
+    return buildStdioDef(sc.command, sc, env)
+  }
+  if (sc.url) {
+    return buildHttpDef(id, sc.url, sc, env, oauthStore, pendingAuthUrls)
+  }
   return undefined
 }
 
@@ -189,7 +196,7 @@ function buildServers(
   env: Record<string, string | undefined>,
   oauthStore: McpOAuthStore | undefined,
   pendingAuthUrls: Map<string, string>,
-) {
+): { servers: Record<string, MastraMCPServerDefinition>; metas: Map<string, McpServerMeta> } {
   const log = getLogger()
   const servers: Record<string, MastraMCPServerDefinition> = {}
   const metas = new Map<string, McpServerMeta>()
@@ -245,7 +252,9 @@ async function exchangeOAuthCode(
 
   const resourceMeta = await discoverOAuthProtectedResourceMetadata(new URL(serverUrl))
   const authServerUrl = resourceMeta.authorization_servers?.[0]
-  if (!authServerUrl) throw new Error('No authorization server found in resource metadata')
+  if (!authServerUrl) {
+    throw new Error('No authorization server found in resource metadata')
+  }
 
   const authMeta = await discoverAuthorizationServerMetadata(new URL(authServerUrl))
 
@@ -299,13 +308,15 @@ export async function createMcpManager(
   // Apply pending auth URLs to server metadata
   for (const [id, authUrl] of pendingAuthUrls) {
     const meta = metas.get(id)
-    if (meta) meta.authUrl = authUrl
+    if (meta) {
+      meta.authUrl = authUrl
+    }
   }
 
   return {
     tools,
     serverMeta: metas,
-    async disconnect() {
+    async disconnect(): Promise<void> {
       try {
         await client.disconnect()
         log.debug('[mcp] disconnected all servers')
@@ -315,10 +326,14 @@ export async function createMcpManager(
       }
     },
     async handleOAuthCallback(code: string, state: string): Promise<string> {
-      if (!oauthStore) throw new Error('OAuth store not available')
+      if (!oauthStore) {
+        throw new Error('OAuth store not available')
+      }
 
       const raw = await oauthStore.get(`state:${state}`)
-      if (!raw) throw new Error('Invalid or expired OAuth state')
+      if (!raw) {
+        throw new Error('Invalid or expired OAuth state')
+      }
 
       const parsed = JSON.parse(raw) as { serverId: string; createdAt: number }
       if (Date.now() - parsed.createdAt > STATE_TTL_MS) {
@@ -328,18 +343,26 @@ export async function createMcpManager(
       const serverId = parsed.serverId
 
       const serverConfig = config.mcpServers[serverId] as McpServerConfig | undefined
-      if (!serverConfig?.url) throw new Error(`Server "${serverId}" not found or has no URL`)
+      if (!serverConfig?.url) {
+        throw new Error(`Server "${serverId}" not found or has no URL`)
+      }
 
       const baseUrl = env.BASE_URL
-      if (!baseUrl) throw new Error('BASE_URL env var not configured')
+      if (!baseUrl) {
+        throw new Error('BASE_URL env var not configured')
+      }
 
       const callbackUrl = `${baseUrl.replace(/\/$/, '')}/oauth/mcp/callback`
       const storage = new ScopedOAuthStorage(oauthStore, serverId)
 
       const codeVerifier = await storage.get('code_verifier')
       const clientInfoStr = await storage.get('client_info')
-      if (!codeVerifier) throw new Error('Missing code verifier — OAuth flow may have expired')
-      if (!clientInfoStr) throw new Error('Missing client info — OAuth flow may have expired')
+      if (!codeVerifier) {
+        throw new Error('Missing code verifier — OAuth flow may have expired')
+      }
+      if (!clientInfoStr) {
+        throw new Error('Missing client info — OAuth flow may have expired')
+      }
 
       const tokens = await exchangeOAuthCode(
         serverConfig.url,

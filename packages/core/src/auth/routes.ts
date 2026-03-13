@@ -23,7 +23,7 @@ export function extractBearerToken(c: {
  * Create auth routes sub-app.
  * Mounted at /api/auth in the main app.
  */
-export function createAuthRoutes(getAuthStore: (c: Context<Env>) => Promise<AuthStore>) {
+export function createAuthRoutes(getAuthStore: (c: Context<Env>) => Promise<AuthStore>): Hono<Env> {
   const auth = new Hono<Env>()
   const log = getLogger()
 
@@ -45,7 +45,7 @@ export function createAuthRoutes(getAuthStore: (c: Context<Env>) => Promise<Auth
     })
 
     if (!created) {
-      log.warn('Setup attempted but already configured')
+      log.warn('[auth] setup attempted but already configured')
       return c.json({ error: 'already_setup' }, 409)
     }
 
@@ -54,7 +54,7 @@ export function createAuthRoutes(getAuthStore: (c: Context<Env>) => Promise<Auth
     const ip = c.req.header('X-Forwarded-For') ?? c.req.header('X-Real-IP')
     const pair = await createTokenPair(store, { userAgent, ip: ip ?? undefined })
 
-    log.info('Initial setup complete')
+    log.info('[auth] initial setup complete')
     return c.json(
       {
         token: pair.accessToken,
@@ -82,7 +82,7 @@ export function createAuthRoutes(getAuthStore: (c: Context<Env>) => Promise<Auth
 
     const valid = await verifyPassword(body.password, credential)
     if (!valid) {
-      log.warn('Login failed: invalid credentials')
+      log.warn('[auth] login failed: invalid credentials')
       return c.json({ error: 'invalid_credentials' }, 401)
     }
 
@@ -90,7 +90,7 @@ export function createAuthRoutes(getAuthStore: (c: Context<Env>) => Promise<Auth
     const ip = c.req.header('X-Forwarded-For') ?? c.req.header('X-Real-IP')
     const pair = await createTokenPair(store, { userAgent, ip: ip ?? undefined })
 
-    log.info('Login successful')
+    log.info('[auth] login successful')
     return c.json({
       token: pair.accessToken,
       refreshToken: pair.refreshToken,
@@ -109,7 +109,7 @@ export function createAuthRoutes(getAuthStore: (c: Context<Env>) => Promise<Auth
       await store.deleteSession(tokenHash)
     }
 
-    log.info('Logout successful')
+    log.info('[auth] logout successful')
     return c.json({ success: true })
   })
 
@@ -153,7 +153,7 @@ export function createAuthRoutes(getAuthStore: (c: Context<Env>) => Promise<Auth
     const ip = c.req.header('X-Forwarded-For') ?? c.req.header('X-Real-IP')
     const pair = await createTokenPair(store, { userAgent, ip: ip ?? undefined })
 
-    log.info('Password changed, all sessions invalidated')
+    log.info('[auth] password changed, all sessions invalidated')
     return c.json({
       token: pair.accessToken,
       refreshToken: pair.refreshToken,
@@ -217,8 +217,8 @@ export function createAuthRoutes(getAuthStore: (c: Context<Env>) => Promise<Auth
     try {
       const body = await c.req.json<{ refreshToken?: string }>()
       refreshTokenRaw = body.refreshToken
-    } catch {
-      // invalid JSON
+    } catch (err) {
+      log.debug('[auth] invalid JSON in refresh request', { error: String(err) })
     }
 
     if (!refreshTokenRaw) {
@@ -241,7 +241,7 @@ export function createAuthRoutes(getAuthStore: (c: Context<Env>) => Promise<Auth
       })
     } catch (err) {
       const message = err instanceof Error ? err.message : 'invalid_refresh_token'
-      log.warn('Token refresh failed', { error: message })
+      log.warn('[auth] token refresh failed', { error: message })
       return c.json({ error: message }, 401)
     }
   })

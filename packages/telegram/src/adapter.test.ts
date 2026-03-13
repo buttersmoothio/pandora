@@ -5,7 +5,7 @@ import { createTelegramAdapter } from './adapter'
 // biome-ignore lint/complexity/noBannedTypes: test mock callback type
 type Handler = Function
 
-const mockApi = {
+const mockApi: Record<string, ReturnType<typeof vi.fn>> = {
   setMyCommands: vi.fn(),
   sendMessage: vi.fn(),
 }
@@ -71,6 +71,7 @@ function createMockRuntime(): ChannelGateway {
   }
 }
 
+// biome-ignore lint/nursery/useExplicitType: test mock factory return type is complex
 function createMockCtx(chatId: number, opts?: { text?: string; fromId?: number }) {
   return {
     chat: { id: chatId },

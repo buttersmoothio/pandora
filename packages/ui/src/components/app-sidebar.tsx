@@ -31,7 +31,7 @@ import {
 } from '@/components/ui/sidebar'
 import { useAuth } from '@/providers/auth-provider'
 
-const NAV_ITEMS = [
+const NAV_ITEMS: { title: string; href: string; icon: typeof InboxIcon }[] = [
   { title: 'Inbox', href: '/inbox', icon: InboxIcon },
   { title: 'Configuration', href: '/config', icon: SettingsIcon },
   { title: 'Memory', href: '/memory', icon: BrainIcon },
@@ -40,7 +40,7 @@ const NAV_ITEMS = [
   { title: 'Security', href: '/security', icon: ShieldIcon },
 ]
 
-export function AppSidebar() {
+export function AppSidebar(): React.JSX.Element {
   const pathname = usePathname()
   const { setTheme, resolvedTheme } = useTheme()
   const { logout } = useAuth()
@@ -87,7 +87,7 @@ export function AppSidebar() {
           <SidebarMenuItem>
             <SidebarMenuButton
               tooltip="Toggle theme"
-              onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
+              onClick={(): void => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
             >
               <SunIcon className="dark:hidden" />
               <MoonIcon className="hidden dark:block" />
@@ -95,7 +95,12 @@ export function AppSidebar() {
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <SidebarMenuButton tooltip="Logout" onClick={() => logout()}>
+            <SidebarMenuButton
+              tooltip="Logout"
+              onClick={(): void => {
+                logout()
+              }}
+            >
               <LogOutIcon />
               <span>Logout</span>
             </SidebarMenuButton>

@@ -1,6 +1,7 @@
 'use client'
 
 import { CheckIcon, ChevronsUpDownIcon } from 'lucide-react'
+import type React from 'react'
 import { useEffect, useState } from 'react'
 import { ProviderLogo } from '@/components/provider-logo'
 import { Button } from '@/components/ui/button'
@@ -25,14 +26,23 @@ import { PluginCard, usePluginConfigDraft } from './plugin-card'
 // ---------------------------------------------------------------------------
 
 function capabilityCount(provides: UnifiedPluginInfo['provides'], key: string): number {
-  if (key === 'tools') return provides.tools?.tools.length ?? 0
-  if (key === 'agents') return provides.agents?.agents.length ?? 0
-  if (key === 'channels')
+  if (key === 'tools') {
+    return provides.tools?.tools.length ?? 0
+  }
+  if (key === 'agents') {
+    return provides.agents?.agents.length ?? 0
+  }
+  if (key === 'channels') {
     return (provides.channels?.webhook ? 1 : 0) + (provides.channels?.realtime ? 1 : 0)
+  }
   return 0
 }
 
-function CapabilitySummary({ provides }: { provides: UnifiedPluginInfo['provides'] }) {
+function CapabilitySummary({
+  provides,
+}: {
+  provides: UnifiedPluginInfo['provides']
+}): React.JSX.Element | null {
   const parts: string[] = []
   for (const key of Object.keys(provides)) {
     const count = capabilityCount(provides, key)
@@ -40,7 +50,9 @@ function CapabilitySummary({ provides }: { provides: UnifiedPluginInfo['provides
     const plural = key
     parts.push(count > 0 ? `${count} ${count === 1 ? singular : plural}` : plural)
   }
-  if (parts.length === 0) return null
+  if (parts.length === 0) {
+    return null
+  }
   return <p className="text-muted-foreground text-xs">Provides {parts.join(' \u00b7 ')}</p>
 }
 
@@ -58,7 +70,7 @@ function AgentModelOverride({
   agentName: string
   agentDescription?: string
   currentModel?: { provider: string; model: string }
-}) {
+}): React.JSX.Element {
   const { setConfig: setDraft } = usePluginConfigDraft()
   const { data: modelsData } = useModels()
   const [customModel, setCustomModel] = useState(!!currentModel)
@@ -75,13 +87,15 @@ function AgentModelOverride({
 
   const allProviders = modelsData?.providers ?? []
   const providers = [...allProviders].sort((a, b) => {
-    if (a.configured !== b.configured) return a.configured ? -1 : 1
+    if (a.configured !== b.configured) {
+      return a.configured ? -1 : 1
+    }
     return a.name.localeCompare(b.name)
   })
   const selectedProvider = allProviders.find((p) => p.id === provider)
   const models = selectedProvider?.models ?? []
 
-  function updateAgentModel(modelValue: ModelConfig | null | undefined) {
+  function updateAgentModel(modelValue: ModelConfig | null | undefined): void {
     setDraft((prev) => {
       const agents = (prev.agents ?? {}) as Record<string, Record<string, unknown>>
       return {
@@ -97,7 +111,7 @@ function AgentModelOverride({
     })
   }
 
-  function handleCustomModelToggle(checked: boolean) {
+  function handleCustomModelToggle(checked: boolean): void {
     setCustomModel(checked)
     if (!checked) {
       setProvider('')
@@ -145,9 +159,11 @@ function AgentModelOverride({
                       <CommandItem
                         key={p.id}
                         value={p.name}
-                        onSelect={() => {
+                        onSelect={(): void => {
                           setProvider(p.id)
-                          if (provider !== p.id) setModel('')
+                          if (provider !== p.id) {
+                            setModel('')
+                          }
                           setProviderOpen(false)
                         }}
                       >
@@ -193,10 +209,12 @@ function AgentModelOverride({
                       <CommandItem
                         key={m}
                         value={m}
-                        onSelect={() => {
+                        onSelect={(): void => {
                           setModel(m)
                           setModelOpen(false)
-                          if (provider) updateAgentModel({ provider, model: m })
+                          if (provider) {
+                            updateAgentModel({ provider, model: m })
+                          }
                         }}
                       >
                         <CheckIcon
@@ -226,14 +244,16 @@ function ToolList({
 }: {
   plugin: UnifiedPluginInfo
   provides: UnifiedPluginInfo['provides']
-}) {
+}): React.JSX.Element | null {
   const { config: draft, setConfig: setDraft } = usePluginConfigDraft()
-  if (!provides.tools) return null
+  if (!provides.tools) {
+    return null
+  }
 
   const manifestDefault = provides.tools.requireApproval ?? false
   const perTool = (draft.requireApproval ?? {}) as Record<string, boolean>
 
-  function toggleApproval(toolId: string, checked: boolean) {
+  function toggleApproval(toolId: string, checked: boolean): void {
     setDraft((prev) => ({
       ...prev,
       requireApproval: {
@@ -260,7 +280,7 @@ function ToolList({
                 <Switch
                   id={`${tool.id}-approval`}
                   checked={perTool[tool.id] ?? manifestDefault}
-                  onCheckedChange={(checked) => toggleApproval(tool.id, checked)}
+                  onCheckedChange={(checked: boolean): void => toggleApproval(tool.id, checked)}
                   size="sm"
                 />
               </div>
@@ -285,7 +305,7 @@ function ToolList({
 // Plugin dialog content (tools + agents)
 // ---------------------------------------------------------------------------
 
-function PluginDialogContent({ plugin }: { plugin: UnifiedPluginInfo }) {
+function PluginDialogContent({ plugin }: { plugin: UnifiedPluginInfo }): React.JSX.Element {
   const provides = plugin.provides
 
   return (
@@ -323,7 +343,7 @@ function PluginDialogContent({ plugin }: { plugin: UnifiedPluginInfo }) {
 // UnifiedPluginCard — PluginCard with full dialog content
 // ---------------------------------------------------------------------------
 
-export function UnifiedPluginCard({ plugin }: { plugin: UnifiedPluginInfo }) {
+export function UnifiedPluginCard({ plugin }: { plugin: UnifiedPluginInfo }): React.JSX.Element {
   const permissions = plugin.provides.tools
     ? {
         permissions: plugin.provides.tools.permissions as Record<string, boolean | string[]>,

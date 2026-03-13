@@ -19,7 +19,7 @@ import { CodeBlock } from './code-block'
 
 export type ToolProps = ComponentProps<typeof Collapsible>
 
-export const Tool = ({ className, ...props }: ToolProps) => (
+export const Tool = ({ className, ...props }: ToolProps): React.JSX.Element => (
   <Collapsible
     className={cn('group not-prose mb-4 w-full rounded-md border', className)}
     {...props}
@@ -60,7 +60,7 @@ const statusIcons: Record<ToolPart['state'], ReactNode> = {
   'output-error': <XCircleIcon className="size-4 text-red-600" />,
 }
 
-export const getStatusBadge = (status: ToolPart['state']) => (
+export const getStatusBadge = (status: ToolPart['state']): React.JSX.Element => (
   <Badge className="gap-1.5 rounded-full text-xs" variant="secondary">
     {statusIcons[status]}
     {statusLabels[status]}
@@ -94,7 +94,7 @@ export const ToolHeader = ({
   state,
   toolName,
   ...props
-}: ToolHeaderProps) => {
+}: ToolHeaderProps): React.JSX.Element => {
   const derivedName = type === 'dynamic-tool' ? toolName : formatToolName(type)
 
   return (
@@ -114,7 +114,7 @@ export const ToolHeader = ({
 
 export type ToolContentProps = ComponentProps<typeof CollapsibleContent>
 
-export const ToolContent = ({ className, ...props }: ToolContentProps) => (
+export const ToolContent = ({ className, ...props }: ToolContentProps): React.JSX.Element => (
   <CollapsibleContent
     className={cn(
       'data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-top-2 data-[state=open]:slide-in-from-top-2 space-y-4 p-4 text-popover-foreground outline-none data-[state=closed]:animate-out data-[state=open]:animate-in',
@@ -128,7 +128,7 @@ export type ToolInputProps = ComponentProps<'div'> & {
   input: ToolPart['input']
 }
 
-export const ToolInput = ({ className, input, ...props }: ToolInputProps) => (
+export const ToolInput = ({ className, input, ...props }: ToolInputProps): React.JSX.Element => (
   <div className={cn('space-y-2 overflow-hidden', className)} {...props}>
     <h4 className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
       Parameters
@@ -144,7 +144,12 @@ export type ToolOutputProps = ComponentProps<'div'> & {
   errorText: ToolPart['errorText']
 }
 
-export const ToolOutput = ({ className, output, errorText, ...props }: ToolOutputProps) => {
+export const ToolOutput = ({
+  className,
+  output,
+  errorText,
+  ...props
+}: ToolOutputProps): React.JSX.Element | null => {
   if (!(output || errorText)) {
     return null
   }

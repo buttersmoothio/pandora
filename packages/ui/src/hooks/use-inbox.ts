@@ -1,4 +1,10 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import {
+  type UseMutationResult,
+  type UseQueryResult,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { apiFetch } from '@/lib/api'
 
@@ -22,7 +28,7 @@ interface InboxListResponse {
 
 export const INBOX_KEY = ['inbox'] as const
 
-export function useInbox(archived = false) {
+export function useInbox(archived: boolean = false): UseQueryResult<InboxListResponse> {
   return useQuery({
     queryKey: [...INBOX_KEY, { archived }],
     queryFn: () => apiFetch<InboxListResponse>(`/api/inbox${archived ? '?archived=true' : ''}`),
@@ -30,7 +36,7 @@ export function useInbox(archived = false) {
   })
 }
 
-export function useMarkInboxRead() {
+export function useMarkInboxRead(): UseMutationResult<InboxMessage, Error, string> {
   const queryClient = useQueryClient()
 
   return useMutation({
@@ -48,7 +54,7 @@ export function useMarkInboxRead() {
   })
 }
 
-export function useArchiveInboxMessage() {
+export function useArchiveInboxMessage(): UseMutationResult<InboxMessage, Error, string> {
   const queryClient = useQueryClient()
 
   return useMutation({
@@ -66,7 +72,7 @@ export function useArchiveInboxMessage() {
   })
 }
 
-export function useUnarchiveInboxMessage() {
+export function useUnarchiveInboxMessage(): UseMutationResult<InboxMessage, Error, string> {
   const queryClient = useQueryClient()
 
   return useMutation({
@@ -84,7 +90,7 @@ export function useUnarchiveInboxMessage() {
   })
 }
 
-export function useDeleteInboxMessage() {
+export function useDeleteInboxMessage(): UseMutationResult<{ deleted: string }, Error, string> {
   const queryClient = useQueryClient()
 
   return useMutation({

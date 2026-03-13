@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import type { Env } from './helpers'
 
-const inboxRoutes = new Hono<Env>()
+const inboxRoutes: Hono<Env> = new Hono<Env>()
 
 // List messages (newest first)
 inboxRoutes.get('/', async (c) => {
@@ -13,7 +13,9 @@ inboxRoutes.get('/', async (c) => {
 // Get single message
 inboxRoutes.get('/:id', async (c) => {
   const msg = await c.var.runtime.storage.inbox.get(c.req.param('id'))
-  if (!msg) return c.json({ error: 'Message not found' }, 404)
+  if (!msg) {
+    return c.json({ error: 'Message not found' }, 404)
+  }
   return c.json(msg)
 })
 
@@ -21,7 +23,9 @@ inboxRoutes.get('/:id', async (c) => {
 inboxRoutes.patch('/:id', async (c) => {
   const id = c.req.param('id')
   const msg = await c.var.runtime.storage.inbox.get(id)
-  if (!msg) return c.json({ error: 'Message not found' }, 404)
+  if (!msg) {
+    return c.json({ error: 'Message not found' }, 404)
+  }
 
   const body = await c.req.json<{ read?: boolean; archived?: boolean }>()
   if (body.read) {
@@ -41,7 +45,9 @@ inboxRoutes.patch('/:id', async (c) => {
 inboxRoutes.delete('/:id', async (c) => {
   const id = c.req.param('id')
   const msg = await c.var.runtime.storage.inbox.get(id)
-  if (!msg) return c.json({ error: 'Message not found' }, 404)
+  if (!msg) {
+    return c.json({ error: 'Message not found' }, 404)
+  }
 
   await c.var.runtime.storage.inbox.delete(id)
   return c.json({ deleted: id })

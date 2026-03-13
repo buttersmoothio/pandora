@@ -2,8 +2,9 @@ import type { MastraDBMessage } from '@mastra/core/memory'
 import { describe, expect, it, vi } from 'vitest'
 import { createAttachmentProcessor, resolveFileUrls } from './attachment-processor'
 
-const BASE_URL = 'http://localhost:4111'
+const BASE_URL: string = 'http://localhost:4111'
 
+// biome-ignore lint/nursery/useExplicitType: mock factory return type is complex
 function createMockDisk() {
   const stored = new Map<string, { buffer: Uint8Array; contentType: string }>()
   return {
@@ -18,7 +19,7 @@ function createMockDisk() {
   }
 }
 
-function makeMessage(parts: unknown[], id = 'msg-1'): MastraDBMessage {
+function makeMessage(parts: unknown[], id: string = 'msg-1'): MastraDBMessage {
   return {
     id,
     role: 'user',
@@ -37,7 +38,9 @@ async function processInputStep(
 ): Promise<MastraDBMessage[]> {
   const processor = createAttachmentProcessor(disk, BASE_URL)
   const fn = processor.processInputStep
-  if (!fn) throw new Error('processInputStep not defined')
+  if (!fn) {
+    throw new Error('processInputStep not defined')
+  }
   const result = await fn({
     messages,
     messageList: {} as never,
@@ -66,7 +69,9 @@ async function processOutputResult(
 ): Promise<MastraDBMessage[]> {
   const processor = createAttachmentProcessor(disk, BASE_URL)
   const fn = processor.processOutputResult
-  if (!fn) throw new Error('processOutputResult not defined')
+  if (!fn) {
+    throw new Error('processOutputResult not defined')
+  }
   const mockMessageList = { __mock: true } as never
   const result = await fn({
     messages,
@@ -78,7 +83,9 @@ async function processOutputResult(
     retryCount: 0,
   })
   // When no messages were modified, the processor returns the messageList
-  if (result === mockMessageList) return messages
+  if (result === mockMessageList) {
+    return messages
+  }
   return result as MastraDBMessage[]
 }
 

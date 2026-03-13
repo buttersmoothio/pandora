@@ -2,6 +2,7 @@
 
 import { zodResolver } from '@hookform/resolvers/zod'
 import { GlobeIcon, Loader2Icon, PlusIcon, TerminalIcon, XIcon } from 'lucide-react'
+import type React from 'react'
 import { useState } from 'react'
 import { useFieldArray, useForm } from 'react-hook-form'
 import { z } from 'zod'
@@ -29,23 +30,32 @@ import { Switch } from '@/components/ui/switch'
 import { useAddMcpServer } from '@/hooks/use-mcp'
 import { cn } from '@/lib/utils'
 
-const formSchema = z.discriminatedUnion('transport', [
-  z.object({
-    transport: z.literal('stdio'),
+const formSchema = z
+  .object({
+    transport: z.enum(['stdio', 'http']),
     name: z.string().min(1, 'Name is required'),
-    command: z.string().min(1, 'Command is required'),
+    command: z.string(),
     args: z.string(),
-    requireApproval: z.boolean(),
-  }),
-  z.object({
-    transport: z.literal('http'),
-    name: z.string().min(1, 'Name is required'),
-    url: z.url({ error: 'Must be a valid URL' }),
+    url: z.string(),
     authMode: z.enum(['none', 'headers', 'oauth']),
     headers: z.array(z.object({ key: z.string(), value: z.string() })),
     requireApproval: z.boolean(),
-  }),
-])
+  })
+  .superRefine((data, ctx) => {
+    if (data.transport === 'stdio' && data.command.trim().length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Command is required',
+        path: ['command'],
+      })
+    }
+    if (data.transport === 'http') {
+      const result = z.url().safeParse(data.url)
+      if (!result.success) {
+        ctx.addIssue({ code: 'custom', message: 'Must be a valid URL', path: ['url'] })
+      }
+    }
+  })
 
 type FormValues = z.infer<typeof formSchema>
 
@@ -54,12 +64,17 @@ const STDIO_DEFAULTS: FormValues = {
   name: '',
   command: '',
   args: '',
+  url: '',
+  authMode: 'none',
+  headers: [],
   requireApproval: true,
 }
 
 const HTTP_DEFAULTS: FormValues = {
   transport: 'http',
   name: '',
+  command: '',
+  args: '',
   url: '',
   authMode: 'none',
   headers: [],
@@ -79,7 +94,9 @@ function toServerConfig(values: FormValues): Record<string, unknown> {
       .trim()
       .split(/\s+/)
       .filter((a) => a.length > 0)
-    if (parsed.length > 0) config.args = parsed
+    if (parsed.length > 0) {
+      config.args = parsed
+    }
     return config
   }
 
@@ -88,16 +105,20 @@ function toServerConfig(values: FormValues): Record<string, unknown> {
     const h: Record<string, string> = {}
     for (const { key, value } of values.headers) {
       const k = key.trim()
-      if (k) h[k] = value
+      if (k) {
+        h[k] = value
+      }
     }
-    if (Object.keys(h).length > 0) config.headers = h
+    if (Object.keys(h).length > 0) {
+      config.headers = h
+    }
   } else if (values.authMode === 'oauth') {
     config.oauth = true
   }
   return config
 }
 
-export function AddMcpServerDialog() {
+export function AddMcpServerDialog(): React.JSX.Element {
   const [open, setOpen] = useState(false)
   const addServer = useAddMcpServer()
 
@@ -111,11 +132,10 @@ export function AddMcpServerDialog() {
 
   const headerFields = useFieldArray({
     control: form.control,
-    // biome-ignore lint/suspicious/noExplicitAny: headers only exists on sse variant
-    name: 'headers' as any,
+    name: 'headers',
   })
 
-  function switchTransport(t: 'stdio' | 'http') {
+  function switchTransport(t: 'stdio' | 'http'): void {
     const name = form.getValues('name')
     const requireApproval = form.getValues('requireApproval')
     form.reset(
@@ -125,7 +145,7 @@ export function AddMcpServerDialog() {
     )
   }
 
-  function onSubmit(values: FormValues) {
+  function onSubmit(values: FormValues): void {
     addServer.mutate(toServerConfig(values), {
       onSuccess: () => {
         form.reset(STDIO_DEFAULTS)
@@ -137,9 +157,11 @@ export function AddMcpServerDialog() {
   return (
     <Dialog
       open={open}
-      onOpenChange={(v) => {
+      onOpenChange={(v: boolean): void => {
         setOpen(v)
-        if (!v) form.reset(STDIO_DEFAULTS)
+        if (!v) {
+          form.reset(STDIO_DEFAULTS)
+        }
       }}
     >
       <DialogTrigger asChild>
@@ -171,7 +193,7 @@ export function AddMcpServerDialog() {
                   <button
                     key={key}
                     type="button"
-                    onClick={() => switchTransport(key)}
+                    onClick={(): void => switchTransport(key)}
                     className={cn(
                       'inline-flex flex-1 items-center justify-center gap-1.5 rounded-md border px-3 py-2 text-sm transition-colors',
                       transport === key
@@ -190,7 +212,7 @@ export function AddMcpServerDialog() {
             <FormField
               control={form.control}
               name="name"
-              render={({ field }) => (
+              render={({ field }): React.JSX.Element => (
                 <FormItem>
                   <FormLabel>Name</FormLabel>
                   <FormControl>
@@ -206,7 +228,7 @@ export function AddMcpServerDialog() {
                 <FormField
                   control={form.control}
                   name="command"
-                  render={({ field }) => (
+                  render={({ field }): React.JSX.Element => (
                     <FormItem>
                       <FormLabel>Command</FormLabel>
                       <FormControl>
@@ -218,7 +240,7 @@ export function AddMcpServerDialog() {
                 <FormField
                   control={form.control}
                   name="args"
-                  render={({ field }) => (
+                  render={({ field }): React.JSX.Element => (
                     <FormItem>
                       <FormLabel>Arguments</FormLabel>
                       <FormControl>
@@ -239,7 +261,7 @@ export function AddMcpServerDialog() {
                 <FormField
                   control={form.control}
                   name="url"
-                  render={({ field }) => (
+                  render={({ field }): React.JSX.Element => (
                     <FormItem>
                       <FormLabel>Server URL</FormLabel>
                       <FormControl>
@@ -253,7 +275,7 @@ export function AddMcpServerDialog() {
                 <FormField
                   control={form.control}
                   name="authMode"
-                  render={({ field }) => (
+                  render={({ field }): React.JSX.Element => (
                     <FormItem>
                       <FormLabel>Authentication</FormLabel>
                       <div className="flex gap-2">
@@ -267,7 +289,7 @@ export function AddMcpServerDialog() {
                           <button
                             key={key}
                             type="button"
-                            onClick={() => field.onChange(key)}
+                            onClick={(): void => field.onChange(key)}
                             className={cn(
                               'inline-flex flex-1 items-center justify-center rounded-md border px-3 py-2 text-sm transition-colors',
                               field.value === key
@@ -293,7 +315,9 @@ export function AddMcpServerDialog() {
                         variant="ghost"
                         size="sm"
                         className="h-6 gap-1 px-2 text-xs"
-                        onClick={() => headerFields.append({ key: '', value: '' })}
+                        onClick={(): void => {
+                          headerFields.append({ key: '', value: '' })
+                        }}
                       >
                         <PlusIcon className="size-3" />
                         Add
@@ -321,7 +345,9 @@ export function AddMcpServerDialog() {
                           variant="ghost"
                           size="icon"
                           className="size-9 shrink-0"
-                          onClick={() => headerFields.remove(index)}
+                          onClick={(): void => {
+                            headerFields.remove(index)
+                          }}
                         >
                           <XIcon className="size-4" />
                         </Button>
@@ -343,7 +369,7 @@ export function AddMcpServerDialog() {
             <FormField
               control={form.control}
               name="requireApproval"
-              render={({ field }) => (
+              render={({ field }): React.JSX.Element => (
                 <div className="flex items-center justify-between">
                   <div className="flex flex-col gap-0.5">
                     <Label htmlFor="mcp-approval">Require Approval</Label>

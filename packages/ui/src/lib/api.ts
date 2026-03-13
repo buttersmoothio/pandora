@@ -1,10 +1,12 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4111'
+const API_BASE: string = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4111'
 
 const TOKEN_KEY = 'pandora_token'
 const REFRESH_TOKEN_KEY = 'pandora_refresh_token'
 
 export function getToken(): string | null {
-  if (typeof window === 'undefined') return null
+  if (typeof window === 'undefined') {
+    return null
+  }
   return localStorage.getItem(TOKEN_KEY)
 }
 
@@ -17,7 +19,9 @@ export function clearToken(): void {
 }
 
 export function getRefreshToken(): string | null {
-  if (typeof window === 'undefined') return null
+  if (typeof window === 'undefined') {
+    return null
+  }
   return localStorage.getItem(REFRESH_TOKEN_KEY)
 }
 
@@ -39,7 +43,9 @@ let refreshPromise: Promise<boolean> | null = null
 
 export async function refreshTokens(): Promise<boolean> {
   const refreshToken = getRefreshToken()
-  if (!refreshToken) return false
+  if (!refreshToken) {
+    return false
+  }
 
   try {
     const res = await fetch(`${API_BASE}/api/auth/refresh`, {
@@ -47,10 +53,16 @@ export async function refreshTokens(): Promise<boolean> {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ refreshToken }),
     })
-    if (!res.ok) return false
+    if (!res.ok) {
+      return false
+    }
     const data = (await res.json()) as { token?: string; refreshToken?: string }
-    if (data.token) setToken(data.token)
-    if (data.refreshToken) setRefreshToken(data.refreshToken)
+    if (data.token) {
+      setToken(data.token)
+    }
+    if (data.refreshToken) {
+      setRefreshToken(data.refreshToken)
+    }
     return !!data.token
   } catch {
     return false
@@ -63,7 +75,9 @@ async function fetchWithRefresh(url: string, options?: RequestInit): Promise<Res
     headers: { 'Content-Type': 'application/json', ...authHeaders(), ...options?.headers },
   })
 
-  if (res.status !== 401) return res
+  if (res.status !== 401) {
+    return res
+  }
 
   // Deduplicate concurrent refresh attempts
   if (!refreshPromise) {
@@ -73,7 +87,9 @@ async function fetchWithRefresh(url: string, options?: RequestInit): Promise<Res
   }
 
   const refreshed = await refreshPromise
-  if (!refreshed) return res
+  if (!refreshed) {
+    return res
+  }
 
   // Retry with new token
   return fetch(url, {

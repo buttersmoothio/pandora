@@ -30,7 +30,7 @@ export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode
-}>) {
+}>): Promise<React.JSX.Element> {
   const nonce = (await headers()).get('x-nonce') ?? undefined
 
   return (

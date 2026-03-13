@@ -10,7 +10,7 @@ export function utcToLocalInput(iso: string, timeZone: string): string {
     minute: '2-digit',
     hour12: false,
   }).formatToParts(date)
-  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? ''
+  const get = (type: string): string => parts.find((p) => p.type === type)?.value ?? ''
   // en-CA formats hour 00 as "24" at midnight — normalize
   const hour = get('hour') === '24' ? '00' : get('hour')
   return `${get('year')}-${get('month')}-${get('day')}T${hour}:${get('minute')}`

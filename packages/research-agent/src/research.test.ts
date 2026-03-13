@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
+// biome-ignore lint/nursery/useExplicitType: dynamic import type is inferred
 const { agent } = await import('./research')
 
 describe('research agent', () => {

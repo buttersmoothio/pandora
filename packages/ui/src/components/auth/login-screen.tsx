@@ -11,12 +11,12 @@ interface LoginScreenProps {
   onLogin: (password: string) => Promise<void>
 }
 
-export function LoginScreen({ onLogin }: LoginScreenProps) {
+export function LoginScreen({ onLogin }: LoginScreenProps): React.JSX.Element {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  async function handleSubmit(e: FormEvent) {
+  async function handleSubmit(e: FormEvent): Promise<void> {
     e.preventDefault()
     setError('')
     setLoading(true)
@@ -49,7 +49,9 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
                 type="password"
                 placeholder="Enter password"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>): void =>
+                  setPassword(e.target.value)
+                }
                 autoFocus
               />
             </div>

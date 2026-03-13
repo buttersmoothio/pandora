@@ -1,6 +1,7 @@
 import { createTool } from '@mastra/core/tools'
 import { z } from 'zod'
 
+// biome-ignore lint/nursery/useExplicitType: Mastra Tool return type is complex
 export function createCurrentTimeTool(timezone: string) {
   return createTool({
     id: 'current_time',

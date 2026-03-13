@@ -1,9 +1,9 @@
 import { Hono } from 'hono'
 import { describe, expect, it, vi } from 'vitest'
-import type { AuthStore, PasswordCredential, RefreshToken, Session } from './auth-store'
-import { authMiddleware } from './middleware'
+import type { AuthStore, PasswordCredential, RefreshToken, Session } from '../auth-store'
+import { authMiddleware } from '../middleware'
 
-const futureDate = new Date(Date.now() + 86400000).toISOString()
+const futureDate: string = new Date(Date.now() + 86400000).toISOString()
 
 const testCredential: PasswordCredential = {
   hash: 'testhash==',
@@ -38,7 +38,7 @@ function createMockStore(overrides: Partial<AuthStore> = {}): AuthStore {
   }
 }
 
-function createApp(store: AuthStore) {
+function createApp(store: AuthStore): Hono {
   const app = new Hono()
   app.use(
     '/api/*',

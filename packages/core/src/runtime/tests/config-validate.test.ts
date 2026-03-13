@@ -41,7 +41,6 @@ describe('validatePluginConfig', () => {
     const plugin = makePlugin({
       schema: z.object({ apiKey: z.string() }),
     })
-    // @ts-expect-error testing validation with wrong type (number instead of string)
     const result = validatePluginConfig(plugin, { enabled: true, apiKey: 123 })
     expect(result.config).toBeNull()
     expect(result.errors.length).toBeGreaterThan(0)

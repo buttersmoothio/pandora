@@ -5,7 +5,7 @@ import type { ReactNode } from 'react'
 import { useConfig } from '@/hooks/use-config'
 import { OnboardingWizard } from './onboarding-wizard'
 
-export function OnboardingGuard({ children }: { children: ReactNode }) {
+export function OnboardingGuard({ children }: { children: ReactNode }): React.JSX.Element | null {
   const { data: config, isLoading } = useConfig()
 
   if (isLoading) {

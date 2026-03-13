@@ -129,7 +129,9 @@ export class SQLInboxStore implements InboxStore {
       `SELECT id, subject, body, thread_id, destination, status, read, created_at, archived_at FROM ${TABLE} WHERE id = ${this.param(1)}`,
       [id],
     )) as InboxRow[]
-    if (!rows || rows.length === 0) return null
+    if (!rows || rows.length === 0) {
+      return null
+    }
     return toMessage(rows[0])
   }
 

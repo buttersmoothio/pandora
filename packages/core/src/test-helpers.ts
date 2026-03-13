@@ -6,7 +6,7 @@ export const TEST_ENV = {
 }
 
 // Request helper for Hono app
-export function request(path: string, init?: RequestInit) {
+export function request(path: string, init?: RequestInit): Response | Promise<Response> {
   return app.request(path, {
     ...init,
     headers: {
@@ -26,7 +26,7 @@ let _authToken: string | null = null
  * Calls POST /api/auth/setup on first use (or /api/auth/login if already set up)
  * to get a token, then includes `Authorization: Bearer <token>` on all subsequent calls.
  */
-export async function authRequest(path: string, init?: RequestInit) {
+export async function authRequest(path: string, init?: RequestInit): Promise<Response> {
   if (!_authToken) {
     // Try setup first
     const setupRes = await request('/api/auth/setup', {
@@ -61,6 +61,6 @@ export async function authRequest(path: string, init?: RequestInit) {
 /**
  * Reset the cached auth token. Call in afterAll/beforeAll if needed.
  */
-export function resetAuthToken() {
+export function resetAuthToken(): void {
   _authToken = null
 }

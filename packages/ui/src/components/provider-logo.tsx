@@ -10,10 +10,12 @@ export function ProviderLogo({
 }: {
   providerId: string
   className?: string
-}) {
+}): React.JSX.Element | null {
   const [hidden, setHidden] = useState(false)
 
-  if (hidden) return null
+  if (hidden) {
+    return null
+  }
 
   return (
     <Image
@@ -23,7 +25,7 @@ export function ProviderLogo({
       height={16}
       unoptimized
       className={cn('size-4 shrink-0 dark:invert', className)}
-      onError={() => setHidden(true)}
+      onError={(): void => setHidden(true)}
     />
   )
 }

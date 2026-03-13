@@ -21,7 +21,7 @@ export function MessageBranchNav({
   forks: Record<string, BranchRef[]>
   forkInfo: ForkInfo | null
   threadId: string
-}) {
+}): React.JSX.Element | null {
   const router = useRouter()
 
   // Case 1: This thread is the SOURCE — forks[message.id] lists child forks
@@ -47,13 +47,15 @@ export function MessageBranchNav({
     return null
   }, [messageForks, isForkPoint, forkInfo, threadId])
 
-  if (!branches) return null
+  if (!branches) {
+    return null
+  }
 
   return (
     <BranchSelector
       branches={branches}
       currentId={threadId}
-      onNavigate={(id) => router.push(`/chat/${id}`)}
+      onNavigate={(id: string): void => router.push(`/chat/${id}`)}
     />
   )
 }
@@ -66,18 +68,20 @@ function BranchSelector({
   branches: { id: string; label: string }[]
   currentId: string
   onNavigate: (id: string) => void
-}) {
+}): React.JSX.Element | null {
   const currentIndex = branches.findIndex((b) => b.id === currentId)
   const idx = currentIndex === -1 ? 0 : currentIndex
 
-  if (branches.length <= 1) return null
+  if (branches.length <= 1) {
+    return null
+  }
 
   return (
     <div className="flex items-center gap-0.5 text-muted-foreground text-xs">
       <Button
         variant="ghost"
         size="icon-sm"
-        onClick={() => {
+        onClick={(): void => {
           const prev = idx > 0 ? idx - 1 : branches.length - 1
           onNavigate(branches[prev].id)
         }}
@@ -90,7 +94,7 @@ function BranchSelector({
       <Button
         variant="ghost"
         size="icon-sm"
-        onClick={() => {
+        onClick={(): void => {
           const next = idx < branches.length - 1 ? idx + 1 : 0
           onNavigate(branches[next].id)
         }}

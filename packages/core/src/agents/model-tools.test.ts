@@ -25,6 +25,7 @@ vi.mock('@ai-sdk/anthropic', () => ({
   },
 }))
 
+// biome-ignore lint/nursery/useExplicitType: dynamic import type is inferred
 const { resolveModelTools } = await import('./model-tools')
 
 describe('resolveModelTools', () => {

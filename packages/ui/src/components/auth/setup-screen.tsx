@@ -11,13 +11,13 @@ interface SetupScreenProps {
   onSetup: (password: string) => Promise<void>
 }
 
-export function SetupScreen({ onSetup }: SetupScreenProps) {
+export function SetupScreen({ onSetup }: SetupScreenProps): React.JSX.Element {
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  async function handleSubmit(e: FormEvent) {
+  async function handleSubmit(e: FormEvent): Promise<void> {
     e.preventDefault()
     setError('')
 
@@ -59,7 +59,9 @@ export function SetupScreen({ onSetup }: SetupScreenProps) {
                 type="password"
                 placeholder="Minimum 8 characters"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>): void =>
+                  setPassword(e.target.value)
+                }
                 autoFocus
               />
             </div>
@@ -70,7 +72,9 @@ export function SetupScreen({ onSetup }: SetupScreenProps) {
                 type="password"
                 placeholder="Re-enter password"
                 value={confirm}
-                onChange={(e) => setConfirm(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>): void =>
+                  setConfirm(e.target.value)
+                }
               />
             </div>
             {error && <p className="text-destructive text-sm">{error}</p>}

@@ -2,13 +2,13 @@ import { toAISdkStream } from '@mastra/ai-sdk'
 import { describe, expect, it, vi } from 'vitest'
 import { createWebGateway } from '../web-gateway'
 
-const mockGetAgent = vi.fn()
-const mockMastra = { getAgent: mockGetAgent }
+const mockGetAgent: ReturnType<typeof vi.fn> = vi.fn()
+const mockMastra: { getAgent: ReturnType<typeof vi.fn> } = { getAgent: mockGetAgent }
 
 vi.mock('@mastra/ai-sdk', () => ({
   toAISdkStream: vi.fn(() => {
     return new ReadableStream({
-      start(controller) {
+      start(controller: ReadableStreamDefaultController): void {
         controller.close()
       },
     })
@@ -70,7 +70,7 @@ describe('approval transform', () => {
   it('converts data-tool-call-approval to tool-approval-request', async () => {
     vi.mocked(toAISdkStream).mockReturnValueOnce(
       new ReadableStream({
-        start(controller) {
+        start(controller: ReadableStreamDefaultController): void {
           controller.enqueue({
             type: 'data-tool-call-approval',
             data: { runId: 'run-1', toolCallId: 'tc-1' },
@@ -101,7 +101,7 @@ describe('approval transform', () => {
   it('suppresses data-tool-call-suspended chunks', async () => {
     vi.mocked(toAISdkStream).mockReturnValueOnce(
       new ReadableStream({
-        start(controller) {
+        start(controller: ReadableStreamDefaultController): void {
           controller.enqueue({ type: 'data-tool-call-suspended', data: null })
           controller.enqueue({ type: 'text-delta', id: 't1', delta: 'hello' })
           controller.close()
@@ -122,7 +122,9 @@ describe('approval transform', () => {
     const reader = stream.getReader()
     while (true) {
       const { done, value } = await reader.read()
-      if (done) break
+      if (done) {
+        break
+      }
       chunks.push(value)
     }
     expect(chunks).toHaveLength(1)
@@ -133,7 +135,7 @@ describe('approval transform', () => {
     const chunk = { type: 'text-delta' as const, id: 't1', delta: 'world' }
     vi.mocked(toAISdkStream).mockReturnValueOnce(
       new ReadableStream({
-        start(controller) {
+        start(controller: ReadableStreamDefaultController): void {
           controller.enqueue(chunk)
           controller.close()
         },

@@ -5,8 +5,8 @@ import type { McpOAuthStore } from './oauth-store'
 // Mocks
 // ---------------------------------------------------------------------------
 
-const mockListTools = vi.fn().mockResolvedValue({})
-const mockDisconnect = vi.fn()
+const mockListTools: ReturnType<typeof vi.fn> = vi.fn().mockResolvedValue({})
+const mockDisconnect: ReturnType<typeof vi.fn> = vi.fn()
 
 vi.mock('@mastra/mcp', () => ({
   MCPClient: vi.fn(() => ({
@@ -22,10 +22,12 @@ vi.mock('@modelcontextprotocol/sdk/client/auth.js', () => ({
   exchangeAuthorization: vi.fn(),
 }))
 
+// biome-ignore lint/nursery/useExplicitType: dynamic import type is inferred
 const { MCPClient } = await import('@mastra/mcp')
+// biome-ignore lint/nursery/useExplicitType: dynamic import type is inferred
 const { createMcpManager } = await import('./mcp-manager')
 
-function mockConfig(mcpServers: Record<string, unknown> = {}) {
+function mockConfig(mcpServers: Record<string, unknown> = {}): never {
   return { mcpServers } as never
 }
 
@@ -467,8 +469,9 @@ describe('createMcpManager', () => {
       mockListTools.mockResolvedValueOnce({})
       const store = mockOAuthStore({
         get: vi.fn().mockImplementation(async (key: string) => {
-          if (key === 'state:my-state')
+          if (key === 'state:my-state') {
             return JSON.stringify({ serverId: 'srv', createdAt: Date.now() })
+          }
           return undefined // missing code_verifier
         }),
       })
@@ -488,9 +491,12 @@ describe('createMcpManager', () => {
       mockListTools.mockResolvedValueOnce({})
       const store = mockOAuthStore({
         get: vi.fn().mockImplementation(async (key: string) => {
-          if (key === 'state:my-state')
+          if (key === 'state:my-state') {
             return JSON.stringify({ serverId: 'srv', createdAt: Date.now() })
-          if (key === 'srv:code_verifier') return 'verifier123'
+          }
+          if (key === 'srv:code_verifier') {
+            return 'verifier123'
+          }
           return undefined // missing client_info
         }),
       })
@@ -528,10 +534,15 @@ describe('createMcpManager', () => {
 
       const store = mockOAuthStore({
         get: vi.fn().mockImplementation(async (key: string) => {
-          if (key === 'state:my-state')
+          if (key === 'state:my-state') {
             return JSON.stringify({ serverId: 'srv', createdAt: Date.now() })
-          if (key === 'srv:code_verifier') return 'verifier123'
-          if (key === 'srv:client_info') return '{"client_id":"cid"}'
+          }
+          if (key === 'srv:code_verifier') {
+            return 'verifier123'
+          }
+          if (key === 'srv:client_info') {
+            return '{"client_id":"cid"}'
+          }
           return undefined
         }),
       })

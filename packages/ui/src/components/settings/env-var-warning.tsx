@@ -1,7 +1,7 @@
 import { CheckCircle2Icon, CircleDotIcon, XCircleIcon } from 'lucide-react'
 import type { EnvVarDescriptor } from '@/hooks/plugin-types'
 
-function EnvVarRow({ v }: { v: EnvVarDescriptor }) {
+function EnvVarRow({ v }: { v: EnvVarDescriptor }): React.JSX.Element {
   const isOptional = v.required === false
 
   if (v.configured) {
@@ -27,8 +27,14 @@ function EnvVarRow({ v }: { v: EnvVarDescriptor }) {
   )
 }
 
-export function EnvVarOverview({ envVars }: { envVars: EnvVarDescriptor[] }) {
-  if (envVars.length === 0) return null
+export function EnvVarOverview({
+  envVars,
+}: {
+  envVars: EnvVarDescriptor[]
+}): React.JSX.Element | null {
+  if (envVars.length === 0) {
+    return null
+  }
 
   return (
     <div className="flex flex-col">

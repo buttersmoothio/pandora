@@ -15,7 +15,7 @@ import remarkRehype from 'remark-rehype'
 import { unified } from 'unified'
 
 /** Tags that Telegram's HTML mode supports natively. */
-const TELEGRAM_TAGS = new Set([
+const TELEGRAM_TAGS: Set<string> = new Set([
   'b',
   'strong',
   'i',
@@ -54,7 +54,9 @@ function element(
 /** Keep only the attributes Telegram allows for a given tag. */
 function filterProperties(tagName: string, properties: Properties | undefined): Properties {
   const allowed = ALLOWED_ATTRIBUTES[tagName]
-  if (!(allowed && properties)) return {}
+  if (!(allowed && properties)) {
+    return {}
+  }
 
   const filtered: Properties = {}
   for (const [key, value] of Object.entries(properties)) {
@@ -86,7 +88,9 @@ function transformNodes(nodes: ElementContent[], ctx: ListContext = {}): Element
       continue
     }
 
-    if (node.type !== 'element') continue
+    if (node.type !== 'element') {
+      continue
+    }
 
     const tag = node.tagName
 
@@ -147,7 +151,9 @@ function transformNodes(nodes: ElementContent[], ctx: ListContext = {}): Element
 
     if (tag === 'img') {
       const alt = String(node.properties?.alt ?? '')
-      if (alt) result.push(text(alt))
+      if (alt) {
+        result.push(text(alt))
+      }
       continue
     }
 
@@ -172,8 +178,8 @@ function transformNodes(nodes: ElementContent[], ctx: ListContext = {}): Element
  * Rehype plugin that transforms the HTML AST to only use
  * Telegram-compatible elements.
  */
-function rehypeTelegram() {
-  return (tree: Root) => {
+function rehypeTelegram(): (tree: Root) => void {
+  return (tree: Root): void => {
     const elements = tree.children.filter(
       (c): c is ElementContent => c.type === 'element' || c.type === 'text',
     )
@@ -184,6 +190,7 @@ function rehypeTelegram() {
 // ── Public API ───────────────────────────────────────────────
 
 /** Reusable unified processor (frozen on first use). */
+// biome-ignore lint/nursery/useExplicitType: unified processor type is complex
 const processor = unified()
   .use(remarkParse)
   .use(remarkRehype)

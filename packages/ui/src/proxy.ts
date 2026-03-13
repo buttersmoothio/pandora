@@ -1,9 +1,9 @@
 import { type NextRequest, NextResponse } from 'next/server'
 
-export function proxy(request: NextRequest) {
+export function proxy(request: NextRequest): NextResponse {
   const nonce = Buffer.from(crypto.randomUUID()).toString('base64')
 
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4111'
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4111'
 
   const csp = [
     "default-src 'self'",
@@ -34,6 +34,6 @@ export function proxy(request: NextRequest) {
   return response
 }
 
-export const config = {
+export const config: { matcher: string[] } = {
   matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
 }

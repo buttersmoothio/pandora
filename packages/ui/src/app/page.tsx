@@ -33,9 +33,9 @@ import { useConfig } from '@/hooks/use-config'
 import { THREADS_KEY } from '@/hooks/use-threads'
 import { getToken } from '@/lib/api'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4111'
+const API_URL: string = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4111'
 
-export default function Home() {
+export default function Home(): React.JSX.Element {
   const { data: config } = useConfig()
   const agentName = config?.identity.name ?? 'Pandora'
   const router = useRouter()
@@ -49,12 +49,16 @@ export default function Home() {
         const token = getToken()
         return token ? { Authorization: `Bearer ${token}` } : {}
       },
-      prepareSendMessagesRequest: ({ messages }) => {
+      prepareSendMessagesRequest: ({
+        messages,
+      }: {
+        messages: { role: string; parts: unknown[] }[]
+      }) => {
         const lastMessage = messages.at(-1)
         const parts = lastMessage?.role === 'user' ? lastMessage.parts : []
         return { body: { parts } }
       },
-      fetch: async (url, init) => {
+      fetch: async (url: string | URL | globalThis.Request, init: RequestInit | undefined) => {
         const res = await fetch(url, init)
         const threadId = res.headers.get('X-Thread-Id')
         if (threadId) {
@@ -72,12 +76,12 @@ export default function Home() {
         router.push(`/chat/${id}`)
       }
     },
-    onError: (err) => {
+    onError: (err: Error) => {
       toast.error(err.message || 'Stream failed')
     },
   })
 
-  const isStreaming = status === 'streaming'
+  const isStreaming: boolean = status === 'streaming'
 
   return (
     <div className="flex h-full flex-1 flex-col">
@@ -109,7 +113,9 @@ export default function Home() {
         <PromptInput
           globalDrop
           multiple
-          onSubmit={(msg) => sendMessage({ text: msg.text, files: msg.files })}
+          onSubmit={(msg: { text: string; files: import('ai').FileUIPart[] }): void => {
+            sendMessage({ text: msg.text, files: msg.files })
+          }}
         >
           <PromptInputHeader>
             <InputAttachments />

@@ -27,14 +27,18 @@ const FILTERS: { key: FilterKey; label: string; icon: React.ElementType }[] = [
 // Page
 // ---------------------------------------------------------------------------
 
-export default function PluginsPage() {
+export default function PluginsPage(): React.JSX.Element {
   const { plugins, isLoading, error } = usePlugins()
   const { servers: mcpServers, isLoading: mcpLoading } = useMcpServers()
   const [filter, setFilter] = useState<FilterKey>('all')
 
   const filtered = useMemo(() => {
-    if (!plugins) return []
-    if (filter === 'all' || filter === 'mcp') return plugins
+    if (!plugins) {
+      return []
+    }
+    if (filter === 'all' || filter === 'mcp') {
+      return plugins
+    }
     return plugins.filter((p) => p.provides[filter])
   }, [plugins, filter])
 
@@ -84,7 +88,7 @@ export default function PluginsPage() {
           <button
             key={key}
             type="button"
-            onClick={() => setFilter(key)}
+            onClick={(): void => setFilter(key)}
             className={cn(
               'inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm transition-colors',
               filter === key

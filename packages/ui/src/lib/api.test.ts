@@ -12,11 +12,11 @@ import {
   setToken,
 } from './api'
 
-const mockFetch = vi.fn()
+const mockFetch: ReturnType<typeof vi.fn> = vi.fn()
 vi.stubGlobal('fetch', mockFetch)
 
 // jsdom may not provide a full localStorage — stub it
-const storage = new Map<string, string>()
+const storage: Map<string, string> = new Map<string, string>()
 vi.stubGlobal('localStorage', {
   getItem: (key: string) => storage.get(key) ?? null,
   setItem: (key: string, value: string) => storage.set(key, value),

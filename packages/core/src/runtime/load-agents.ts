@@ -13,15 +13,22 @@ import type { PluginRegistry } from './plugin-registry'
 
 type AgentRecord = Record<string, MastraAgent>
 
-function getAgentConfig(pluginConfig: PluginConfig | null, agentId: string) {
-  if (!pluginConfig) return undefined
+function getAgentConfig(
+  pluginConfig: PluginConfig | null,
+  agentId: string,
+): ({ model?: { provider: string; model: string } } & Record<string, unknown>) | undefined {
+  if (!pluginConfig) {
+    return undefined
+  }
   return pluginConfig.agents?.[agentId]
 }
 
 function resolveInheritedTools(agentDef: Agent, globalTools: ToolRecord): ToolRecord {
   const tools: ToolRecord = {}
   for (const id of agentDef.useTools ?? []) {
-    if (globalTools[id]) tools[id] = globalTools[id]
+    if (globalTools[id]) {
+      tools[id] = globalTools[id]
+    }
   }
   return tools
 }
@@ -50,10 +57,14 @@ export async function loadAgents(
   const result: AgentRecord = {}
 
   for (const [, plugin] of registry.plugins) {
-    if (!plugin.agents) continue
+    if (!plugin.agents) {
+      continue
+    }
 
     const { config: pluginConfig } = validatePluginConfig(plugin, config.plugins[plugin.id])
-    if (!pluginConfig) continue
+    if (!pluginConfig) {
+      continue
+    }
 
     const missingEnv = (plugin.envVars ?? []).filter(
       (v) => v.required !== false && !envVars[v.name],
@@ -68,7 +79,9 @@ export async function loadAgents(
 
     for (const agentDef of plugin.agents.definitions) {
       const manifest = plugin.agents.manifests.get(agentDef.id)
-      if (!manifest) continue
+      if (!manifest) {
+        continue
+      }
 
       const agentConfig = getAgentConfig(pluginConfig, agentDef.id)
       const modelConfig = agentConfig?.model ?? config.models.operator

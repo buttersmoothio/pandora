@@ -28,7 +28,7 @@ export type MessageProps = HTMLAttributes<HTMLDivElement> & {
   from: UIMessage['role']
 }
 
-export const Message = ({ className, from, ...props }: MessageProps) => (
+export const Message = ({ className, from, ...props }: MessageProps): React.JSX.Element => (
   <div
     className={cn(
       'group flex w-full max-w-[95%] flex-col gap-2',
@@ -41,7 +41,11 @@ export const Message = ({ className, from, ...props }: MessageProps) => (
 
 export type MessageContentProps = HTMLAttributes<HTMLDivElement>
 
-export const MessageContent = ({ children, className, ...props }: MessageContentProps) => (
+export const MessageContent = ({
+  children,
+  className,
+  ...props
+}: MessageContentProps): React.JSX.Element => (
   <div
     className={cn(
       'is-user:dark flex w-fit min-w-0 max-w-full flex-col gap-2 overflow-hidden text-sm',
@@ -57,7 +61,11 @@ export const MessageContent = ({ children, className, ...props }: MessageContent
 
 export type MessageActionsProps = ComponentProps<'div'>
 
-export const MessageActions = ({ className, children, ...props }: MessageActionsProps) => (
+export const MessageActions = ({
+  className,
+  children,
+  ...props
+}: MessageActionsProps): React.JSX.Element => (
   <div className={cn('flex items-center gap-1', className)} {...props}>
     {children}
   </div>
@@ -75,7 +83,7 @@ export const MessageAction = ({
   variant = 'ghost',
   size = 'icon-sm',
   ...props
-}: MessageActionProps) => {
+}: MessageActionProps): React.JSX.Element => {
   const button = (
     <Button size={size} type="button" variant={variant} {...props}>
       {children}
@@ -108,9 +116,10 @@ interface MessageBranchContextType {
   setBranches: (branches: ReactElement[]) => void
 }
 
-const MessageBranchContext = createContext<MessageBranchContextType | null>(null)
+const MessageBranchContext: React.Context<MessageBranchContextType | null> =
+  createContext<MessageBranchContextType | null>(null)
 
-const useMessageBranch = () => {
+const useMessageBranch = (): MessageBranchContextType => {
   const context = useContext(MessageBranchContext)
 
   if (!context) {
@@ -130,7 +139,7 @@ export const MessageBranch = ({
   onBranchChange,
   className,
   ...props
-}: MessageBranchProps) => {
+}: MessageBranchProps): React.JSX.Element => {
   const [currentBranch, setCurrentBranch] = useState(defaultBranch)
   const [branches, setBranches] = useState<ReactElement[]>([])
 
@@ -173,7 +182,10 @@ export const MessageBranch = ({
 
 export type MessageBranchContentProps = HTMLAttributes<HTMLDivElement>
 
-export const MessageBranchContent = ({ children, ...props }: MessageBranchContentProps) => {
+export const MessageBranchContent = ({
+  children,
+  ...props
+}: MessageBranchContentProps): React.JSX.Element[] => {
   const { currentBranch, setBranches, branches } = useMessageBranch()
   const childrenArray = useMemo(() => (Array.isArray(children) ? children : [children]), [children])
 
@@ -200,7 +212,10 @@ export const MessageBranchContent = ({ children, ...props }: MessageBranchConten
 
 export type MessageBranchSelectorProps = ComponentProps<typeof ButtonGroup>
 
-export const MessageBranchSelector = ({ className, ...props }: MessageBranchSelectorProps) => {
+export const MessageBranchSelector = ({
+  className,
+  ...props
+}: MessageBranchSelectorProps): React.JSX.Element | null => {
   const { totalBranches } = useMessageBranch()
 
   // Don't render if there's only one branch
@@ -222,7 +237,10 @@ export const MessageBranchSelector = ({ className, ...props }: MessageBranchSele
 
 export type MessageBranchPreviousProps = ComponentProps<typeof Button>
 
-export const MessageBranchPrevious = ({ children, ...props }: MessageBranchPreviousProps) => {
+export const MessageBranchPrevious = ({
+  children,
+  ...props
+}: MessageBranchPreviousProps): React.JSX.Element => {
   const { goToPrevious, totalBranches } = useMessageBranch()
 
   return (
@@ -242,7 +260,10 @@ export const MessageBranchPrevious = ({ children, ...props }: MessageBranchPrevi
 
 export type MessageBranchNextProps = ComponentProps<typeof Button>
 
-export const MessageBranchNext = ({ children, ...props }: MessageBranchNextProps) => {
+export const MessageBranchNext = ({
+  children,
+  ...props
+}: MessageBranchNextProps): React.JSX.Element => {
   const { goToNext, totalBranches } = useMessageBranch()
 
   return (
@@ -262,7 +283,10 @@ export const MessageBranchNext = ({ children, ...props }: MessageBranchNextProps
 
 export type MessageBranchPageProps = HTMLAttributes<HTMLSpanElement>
 
-export const MessageBranchPage = ({ className, ...props }: MessageBranchPageProps) => {
+export const MessageBranchPage = ({
+  className,
+  ...props
+}: MessageBranchPageProps): React.JSX.Element => {
   const { currentBranch, totalBranches } = useMessageBranch()
 
   return (
@@ -277,9 +301,14 @@ export const MessageBranchPage = ({ className, ...props }: MessageBranchPageProp
 
 export type MessageResponseProps = ComponentProps<typeof Streamdown>
 
-const streamdownPlugins = { cjk, code, math, mermaid }
+const streamdownPlugins: {
+  cjk: typeof cjk
+  code: typeof code
+  math: typeof math
+  mermaid: typeof mermaid
+} = { cjk, code, math, mermaid }
 
-export const MessageResponse = memo(
+export const MessageResponse: React.NamedExoticComponent<MessageResponseProps> = memo(
   ({ className, ...props }: MessageResponseProps) => (
     <Streamdown
       className={cn('size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0', className)}
@@ -294,7 +323,11 @@ MessageResponse.displayName = 'MessageResponse'
 
 export type MessageToolbarProps = ComponentProps<'div'>
 
-export const MessageToolbar = ({ className, children, ...props }: MessageToolbarProps) => (
+export const MessageToolbar = ({
+  className,
+  children,
+  ...props
+}: MessageToolbarProps): React.JSX.Element => (
   <div className={cn('mt-4 flex w-full items-center justify-between gap-4', className)} {...props}>
     {children}
   </div>
@@ -306,8 +339,14 @@ export const MessageToolbar = ({ className, children, ...props }: MessageToolbar
 
 export type MessageAttachmentsProps = ComponentProps<'div'>
 
-export const MessageAttachments = ({ className, children, ...props }: MessageAttachmentsProps) => {
-  if (!children || Children.count(children) === 0) return null
+export const MessageAttachments = ({
+  className,
+  children,
+  ...props
+}: MessageAttachmentsProps): React.JSX.Element | null => {
+  if (!children || Children.count(children) === 0) {
+    return null
+  }
   return (
     <div className={cn('flex flex-wrap gap-2', className)} {...props}>
       {children}
@@ -329,7 +368,7 @@ export const MessageAttachment = ({
   onRemove,
   className,
   ...props
-}: MessageAttachmentProps) => {
+}: MessageAttachmentProps): React.JSX.Element => {
   const label = data.filename || 'Attachment'
 
   return (

@@ -1,4 +1,10 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import {
+  type UseMutationResult,
+  type UseQueryResult,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { apiFetch } from '@/lib/api'
 import type { RecordResponse } from '@/lib/memory-utils'
@@ -6,7 +12,7 @@ import type { RecordResponse } from '@/lib/memory-utils'
 const POLL_INTERVAL = 10_000
 const WORKING_MEMORY_KEY = ['working-memory'] as const
 
-export function useObservations() {
+export function useObservations(): UseQueryResult<{ observations: string | null }> {
   return useQuery({
     queryKey: ['observations'],
     queryFn: () => apiFetch<{ observations: string | null }>('/api/memory/observations'),
@@ -14,7 +20,7 @@ export function useObservations() {
   })
 }
 
-export function useOMRecord() {
+export function useOMRecord(): UseQueryResult<RecordResponse> {
   return useQuery({
     queryKey: ['om-record'],
     queryFn: () => apiFetch<RecordResponse>('/api/memory/record'),
@@ -22,14 +28,14 @@ export function useOMRecord() {
   })
 }
 
-export function useWorkingMemory() {
+export function useWorkingMemory(): UseQueryResult<{ content: string | null }> {
   return useQuery({
     queryKey: WORKING_MEMORY_KEY,
     queryFn: () => apiFetch<{ content: string | null }>('/api/memory/working'),
   })
 }
 
-export function useUpdateWorkingMemory() {
+export function useUpdateWorkingMemory(): UseMutationResult<{ content: string }, Error, string> {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (content: string) =>
@@ -37,7 +43,7 @@ export function useUpdateWorkingMemory() {
         method: 'PUT',
         body: JSON.stringify({ content }),
       }),
-    onSuccess: (data) => {
+    onSuccess: (data: { content: string }) => {
       queryClient.setQueryData(WORKING_MEMORY_KEY, data)
     },
     onError: (err: Error) => {

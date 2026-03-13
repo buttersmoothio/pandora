@@ -6,7 +6,7 @@ import { useParams } from 'next/navigation'
 import { ThreadChat, type ThreadResponse } from '@/components/chat/thread-chat'
 import { apiFetch } from '@/lib/api'
 
-export default function ThreadPage() {
+export default function ThreadPage(): React.JSX.Element {
   const { threadId } = useParams<{ threadId: string }>()
 
   const { data, isLoading } = useQuery({

@@ -5,6 +5,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { DefaultChatTransport, isToolUIPart, type UIMessage } from 'ai'
 import { MessageSquareIcon, PencilIcon } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import type React from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import {
@@ -23,6 +24,7 @@ import {
   PromptInputBody,
   PromptInputFooter,
   PromptInputHeader,
+  type PromptInputMessage,
   PromptInputSubmit,
   PromptInputTextarea,
   PromptInputTools,
@@ -37,7 +39,7 @@ import { type ForkInfo, THREADS_KEY, useForkThread } from '@/hooks/use-threads'
 import { apiFetch, getToken } from '@/lib/api'
 import { convertServerMessages, type ServerMessage } from '@/lib/messages'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4111'
+const API_URL: string = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4111'
 
 export interface ThreadResponse {
   thread: {
@@ -61,7 +63,7 @@ export function ThreadChat({
   serverMessages: ServerMessage[]
   forks: Record<string, BranchRef[]>
   forkInfo: ForkInfo | null
-}) {
+}): React.JSX.Element {
   const router = useRouter()
   const queryClient = useQueryClient()
   const { data: config } = useConfig()
@@ -77,7 +79,7 @@ export function ThreadChat({
     () =>
       new DefaultChatTransport({
         api: `${API_URL}/api/chat`,
-        fetch: async (url, init) => {
+        fetch: async (url: RequestInfo | URL, init: RequestInit | undefined): Promise<Response> => {
           const res = await fetch(url, init)
           queryClient.invalidateQueries({ queryKey: THREADS_KEY })
           return res
@@ -86,7 +88,7 @@ export function ThreadChat({
           const token = getToken()
           return token ? { Authorization: `Bearer ${token}` } : {}
         },
-        prepareSendMessagesRequest: ({ messages }) => {
+        prepareSendMessagesRequest: ({ messages }: { messages: UIMessage[] }) => {
           const lastMessage = messages.at(-1)
 
           // Route approval responses to the approval endpoint
@@ -124,15 +126,17 @@ export function ThreadChat({
     transport,
     messages: initialMessages,
     resume: true,
-    sendAutomaticallyWhen: ({ messages: msgs }) => {
+    sendAutomaticallyWhen: ({ messages: msgs }: { messages: UIMessage[] }): boolean => {
       const lastMessage = msgs.at(-1)
-      if (lastMessage?.role !== 'assistant') return false
+      if (lastMessage?.role !== 'assistant') {
+        return false
+      }
       return lastMessage.parts.some((p) => isToolUIPart(p) && p.state === 'approval-responded')
     },
     onFinish: () => {
       queryClient.invalidateQueries({ queryKey: THREADS_KEY })
     },
-    onError: (err) => {
+    onError: (err: Error): void => {
       toast.error(err.message || 'Stream failed')
     },
   })
@@ -140,9 +144,13 @@ export function ThreadChat({
   // Auto-send pending fork message once chat is ready
   const hasSentPending = useRef(false)
   useEffect(() => {
-    if (hasSentPending.current || status !== 'ready') return
+    if (hasSentPending.current || status !== 'ready') {
+      return
+    }
     const raw = sessionStorage.getItem('pendingForkMessage')
-    if (!raw) return
+    if (!raw) {
+      return
+    }
     try {
       const { threadId: forkId, text } = JSON.parse(raw)
       if (forkId === threadId) {
@@ -171,7 +179,9 @@ export function ThreadChat({
   const handleSubmitEdit = useCallback(
     async (clientMessageId: string) => {
       const text = editText.trim()
-      if (!text) return
+      if (!text) {
+        return
+      }
       setEditingMessageId(null)
       setEditText('')
 
@@ -194,7 +204,7 @@ export function ThreadChat({
       forkThread.mutate(
         { threadId, messageId },
         {
-          onSuccess: ({ thread: forkedThread }) => {
+          onSuccess: ({ thread: forkedThread }: { thread: { id: string } }): void => {
             sessionStorage.setItem(
               'pendingForkMessage',
               JSON.stringify({ threadId: forkedThread.id, text }),
@@ -225,7 +235,9 @@ export function ThreadChat({
                     text={editText}
                     onChange={setEditText}
                     onCancel={handleCancelEdit}
-                    onSubmit={() => handleSubmitEdit(message.id)}
+                    onSubmit={(): void => {
+                      handleSubmitEdit(message.id)
+                    }}
                   />
                 ) : message.role === 'user' ? (
                   <div className="group/actions flex items-center gap-1 self-end">
@@ -246,7 +258,7 @@ export function ThreadChat({
                       <Button
                         variant="ghost"
                         size="icon-sm"
-                        onClick={() => handleEdit(message)}
+                        onClick={(): void => handleEdit(message)}
                         className="shrink-0 self-center text-muted-foreground opacity-0 transition-opacity group-hover/actions:opacity-100"
                       >
                         <PencilIcon className="size-3.5" />
@@ -273,7 +285,9 @@ export function ThreadChat({
         <PromptInput
           globalDrop
           multiple
-          onSubmit={(msg) => sendMessage({ text: msg.text, files: msg.files })}
+          onSubmit={(msg: PromptInputMessage): void => {
+            sendMessage({ text: msg.text, files: msg.files })
+          }}
         >
           <PromptInputHeader>
             <InputAttachments />

@@ -6,7 +6,7 @@ import { MemorySection } from '@/components/memory/memory-settings'
 import { ShortTermSection } from '@/components/memory/short-term-section'
 import { useConfig } from '@/hooks/use-config'
 
-export default function MemoryPage() {
+export default function MemoryPage(): React.JSX.Element {
   const { data: config, isLoading, error } = useConfig()
 
   if (isLoading) {

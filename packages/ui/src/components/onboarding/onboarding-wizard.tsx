@@ -11,6 +11,7 @@ import {
   PlugIcon,
   SparklesIcon,
 } from 'lucide-react'
+import type React from 'react'
 import { useEffect, useMemo, useState } from 'react'
 import { ProviderLogo } from '@/components/provider-logo'
 import { UnifiedPluginCard } from '@/components/settings/unified-plugin-card'
@@ -32,9 +33,9 @@ import type { UnifiedPluginInfo } from '@/hooks/use-plugins'
 import { usePlugins } from '@/hooks/use-plugins'
 import { cn } from '@/lib/utils'
 
-const TOTAL_STEPS = 5
+const TOTAL_STEPS: number = 5
 
-const SUGGESTED_PLUGIN_IDS = [
+const SUGGESTED_PLUGIN_IDS: string[] = [
   '@pandorakit/telegram',
   '@pandorakit/brave-search',
   '@pandorakit/research-agent',
@@ -46,7 +47,7 @@ const SUGGESTED_PLUGIN_IDS = [
 
 const STEP_KEYS = ['name', 'model', 'memory', 'schedule', 'plugins'] as const
 
-function StepIndicator({ current, total }: { current: number; total: number }) {
+function StepIndicator({ current, total }: { current: number; total: number }): React.JSX.Element {
   return (
     <div className="flex items-center gap-2">
       {STEP_KEYS.slice(0, total).map((key, i) => (
@@ -76,7 +77,7 @@ function StepLayout({
   title: string
   subtitle: string
   children: React.ReactNode
-}) {
+}): React.JSX.Element {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col items-center gap-3 text-center">
@@ -97,7 +98,13 @@ function StepLayout({
 // Step 1: Name
 // ---------------------------------------------------------------------------
 
-function NameStep({ name, onChange }: { name: string; onChange: (name: string) => void }) {
+function NameStep({
+  name,
+  onChange,
+}: {
+  name: string
+  onChange: (name: string) => void
+}): React.JSX.Element {
   return (
     <StepLayout
       icon={SparklesIcon}
@@ -107,7 +114,7 @@ function NameStep({ name, onChange }: { name: string; onChange: (name: string) =
       <div className="mx-auto w-full max-w-xs">
         <Input
           value={name}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>): void => onChange(e.target.value)}
           placeholder="e.g. Atlas, Nova, Jarvis..."
           className="text-center text-lg"
           autoFocus
@@ -131,14 +138,16 @@ function ModelStep({
   model: string
   onProviderChange: (provider: string) => void
   onModelChange: (model: string) => void
-}) {
+}): React.JSX.Element {
   const { data: modelsData } = useModels()
   const [providerOpen, setProviderOpen] = useState(false)
   const [modelOpen, setModelOpen] = useState(false)
 
   const allProviders = modelsData?.providers ?? []
   const providers = [...allProviders].sort((a, b) => {
-    if (a.configured !== b.configured) return a.configured ? -1 : 1
+    if (a.configured !== b.configured) {
+      return a.configured ? -1 : 1
+    }
     return a.name.localeCompare(b.name)
   })
   const selectedProvider = allProviders.find((p) => p.id === provider)
@@ -172,9 +181,11 @@ function ModelStep({
                     <CommandItem
                       key={p.id}
                       value={p.name}
-                      onSelect={() => {
+                      onSelect={(): void => {
                         onProviderChange(p.id)
-                        if (provider !== p.id) onModelChange('')
+                        if (provider !== p.id) {
+                          onModelChange('')
+                        }
                         setProviderOpen(false)
                       }}
                     >
@@ -221,7 +232,7 @@ function ModelStep({
                     <CommandItem
                       key={m}
                       value={m}
-                      onSelect={() => {
+                      onSelect={(): void => {
                         onModelChange(m)
                         setModelOpen(false)
                       }}
@@ -264,7 +275,7 @@ function MemoryStep({
 }: {
   enabled: boolean
   onChange: (enabled: boolean) => void
-}) {
+}): React.JSX.Element {
   return (
     <StepLayout
       icon={BrainIcon}
@@ -306,7 +317,7 @@ function ScheduleStep({
 }: {
   enabled: boolean
   onChange: (enabled: boolean) => void
-}) {
+}): React.JSX.Element {
   return (
     <StepLayout
       icon={CalendarIcon}
@@ -342,16 +353,21 @@ function ScheduleStep({
 // Step 5: Plugins
 // ---------------------------------------------------------------------------
 
-function PluginsStep() {
+function PluginsStep(): React.JSX.Element {
   const { plugins } = usePlugins()
 
   const { suggested, others } = useMemo(() => {
-    if (!plugins) return { suggested: [], others: [] }
+    if (!plugins) {
+      return { suggested: [], others: [] }
+    }
     const s: UnifiedPluginInfo[] = []
     const o: UnifiedPluginInfo[] = []
     for (const p of plugins) {
-      if (SUGGESTED_PLUGIN_IDS.includes(p.id)) s.push(p)
-      else o.push(p)
+      if (SUGGESTED_PLUGIN_IDS.includes(p.id)) {
+        s.push(p)
+      } else {
+        o.push(p)
+      }
     }
     s.sort((a, b) => SUGGESTED_PLUGIN_IDS.indexOf(a.id) - SUGGESTED_PLUGIN_IDS.indexOf(b.id))
     return { suggested: s, others: o }
@@ -392,7 +408,7 @@ function CompleteStep({
   model: string
   memoryEnabled: boolean
   scheduleEnabled: boolean
-}) {
+}): React.JSX.Element {
   const { plugins } = usePlugins()
   const enabledCount = plugins?.filter((p) => p.enabled).length ?? 0
 
@@ -419,7 +435,7 @@ function CompleteStep({
   )
 }
 
-function SummaryRow({ label, value }: { label: string; value: string }) {
+function SummaryRow({ label, value }: { label: string; value: string }): React.JSX.Element {
   return (
     <div className="flex items-center justify-between rounded-lg border px-4 py-2.5">
       <span className="text-muted-foreground text-sm">{label}</span>
@@ -474,7 +490,7 @@ function canContinueFromStep(step: number, state: WizardState): boolean {
 // Main wizard
 // ---------------------------------------------------------------------------
 
-export function OnboardingWizard() {
+export function OnboardingWizard(): React.JSX.Element {
   const { data: config } = useConfig()
   const updateConfig = useUpdateConfig()
   const { mutate } = updateConfig
@@ -487,7 +503,9 @@ export function OnboardingWizard() {
   const [scheduleEnabled, setScheduleEnabled] = useState(true)
 
   useEffect(() => {
-    if (!config) return
+    if (!config) {
+      return
+    }
     setName(config.identity.name)
     setProvider(config.models.operator.provider)
     setModel(config.models.operator.model)
@@ -514,7 +532,7 @@ export function OnboardingWizard() {
     scheduleEnabled,
   }
 
-  function saveAndAdvance() {
+  function saveAndAdvance(): void {
     const patch = buildStepPatch(step, state)
     if (patch) {
       updateConfig.mutate(patch, { onSuccess: () => setStep(step + 1) })
@@ -523,9 +541,12 @@ export function OnboardingWizard() {
     }
   }
 
-  function skip() {
-    if (step < TOTAL_STEPS) setStep(step + 1)
-    else updateConfig.mutate({ onboardingComplete: true })
+  function skip(): void {
+    if (step < TOTAL_STEPS) {
+      setStep(step + 1)
+    } else {
+      updateConfig.mutate({ onboardingComplete: true })
+    }
   }
 
   const canContinue = canContinueFromStep(step, state)
@@ -566,7 +587,7 @@ export function OnboardingWizard() {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setStep(step - 1)}
+                onClick={(): void => setStep(step - 1)}
                 disabled={isSaving}
               >
                 Back

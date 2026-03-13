@@ -32,7 +32,9 @@ function generateKey(filename?: string, mimeType?: string): string {
  */
 function parseDataUrl(url: string): { buffer: Uint8Array; mimeType: string } | null {
   const match = url.match(/^data:([^;,]+)?(?:;base64)?,(.*)$/)
-  if (!match) return null
+  if (!match) {
+    return null
+  }
   const mimeType = match[1] || 'application/octet-stream'
   const base64 = match[2]
   const buffer = Buffer.from(base64, 'base64')
@@ -51,7 +53,9 @@ interface FilePart {
 }
 
 function isFilePart(part: unknown): part is FilePart {
-  if (typeof part !== 'object' || part === null) return false
+  if (typeof part !== 'object' || part === null) {
+    return false
+  }
   const record = part as Record<string, unknown>
   return record.type === 'file' && typeof record.data === 'string'
 }
@@ -66,7 +70,9 @@ async function uploadPart(
   log: ReturnType<typeof getLogger>,
 ): Promise<FilePart> {
   const parsed = parseDataUrl(part.data)
-  if (!parsed) return part
+  if (!parsed) {
+    return part
+  }
 
   const key = generateKey(part.filename, parsed.mimeType)
   try {
@@ -89,12 +95,16 @@ async function uploadMessageAttachments(
   log: ReturnType<typeof getLogger>,
 ): Promise<MastraDBMessage> {
   const parts = msg.content?.parts
-  if (!Array.isArray(parts)) return msg
+  if (!Array.isArray(parts)) {
+    return msg
+  }
 
   let modified = false
   const newParts = await Promise.all(
     parts.map(async (part: unknown) => {
-      if (!(isFilePart(part) && isUploadable(part))) return part
+      if (!(isFilePart(part) && isUploadable(part))) {
+        return part
+      }
       modified = true
       return uploadPart(part, disk, log)
     }),
@@ -109,11 +119,15 @@ async function uploadMessageAttachments(
 
 function resolveMessageUrls(msg: MastraDBMessage, baseUrl: string): MastraDBMessage {
   const parts = msg.content?.parts
-  if (!Array.isArray(parts)) return msg
+  if (!Array.isArray(parts)) {
+    return msg
+  }
 
   let modified = false
   const newParts = parts.map((part: unknown) => {
-    if (!(isFilePart(part) && part.data.startsWith(FILE_URL_PREFIX))) return part
+    if (!(isFilePart(part) && part.data.startsWith(FILE_URL_PREFIX))) {
+      return part
+    }
     modified = true
     return { ...part, data: `${baseUrl}${part.data}` }
   })
@@ -124,11 +138,15 @@ function resolveMessageUrls(msg: MastraDBMessage, baseUrl: string): MastraDBMess
 function stripBaseUrlFromMessage(msg: MastraDBMessage, baseUrl: string): MastraDBMessage {
   const prefix = `${baseUrl}${FILE_URL_PREFIX}`
   const parts = msg.content?.parts
-  if (!Array.isArray(parts)) return msg
+  if (!Array.isArray(parts)) {
+    return msg
+  }
 
   let modified = false
   const newParts = parts.map((part: unknown) => {
-    if (!(isFilePart(part) && part.data.startsWith(prefix))) return part
+    if (!(isFilePart(part) && part.data.startsWith(prefix))) {
+      return part
+    }
     modified = true
     return { ...part, data: part.data.slice(baseUrl.length) }
   })
