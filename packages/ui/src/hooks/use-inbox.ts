@@ -6,21 +6,11 @@ import {
   useQueryClient,
 } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { apiFetch } from '@/lib/api'
+import { client } from '@/lib/api'
 
-export type DeliveryStatus = 'pending' | 'sent' | 'failed'
+export type { DeliveryStatus, InboxMessage } from '@pandorakit/sdk/client'
 
-export interface InboxMessage {
-  id: string
-  subject: string
-  body: string
-  threadId: string | null
-  destination: string
-  status: DeliveryStatus
-  read: boolean
-  createdAt: string
-  archivedAt: string | null
-}
+import type { InboxMessage } from '@pandorakit/sdk/client'
 
 interface InboxListResponse {
   messages: InboxMessage[]
@@ -31,7 +21,7 @@ export const INBOX_KEY = ['inbox'] as const
 export function useInbox(archived: boolean = false): UseQueryResult<InboxListResponse> {
   return useQuery({
     queryKey: [...INBOX_KEY, { archived }],
-    queryFn: () => apiFetch<InboxListResponse>(`/api/inbox${archived ? '?archived=true' : ''}`),
+    queryFn: () => client.inbox.list({ archived }),
     refetchInterval: 30_000,
   })
 }
@@ -40,11 +30,7 @@ export function useMarkInboxRead(): UseMutationResult<InboxMessage, Error, strin
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (id: string) =>
-      apiFetch<InboxMessage>(`/api/inbox/${id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ read: true }),
-      }),
+    mutationFn: (id: string) => client.inbox.update(id, { read: true }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: INBOX_KEY })
     },
@@ -58,11 +44,7 @@ export function useArchiveInboxMessage(): UseMutationResult<InboxMessage, Error,
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (id: string) =>
-      apiFetch<InboxMessage>(`/api/inbox/${id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ archived: true }),
-      }),
+    mutationFn: (id: string) => client.inbox.update(id, { archived: true }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: INBOX_KEY })
     },
@@ -76,11 +58,7 @@ export function useUnarchiveInboxMessage(): UseMutationResult<InboxMessage, Erro
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (id: string) =>
-      apiFetch<InboxMessage>(`/api/inbox/${id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ archived: false }),
-      }),
+    mutationFn: (id: string) => client.inbox.update(id, { archived: false }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: INBOX_KEY })
     },
@@ -94,10 +72,7 @@ export function useDeleteInboxMessage(): UseMutationResult<{ deleted: string }, 
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (id: string) =>
-      apiFetch<{ deleted: string }>(`/api/inbox/${id}`, {
-        method: 'DELETE',
-      }),
+    mutationFn: (id: string) => client.inbox.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: INBOX_KEY })
     },

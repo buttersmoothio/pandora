@@ -1,20 +1,11 @@
 'use client'
 
+import { PandoraApiError } from '@pandorakit/sdk/client'
 import type React from 'react'
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useState } from 'react'
 import { LoginScreen } from '@/components/auth/login-screen'
 import { SetupScreen } from '@/components/auth/setup-screen'
-import {
-  apiFetchRaw,
-  clearRefreshToken,
-  clearToken,
-  getToken,
-  refreshTokens,
-  setRefreshToken,
-  setToken,
-} from '@/lib/api'
-
-const API_BASE: string = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4111'
+import { clearTokens, client, getRefreshToken, storeTokens } from '@/lib/api'
 
 const ERROR_MESSAGES: Record<string, string> = {
   invalid_credentials: 'Invalid password',
@@ -22,25 +13,18 @@ const ERROR_MESSAGES: Record<string, string> = {
   already_setup: 'Password has already been configured',
 }
 
-async function authFetch<T>(path: string, body: unknown): Promise<T> {
-  const token = getToken()
-  const res = await fetch(`${API_BASE}${path}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    body: JSON.stringify(body),
-  })
-
-  const data = await res.json()
-
-  if (!res.ok) {
-    const code = data?.error ?? ''
-    throw new Error(ERROR_MESSAGES[code] ?? code ?? `Request failed (${res.status})`)
+function mapApiError(err: unknown): Error {
+  if (err instanceof PandoraApiError) {
+    try {
+      const data = JSON.parse(err.body) as { error?: string }
+      const code = data?.error ?? ''
+      const message = ERROR_MESSAGES[code] ?? code ?? `Request failed (${err.status})`
+      return new Error(message)
+    } catch {
+      return new Error(ERROR_MESSAGES[err.body] ?? err.body ?? `Request failed (${err.status})`)
+    }
   }
-
-  return data as T
+  return err instanceof Error ? err : new Error('An unexpected error occurred')
 }
 
 type AuthStatus = 'loading' | 'setup_required' | 'login_required' | 'authenticated'
@@ -62,42 +46,31 @@ export function useAuth(): AuthContextValue {
   return ctx
 }
 
-interface HealthResponse {
-  auth: { setup: boolean; authenticated: boolean }
-}
-
-interface TokenResponse {
-  token: string
-  refreshToken: string
-  expiresAt: string
-  refreshExpiresAt: string
-}
-
 export function AuthProvider({ children }: { children: ReactNode }): React.JSX.Element {
   const [status, setStatus] = useState<AuthStatus>('loading')
 
   const checkAuth = useCallback(async () => {
     try {
-      const res = await apiFetchRaw('/')
-      if (!res.ok) {
-        setStatus('login_required')
-        return
-      }
-      const data = (await res.json()) as HealthResponse
+      const data = await client.health()
       if (!data.auth.setup) {
         setStatus('setup_required')
       } else if (data.auth.authenticated) {
         setStatus('authenticated')
       } else {
         // Not authenticated — try refresh before falling back to login
-        const refreshed = await refreshTokens()
-        if (refreshed) {
-          setStatus('authenticated')
-        } else {
-          clearToken()
-          clearRefreshToken()
-          setStatus('login_required')
+        const refreshToken = getRefreshToken()
+        if (refreshToken) {
+          try {
+            const tokens = await client.auth.refresh(refreshToken)
+            storeTokens(tokens)
+            setStatus('authenticated')
+            return
+          } catch {
+            // Refresh failed — fall through to login
+          }
         }
+        clearTokens()
+        setStatus('login_required')
       }
     } catch {
       setStatus('login_required')
@@ -109,27 +82,32 @@ export function AuthProvider({ children }: { children: ReactNode }): React.JSX.E
   }, [checkAuth])
 
   const handleSetup = useCallback(async (password: string) => {
-    const data = await authFetch<TokenResponse>('/api/auth/setup', { password })
-    setToken(data.token)
-    setRefreshToken(data.refreshToken)
-    setStatus('authenticated')
+    try {
+      const tokens = await client.auth.setup(password)
+      storeTokens(tokens)
+      setStatus('authenticated')
+    } catch (err) {
+      throw mapApiError(err)
+    }
   }, [])
 
   const handleLogin = useCallback(async (password: string) => {
-    const data = await authFetch<TokenResponse>('/api/auth/login', { password })
-    setToken(data.token)
-    setRefreshToken(data.refreshToken)
-    setStatus('authenticated')
+    try {
+      const tokens = await client.auth.login(password)
+      storeTokens(tokens)
+      setStatus('authenticated')
+    } catch (err) {
+      throw mapApiError(err)
+    }
   }, [])
 
   const logout = useCallback(async () => {
     try {
-      await authFetch('/api/auth/logout', {})
+      await client.auth.logout()
     } catch {
       // Ignore errors — clear local state regardless
     }
-    clearToken()
-    clearRefreshToken()
+    clearTokens()
     setStatus('login_required')
   }, [])
 

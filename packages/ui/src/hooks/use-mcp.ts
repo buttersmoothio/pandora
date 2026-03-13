@@ -5,24 +5,11 @@ import {
   useQueryClient,
 } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { apiFetch } from '@/lib/api'
+import { client } from '@/lib/api'
 
-export interface McpToolOverview {
-  id: string
-  name: string
-  description: string
-}
+export type { AddMcpServerInput, McpServerInfo, McpToolOverview } from '@pandorakit/sdk/client'
 
-export interface McpServerInfo {
-  id: string
-  name: string
-  type: 'stdio' | 'http'
-  enabled: boolean
-  requireApproval: boolean
-  tools: McpToolOverview[]
-  error?: string
-  authUrl?: string
-}
+import type { AddMcpServerInput, McpServerInfo } from '@pandorakit/sdk/client'
 
 interface McpServersResponse {
   servers: McpServerInfo[]
@@ -35,7 +22,7 @@ export function useMcpServers(): {
 } & ReturnType<typeof useQuery<McpServersResponse>> {
   const query = useQuery({
     queryKey: MCP_SERVERS_KEY,
-    queryFn: () => apiFetch<McpServersResponse>('/api/mcp-servers'),
+    queryFn: () => client.mcpServers.list(),
   })
 
   return {
@@ -44,19 +31,11 @@ export function useMcpServers(): {
   }
 }
 
-export function useAddMcpServer(): UseMutationResult<
-  { id: string },
-  Error,
-  Record<string, unknown>
-> {
+export function useAddMcpServer(): UseMutationResult<{ id: string }, Error, AddMcpServerInput> {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (serverConfig: Record<string, unknown>) =>
-      apiFetch<{ id: string }>('/api/mcp-servers', {
-        method: 'POST',
-        body: JSON.stringify(serverConfig),
-      }),
+    mutationFn: (serverConfig: AddMcpServerInput) => client.mcpServers.add(serverConfig),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: MCP_SERVERS_KEY })
       queryClient.invalidateQueries({ queryKey: ['config'] })

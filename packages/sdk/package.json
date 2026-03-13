@@ -30,6 +30,14 @@
       "import": "./dist/agents.js",
       "types": "./dist/agents.d.ts"
     },
+    "./api": {
+      "import": "./dist/api-types.js",
+      "types": "./dist/api-types.d.ts"
+    },
+    "./client": {
+      "import": "./dist/client.js",
+      "types": "./dist/client.d.ts"
+    },
     "./schemas/pandora.manifest.schema.json": "./schemas/pandora.manifest.schema.json"
   },
   "files": [
@@ -38,6 +46,7 @@
   ],
   "scripts": {
     "build": "tsup",
+    "test": "bun test",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {

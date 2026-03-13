@@ -156,6 +156,7 @@
       "dependencies": {
         "@ai-sdk/react": "^3.0.92",
         "@hookform/resolvers": "^5.2.2",
+        "@pandorakit/sdk": "workspace:*",
         "@radix-ui/react-use-controllable-state": "^1.2.2",
         "@rive-app/react-webgl2": "^4.27.0",
         "@streamdown/cjk": "^1.0.2",

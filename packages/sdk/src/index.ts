@@ -1,3 +1,15 @@
+/**
+ * @pandorakit/sdk — the Pandora SDK.
+ *
+ * Exports types and interfaces for building tools, agents, and channel
+ * adapters.
+ *
+ * For API response types, use `@pandorakit/sdk/api`.
+ * For a typed HTTP client, use `@pandorakit/sdk/client`.
+ *
+ * @packageDocumentation
+ */
+
 export type { Agent, AgentManifest } from './agents'
 export type {
   Channel,

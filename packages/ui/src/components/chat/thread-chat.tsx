@@ -36,10 +36,8 @@ import { MessageParts } from '@/components/message-parts'
 import { Button } from '@/components/ui/button'
 import { useConfig } from '@/hooks/use-config'
 import { type ForkInfo, THREADS_KEY, useForkThread } from '@/hooks/use-threads'
-import { apiFetch, getToken } from '@/lib/api'
+import { API_URL, client, getToken } from '@/lib/api'
 import { convertServerMessages, type ServerMessage } from '@/lib/messages'
-
-const API_URL: string = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4111'
 
 export interface ThreadResponse {
   thread: {
@@ -159,6 +157,7 @@ export function ThreadChat({
         sendMessage({ text })
       }
     } catch {
+      // Invalid JSON in sessionStorage — clean up
       sessionStorage.removeItem('pendingForkMessage')
     }
   }, [threadId, sendMessage, status])
@@ -191,7 +190,7 @@ export function ThreadChat({
       const msgIndex = messages.findIndex((m) => m.id === clientMessageId)
       if (msgIndex !== -1) {
         try {
-          const fresh = await apiFetch<ThreadResponse>(`/api/threads/${threadId}`)
+          const fresh = (await client.threads.get(threadId)) as ThreadResponse
           const freshMessages = convertServerMessages(fresh.messages)
           if (freshMessages[msgIndex]) {
             messageId = freshMessages[msgIndex].id

@@ -4,14 +4,14 @@ import { useQuery } from '@tanstack/react-query'
 import { LoaderIcon } from 'lucide-react'
 import { useParams } from 'next/navigation'
 import { ThreadChat, type ThreadResponse } from '@/components/chat/thread-chat'
-import { apiFetch } from '@/lib/api'
+import { client } from '@/lib/api'
 
 export default function ThreadPage(): React.JSX.Element {
   const { threadId } = useParams<{ threadId: string }>()
 
   const { data, isLoading } = useQuery({
     queryKey: ['thread', threadId],
-    queryFn: () => apiFetch<ThreadResponse>(`/api/threads/${threadId}`),
+    queryFn: () => client.threads.get(threadId) as Promise<ThreadResponse>,
   })
 
   if (isLoading || !data) {

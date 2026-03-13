@@ -6,39 +6,25 @@ import {
   useQueryClient,
 } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { apiFetch } from '@/lib/api'
+import { client } from '@/lib/api'
 
-export interface Thread {
-  id: string
-  title?: string
-  createdAt: string
-  updatedAt: string
-  metadata?: Record<string, unknown>
-  activeThreadId?: string
-  threadIds?: string[]
-}
+export type {
+  BranchRef,
+  ForkInfo,
+  Thread,
+  ThreadDetailResponse,
+  ThreadForkResponse,
+  ThreadListResponse,
+} from '@pandorakit/sdk/client'
 
-export interface ForkInfo {
-  sourceThreadId: string
-  forkPointIndex: number
-  siblings: { id: string; title?: string }[]
-}
-
-export interface ThreadListResponse {
-  threads: Thread[]
-  total: number
-  page: number
-  perPage: number | false
-  hasMore: boolean
-  activeStreamIds?: string[]
-}
+import type { ThreadForkResponse, ThreadListResponse } from '@pandorakit/sdk/client'
 
 export const THREADS_KEY = ['threads'] as const
 
 export function useThreads(): UseQueryResult<ThreadListResponse> {
   return useQuery({
     queryKey: THREADS_KEY,
-    queryFn: () => apiFetch<ThreadListResponse>('/api/threads'),
+    queryFn: () => client.threads.list(),
     refetchInterval: (query: { state: { data: ThreadListResponse | undefined } }) => {
       const ids = query.state.data?.activeStreamIds
       return ids?.length ? 1000 : 30_000
@@ -47,30 +33,25 @@ export function useThreads(): UseQueryResult<ThreadListResponse> {
 }
 
 export function useForkThread(): UseMutationResult<
-  { thread: Thread; clonedMessageCount: number },
+  ThreadForkResponse,
   Error,
   { threadId: string; messageId: string }
 > {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: ({ threadId, messageId }: { threadId: string; messageId: string }) =>
-      apiFetch<{ thread: Thread; clonedMessageCount: number }>(`/api/threads/${threadId}/fork`, {
-        method: 'POST',
-        body: JSON.stringify({ messageId }),
-        headers: { 'Content-Type': 'application/json' },
-      }),
+      client.threads.fork(threadId, messageId),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: THREADS_KEY }),
     onError: (err: Error) => toast.error(`Failed to fork thread: ${err.message}`),
   })
 }
 
-export function useDeleteThread(): UseMutationResult<{ success: boolean }, Error, string> {
+export function useDeleteThread(): UseMutationResult<{ success: true }, Error, string> {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (threadId: string) =>
-      apiFetch<{ success: boolean }>(`/api/threads/${threadId}`, { method: 'DELETE' }),
-    onSuccess: (_data: { success: boolean }, threadId: string) => {
+    mutationFn: (threadId: string) => client.threads.delete(threadId),
+    onSuccess: (_data: { success: true }, threadId: string) => {
       queryClient.invalidateQueries({ queryKey: THREADS_KEY })
       queryClient.removeQueries({ queryKey: ['thread', threadId] })
     },

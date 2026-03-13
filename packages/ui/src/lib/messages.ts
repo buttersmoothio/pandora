@@ -23,6 +23,6 @@ export function convertServerMessages(messages: ServerMessage[]): UIMessage[] {
   return messages.filter(isChatRole).map((m) => ({
     id: m.id,
     role: m.role,
-    parts: m.parts ?? ([] as UIMessage['parts']),
+    parts: m.parts ?? [],
   }))
 }

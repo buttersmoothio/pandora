@@ -1,15 +1,9 @@
 import { type UseQueryResult, useQuery } from '@tanstack/react-query'
-import { apiFetch } from '@/lib/api'
+import { client } from '@/lib/api'
 
-export interface ProviderInfo {
-  id: string
-  name: string
-  models: string[]
-  configured: boolean
-  docUrl?: string
-  gateway: string
-  envVars: string[]
-}
+export type { ProviderInfo } from '@pandorakit/sdk/client'
+
+import type { ProviderInfo } from '@pandorakit/sdk/client'
 
 interface ModelsResponse {
   providers: ProviderInfo[]
@@ -18,7 +12,7 @@ interface ModelsResponse {
 export function useModels(): UseQueryResult<ModelsResponse> {
   return useQuery({
     queryKey: ['models'],
-    queryFn: () => apiFetch<ModelsResponse>('/api/models'),
+    queryFn: () => client.models.list(),
     staleTime: 5 * 60 * 1000,
   })
 }

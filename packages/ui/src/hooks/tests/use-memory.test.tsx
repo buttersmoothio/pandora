@@ -10,8 +10,19 @@ import {
   useWorkingMemory,
 } from '../use-memory'
 
+const { mockMemory } = vi.hoisted(() => ({
+  mockMemory: {
+    getObservations: vi.fn(),
+    getRecord: vi.fn(),
+    getWorkingMemory: vi.fn(),
+    updateWorkingMemory: vi.fn(),
+  },
+}))
+
 vi.mock('@/lib/api', () => ({
-  apiFetch: vi.fn(),
+  client: {
+    memory: mockMemory,
+  },
 }))
 
 vi.mock('sonner', () => ({
@@ -19,9 +30,6 @@ vi.mock('sonner', () => ({
 }))
 
 import { toast } from 'sonner'
-import { apiFetch } from '@/lib/api'
-
-const mockApiFetch: ReturnType<typeof vi.mocked<typeof apiFetch>> = vi.mocked(apiFetch)
 
 function createWrapper(): ({ children }: { children: ReactNode }) => React.JSX.Element {
   const queryClient = new QueryClient({
@@ -33,62 +41,59 @@ function createWrapper(): ({ children }: { children: ReactNode }) => React.JSX.E
 }
 
 describe('useObservations', () => {
-  it('fetches observations from the correct endpoint', async () => {
+  it('fetches observations via client.memory.getObservations', async () => {
     const data = { observations: 'some observations' }
-    mockApiFetch.mockResolvedValueOnce(data)
+    mockMemory.getObservations.mockResolvedValueOnce(data)
 
     const { result } = renderHook(() => useObservations(), { wrapper: createWrapper() })
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
-    expect(mockApiFetch).toHaveBeenCalledWith('/api/memory/observations')
+    expect(mockMemory.getObservations).toHaveBeenCalled()
     expect(result.current.data).toEqual(data)
   })
 })
 
 describe('useOMRecord', () => {
-  it('fetches OM record from the correct endpoint', async () => {
+  it('fetches OM record via client.memory.getRecord', async () => {
     const data = { record: null, thresholds: null }
-    mockApiFetch.mockResolvedValueOnce(data)
+    mockMemory.getRecord.mockResolvedValueOnce(data)
 
     const { result } = renderHook(() => useOMRecord(), { wrapper: createWrapper() })
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
-    expect(mockApiFetch).toHaveBeenCalledWith('/api/memory/record')
+    expect(mockMemory.getRecord).toHaveBeenCalled()
     expect(result.current.data).toEqual(data)
   })
 })
 
 describe('useWorkingMemory', () => {
-  it('fetches working memory from the correct endpoint', async () => {
+  it('fetches working memory via client.memory.getWorkingMemory', async () => {
     const data = { content: 'memory content' }
-    mockApiFetch.mockResolvedValueOnce(data)
+    mockMemory.getWorkingMemory.mockResolvedValueOnce(data)
 
     const { result } = renderHook(() => useWorkingMemory(), { wrapper: createWrapper() })
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
-    expect(mockApiFetch).toHaveBeenCalledWith('/api/memory/working')
+    expect(mockMemory.getWorkingMemory).toHaveBeenCalled()
     expect(result.current.data).toEqual(data)
   })
 })
 
 describe('useUpdateWorkingMemory', () => {
-  it('sends PUT with JSON body', async () => {
+  it('calls client.memory.updateWorkingMemory with content', async () => {
     const responseData = { content: 'updated' }
-    mockApiFetch.mockResolvedValueOnce(responseData)
+    mockMemory.updateWorkingMemory.mockResolvedValueOnce(responseData)
 
     const { result } = renderHook(() => useUpdateWorkingMemory(), { wrapper: createWrapper() })
 
     result.current.mutate('new content')
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
-    expect(mockApiFetch).toHaveBeenCalledWith('/api/memory/working', {
-      method: 'PUT',
-      body: JSON.stringify({ content: 'new content' }),
-    })
+    expect(mockMemory.updateWorkingMemory).toHaveBeenCalledWith('new content')
   })
 
   it('shows toast on error', async () => {
-    mockApiFetch.mockRejectedValueOnce(new Error('Network error'))
+    mockMemory.updateWorkingMemory.mockRejectedValueOnce(new Error('Network error'))
 
     const { result } = renderHook(() => useUpdateWorkingMemory(), { wrapper: createWrapper() })
 

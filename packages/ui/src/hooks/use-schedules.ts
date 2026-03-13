@@ -6,61 +6,26 @@ import {
   useQueryClient,
 } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { apiFetch } from '@/lib/api'
+import { client } from '@/lib/api'
 
-export interface ScheduleTask {
-  id: string
-  name: string
-  cron?: string
-  runAt?: string
-  prompt: string
-  enabled: boolean
-  maxRuns?: number
-  destination?: string
-  nextRun: string | null
-  isRunning: boolean
-}
+export type {
+  CreateScheduleInput,
+  HeartbeatCheck,
+  HeartbeatConfig,
+  ScheduleTask,
+  UpdateScheduleInput,
+} from '@pandorakit/sdk/client'
+
+import type {
+  CreateScheduleInput,
+  HeartbeatConfig,
+  ScheduleTask,
+  UpdateScheduleInput,
+} from '@pandorakit/sdk/client'
 
 interface ScheduleListResponse {
   enabled: boolean
   tasks: ScheduleTask[]
-}
-
-interface CreateScheduleInput {
-  name: string
-  cron?: string
-  runAt?: string
-  prompt: string
-  enabled?: boolean
-  maxRuns?: number
-  destination?: string
-}
-
-interface UpdateScheduleInput {
-  id: string
-  name?: string
-  cron?: string | null
-  runAt?: string | null
-  prompt?: string
-  enabled?: boolean
-  maxRuns?: number | null
-  destination?: string | null
-}
-
-export interface HeartbeatCheck {
-  id: string
-  description: string
-  enabled: boolean
-}
-
-export interface HeartbeatConfig {
-  enabled: boolean
-  cron: string
-  tasks: HeartbeatCheck[]
-  destination?: string
-  activeHours?: { start: string; end: string }
-  nextRun: string | null
-  isRunning: boolean
 }
 
 const SCHEDULES_KEY = ['schedules'] as const
@@ -70,14 +35,14 @@ const HEARTBEAT_KEY = ['schedule-heartbeat'] as const
 export function useDestinations(): UseQueryResult<{ destinations: string[] }> {
   return useQuery({
     queryKey: DESTINATIONS_KEY,
-    queryFn: () => apiFetch<{ destinations: string[] }>('/api/schedule/destinations'),
+    queryFn: () => client.schedule.destinations(),
   })
 }
 
 export function useSchedules(): UseQueryResult<ScheduleListResponse> {
   return useQuery({
     queryKey: SCHEDULES_KEY,
-    queryFn: () => apiFetch<ScheduleListResponse>('/api/schedule'),
+    queryFn: () => client.schedule.list(),
   })
 }
 
@@ -85,11 +50,7 @@ export function useCreateSchedule(): UseMutationResult<ScheduleTask, Error, Crea
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (input: CreateScheduleInput) =>
-      apiFetch<ScheduleTask>('/api/schedule', {
-        method: 'POST',
-        body: JSON.stringify(input),
-      }),
+    mutationFn: (input: CreateScheduleInput) => client.schedule.create(input),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: SCHEDULES_KEY })
     },
@@ -99,15 +60,16 @@ export function useCreateSchedule(): UseMutationResult<ScheduleTask, Error, Crea
   })
 }
 
-export function useUpdateSchedule(): UseMutationResult<ScheduleTask, Error, UpdateScheduleInput> {
+export function useUpdateSchedule(): UseMutationResult<
+  ScheduleTask,
+  Error,
+  UpdateScheduleInput & { id: string }
+> {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ id, ...patch }: UpdateScheduleInput) =>
-      apiFetch<ScheduleTask>(`/api/schedule/${id}`, {
-        method: 'PATCH',
-        body: JSON.stringify(patch),
-      }),
+    mutationFn: ({ id, ...patch }: UpdateScheduleInput & { id: string }) =>
+      client.schedule.update(id, patch),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: SCHEDULES_KEY })
     },
@@ -120,7 +82,7 @@ export function useUpdateSchedule(): UseMutationResult<ScheduleTask, Error, Upda
 export function useHeartbeat(): UseQueryResult<HeartbeatConfig> {
   return useQuery({
     queryKey: HEARTBEAT_KEY,
-    queryFn: () => apiFetch<HeartbeatConfig>('/api/schedule/heartbeat'),
+    queryFn: () => client.schedule.heartbeat(),
   })
 }
 
@@ -132,11 +94,7 @@ export function useUpdateHeartbeat(): UseMutationResult<
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (patch: Partial<HeartbeatConfig>) =>
-      apiFetch<HeartbeatConfig>('/api/schedule/heartbeat', {
-        method: 'PATCH',
-        body: JSON.stringify(patch),
-      }),
+    mutationFn: (patch: Partial<HeartbeatConfig>) => client.schedule.updateHeartbeat(patch),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: HEARTBEAT_KEY })
       queryClient.invalidateQueries({ queryKey: SCHEDULES_KEY })
@@ -151,10 +109,7 @@ export function useDeleteSchedule(): UseMutationResult<{ deleted: string }, Erro
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (id: string) =>
-      apiFetch<{ deleted: string }>(`/api/schedule/${id}`, {
-        method: 'DELETE',
-      }),
+    mutationFn: (id: string) => client.schedule.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: SCHEDULES_KEY })
     },

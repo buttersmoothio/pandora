@@ -7,7 +7,10 @@ import { useMemo } from 'react'
 import { Button } from '@/components/ui/button'
 import type { ForkInfo } from '@/hooks/use-threads'
 
-export type BranchRef = { id: string; title?: string }
+export interface BranchRef {
+  id: string
+  title?: string
+}
 
 export function MessageBranchNav({
   message,

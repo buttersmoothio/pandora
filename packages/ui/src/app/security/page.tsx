@@ -1,5 +1,6 @@
 'use client'
 
+import { PandoraApiError } from '@pandorakit/sdk/client'
 import { Loader2Icon } from 'lucide-react'
 import { type FormEvent, useState } from 'react'
 import { toast } from 'sonner'
@@ -19,7 +20,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useSessions } from '@/hooks/use-sessions'
-import { apiFetchRaw, setToken } from '@/lib/api'
+import { client, storeTokens } from '@/lib/api'
 import { useAuth } from '@/providers/auth-provider'
 
 function ChangePasswordSection(): React.JSX.Element {
@@ -39,12 +40,20 @@ function ChangePasswordSection(): React.JSX.Element {
     return null
   }
 
-  function mapError(data: { error?: string }, status: number): string {
-    const code = data?.error ?? ''
-    if (code === 'invalid_credentials') {
-      return 'Current password is incorrect'
+  function mapError(err: unknown): string {
+    if (err instanceof PandoraApiError) {
+      try {
+        const data = JSON.parse(err.body) as { error?: string }
+        const code = data?.error ?? ''
+        if (code === 'invalid_credentials') {
+          return 'Current password is incorrect'
+        }
+        return code || `Request failed (${err.status})`
+      } catch {
+        return err.body || `Request failed (${err.status})`
+      }
     }
-    return code || `Request failed (${status})`
+    return err instanceof Error ? err.message : 'An unexpected error occurred'
   }
 
   async function handleSubmit(e: FormEvent): Promise<void> {
@@ -59,24 +68,14 @@ function ChangePasswordSection(): React.JSX.Element {
 
     setIsPending(true)
     try {
-      const res = await apiFetchRaw('/api/auth/change-password', {
-        method: 'POST',
-        body: JSON.stringify({ currentPassword, newPassword }),
-      })
-      const data = await res.json()
-
-      if (!res.ok) {
-        setError(mapError(data, res.status))
-        return
-      }
-
-      setToken(data.token)
+      const tokens = await client.auth.changePassword(currentPassword, newPassword)
+      storeTokens(tokens)
       setCurrentPassword('')
       setNewPassword('')
       setConfirmPassword('')
       toast.success('Password changed successfully')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An unexpected error occurred')
+      setError(mapError(err))
     } finally {
       setIsPending(false)
     }
@@ -149,7 +148,7 @@ function SessionsSection(): React.JSX.Element {
   async function handleRevokeAll(): Promise<void> {
     setIsRevoking(true)
     try {
-      await apiFetchRaw('/api/auth/sessions', { method: 'DELETE' })
+      await client.auth.revokeAllSessions()
       setDialogOpen(false)
       toast.success('All sessions revoked')
       await logout()
@@ -166,13 +165,7 @@ function SessionsSection(): React.JSX.Element {
     }
     setRevokingId(revokeTarget.id)
     try {
-      const res = await apiFetchRaw(`/api/auth/sessions/${revokeTarget.id}`, { method: 'DELETE' })
-      const data = await res.json()
-
-      if (!res.ok) {
-        toast.error('Failed to revoke session')
-        return
-      }
+      const data = await client.auth.revokeSession(revokeTarget.id)
 
       setRevokeTarget(null)
       toast.success('Session revoked')

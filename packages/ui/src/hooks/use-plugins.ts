@@ -1,74 +1,19 @@
 import { useQuery } from '@tanstack/react-query'
 import { useMemo } from 'react'
-import { apiFetch } from '@/lib/api'
-import type {
-  Alert,
-  ConfigFieldDescriptor,
-  EnvVarDescriptor,
-  ToolPermissions,
-} from './plugin-types'
+import { client } from '@/lib/api'
 import { useMcpServers } from './use-mcp'
 
-export interface ToolOverview {
-  id: string
-  name: string
-  description: string
-}
+export type {
+  AgentOverview,
+  AgentsProvides,
+  ChannelsProvides,
+  PluginProvides,
+  ToolOverview,
+  ToolsProvides,
+  UnifiedPluginInfo,
+} from '@pandorakit/sdk/client'
 
-export interface ToolsProvides {
-  toolIds: string[]
-  tools: ToolOverview[]
-  sandbox?: string
-  permissions?: ToolPermissions
-  requireApproval?: boolean
-  alerts: Alert[]
-}
-
-export interface AgentOverview {
-  id: string
-  name: string
-  description: string
-  model?: { provider: string; model: string }
-  tools: { id: string; name: string; description: string }[]
-  alerts: Alert[]
-}
-
-export interface AgentsProvides {
-  agentIds: string[]
-  agents: AgentOverview[]
-  alerts: Alert[]
-}
-
-export interface ChannelsProvides {
-  loaded: boolean
-  webhook: boolean | null
-  realtime: boolean | null
-}
-
-export interface PluginProvides {
-  tools?: ToolsProvides
-  agents?: AgentsProvides
-  channels?: ChannelsProvides
-}
-
-export interface UnifiedPluginInfo {
-  id: string
-  name: string
-  description?: string
-  author?: string
-  icon?: string
-  version?: string
-  homepage?: string
-  repository?: string
-  license?: string
-  envVars: (EnvVarDescriptor & { configured?: boolean })[]
-  envConfigured: boolean
-  configFields: ConfigFieldDescriptor[]
-  enabled: boolean
-  config: Record<string, unknown>
-  provides: PluginProvides
-  validationErrors: string[]
-}
+import type { UnifiedPluginInfo } from '@pandorakit/sdk/client'
 
 interface PluginsResponse {
   plugins: UnifiedPluginInfo[]
@@ -76,16 +21,12 @@ interface PluginsResponse {
 
 export const PLUGINS_KEY = ['plugins'] as const
 
-function fetchPlugins(): Promise<PluginsResponse> {
-  return apiFetch<PluginsResponse>('/api/plugins')
-}
-
 export function usePlugins(): {
   plugins: UnifiedPluginInfo[] | undefined
 } & ReturnType<typeof useQuery<PluginsResponse>> {
   const query = useQuery({
     queryKey: PLUGINS_KEY,
-    queryFn: fetchPlugins,
+    queryFn: () => client.plugins.list(),
   })
 
   return {
@@ -102,10 +43,6 @@ export function sanitiseToolId(id: string): string {
   return id.replace(/[^a-zA-Z0-9_-]/g, '_')
 }
 
-/**
- * Build a lookup map from sanitised tool key → human-readable name.
- * Also maps agent IDs to their display names.
- */
 /**
  * Build a lookup map from channel namespaced key → human-readable plugin name.
  * Used to display friendly names for inbox message destinations.

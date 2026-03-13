@@ -347,7 +347,7 @@ export function UnifiedPluginCard({ plugin }: { plugin: UnifiedPluginInfo }): Re
   const permissions = plugin.provides.tools
     ? {
         permissions: plugin.provides.tools.permissions as Record<string, boolean | string[]>,
-        sandbox: (plugin.provides.tools.sandbox ?? 'compartment') as 'compartment' | 'host',
+        sandbox: plugin.provides.tools.sandbox ?? 'compartment',
       }
     : undefined
 

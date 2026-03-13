@@ -31,9 +31,7 @@ import { InputAttachments } from '@/components/chat/input-attachments'
 import { MessageParts } from '@/components/message-parts'
 import { useConfig } from '@/hooks/use-config'
 import { THREADS_KEY } from '@/hooks/use-threads'
-import { getToken } from '@/lib/api'
-
-const API_URL: string = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4111'
+import { API_URL, getToken } from '@/lib/api'
 
 export default function Home(): React.JSX.Element {
   const { data: config } = useConfig()
