@@ -22,7 +22,7 @@ function generateKey(filename?: string, mimeType?: string): string {
   const mm = String(now.getMonth() + 1).padStart(2, '0')
   const id = crypto.randomUUID()
   const ext = mimeType ? mime.getExtension(mimeType) : null
-  const name = filename || (ext ? `file.${ext}` : 'file')
+  const name = filename ?? (ext ? `file.${ext}` : 'file')
   return `attachments/${yyyy}/${mm}/${id}/${name}`
 }
 
@@ -35,7 +35,7 @@ function parseDataUrl(url: string): { buffer: Uint8Array; mimeType: string } | n
   if (!match) {
     return null
   }
-  const mimeType = match[1] || 'application/octet-stream'
+  const mimeType = match[1] ?? 'application/octet-stream'
   const base64 = match[2]
   const buffer = Buffer.from(base64, 'base64')
   return { buffer, mimeType }

@@ -20,7 +20,7 @@ chatRoutes.post('/', async (c) => {
   const threadId = clientThreadId ?? crypto.randomUUID()
   const isNewThread = !clientThreadId
 
-  log.info('Chat request received', { threadId, partsCount: parts.length })
+  log.info('[chat] request received', { threadId, partsCount: parts.length })
 
   try {
     const runtime = c.var.runtime
@@ -30,7 +30,7 @@ chatRoutes.post('/', async (c) => {
       isNewThread,
     })
 
-    log.debug('Chat stream created', { threadId })
+    log.debug('[chat] stream created', { threadId })
     const res = createUIMessageStreamResponse({
       stream,
       ...(!isServerless() && {
@@ -43,7 +43,7 @@ chatRoutes.post('/', async (c) => {
     return res
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error'
-    log.error('Chat request failed', { error: message })
+    log.error('[chat] request failed', { error: message })
     return c.json({ error: message }, 500)
   }
 })
@@ -66,7 +66,7 @@ chatRoutes.post('/approve', async (c) => {
   }
 
   const { runId, toolCallId, approved, threadId, messageId } = body
-  log.info('Tool approval', { threadId, runId, toolCallId, approved })
+  log.info('[chat] tool approval', { threadId, runId, toolCallId, approved })
 
   try {
     const runtime = c.var.runtime
@@ -85,7 +85,7 @@ chatRoutes.post('/approve', async (c) => {
     return res
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error'
-    log.error('Tool approval failed', { error: message })
+    log.error('[chat] tool approval failed', { error: message })
     return c.json({ error: message }, 500)
   }
 })

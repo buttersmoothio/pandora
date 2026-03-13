@@ -11,7 +11,7 @@ const DEFAULT_STORAGE_PATH = 'data/uploads'
  * the `FILE_STORAGE_PATH` env var to an absolute or relative path.
  */
 export function createFileDisk(env: Record<string, string | undefined>): Disk {
-  const location = resolve(env.FILE_STORAGE_PATH || DEFAULT_STORAGE_PATH)
+  const location = resolve(env.FILE_STORAGE_PATH ?? DEFAULT_STORAGE_PATH)
 
   return new Disk(
     new FSDriver({

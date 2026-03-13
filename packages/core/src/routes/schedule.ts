@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
-import type { HeartbeatCheck, ScheduledTask } from '../config'
+import type { HeartbeatCheck, HeartbeatConfig, ScheduledTask } from '../config'
 import { applyTaskPatch, HeartbeatCheckSchema, updateConfig } from '../config'
 import { getLogger } from '../logger'
 import { HEARTBEAT_TASK_ID } from '../scheduler/heartbeat'
@@ -119,8 +119,10 @@ scheduleRoutes.patch('/heartbeat', async (c) => {
 
     const current = runtime.config.schedule.heartbeat
     // Build a patch object where `null` values signal deletion to deepMerge
-    // biome-ignore lint/suspicious/noExplicitAny: null signals deletion in deepMerge
-    const heartbeatPatch: Record<string, any> = { ...current }
+    const heartbeatPatch: Omit<HeartbeatConfig, 'destination' | 'activeHours'> & {
+      destination?: string | null
+      activeHours?: { start: string; end: string } | null
+    } = { ...current }
 
     if (patch.enabled !== undefined) {
       heartbeatPatch.enabled = patch.enabled
@@ -144,8 +146,7 @@ scheduleRoutes.patch('/heartbeat', async (c) => {
 
     const config = await updateConfig(
       runtime.storage.config,
-      // biome-ignore lint/suspicious/noExplicitAny: heartbeatPatch uses null for deepMerge deletion
-      { schedule: { ...runtime.config.schedule, heartbeat: heartbeatPatch } } as any,
+      { schedule: { ...runtime.config.schedule, heartbeat: heartbeatPatch } },
       runtime.registry,
     )
     runtime.config = config
@@ -158,7 +159,7 @@ scheduleRoutes.patch('/heartbeat', async (c) => {
       return c.json({ error: messages.join(', ') }, 400)
     }
     const message = err instanceof Error ? err.message : 'Unknown error'
-    log.error('Heartbeat update failed', { error: message })
+    log.error('[schedule] heartbeat update failed', { error: message })
     return c.json({ error: message }, 500)
   }
 })
@@ -204,7 +205,7 @@ scheduleRoutes.post('/', async (c) => {
       return c.json({ error: messages.join(', ') }, 400)
     }
     const message = err instanceof Error ? err.message : 'Unknown error'
-    log.error('Schedule create failed', { error: message })
+    log.error('[schedule] create failed', { error: message })
     return c.json({ error: message }, 500)
   }
 })
@@ -246,7 +247,7 @@ scheduleRoutes.patch('/:id', async (c) => {
       return c.json({ error: messages.join(', ') }, 400)
     }
     const message = err instanceof Error ? err.message : 'Unknown error'
-    log.error('Schedule update failed', { error: message })
+    log.error('[schedule] update failed', { error: message })
     return c.json({ error: message }, 500)
   }
 })
@@ -275,7 +276,7 @@ scheduleRoutes.delete('/:id', async (c) => {
     return c.json({ deleted: id })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error'
-    log.error('Schedule delete failed', { error: message })
+    log.error('[schedule] delete failed', { error: message })
     return c.json({ error: message }, 500)
   }
 })

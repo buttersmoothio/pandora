@@ -252,8 +252,7 @@ export function createScheduleTools(deps: ScheduleToolDeps): ToolRecord {
   ): Promise<HeartbeatConfig> {
     const config = await updateConfig(
       configStore,
-      // biome-ignore lint/suspicious/noExplicitAny: null signals deletion in deepMerge
-      { schedule: { ...runtime.config.schedule, heartbeat } } as any,
+      { schedule: { ...runtime.config.schedule, heartbeat } },
       registry,
     )
     runtime.config = config
@@ -299,7 +298,7 @@ export function createScheduleTools(deps: ScheduleToolDeps): ToolRecord {
         updated.cron = input.cron
       }
       if (input.destination !== undefined) {
-        updated.destination = input.destination || undefined
+        updated.destination = input.destination
       }
 
       const activeHoursResult = parseActiveHours(input.activeHoursStart, input.activeHoursEnd)

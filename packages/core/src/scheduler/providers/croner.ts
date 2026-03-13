@@ -52,7 +52,11 @@ export class CronerScheduler implements Scheduler {
             await this.handler(task)
           } catch (err) {
             const message = err instanceof Error ? err.message : 'Unknown error'
-            log.error(`Scheduled task "${task.name}" failed`, { taskId: task.id, error: message })
+            log.error('[scheduler] task failed', {
+              taskId: task.id,
+              name: task.name,
+              error: message,
+            })
           } finally {
             this.running.delete(task.id)
           }
@@ -63,15 +67,17 @@ export class CronerScheduler implements Scheduler {
         },
       )
       this.jobs.set(task.id, job)
-      log.info(`Scheduled task "${task.name}"`, {
+      log.info('[scheduler] task scheduled', {
         taskId: task.id,
+        name: task.name,
         ...(task.cron ? { cron: task.cron } : { runAt: task.runAt }),
         nextRun: job.nextRun()?.toISOString(),
       })
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error'
-      log.error(`Invalid schedule for task "${task.name}"`, {
+      log.error('[scheduler] invalid schedule', {
         taskId: task.id,
+        name: task.name,
         ...(task.cron ? { cron: task.cron } : { runAt: task.runAt }),
         error: message,
       })

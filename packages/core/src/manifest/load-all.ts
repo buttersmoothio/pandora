@@ -30,12 +30,12 @@ export async function loadAllPlugins(packagesDir?: string): Promise<PluginRegist
   const discovered = await discoverPlugins(packagesDir)
   const registry = createPluginRegistry()
 
-  log.info(`Plugin discovery: found ${discovered.length} plugin(s)`)
+  log.info('[manifest] discovery complete', { count: discovered.length })
 
   for (const plugin of discovered) {
     try {
       if (registry.plugins.has(plugin.manifest.id)) {
-        log.warn(`Plugin ${plugin.manifest.id} already loaded, skipping duplicate`)
+        log.warn('[manifest] skipping duplicate', { pluginId: plugin.manifest.id })
         continue
       }
 
@@ -43,10 +43,10 @@ export async function loadAllPlugins(packagesDir?: string): Promise<PluginRegist
       const registered = adaptManifest(plugin.manifest, entries)
       registry.plugins.set(registered.id, registered)
 
-      log.info(`Plugin loaded: ${plugin.manifest.name} (${plugin.manifest.id})`)
+      log.info('[manifest] loaded', { name: plugin.manifest.name, pluginId: plugin.manifest.id })
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error'
-      log.error(`Failed to load plugin ${plugin.manifest.id}`, { error: message })
+      log.error('[manifest] failed to load', { pluginId: plugin.manifest.id, error: message })
     }
   }
 

@@ -22,7 +22,7 @@ export async function createLibSQLStorage(
 ): Promise<StorageResult> {
   const log = getLogger(env)
   const url = env.DATABASE_URL ?? `file:${DEFAULT_DB_PATH}`
-  log.debug('Storage initializing', { url: url.startsWith('file:') ? 'file (local)' : 'remote' })
+  log.debug('[storage] initializing', { url: url.startsWith('file:') ? 'file (local)' : 'remote' })
 
   if (url.startsWith('file:')) {
     const filePath = url.slice(5)
@@ -41,7 +41,7 @@ export async function createLibSQLStorage(
 
   const wrapExecute = async (sql: string, params?: unknown[]): Promise<unknown[]> => {
     const result = await client.execute(params ? { sql, args: params as InArgs } : sql)
-    return result.rows as unknown[]
+    return result.rows
   }
 
   const mastra = new LibSQLStore({ id: 'pandora-libsql', client })
@@ -65,7 +65,7 @@ export async function createLibSQLStorage(
   await inbox.init()
   await mcpOAuth.init()
 
-  log.debug('Storage initialized')
+  log.debug('[storage] initialized')
 
   return {
     mastra,

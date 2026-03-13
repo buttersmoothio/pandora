@@ -40,9 +40,9 @@ export async function resolveModelTools(
         if (result) {
           Object.assign(tools, result.tools)
           alerts.push({ level: 'info', message: result.message })
-          log.debug('Model-native tool resolved', { key, message: result.message })
+          log.debug('[agents] model-native tool resolved', { key, message: result.message })
         } else {
-          log.debug('Model-native tool not available', { key, provider })
+          log.debug('[agents] model-native tool not available', { key, provider })
         }
         break
       }

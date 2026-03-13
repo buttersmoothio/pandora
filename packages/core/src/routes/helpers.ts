@@ -22,18 +22,21 @@ import { createRuntime } from '../runtime/pandora-runtime'
 import type { PluginRegistry } from '../runtime/plugin-registry'
 
 // Bindings type for Cloudflare Workers
-export type Bindings = {
+export interface Bindings {
   D1_DATABASE?: unknown
   [key: string]: unknown
 }
 
-export type Variables = {
+export interface Variables {
   envVars: Record<string, string | undefined>
   runtime: PandoraRuntime
   session?: Session
 }
 
-export type Env = { Bindings: Bindings; Variables: Variables }
+export interface Env {
+  Bindings: Bindings
+  Variables: Variables
+}
 
 /**
  * Helper to extract string env vars from raw env object
@@ -67,14 +70,14 @@ export function createRuntimeMiddleware(registry: PluginRegistry): MiddlewareHan
     c.set('envVars', envVars)
 
     if (isServerless()) {
-      getLogger(envVars).debug('Runtime: creating (serverless mode)')
+      getLogger(envVars).debug('[runtime] creating (serverless mode)')
       c.set('runtime', await createRuntime(registry, envVars))
     } else if (_runtime) {
       c.set('runtime', _runtime)
     } else {
-      getLogger(envVars).debug('Runtime: creating (server mode)')
+      getLogger(envVars).debug('[runtime] creating (server mode)')
       _runtime = await createRuntime(registry, envVars)
-      getLogger(envVars).debug('Runtime: created and cached')
+      getLogger(envVars).debug('[runtime] created and cached')
       c.set('runtime', _runtime)
     }
 

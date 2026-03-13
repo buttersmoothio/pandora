@@ -13,7 +13,7 @@ configRoutes.get('/', async (c) => {
     return c.json(c.var.runtime.config)
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error'
-    log.error('Config fetch failed', { error: message })
+    log.error('[config] fetch failed', { error: message })
     return c.json({ error: message }, 500)
   }
 })
@@ -26,16 +26,16 @@ configRoutes.patch('/', async (c) => {
     const patch = await c.req.json()
     await updateConfig(runtime.storage.config, patch, runtime.registry)
     await runtime.reload()
-    log.info('Config updated', { keys: Object.keys(patch) })
+    log.info('[config] updated', { keys: Object.keys(patch) })
     return c.json(runtime.config)
   } catch (err) {
     if (err instanceof z.ZodError) {
       const messages = err.issues.map((i) => `${i.path.join('.')}: ${i.message}`)
-      log.error('Config validation failed', { issues: messages })
+      log.error('[config] validation failed', { issues: messages })
       return c.json({ error: messages.join(', ') }, 400)
     }
     const message = err instanceof Error ? err.message : 'Invalid config'
-    log.error('Config update failed', { error: message })
+    log.error('[config] update failed', { error: message })
     return c.json({ error: message }, 400)
   }
 })

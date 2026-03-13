@@ -198,7 +198,7 @@ discoveryRoutes.post('/mcp-servers', async (c) => {
     )
     await runtime.reload()
 
-    log.info('MCP server added', { id })
+    log.info('[discovery] MCP server added', { id })
     return c.json({ id, ...serverConfig }, 201)
   } catch (err) {
     if (err instanceof z.ZodError) {

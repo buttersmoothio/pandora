@@ -42,7 +42,7 @@ export function createOperator(
   baseUrl: string,
   subagents?: AgentRecord,
 ): MastraAgent {
-  getLogger().debug('Operator agent created', {
+  getLogger().debug('[agents] operator created', {
     tools: Object.keys(tools).length,
     subagents: Object.keys(subagents ?? {}).length,
   })

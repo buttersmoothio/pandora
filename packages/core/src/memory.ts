@@ -15,14 +15,14 @@ export function createMemory(config: Config): Memory {
   const log = getLogger()
 
   if (!config.memory.enabled) {
-    log.debug('Memory: disabled')
+    log.debug('[memory] disabled')
     return new Memory({ options: { generateTitle: true } })
   }
 
   const model =
     config.memory.model ?? `${config.models.operator.provider}/${config.models.operator.model}`
 
-  log.debug('Memory: enabled', { model, scope: 'resource' })
+  log.debug('[memory] enabled', { model, scope: 'resource' })
 
   return new Memory({
     options: {

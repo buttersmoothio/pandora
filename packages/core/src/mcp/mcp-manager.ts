@@ -81,7 +81,7 @@ function buildHttpDef(
     if (baseUrl) {
       return buildOAuthDef(id, parsedUrl, baseUrl, oauthStore, pendingAuthUrls, customFetch)
     }
-    log.warn(`[mcp] OAuth requires BASE_URL env var, skipping OAuth for server "${id}"`)
+    log.warn('[mcp] OAuth requires BASE_URL env var, skipping', { serverId: id })
   }
 
   return customFetch
@@ -119,7 +119,7 @@ function buildOAuthDef(
         )
       }
       pendingAuthUrls.set(id, url.toString())
-      log.info(`[mcp] OAuth authorization required for server "${id}"`)
+      log.info('[mcp] OAuth authorization required', { serverId: id })
     },
   })
 
@@ -214,12 +214,12 @@ function buildServers(
       const def = buildDef(id, sc, env, oauthStore, pendingAuthUrls)
       if (def) {
         servers[id] = def
-        log.debug(`[mcp] server configured: ${id}`)
+        log.debug('[mcp] server configured', { serverId: id })
       }
       metas.set(id, meta)
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error'
-      log.error(`[mcp] failed to configure server ${id}`, { error: message })
+      log.error('[mcp] failed to configure server', { serverId: id, error: message })
       metas.set(id, { ...meta, error: message })
     }
   }
@@ -374,7 +374,7 @@ export async function createMcpManager(
       await storage.set('tokens', JSON.stringify(tokens))
       await oauthStore.delete(`state:${state}`)
 
-      log.info(`[mcp] OAuth authorization completed for server "${serverId}"`)
+      log.info('[mcp] OAuth authorization completed', { serverId })
       return serverId
     },
   }

@@ -27,7 +27,7 @@ export async function discoverPlugins(packagesDir?: string): Promise<DiscoveredP
   try {
     entries = await readdir(dir)
   } catch {
-    log.warn(`Plugin discovery: could not read directory ${dir}`)
+    log.warn('[manifest] could not read directory', { dir })
     return []
   }
 
@@ -49,7 +49,7 @@ export async function discoverPlugins(packagesDir?: string): Promise<DiscoveredP
     try {
       json = JSON.parse(raw)
     } catch {
-      log.warn(`Plugin discovery: invalid JSON in ${manifestPath}`)
+      log.warn('[manifest] invalid JSON', { manifestPath })
       continue
     }
 
@@ -58,12 +58,12 @@ export async function discoverPlugins(packagesDir?: string): Promise<DiscoveredP
       const issues = result.error.issues.map((i) =>
         i.path.length > 0 ? `${i.path.join('.')}: ${i.message}` : i.message,
       )
-      log.warn(`Plugin discovery: invalid manifest ${manifestPath}`, { issues })
+      log.warn('[manifest] invalid manifest', { manifestPath, issues })
       continue
     }
 
     results.push({ manifest: result.data, packageDir, manifestPath })
-    log.debug(`Plugin discovered: ${result.data.id} (${manifestPath})`)
+    log.debug('[manifest] discovered', { pluginId: result.data.id, manifestPath })
   }
 
   return results

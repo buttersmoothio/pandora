@@ -8,8 +8,15 @@ import type { Env } from './helpers'
 import { getMemoryOrFail, isServerless } from './helpers'
 
 /** Compute fork/branch info for a thread */
-type BranchRef = { id: string; title?: string }
-type ForkInfo = { sourceThreadId: string; forkPointIndex: number; siblings: BranchRef[] }
+interface BranchRef {
+  id: string
+  title?: string
+}
+interface ForkInfo {
+  sourceThreadId: string
+  forkPointIndex: number
+  siblings: BranchRef[]
+}
 
 /** Map clones to fork-point message IDs using explicit forkPointMessageId metadata. */
 function buildForksMap(
@@ -106,7 +113,7 @@ threadRoutes.get('/', async (c) => {
     })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error'
-    log.error('List threads failed', { error: message })
+    log.error('[threads] list failed', { error: message })
     return c.json({ error: message }, 500)
   }
 })
@@ -168,7 +175,7 @@ threadRoutes.get('/:id', async (c) => {
     return c.json({ thread, messages, forks, forkInfo })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error'
-    log.error('Get thread failed', { error: message })
+    log.error('[threads] get failed', { error: message })
     return c.json({ error: message }, 500)
   }
 })
@@ -206,7 +213,7 @@ threadRoutes.post('/:id/fork', async (c) => {
     return c.json({ thread, clonedMessageCount: clonedMessages.length })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error'
-    log.error('Fork thread failed', { error: message })
+    log.error('[threads] fork failed', { error: message })
     return c.json({ error: message }, 500)
   }
 })
@@ -226,7 +233,7 @@ threadRoutes.delete('/:id', async (c) => {
     return c.json({ success: true })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error'
-    log.error('Delete thread failed', { error: message })
+    log.error('[threads] delete failed', { error: message })
     return c.json({ error: message }, 500)
   }
 })

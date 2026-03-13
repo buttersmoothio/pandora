@@ -306,19 +306,32 @@ export type Config = z.infer<typeof ConfigSchema>
  */
 export const DEFAULTS: Config = ConfigSchema.parse({})
 
+/** Recursive partial that allows `null` to signal key deletion in deepMerge. */
+export type DeepNullablePartial<T> = {
+  [K in keyof T]?: T[K] extends unknown[]
+    ? T[K]
+    : T[K] extends Record<string, unknown>
+      ? DeepNullablePartial<T[K]> | null
+      : T[K] | null
+}
+
 /**
  * Deep merge two config objects
  */
-function deepMerge<T extends Record<string, unknown>>(base: T, override: Partial<T>): T {
+function deepMerge<T extends Record<string, unknown>>(
+  base: T,
+  override: Record<string, unknown>,
+): T {
   const result = { ...base }
 
-  for (const key of Object.keys(override) as Array<keyof T>) {
-    const baseVal = base[key]
+  for (const key of Object.keys(override)) {
+    const k = key as keyof T
+    const baseVal = base[k]
     const overrideVal = override[key]
 
     // Explicit null means "delete this key"
     if (overrideVal === null) {
-      delete result[key]
+      delete result[k]
     } else if (
       overrideVal !== undefined &&
       typeof baseVal === 'object' &&
@@ -327,12 +340,12 @@ function deepMerge<T extends Record<string, unknown>>(base: T, override: Partial
       typeof overrideVal === 'object' &&
       !Array.isArray(overrideVal)
     ) {
-      result[key] = deepMerge(
+      result[k] = deepMerge(
         baseVal as Record<string, unknown>,
         overrideVal as Record<string, unknown>,
       ) as T[keyof T]
     } else if (overrideVal !== undefined) {
-      result[key] = overrideVal as T[keyof T]
+      result[k] = overrideVal as T[keyof T]
     }
   }
 
@@ -369,7 +382,7 @@ export async function getConfig(
  */
 export async function updateConfig(
   configStore: ConfigStore<Config>,
-  patch: Partial<Config>,
+  patch: DeepNullablePartial<Config>,
   registry?: PluginRegistry,
 ): Promise<Config> {
   const storedConfig = (await configStore.get()) ?? DEFAULTS

@@ -115,7 +115,7 @@ app.notFound((c) => {
 // Error handler
 app.onError((err, c) => {
   const log = getLogger()
-  log.error('Unhandled error', { error: err.message, path: c.req.path })
+  log.error('[server] unhandled error', { error: err.message, path: c.req.path })
   return c.json(
     {
       error: 'Internal Server Error',

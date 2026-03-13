@@ -37,7 +37,7 @@ webhookRoutes.all('/:encodedKey', async (c) => {
     return response
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error'
-    log.error(`Webhook error for channel ${nsKey}`, { error: message })
+    log.error('[webhooks] channel error', { channel: nsKey, error: message })
     return c.json({ error: message }, 500)
   }
 })

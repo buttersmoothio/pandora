@@ -28,10 +28,16 @@ export async function loadEntry(
   let namespace: Record<string, unknown>
 
   if (sandbox === 'host') {
-    log.debug(`Plugin ${plugin.manifest.id}: loading "${entry.entry}" in host mode`)
+    log.debug('[manifest] loading entry in host mode', {
+      pluginId: plugin.manifest.id,
+      entry: entry.entry,
+    })
     namespace = (await import(entryPath)) as Record<string, unknown>
   } else {
-    log.debug(`Plugin ${plugin.manifest.id}: loading "${entry.entry}" in compartment`)
+    log.debug('[manifest] loading entry in compartment', {
+      pluginId: plugin.manifest.id,
+      entry: entry.entry,
+    })
     namespace = await loadInCompartment({
       packageDir: plugin.packageDir,
       entryPath,
