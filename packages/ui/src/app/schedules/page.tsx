@@ -1,5 +1,6 @@
 'use client'
 
+import { useConfig } from '@pandorakit/react-sdk'
 import { PlusIcon } from 'lucide-react'
 import { useState } from 'react'
 import { HeartbeatCard } from '@/components/schedules/heartbeat-card'
@@ -8,7 +9,6 @@ import { TaskDialog } from '@/components/schedules/task-dialog'
 import { TaskList } from '@/components/schedules/task-list'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { useConfig } from '@/hooks/use-config'
 
 export default function SchedulesPage(): React.JSX.Element {
   const [createOpen, setCreateOpen] = useState(false)

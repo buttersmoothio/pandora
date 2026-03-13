@@ -1,5 +1,11 @@
 'use client'
 
+import type {
+  Alert,
+  EnvVarDescriptor as BaseEnvVarDescriptor,
+  Config,
+  ConfigFieldDescriptor,
+} from '@pandorakit/react-sdk'
 import {
   AlertTriangleIcon,
   CheckCircle2Icon,
@@ -11,9 +17,11 @@ import {
 import Image from 'next/image'
 import type React from 'react'
 import { createContext, useContext, useEffect, useState } from 'react'
-import type { Alert, ConfigFieldDescriptor, EnvVarDescriptor } from '@/hooks/plugin-types'
-import type { Config } from '@/hooks/use-config'
-import { useUpdateConfig } from '@/hooks/use-config'
+import { toast } from 'sonner'
+
+type EnvVarDescriptor = BaseEnvVarDescriptor & { configured?: boolean }
+
+import { useConfig } from '@pandorakit/react-sdk'
 import { Badge } from '../ui/badge'
 import { Button } from '../ui/button'
 import {
@@ -487,7 +495,7 @@ export function PluginInfoDialog({
   children,
   trigger,
 }: PluginInfoDialogProps): React.JSX.Element {
-  const updateConfig = useUpdateConfig()
+  const { update: updateConfig, isUpdating } = useConfig()
   const [open, setOpen] = useState(false)
   const [draft, setDraft] = useState<Record<string, unknown>>(plugin.config)
 
@@ -502,16 +510,24 @@ export function PluginInfoDialog({
   const configured =
     plugin.envConfigured && requiredFieldsFilled(plugin.configFields, plugin.config)
 
-  function handleToggle(next: boolean): void {
-    updateConfig.mutate({
-      [configKey]: { [plugin.id]: { ...plugin.config, enabled: next } },
-    })
+  async function handleToggle(next: boolean): Promise<void> {
+    try {
+      await updateConfig({
+        [configKey]: { [plugin.id]: { ...plugin.config, enabled: next } },
+      })
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to update config')
+    }
   }
 
-  function save(): void {
-    updateConfig.mutate({
-      [configKey]: { [plugin.id]: { ...draft, enabled: plugin.enabled } },
-    })
+  async function save(): Promise<void> {
+    try {
+      await updateConfig({
+        [configKey]: { [plugin.id]: { ...draft, enabled: plugin.enabled } },
+      })
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to update config')
+    }
   }
 
   const hasEnvVars = plugin.envVars.length > 0
@@ -537,7 +553,7 @@ export function PluginInfoDialog({
           hasSidebar={!!hasSidebar}
           configured={configured}
           onToggle={handleToggle}
-          isPending={updateConfig.isPending}
+          isPending={isUpdating}
           readonly={isReadonly}
         />
 
@@ -599,8 +615,8 @@ export function PluginInfoDialog({
                   Cancel
                 </Button>
               </DialogClose>
-              <Button size="sm" disabled={updateConfig.isPending} onClick={save}>
-                {updateConfig.isPending && <Loader2Icon className="size-4 animate-spin" />}
+              <Button size="sm" disabled={isUpdating} onClick={save}>
+                {isUpdating && <Loader2Icon className="size-4 animate-spin" />}
                 Save
               </Button>
             </>
@@ -643,7 +659,7 @@ export function PluginCard({
   summary,
   dialogContent,
 }: PluginCardProps): React.JSX.Element {
-  const updateConfig = useUpdateConfig()
+  const { update: updateConfig, isUpdating } = useConfig()
   const [enabled, setEnabled] = useState(plugin.enabled)
 
   useEffect(() => {
@@ -656,11 +672,16 @@ export function PluginCard({
 
   const infos = plugin.alerts?.filter((a) => a.level === 'info') ?? []
 
-  function handleToggle(checked: boolean): void {
+  async function handleToggle(checked: boolean): Promise<void> {
     setEnabled(checked)
-    updateConfig.mutate({
-      [configKey]: { [plugin.id]: { ...plugin.config, enabled: checked } },
-    })
+    try {
+      await updateConfig({
+        [configKey]: { [plugin.id]: { ...plugin.config, enabled: checked } },
+      })
+    } catch (err) {
+      setEnabled(!checked)
+      toast.error(err instanceof Error ? err.message : 'Failed to update config')
+    }
   }
 
   return (
@@ -703,11 +724,7 @@ export function PluginCard({
           {dialogContent}
         </PluginInfoDialog>
         {!isReadonly && canEnable && (
-          <Switch
-            checked={enabled}
-            onCheckedChange={handleToggle}
-            disabled={updateConfig.isPending}
-          />
+          <Switch checked={enabled} onCheckedChange={handleToggle} disabled={isUpdating} />
         )}
       </div>
     </div>

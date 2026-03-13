@@ -1,5 +1,7 @@
+import type { EnvVarDescriptor as BaseEnvVarDescriptor } from '@pandorakit/react-sdk'
 import { CheckCircle2Icon, CircleDotIcon, XCircleIcon } from 'lucide-react'
-import type { EnvVarDescriptor } from '@/hooks/plugin-types'
+
+type EnvVarDescriptor = BaseEnvVarDescriptor & { configured?: boolean }
 
 function EnvVarRow({ v }: { v: EnvVarDescriptor }): React.JSX.Element {
   const isOptional = v.required === false

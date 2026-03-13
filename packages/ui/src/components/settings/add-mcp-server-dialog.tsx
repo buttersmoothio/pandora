@@ -1,10 +1,12 @@
 'use client'
 
 import { zodResolver } from '@hookform/resolvers/zod'
+import { useMcpServers } from '@pandorakit/react-sdk'
 import { GlobeIcon, Loader2Icon, PlusIcon, TerminalIcon, XIcon } from 'lucide-react'
 import type React from 'react'
 import { useState } from 'react'
 import { useFieldArray, useForm } from 'react-hook-form'
+import { toast } from 'sonner'
 import { z } from 'zod'
 import { Button } from '@/components/ui/button'
 import {
@@ -27,7 +29,6 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
-import { useAddMcpServer } from '@/hooks/use-mcp'
 import { cn } from '@/lib/utils'
 
 const formSchema = z
@@ -120,7 +121,7 @@ function toServerConfig(values: FormValues): Record<string, unknown> {
 
 export function AddMcpServerDialog(): React.JSX.Element {
   const [open, setOpen] = useState(false)
-  const addServer = useAddMcpServer()
+  const { add: addServer, isAdding } = useMcpServers()
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -145,13 +146,14 @@ export function AddMcpServerDialog(): React.JSX.Element {
     )
   }
 
-  function onSubmit(values: FormValues): void {
-    addServer.mutate(toServerConfig(values), {
-      onSuccess: () => {
-        form.reset(STDIO_DEFAULTS)
-        setOpen(false)
-      },
-    })
+  async function onSubmit(values: FormValues): Promise<void> {
+    try {
+      await addServer(toServerConfig(values))
+      form.reset(STDIO_DEFAULTS)
+      setOpen(false)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to add server')
+    }
   }
 
   return (
@@ -387,8 +389,8 @@ export function AddMcpServerDialog(): React.JSX.Element {
             />
 
             <DialogFooter>
-              <Button type="submit" disabled={addServer.isPending}>
-                {addServer.isPending && <Loader2Icon className="mr-1.5 size-4 animate-spin" />}
+              <Button type="submit" disabled={isAdding}>
+                {isAdding && <Loader2Icon className="mr-1.5 size-4 animate-spin" />}
                 Add Server
               </Button>
             </DialogFooter>

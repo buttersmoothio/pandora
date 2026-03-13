@@ -1,7 +1,9 @@
 'use client'
 
+import { useConfig, useModels } from '@pandorakit/react-sdk'
 import { CheckIcon, ChevronsUpDownIcon, ExternalLinkIcon, Loader2Icon } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { toast } from 'sonner'
 import { Streamdown } from 'streamdown'
 import { ProviderLogo } from '@/components/provider-logo'
 import { Button } from '@/components/ui/button'
@@ -17,13 +19,10 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Textarea } from '@/components/ui/textarea'
-import { useConfig, useUpdateConfig } from '@/hooks/use-config'
-import { useModels } from '@/hooks/use-models'
 import { cn } from '@/lib/utils'
 
 function IdentitySection(): React.JSX.Element {
-  const { data: config } = useConfig()
-  const updateConfig = useUpdateConfig()
+  const { data: config, update: updateConfig, isUpdating } = useConfig()
   const [name, setName] = useState('')
 
   useEffect(() => {
@@ -49,12 +48,16 @@ function IdentitySection(): React.JSX.Element {
         </div>
         <Button
           className="self-end"
-          disabled={updateConfig.isPending || !name.trim()}
-          onClick={(): void => {
-            updateConfig.mutate({ identity: { name } })
+          disabled={isUpdating || !name.trim()}
+          onClick={async (): Promise<void> => {
+            try {
+              await updateConfig({ identity: { name } })
+            } catch (err) {
+              toast.error(err instanceof Error ? err.message : 'Failed to update config')
+            }
           }}
         >
-          {updateConfig.isPending ? <Loader2Icon className="size-4 animate-spin" /> : 'Save'}
+          {isUpdating ? <Loader2Icon className="size-4 animate-spin" /> : 'Save'}
         </Button>
       </CardContent>
     </Card>
@@ -64,8 +67,7 @@ function IdentitySection(): React.JSX.Element {
 const TIMEZONES: string[] = ['UTC', ...Intl.supportedValuesOf('timeZone')]
 
 function TimezoneSection(): React.JSX.Element {
-  const { data: config } = useConfig()
-  const updateConfig = useUpdateConfig()
+  const { data: config, update: updateConfig, isUpdating } = useConfig()
   const [timezone, setTimezone] = useState('')
   const [open, setOpen] = useState(false)
 
@@ -120,12 +122,16 @@ function TimezoneSection(): React.JSX.Element {
         </div>
         <Button
           className="self-end"
-          disabled={updateConfig.isPending || !timezone}
-          onClick={(): void => {
-            updateConfig.mutate({ timezone })
+          disabled={isUpdating || !timezone}
+          onClick={async (): Promise<void> => {
+            try {
+              await updateConfig({ timezone })
+            } catch (err) {
+              toast.error(err instanceof Error ? err.message : 'Failed to update config')
+            }
           }}
         >
-          {updateConfig.isPending ? <Loader2Icon className="size-4 animate-spin" /> : 'Save'}
+          {isUpdating ? <Loader2Icon className="size-4 animate-spin" /> : 'Save'}
         </Button>
       </CardContent>
     </Card>
@@ -133,8 +139,7 @@ function TimezoneSection(): React.JSX.Element {
 }
 
 function PersonalitySection(): React.JSX.Element {
-  const { data: config } = useConfig()
-  const updateConfig = useUpdateConfig()
+  const { data: config, update: updateConfig, isUpdating } = useConfig()
   const [systemPrompt, setSystemPrompt] = useState('')
   const [editing, setEditing] = useState(false)
 
@@ -174,15 +179,17 @@ function PersonalitySection(): React.JSX.Element {
                 Cancel
               </Button>
               <Button
-                disabled={updateConfig.isPending || !systemPrompt.trim()}
-                onClick={(): void => {
-                  updateConfig.mutate(
-                    { personality: { systemPrompt } },
-                    { onSuccess: (): void => setEditing(false) },
-                  )
+                disabled={isUpdating || !systemPrompt.trim()}
+                onClick={async (): Promise<void> => {
+                  try {
+                    await updateConfig({ personality: { systemPrompt } })
+                    setEditing(false)
+                  } catch (err) {
+                    toast.error(err instanceof Error ? err.message : 'Failed to update config')
+                  }
                 }}
               >
-                {updateConfig.isPending ? <Loader2Icon className="size-4 animate-spin" /> : 'Save'}
+                {isUpdating ? <Loader2Icon className="size-4 animate-spin" /> : 'Save'}
               </Button>
             </div>
           </>
@@ -204,9 +211,8 @@ function PersonalitySection(): React.JSX.Element {
 }
 
 function ModelsSection(): React.JSX.Element {
-  const { data: config } = useConfig()
+  const { data: config, update: updateConfig, isUpdating } = useConfig()
   const { data: modelsData } = useModels()
-  const updateConfig = useUpdateConfig()
   const [provider, setProvider] = useState('')
   const [model, setModel] = useState('')
   const [temperature, setTemperature] = useState<string>('')
@@ -398,21 +404,25 @@ function ModelsSection(): React.JSX.Element {
         )}
         <Button
           className="self-end"
-          disabled={updateConfig.isPending || !provider || !model}
-          onClick={(): void => {
-            updateConfig.mutate({
-              models: {
-                operator: {
-                  provider,
-                  model,
-                  temperature: temperature ? Number(temperature) : undefined,
-                  maxTokens: maxTokens ? Number(maxTokens) : undefined,
+          disabled={isUpdating || !provider || !model}
+          onClick={async (): Promise<void> => {
+            try {
+              await updateConfig({
+                models: {
+                  operator: {
+                    provider,
+                    model,
+                    temperature: temperature ? Number(temperature) : undefined,
+                    maxTokens: maxTokens ? Number(maxTokens) : undefined,
+                  },
                 },
-              },
-            })
+              })
+            } catch (err) {
+              toast.error(err instanceof Error ? err.message : 'Failed to update config')
+            }
           }}
         >
-          {updateConfig.isPending ? <Loader2Icon className="size-4 animate-spin" /> : 'Save'}
+          {isUpdating ? <Loader2Icon className="size-4 animate-spin" /> : 'Save'}
         </Button>
       </CardContent>
     </Card>
@@ -420,7 +430,7 @@ function ModelsSection(): React.JSX.Element {
 }
 
 function SetupWizardSection(): React.JSX.Element {
-  const updateConfig = useUpdateConfig()
+  const { update: updateConfig, isUpdating } = useConfig()
 
   return (
     <Card>
@@ -433,16 +443,16 @@ function SetupWizardSection(): React.JSX.Element {
       <CardContent>
         <Button
           variant="outline"
-          disabled={updateConfig.isPending}
-          onClick={(): void => {
-            updateConfig.mutate({ onboardingComplete: false })
+          disabled={isUpdating}
+          onClick={async (): Promise<void> => {
+            try {
+              await updateConfig({ onboardingComplete: false })
+            } catch (err) {
+              toast.error(err instanceof Error ? err.message : 'Failed to update config')
+            }
           }}
         >
-          {updateConfig.isPending ? (
-            <Loader2Icon className="size-4 animate-spin" />
-          ) : (
-            'Run Setup Wizard'
-          )}
+          {isUpdating ? <Loader2Icon className="size-4 animate-spin" /> : 'Run Setup Wizard'}
         </Button>
       </CardContent>
     </Card>

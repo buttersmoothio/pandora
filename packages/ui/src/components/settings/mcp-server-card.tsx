@@ -1,5 +1,7 @@
 'use client'
 
+import type { McpServerInfo } from '@pandorakit/react-sdk'
+import { useConfig } from '@pandorakit/react-sdk'
 import {
   AlertTriangleIcon,
   CheckCircle2Icon,
@@ -10,6 +12,7 @@ import {
 } from 'lucide-react'
 import type React from 'react'
 import { useEffect, useState } from 'react'
+import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -23,8 +26,6 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import { Switch } from '@/components/ui/switch'
-import { useUpdateConfig } from '@/hooks/use-config'
-import type { McpServerInfo } from '@/hooks/use-mcp'
 import { MetadataItem, PluginIcon, Section } from './plugin-card'
 
 // ---------------------------------------------------------------------------
@@ -74,20 +75,25 @@ function McpStatusBadge({ server }: { server: McpServerInfo }): React.JSX.Elemen
 // ---------------------------------------------------------------------------
 
 export function McpServerCard({ server }: { server: McpServerInfo }): React.JSX.Element {
-  const updateConfig = useUpdateConfig()
+  const { update: updateConfig, isUpdating } = useConfig()
   const [enabled, setEnabled] = useState(server.enabled)
 
   useEffect(() => {
     setEnabled(server.enabled)
   }, [server.enabled])
 
-  function handleToggle(checked: boolean): void {
+  async function handleToggle(checked: boolean): Promise<void> {
     setEnabled(checked)
-    updateConfig.mutate({
-      mcpServers: {
-        [server.id]: { enabled: checked },
-      },
-    })
+    try {
+      await updateConfig({
+        mcpServers: {
+          [server.id]: { enabled: checked },
+        },
+      })
+    } catch (err) {
+      setEnabled(!checked)
+      toast.error(err instanceof Error ? err.message : 'Failed to update config')
+    }
   }
 
   return (
@@ -134,11 +140,7 @@ export function McpServerCard({ server }: { server: McpServerInfo }): React.JSX.
             <SettingsIcon className="size-4" />
           </Button>
         </McpServerDialog>
-        <Switch
-          checked={enabled}
-          onCheckedChange={handleToggle}
-          disabled={updateConfig.isPending}
-        />
+        <Switch checked={enabled} onCheckedChange={handleToggle} disabled={isUpdating} />
       </div>
     </div>
   )
@@ -255,24 +257,33 @@ function McpServerDialog({
   server: McpServerInfo
   children: React.ReactNode
 }): React.JSX.Element {
-  const updateConfig = useUpdateConfig()
+  const { update: updateConfig, isUpdating } = useConfig()
   const [enabled, setEnabled] = useState(server.enabled)
 
   useEffect(() => {
     setEnabled(server.enabled)
   }, [server.enabled])
 
-  function handleToggle(next: boolean): void {
+  async function handleToggle(next: boolean): Promise<void> {
     setEnabled(next)
-    updateConfig.mutate({
-      mcpServers: { [server.id]: { enabled: next } },
-    })
+    try {
+      await updateConfig({
+        mcpServers: { [server.id]: { enabled: next } },
+      })
+    } catch (err) {
+      setEnabled(!next)
+      toast.error(err instanceof Error ? err.message : 'Failed to update config')
+    }
   }
 
-  function handleRemove(): void {
-    updateConfig.mutate({
-      mcpServers: { [server.id]: null },
-    })
+  async function handleRemove(): Promise<void> {
+    try {
+      await updateConfig({
+        mcpServers: { [server.id]: null },
+      })
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to remove server')
+    }
   }
 
   return (
@@ -299,8 +310,10 @@ function McpServerDialog({
               variant={enabled ? 'outline' : 'default'}
               size="sm"
               className="shrink-0"
-              onClick={(): void => handleToggle(!enabled)}
-              disabled={updateConfig.isPending}
+              onClick={(): void => {
+                handleToggle(!enabled)
+              }}
+              disabled={isUpdating}
             >
               {enabled ? 'Disable' : 'Enable'}
             </Button>
@@ -313,12 +326,7 @@ function McpServerDialog({
         </div>
 
         <DialogFooter className="border-t px-6 py-4">
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={handleRemove}
-            disabled={updateConfig.isPending}
-          >
+          <Button variant="destructive" size="sm" onClick={handleRemove} disabled={isUpdating}>
             Remove
           </Button>
           <DialogClose asChild>

@@ -1,8 +1,10 @@
 'use client'
 
+import { type HeartbeatCheck, useConfig, useHeartbeat, useSchedules } from '@pandorakit/react-sdk'
 import { Loader2Icon, PlusIcon, XIcon } from 'lucide-react'
 import type React from 'react'
 import { useEffect, useState } from 'react'
+import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -16,18 +18,11 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
-import { useConfig } from '@/hooks/use-config'
-import {
-  type HeartbeatCheck,
-  useDestinations,
-  useHeartbeat,
-  useUpdateHeartbeat,
-} from '@/hooks/use-schedules'
 
 export function HeartbeatCard(): React.JSX.Element {
-  const { data: heartbeat, isLoading } = useHeartbeat()
-  const updateHeartbeat = useUpdateHeartbeat()
-  const { data: destinationsData } = useDestinations()
+  const { data: heartbeat, isLoading, update: updateHeartbeat, isUpdating } = useHeartbeat()
+  const { destinations: destinationsQuery } = useSchedules()
+  const { data: destinationsData } = destinationsQuery
   const { data: config } = useConfig()
   const timezone = config?.timezone ?? 'UTC'
 
@@ -53,7 +48,9 @@ export function HeartbeatCard(): React.JSX.Element {
   const enabled = heartbeat?.enabled ?? false
 
   function save(patch: Record<string, unknown>): void {
-    updateHeartbeat.mutate(patch)
+    updateHeartbeat(patch).catch((err: Error) =>
+      toast.error(`Failed to update heartbeat: ${err.message}`),
+    )
   }
 
   function addTask(): void {
@@ -109,7 +106,7 @@ export function HeartbeatCard(): React.JSX.Element {
           </div>
           <Switch
             checked={enabled}
-            disabled={updateHeartbeat.isPending}
+            disabled={isUpdating}
             onCheckedChange={(checked: boolean): void => save({ enabled: checked })}
           />
         </div>

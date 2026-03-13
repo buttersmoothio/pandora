@@ -1,6 +1,6 @@
 'use client'
 
-import { PandoraApiError } from '@pandorakit/sdk/client'
+import { useAuth } from '@pandorakit/react-sdk'
 import { Loader2Icon } from 'lucide-react'
 import { type FormEvent, useState } from 'react'
 import { toast } from 'sonner'
@@ -19,11 +19,9 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { useSessions } from '@/hooks/use-sessions'
-import { client, storeTokens } from '@/lib/api'
-import { useAuth } from '@/providers/auth-provider'
 
 function ChangePasswordSection(): React.JSX.Element {
+  const { changePassword } = useAuth()
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -40,22 +38,6 @@ function ChangePasswordSection(): React.JSX.Element {
     return null
   }
 
-  function mapError(err: unknown): string {
-    if (err instanceof PandoraApiError) {
-      try {
-        const data = JSON.parse(err.body) as { error?: string }
-        const code = data?.error ?? ''
-        if (code === 'invalid_credentials') {
-          return 'Current password is incorrect'
-        }
-        return code || `Request failed (${err.status})`
-      } catch {
-        return err.body || `Request failed (${err.status})`
-      }
-    }
-    return err instanceof Error ? err.message : 'An unexpected error occurred'
-  }
-
   async function handleSubmit(e: FormEvent): Promise<void> {
     e.preventDefault()
     setError('')
@@ -68,14 +50,13 @@ function ChangePasswordSection(): React.JSX.Element {
 
     setIsPending(true)
     try {
-      const tokens = await client.auth.changePassword(currentPassword, newPassword)
-      storeTokens(tokens)
+      await changePassword(currentPassword, newPassword)
       setCurrentPassword('')
       setNewPassword('')
       setConfirmPassword('')
       toast.success('Password changed successfully')
     } catch (err) {
-      setError(mapError(err))
+      setError(err instanceof Error ? err.message : 'An unexpected error occurred')
     } finally {
       setIsPending(false)
     }
@@ -138,8 +119,8 @@ function ChangePasswordSection(): React.JSX.Element {
 }
 
 function SessionsSection(): React.JSX.Element {
-  const { data: sessions, isLoading, error, refetch } = useSessions()
-  const { logout } = useAuth()
+  const { logout, sessions, revokeSession, revokeAllSessions } = useAuth()
+  const { data: sessionList, isLoading, error } = sessions
   const [isRevoking, setIsRevoking] = useState(false)
   const [revokingId, setRevokingId] = useState<string | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -148,7 +129,7 @@ function SessionsSection(): React.JSX.Element {
   async function handleRevokeAll(): Promise<void> {
     setIsRevoking(true)
     try {
-      await client.auth.revokeAllSessions()
+      await revokeAllSessions()
       setDialogOpen(false)
       toast.success('All sessions revoked')
       await logout()
@@ -165,15 +146,13 @@ function SessionsSection(): React.JSX.Element {
     }
     setRevokingId(revokeTarget.id)
     try {
-      const data = await client.auth.revokeSession(revokeTarget.id)
+      const data = await revokeSession(revokeTarget.id)
 
       setRevokeTarget(null)
       toast.success('Session revoked')
 
       if (data.loggedOut) {
         await logout()
-      } else {
-        await refetch()
       }
     } catch {
       toast.error('Failed to revoke session')
@@ -202,7 +181,7 @@ function SessionsSection(): React.JSX.Element {
           </div>
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
-              <Button variant="destructive" size="sm" disabled={!sessions?.length}>
+              <Button variant="destructive" size="sm" disabled={!sessionList?.length}>
                 Revoke All
               </Button>
             </DialogTrigger>
@@ -235,12 +214,12 @@ function SessionsSection(): React.JSX.Element {
         {error && (
           <p className="text-destructive text-sm">Failed to load sessions: {error.message}</p>
         )}
-        {sessions && sessions.length === 0 && (
+        {sessionList && sessionList.length === 0 && (
           <p className="text-muted-foreground text-sm">No active sessions.</p>
         )}
-        {sessions && sessions.length > 0 && (
+        {sessionList && sessionList.length > 0 && (
           <div className="flex flex-col gap-3">
-            {sessions.map((session) => (
+            {sessionList.map((session) => (
               <div key={session.id} className="flex items-center gap-3 rounded-md border p-3">
                 <div className="flex min-w-0 flex-1 flex-col gap-1">
                   <div className="flex items-center gap-2">

@@ -1,3 +1,4 @@
+import type { ToolPermissions } from '@pandorakit/react-sdk'
 import {
   ChevronDownIcon,
   ClockIcon,
@@ -11,7 +12,6 @@ import {
 import type React from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
-import type { ToolPermissions } from '@/hooks/plugin-types'
 
 // ---------------------------------------------------------------------------
 // Permission metadata

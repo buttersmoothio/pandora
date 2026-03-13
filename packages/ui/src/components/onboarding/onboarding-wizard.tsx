@@ -1,6 +1,14 @@
 'use client'
 
 import {
+  type Config,
+  type DeepPartial,
+  type UnifiedPluginInfo,
+  useConfig,
+  useModels,
+  usePlugins,
+} from '@pandorakit/react-sdk'
+import {
   BotIcon,
   BrainIcon,
   CalendarIcon,
@@ -27,10 +35,6 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Switch } from '@/components/ui/switch'
-import { type Config, type DeepPartial, useConfig, useUpdateConfig } from '@/hooks/use-config'
-import { useModels } from '@/hooks/use-models'
-import type { UnifiedPluginInfo } from '@/hooks/use-plugins'
-import { usePlugins } from '@/hooks/use-plugins'
 import { cn } from '@/lib/utils'
 
 const TOTAL_STEPS: number = 5
@@ -491,9 +495,7 @@ function canContinueFromStep(step: number, state: WizardState): boolean {
 // ---------------------------------------------------------------------------
 
 export function OnboardingWizard(): React.JSX.Element {
-  const { data: config } = useConfig()
-  const updateConfig = useUpdateConfig()
-  const { mutate } = updateConfig
+  const { data: config, update, isUpdating } = useConfig()
 
   const [step, setStep] = useState(0)
   const [name, setName] = useState('')
@@ -516,12 +518,14 @@ export function OnboardingWizard(): React.JSX.Element {
     if (!config.timezone || config.timezone === 'UTC') {
       const detected = Intl.DateTimeFormat().resolvedOptions().timeZone
       if (detected && detected !== 'UTC') {
-        mutate({ timezone: detected })
+        update({ timezone: detected }).catch(() => {
+          // Ignore timezone auto-detect failures
+        })
       }
     }
-  }, [config, mutate])
+  }, [config, update])
 
-  const isSaving = updateConfig.isPending
+  const isSaving = isUpdating
   const isComplete = step === TOTAL_STEPS
 
   const state: WizardState = {
@@ -535,7 +539,11 @@ export function OnboardingWizard(): React.JSX.Element {
   function saveAndAdvance(): void {
     const patch = buildStepPatch(step, state)
     if (patch) {
-      updateConfig.mutate(patch, { onSuccess: () => setStep(step + 1) })
+      update(patch)
+        .then(() => setStep(step + 1))
+        .catch(() => {
+          // Config save failed — stay on current step
+        })
     } else {
       setStep(step + 1)
     }
@@ -545,7 +553,9 @@ export function OnboardingWizard(): React.JSX.Element {
     if (step < TOTAL_STEPS) {
       setStep(step + 1)
     } else {
-      updateConfig.mutate({ onboardingComplete: true })
+      update({ onboardingComplete: true }).catch(() => {
+        // Ignore — user can retry
+      })
     }
   }
 

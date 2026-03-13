@@ -1,8 +1,8 @@
 'use client'
 
+import { useConfig } from '@pandorakit/react-sdk'
 import { Loader2Icon } from 'lucide-react'
 import type { ReactNode } from 'react'
-import { useConfig } from '@/hooks/use-config'
 import { OnboardingWizard } from './onboarding-wizard'
 
 export function OnboardingGuard({ children }: { children: ReactNode }): React.JSX.Element | null {

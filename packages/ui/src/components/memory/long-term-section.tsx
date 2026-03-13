@@ -1,18 +1,18 @@
 'use client'
 
+import { parseObservationSections, useMemory, useToolNames } from '@pandorakit/react-sdk'
 import { Loader2Icon } from 'lucide-react'
 import { useMemo } from 'react'
 import { Streamdown } from 'streamdown'
 import { MemoryProgress } from '@/components/memory/memory-progress'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { useObservations, useOMRecord } from '@/hooks/use-memory'
-import { useToolNames } from '@/hooks/use-plugins'
-import { formatTokens, parseObservationSections, timeAgo } from '@/lib/memory-utils'
+import { formatTokens, timeAgo } from '@/lib/memory-utils'
 
 export function LongTermSection(): React.JSX.Element {
-  const { data: obsData, isLoading } = useObservations()
-  const { data: recordData } = useOMRecord()
+  const { observations, record: recordQuery } = useMemory()
+  const { data: obsData, isLoading } = observations
+  const { data: recordData } = recordQuery
   const toolNames = useToolNames()
 
   const raw = obsData?.observations ?? null

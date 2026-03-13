@@ -1,5 +1,6 @@
+import type { ServerMessage } from '@pandorakit/sdk/client'
 import { describe, expect, it } from 'vitest'
-import { convertServerMessages, type ServerMessage } from '../messages'
+import { convertServerMessages } from '../convert-server-messages'
 
 describe('convertServerMessages', () => {
   it('filters out system messages', () => {

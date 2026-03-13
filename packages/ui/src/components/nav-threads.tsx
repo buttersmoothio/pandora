@@ -1,5 +1,6 @@
 'use client'
 
+import { useThreads } from '@pandorakit/react-sdk'
 import {
   ClockIcon,
   HeartPulseIcon,
@@ -10,6 +11,7 @@ import {
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useState } from 'react'
+import { toast } from 'sonner'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,7 +38,6 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from '@/components/ui/sidebar'
-import { useDeleteThread, useThreads } from '@/hooks/use-threads'
 
 const SOURCE_ICONS: Record<string, typeof MessageSquareIcon> = {
   heartbeat: HeartPulseIcon,
@@ -44,10 +45,9 @@ const SOURCE_ICONS: Record<string, typeof MessageSquareIcon> = {
 }
 
 export function NavThreads(): React.JSX.Element | null {
-  const { data } = useThreads()
+  const { data, remove } = useThreads()
   const pathname = usePathname()
   const router = useRouter()
-  const deleteThread = useDeleteThread()
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
 
   const threads = data?.threads ?? []
@@ -138,14 +138,16 @@ export function NavThreads(): React.JSX.Element | null {
                     return
                   }
                   const threadId = deleteTarget
-                  deleteThread.mutate(threadId, {
-                    onSuccess: (): void => {
+                  setDeleteTarget(null)
+                  remove(threadId)
+                    .then(() => {
                       if (pathname === `/chat/${threadId}`) {
                         router.push('/')
                       }
-                    },
-                  })
-                  setDeleteTarget(null)
+                    })
+                    .catch(() => {
+                      toast.error('Failed to delete thread')
+                    })
                 }}
               >
                 Delete

@@ -1,18 +1,14 @@
 'use client'
 
-import { useQuery } from '@tanstack/react-query'
+import { useThread } from '@pandorakit/react-sdk'
 import { LoaderIcon } from 'lucide-react'
 import { useParams } from 'next/navigation'
-import { ThreadChat, type ThreadResponse } from '@/components/chat/thread-chat'
-import { client } from '@/lib/api'
+import { ThreadChat } from '@/components/chat/thread-chat'
 
 export default function ThreadPage(): React.JSX.Element {
   const { threadId } = useParams<{ threadId: string }>()
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['thread', threadId],
-    queryFn: () => client.threads.get(threadId) as Promise<ThreadResponse>,
-  })
+  const { data, isLoading } = useThread(threadId)
 
   if (isLoading || !data) {
     return (

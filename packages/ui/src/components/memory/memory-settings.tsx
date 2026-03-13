@@ -1,7 +1,9 @@
 'use client'
 
+import { useConfig, useModels } from '@pandorakit/react-sdk'
 import { CheckIcon, ChevronsUpDownIcon, Loader2Icon } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { toast } from 'sonner'
 import { ProviderLogo } from '@/components/provider-logo'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -15,14 +17,11 @@ import {
 import { Label } from '@/components/ui/label'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Switch } from '@/components/ui/switch'
-import { useConfig, useUpdateConfig } from '@/hooks/use-config'
-import { useModels } from '@/hooks/use-models'
 import { cn } from '@/lib/utils'
 
 export function MemorySection(): React.JSX.Element {
-  const { data: config } = useConfig()
+  const { data: config, update, isUpdating } = useConfig()
   const { data: modelsData } = useModels()
-  const updateConfig = useUpdateConfig()
   const [enabled, setEnabled] = useState(true)
   const [override, setOverride] = useState(false)
   const [provider, setProvider] = useState('')
@@ -72,7 +71,9 @@ export function MemorySection(): React.JSX.Element {
           checked={enabled}
           onCheckedChange={(checked: boolean): void => {
             setEnabled(checked)
-            updateConfig.mutate({ memory: { enabled: checked } })
+            update({ memory: { enabled: checked } }).catch((err: Error) =>
+              toast.error(`Failed to update config: ${err.message}`),
+            )
           }}
         />
       </CardHeader>
@@ -94,7 +95,9 @@ export function MemorySection(): React.JSX.Element {
                 if (!checked) {
                   setProvider('')
                   setModel('')
-                  updateConfig.mutate({ memory: { enabled, model: null } })
+                  update({ memory: { enabled, model: null } }).catch((err: Error) =>
+                    toast.error(`Failed to update config: ${err.message}`),
+                  )
                 }
               }}
             />
@@ -197,12 +200,14 @@ export function MemorySection(): React.JSX.Element {
               </div>
               <Button
                 className="self-end"
-                disabled={updateConfig.isPending || !provider || !model}
+                disabled={isUpdating || !provider || !model}
                 onClick={(): void => {
-                  updateConfig.mutate({ memory: { enabled, model: memoryModel } })
+                  update({ memory: { enabled, model: memoryModel } }).catch((err: Error) =>
+                    toast.error(`Failed to update config: ${err.message}`),
+                  )
                 }}
               >
-                {updateConfig.isPending ? <Loader2Icon className="size-4 animate-spin" /> : 'Save'}
+                {isUpdating ? <Loader2Icon className="size-4 animate-spin" /> : 'Save'}
               </Button>
             </>
           )}

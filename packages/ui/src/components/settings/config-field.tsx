@@ -1,5 +1,6 @@
 'use client'
 
+import type { ConfigFieldDescriptor } from '@pandorakit/react-sdk'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -9,7 +10,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import type { ConfigFieldDescriptor } from '@/hooks/plugin-types'
 
 export function ConfigField({
   field,

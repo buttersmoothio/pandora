@@ -1,5 +1,6 @@
 'use client'
 
+import { useToolNames } from '@pandorakit/react-sdk'
 import type {
   ChatAddToolApproveResponseFunction,
   DynamicToolUIPart,
@@ -19,7 +20,6 @@ import { Shimmer } from '@/components/ai-elements/shimmer'
 import { Source, Sources, SourcesContent, SourcesTrigger } from '@/components/ai-elements/sources'
 import { Tool, ToolContent, ToolHeader, ToolInput, ToolOutput } from '@/components/ai-elements/tool'
 import { Button } from '@/components/ui/button'
-import { useToolNames } from '@/hooks/use-plugins'
 
 type ToolPart = ToolUIPart | DynamicToolUIPart
 type TextPart = Extract<UIMessage['parts'][number], { type: 'text' }>

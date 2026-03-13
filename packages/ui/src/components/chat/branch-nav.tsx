@@ -1,11 +1,11 @@
 'use client'
 
+import type { ForkInfo } from '@pandorakit/react-sdk'
 import type { UIMessage } from 'ai'
 import { ChevronLeftIcon, ChevronRightIcon } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useMemo } from 'react'
 import { Button } from '@/components/ui/button'
-import type { ForkInfo } from '@/hooks/use-threads'
 
 export interface BranchRef {
   id: string

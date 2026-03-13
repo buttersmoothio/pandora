@@ -1,5 +1,7 @@
 'use client'
 
+import type { ModelConfig, UnifiedPluginInfo } from '@pandorakit/react-sdk'
+import { useModels } from '@pandorakit/react-sdk'
 import { CheckIcon, ChevronsUpDownIcon } from 'lucide-react'
 import type React from 'react'
 import { useEffect, useState } from 'react'
@@ -15,9 +17,6 @@ import {
 import { Label } from '@/components/ui/label'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Switch } from '@/components/ui/switch'
-import type { ModelConfig } from '@/hooks/use-config'
-import { useModels } from '@/hooks/use-models'
-import type { UnifiedPluginInfo } from '@/hooks/use-plugins'
 import { cn } from '@/lib/utils'
 import { PluginCard, usePluginConfigDraft } from './plugin-card'
 

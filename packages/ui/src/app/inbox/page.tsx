@@ -1,5 +1,6 @@
 'use client'
 
+import { type InboxMessage, useInbox, usePlugins } from '@pandorakit/react-sdk'
 import {
   AlertCircleIcon,
   ArchiveIcon,
@@ -13,38 +14,11 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { useState } from 'react'
+import { toast } from 'sonner'
 import { MessageResponse } from '@/components/ai-elements/message'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import {
-  type InboxMessage,
-  useArchiveInboxMessage,
-  useDeleteInboxMessage,
-  useInbox,
-  useMarkInboxRead,
-  useUnarchiveInboxMessage,
-} from '@/hooks/use-inbox'
-import { useChannelNames } from '@/hooks/use-plugins'
-
-function formatRelativeTime(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime()
-  const mins = Math.floor(diff / 60_000)
-  if (mins < 1) {
-    return 'just now'
-  }
-  if (mins < 60) {
-    return `${mins}m ago`
-  }
-  const hours = Math.floor(mins / 60)
-  if (hours < 24) {
-    return `${hours}h ago`
-  }
-  const days = Math.floor(hours / 24)
-  if (days < 30) {
-    return `${days}d ago`
-  }
-  return new Date(iso).toLocaleDateString()
-}
+import { timeAgo } from '@/lib/memory-utils'
 
 /** Resolve a destination nsKey to a human-friendly name. */
 function resolveDestinationName(destination: string, channelNames: Map<string, string>): string {
@@ -102,9 +76,7 @@ function MessageRow({
         <span className="truncate text-muted-foreground text-xs">{message.body.slice(0, 100)}</span>
       </div>
       <div className="flex shrink-0 flex-col items-end gap-1">
-        <span className="text-muted-foreground text-xs">
-          {formatRelativeTime(message.createdAt)}
-        </span>
+        <span className="text-muted-foreground text-xs">{timeAgo(message.createdAt)}</span>
         <Badge variant="outline" className="text-[10px]">
           {destName}
         </Badge>
@@ -118,15 +90,20 @@ function MessageDetail({
   channelNames,
   showArchived,
   onDismiss,
+  archive,
+  unarchive,
+  remove,
 }: {
   message: InboxMessage
   channelNames: Map<string, string>
   showArchived: boolean
   onDismiss: () => void
+  archive: (id: string) => Promise<InboxMessage>
+  unarchive: (id: string) => Promise<InboxMessage>
+  remove: (id: string) => Promise<{ deleted: string }>
 }): React.JSX.Element {
-  const deleteMessage = useDeleteInboxMessage()
-  const archiveMessage = useArchiveInboxMessage()
-  const unarchiveMessage = useUnarchiveInboxMessage()
+  const [isArchiving, setIsArchiving] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
   const destName = resolveDestinationName(message.destination, channelNames)
 
   return (
@@ -138,12 +115,16 @@ function MessageDetail({
             <Button
               variant="ghost"
               size="sm"
-              disabled={unarchiveMessage.isPending}
+              disabled={isArchiving}
               onClick={(): void => {
-                unarchiveMessage.mutate(message.id, { onSuccess: onDismiss })
+                setIsArchiving(true)
+                unarchive(message.id)
+                  .then(() => onDismiss())
+                  .catch((err: Error) => toast.error(`Failed to restore message: ${err.message}`))
+                  .finally(() => setIsArchiving(false))
               }}
             >
-              {unarchiveMessage.isPending ? (
+              {isArchiving ? (
                 <Loader2Icon className="mr-1 size-3.5 animate-spin" />
               ) : (
                 <InboxIcon className="mr-1 size-3.5" />
@@ -154,12 +135,16 @@ function MessageDetail({
             <Button
               variant="ghost"
               size="sm"
-              disabled={archiveMessage.isPending}
+              disabled={isArchiving}
               onClick={(): void => {
-                archiveMessage.mutate(message.id, { onSuccess: onDismiss })
+                setIsArchiving(true)
+                archive(message.id)
+                  .then(() => onDismiss())
+                  .catch((err: Error) => toast.error(`Failed to archive message: ${err.message}`))
+                  .finally(() => setIsArchiving(false))
               }}
             >
-              {archiveMessage.isPending ? (
+              {isArchiving ? (
                 <Loader2Icon className="mr-1 size-3.5 animate-spin" />
               ) : (
                 <ArchiveIcon className="mr-1 size-3.5" />
@@ -171,12 +156,16 @@ function MessageDetail({
             variant="ghost"
             size="sm"
             className="text-destructive hover:text-destructive"
-            disabled={deleteMessage.isPending}
+            disabled={isDeleting}
             onClick={(): void => {
-              deleteMessage.mutate(message.id, { onSuccess: onDismiss })
+              setIsDeleting(true)
+              remove(message.id)
+                .then(() => onDismiss())
+                .catch((err: Error) => toast.error(`Failed to delete message: ${err.message}`))
+                .finally(() => setIsDeleting(false))
             }}
           >
-            {deleteMessage.isPending ? (
+            {isDeleting ? (
               <Loader2Icon className="mr-1 size-3.5 animate-spin" />
             ) : (
               <Trash2Icon className="mr-1 size-3.5" />
@@ -198,7 +187,7 @@ function MessageDetail({
       <div className="border-b px-6 py-4">
         <h2 className="font-semibold text-lg">{message.subject}</h2>
         <div className="mt-1 flex items-center gap-2 text-muted-foreground text-xs">
-          <span>{formatRelativeTime(message.createdAt)}</span>
+          <span>{timeAgo(message.createdAt)}</span>
           <span>&middot;</span>
           <Badge variant="outline" className="text-[10px]">
             {destName}
@@ -237,9 +226,8 @@ function EmptyDetail(): React.JSX.Element {
 
 export default function InboxPage(): React.JSX.Element {
   const [showArchived, setShowArchived] = useState(false)
-  const { data, isLoading, error } = useInbox(showArchived)
-  const markRead = useMarkInboxRead()
-  const channelNames = useChannelNames()
+  const { data, isLoading, error, markRead, archive, unarchive, remove } = useInbox(showArchived)
+  const { channelNames } = usePlugins()
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
   const messages = data?.messages ?? []
@@ -248,7 +236,9 @@ export default function InboxPage(): React.JSX.Element {
   const handleSelect = (msg: InboxMessage): void => {
     setSelectedId(msg.id)
     if (!msg.read) {
-      markRead.mutate(msg.id)
+      markRead(msg.id).catch((err: Error) =>
+        toast.error(`Failed to mark message as read: ${err.message}`),
+      )
     }
   }
 
@@ -351,6 +341,9 @@ export default function InboxPage(): React.JSX.Element {
           channelNames={channelNames}
           showArchived={showArchived}
           onDismiss={(): void => setSelectedId(null)}
+          archive={archive}
+          unarchive={unarchive}
+          remove={remove}
         />
       ) : (
         <EmptyDetail />

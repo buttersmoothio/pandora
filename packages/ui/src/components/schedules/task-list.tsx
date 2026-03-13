@@ -1,8 +1,10 @@
 'use client'
 
+import { type ScheduleTask, useConfig, useSchedules } from '@pandorakit/react-sdk'
 import { Loader2Icon, Trash2Icon } from 'lucide-react'
 import type React from 'react'
 import { useState } from 'react'
+import { toast } from 'sonner'
 import { TaskDialog } from '@/components/schedules/task-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -14,15 +16,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { useConfig } from '@/hooks/use-config'
-import { type ScheduleTask, useDeleteSchedule, useSchedules } from '@/hooks/use-schedules'
 import { formatInTimezone } from '@/lib/timezone'
 
 export function TaskList(): React.JSX.Element {
   const { data: config } = useConfig()
   const timezone = config?.timezone ?? 'UTC'
-  const { data, isLoading, error } = useSchedules()
-  const deleteSchedule = useDeleteSchedule()
+  const { data, isLoading, error, remove } = useSchedules()
   const [editTask, setEditTask] = useState<ScheduleTask | undefined>()
   const [deleteTarget, setDeleteTarget] = useState<ScheduleTask | null>(null)
 
@@ -134,20 +133,15 @@ export function TaskList(): React.JSX.Element {
             </Button>
             <Button
               variant="destructive"
-              disabled={deleteSchedule.isPending}
               onClick={(): void => {
                 if (deleteTarget) {
-                  deleteSchedule.mutate(deleteTarget.id, {
-                    onSuccess: (): void => setDeleteTarget(null),
-                  })
+                  remove(deleteTarget.id)
+                    .then(() => setDeleteTarget(null))
+                    .catch((err: Error) => toast.error(`Failed to delete schedule: ${err.message}`))
                 }
               }}
             >
-              {deleteSchedule.isPending ? (
-                <Loader2Icon className="size-4 animate-spin" />
-              ) : (
-                'Delete'
-              )}
+              Delete
             </Button>
           </DialogFooter>
         </DialogContent>

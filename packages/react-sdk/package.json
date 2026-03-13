@@ -1,0 +1,48 @@
+{
+  "name": "@pandorakit/react-sdk",
+  "version": "0.1.0",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/buttersmoothio/pandora.git",
+    "directory": "packages/react-sdk"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "@ai-sdk/react": ">=3",
+    "@pandorakit/sdk": "workspace:*",
+    "@tanstack/react-query": ">=5",
+    "ai": ">=6",
+    "react": ">=18"
+  },
+  "devDependencies": {
+    "@ai-sdk/react": "^3.0.118",
+    "@pandorakit/sdk": "workspace:*",
+    "@tanstack/react-query": "^5.90.21",
+    "@types/react": "^19",
+    "ai": "^6.0.116",
+    "react": "^19",
+    "tsup": "^8.5.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
+  }
+}

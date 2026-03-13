@@ -1,8 +1,10 @@
 'use client'
 
+import { type ScheduleTask, useConfig, useSchedules } from '@pandorakit/react-sdk'
 import { Loader2Icon } from 'lucide-react'
 import type React from 'react'
 import { useEffect, useState } from 'react'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { ButtonGroup } from '@/components/ui/button-group'
 import {
@@ -25,13 +27,6 @@ import {
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
-import { useConfig } from '@/hooks/use-config'
-import {
-  type ScheduleTask,
-  useCreateSchedule,
-  useDestinations,
-  useUpdateSchedule,
-} from '@/hooks/use-schedules'
 import { localInputToUtc, utcToLocalInput } from '@/lib/timezone'
 
 interface TaskFormState {
@@ -67,9 +62,8 @@ export function TaskDialog({
 }): React.JSX.Element {
   const { data: config } = useConfig()
   const timezone = config?.timezone ?? 'UTC'
-  const createSchedule = useCreateSchedule()
-  const updateSchedule = useUpdateSchedule()
-  const { data: destinationsData } = useDestinations()
+  const { create, update, destinations: destinationsQuery } = useSchedules()
+  const { data: destinationsData } = destinationsQuery
   const isEdit = !!task
 
   const [form, setForm] = useState<TaskFormState>(EMPTY_FORM)
@@ -91,7 +85,7 @@ export function TaskDialog({
     }
   }, [task, timezone])
 
-  const isPending = createSchedule.isPending || updateSchedule.isPending
+  const [isPending, setIsPending] = useState(false)
 
   function handleSave(): void {
     const payload = {
@@ -107,11 +101,14 @@ export function TaskDialog({
       ...(form.destination ? { destination: form.destination } : {}),
     }
 
-    if (isEdit) {
-      updateSchedule.mutate({ id: task.id, ...payload }, { onSuccess: () => onOpenChange(false) })
-    } else {
-      createSchedule.mutate(payload, { onSuccess: () => onOpenChange(false) })
-    }
+    setIsPending(true)
+    const promise = isEdit ? update({ id: task.id, ...payload }) : create(payload)
+    promise
+      .then(() => onOpenChange(false))
+      .catch((err: Error) =>
+        toast.error(`Failed to ${isEdit ? 'update' : 'create'} schedule: ${err.message}`),
+      )
+      .finally(() => setIsPending(false))
   }
 
   const canSave =

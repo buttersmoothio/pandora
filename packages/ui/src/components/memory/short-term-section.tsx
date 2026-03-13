@@ -1,17 +1,17 @@
 'use client'
 
+import { parseWorkingMemoryData, replaceWorkingMemoryData, useMemory } from '@pandorakit/react-sdk'
 import { Loader2Icon } from 'lucide-react'
 import { useState } from 'react'
+import { toast } from 'sonner'
 import { Streamdown } from 'streamdown'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
-import { useUpdateWorkingMemory, useWorkingMemory } from '@/hooks/use-memory'
-import { parseWorkingMemoryData, replaceWorkingMemoryData } from '@/lib/memory-utils'
 
 export function ShortTermSection(): React.JSX.Element {
-  const { data, isLoading } = useWorkingMemory()
-  const updateMemory = useUpdateWorkingMemory()
+  const { workingMemory, updateWorkingMemory } = useMemory()
+  const { data, isLoading } = workingMemory
   const [editContent, setEditContent] = useState('')
   const [editing, setEditing] = useState(false)
 
@@ -30,12 +30,18 @@ export function ShortTermSection(): React.JSX.Element {
     setEditing(false)
   }
 
+  const [isSaving, setIsSaving] = useState(false)
+
   function saveEdit(): void {
     if (!rawContent) {
       return
     }
     const updated = replaceWorkingMemoryData(rawContent, editContent.trim())
-    updateMemory.mutate(updated, { onSuccess: () => setEditing(false) })
+    setIsSaving(true)
+    updateWorkingMemory(updated)
+      .then(() => setEditing(false))
+      .catch((err: Error) => toast.error(`Failed to update memory: ${err.message}`))
+      .finally(() => setIsSaving(false))
   }
 
   return (
@@ -67,12 +73,8 @@ export function ShortTermSection(): React.JSX.Element {
                   <Button variant="outline" onClick={cancelEditing}>
                     Cancel
                   </Button>
-                  <Button disabled={updateMemory.isPending} onClick={saveEdit}>
-                    {updateMemory.isPending ? (
-                      <Loader2Icon className="size-4 animate-spin" />
-                    ) : (
-                      'Save'
-                    )}
+                  <Button disabled={isSaving} onClick={saveEdit}>
+                    {isSaving ? <Loader2Icon className="size-4 animate-spin" /> : 'Save'}
                   </Button>
                 </div>
               </>

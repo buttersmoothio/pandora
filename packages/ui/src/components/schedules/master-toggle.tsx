@@ -1,12 +1,12 @@
 'use client'
 
+import { useConfig } from '@pandorakit/react-sdk'
+import { toast } from 'sonner'
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
-import { useConfig, useUpdateConfig } from '@/hooks/use-config'
 
 export function MasterToggle(): React.JSX.Element {
-  const { data: config } = useConfig()
-  const updateConfig = useUpdateConfig()
+  const { data: config, update, isUpdating } = useConfig()
   const enabled = config?.schedule.enabled ?? false
 
   return (
@@ -23,12 +23,12 @@ export function MasterToggle(): React.JSX.Element {
           </div>
           <Switch
             checked={enabled}
-            disabled={updateConfig.isPending}
-            onCheckedChange={(checked: boolean): void =>
-              updateConfig.mutate({
+            disabled={isUpdating}
+            onCheckedChange={(checked: boolean): void => {
+              update({
                 schedule: { enabled: checked, tasks: config?.schedule.tasks ?? [] },
-              })
-            }
+              }).catch((err: Error) => toast.error(`Failed to update config: ${err.message}`))
+            }}
           />
         </div>
       </CardHeader>

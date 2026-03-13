@@ -1,12 +1,16 @@
 'use client'
 
-import { useChat } from '@ai-sdk/react'
-import { useQueryClient } from '@tanstack/react-query'
-import { DefaultChatTransport, isToolUIPart, type UIMessage } from 'ai'
+import {
+  type ForkInfo,
+  type ServerMessage,
+  type UIMessage,
+  useChat,
+  useConfig,
+} from '@pandorakit/react-sdk'
 import { MessageSquareIcon, PencilIcon } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import type React from 'react'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { toast } from 'sonner'
 import {
   Conversation,
@@ -34,22 +38,6 @@ import { EditMessageForm } from '@/components/chat/edit-message-form'
 import { InputAttachments } from '@/components/chat/input-attachments'
 import { MessageParts } from '@/components/message-parts'
 import { Button } from '@/components/ui/button'
-import { useConfig } from '@/hooks/use-config'
-import { type ForkInfo, THREADS_KEY, useForkThread } from '@/hooks/use-threads'
-import { API_URL, client, getToken } from '@/lib/api'
-import { convertServerMessages, type ServerMessage } from '@/lib/messages'
-
-export interface ThreadResponse {
-  thread: {
-    id: string
-    title?: string
-    createdAt: string
-    updatedAt: string
-  }
-  messages: ServerMessage[]
-  forks: Record<string, BranchRef[]>
-  forkInfo: ForkInfo | null
-}
 
 export function ThreadChat({
   threadId,
@@ -63,104 +51,19 @@ export function ThreadChat({
   forkInfo: ForkInfo | null
 }): React.JSX.Element {
   const router = useRouter()
-  const queryClient = useQueryClient()
   const { data: config } = useConfig()
   const agentName = config?.identity.name ?? 'Pandora'
-  const forkThread = useForkThread()
 
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null)
   const [editText, setEditText] = useState('')
 
-  const initialMessages = useMemo(() => convertServerMessages(serverMessages), [serverMessages])
-
-  const transport = useMemo(
-    () =>
-      new DefaultChatTransport({
-        api: `${API_URL}/api/chat`,
-        fetch: async (url: RequestInfo | URL, init: RequestInit | undefined): Promise<Response> => {
-          const res = await fetch(url, init)
-          queryClient.invalidateQueries({ queryKey: THREADS_KEY })
-          return res
-        },
-        headers: (): Record<string, string> => {
-          const token = getToken()
-          return token ? { Authorization: `Bearer ${token}` } : {}
-        },
-        prepareSendMessagesRequest: ({ messages }: { messages: UIMessage[] }) => {
-          const lastMessage = messages.at(-1)
-
-          // Route approval responses to the approval endpoint
-          if (lastMessage?.role === 'assistant') {
-            const approvalPart = lastMessage.parts.find(
-              (p) => isToolUIPart(p) && p.state === 'approval-responded',
-            )
-            if (approvalPart && isToolUIPart(approvalPart)) {
-              return {
-                api: `${API_URL}/api/chat/approve`,
-                body: {
-                  runId: approvalPart.approval.id,
-                  toolCallId: approvalPart.toolCallId,
-                  approved: approvalPart.approval.approved,
-                  threadId,
-                  messageId: lastMessage.id,
-                },
-              }
-            }
-          }
-
-          const parts = lastMessage?.role === 'user' ? lastMessage.parts : []
-          return { body: { parts, threadId } }
-        },
-        prepareReconnectToStreamRequest: () => {
-          const token = getToken()
-          return token ? { headers: { Authorization: `Bearer ${token}` } } : {}
-        },
-      }),
-    [threadId, queryClient],
-  )
-
-  const { messages, sendMessage, status, addToolApprovalResponse } = useChat({
-    id: threadId,
-    transport,
-    messages: initialMessages,
-    resume: true,
-    sendAutomaticallyWhen: ({ messages: msgs }: { messages: UIMessage[] }): boolean => {
-      const lastMessage = msgs.at(-1)
-      if (lastMessage?.role !== 'assistant') {
-        return false
-      }
-      return lastMessage.parts.some((p) => isToolUIPart(p) && p.state === 'approval-responded')
-    },
-    onFinish: () => {
-      queryClient.invalidateQueries({ queryKey: THREADS_KEY })
-    },
+  const { messages, sendMessage, status, addToolApprovalResponse, editMessage } = useChat({
+    threadId,
+    initialMessages: serverMessages,
     onError: (err: Error): void => {
       toast.error(err.message || 'Stream failed')
     },
   })
-
-  // Auto-send pending fork message once chat is ready
-  const hasSentPending = useRef(false)
-  useEffect(() => {
-    if (hasSentPending.current || status !== 'ready') {
-      return
-    }
-    const raw = sessionStorage.getItem('pendingForkMessage')
-    if (!raw) {
-      return
-    }
-    try {
-      const { threadId: forkId, text } = JSON.parse(raw)
-      if (forkId === threadId) {
-        hasSentPending.current = true
-        sessionStorage.removeItem('pendingForkMessage')
-        sendMessage({ text })
-      }
-    } catch {
-      // Invalid JSON in sessionStorage — clean up
-      sessionStorage.removeItem('pendingForkMessage')
-    }
-  }, [threadId, sendMessage, status])
 
   const isStreaming = status === 'streaming'
 
@@ -184,36 +87,14 @@ export function ThreadChat({
       setEditingMessageId(null)
       setEditText('')
 
-      // useChat may assign client-generated IDs that differ from server IDs.
-      // Resolve to the real server-side message ID by matching index position.
-      let messageId = clientMessageId
-      const msgIndex = messages.findIndex((m) => m.id === clientMessageId)
-      if (msgIndex !== -1) {
-        try {
-          const fresh = (await client.threads.get(threadId)) as ThreadResponse
-          const freshMessages = convertServerMessages(fresh.messages)
-          if (freshMessages[msgIndex]) {
-            messageId = freshMessages[msgIndex].id
-          }
-        } catch {
-          // Fall back to client ID
-        }
+      try {
+        const newThreadId = await editMessage(clientMessageId, text)
+        router.push(`/chat/${newThreadId}`)
+      } catch {
+        // Fork failed
       }
-
-      forkThread.mutate(
-        { threadId, messageId },
-        {
-          onSuccess: ({ thread: forkedThread }: { thread: { id: string } }): void => {
-            sessionStorage.setItem(
-              'pendingForkMessage',
-              JSON.stringify({ threadId: forkedThread.id, text }),
-            )
-            router.push(`/chat/${forkedThread.id}`)
-          },
-        },
-      )
     },
-    [editText, threadId, forkThread, router, messages],
+    [editText, editMessage, router],
   )
 
   return (

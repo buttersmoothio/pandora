@@ -3,12 +3,12 @@ import { Geist, Geist_Mono } from 'next/font/google'
 import { headers } from 'next/headers'
 import './globals.css'
 
+import { PandoraProvider } from '@pandorakit/react-sdk'
 import { AppSidebar } from '@/components/app-sidebar'
 import { OnboardingGuard } from '@/components/onboarding/onboarding-guard'
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar'
 import { Toaster } from '@/components/ui/sonner'
-import { AuthProvider } from '@/providers/auth-provider'
-import { QueryProvider } from '@/providers/query-provider'
+import { AuthGuard } from '@/providers/auth-guard'
 import { ThemeProvider } from '@/providers/theme-provider'
 
 const geistSans = Geist({
@@ -37,8 +37,8 @@ export default async function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <ThemeProvider nonce={nonce}>
-          <QueryProvider>
-            <AuthProvider>
+          <PandoraProvider baseUrl={process.env.NEXT_PUBLIC_API_URL}>
+            <AuthGuard>
               <OnboardingGuard>
                 <SidebarProvider>
                   <AppSidebar />
@@ -50,9 +50,9 @@ export default async function RootLayout({
                   </SidebarInset>
                 </SidebarProvider>
               </OnboardingGuard>
-            </AuthProvider>
+            </AuthGuard>
             <Toaster />
-          </QueryProvider>
+          </PandoraProvider>
         </ThemeProvider>
       </body>
     </html>

@@ -1,8 +1,6 @@
 'use client'
 
-import { useChat } from '@ai-sdk/react'
-import { useQueryClient } from '@tanstack/react-query'
-import { DefaultChatTransport } from 'ai'
+import { useChat, useConfig } from '@pandorakit/react-sdk'
 import { MessageSquareIcon } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useRef } from 'react'
@@ -29,48 +27,21 @@ import {
 } from '@/components/ai-elements/prompt-input'
 import { InputAttachments } from '@/components/chat/input-attachments'
 import { MessageParts } from '@/components/message-parts'
-import { useConfig } from '@/hooks/use-config'
-import { THREADS_KEY } from '@/hooks/use-threads'
-import { API_URL, getToken } from '@/lib/api'
 
 export default function Home(): React.JSX.Element {
   const { data: config } = useConfig()
   const agentName = config?.identity.name ?? 'Pandora'
   const router = useRouter()
-  const queryClient = useQueryClient()
   const threadIdRef = useRef<string | null>(null)
 
   const { messages, sendMessage, status, addToolApprovalResponse } = useChat({
-    transport: new DefaultChatTransport({
-      api: `${API_URL}/api/chat`,
-      headers: (): Record<string, string> => {
-        const token = getToken()
-        return token ? { Authorization: `Bearer ${token}` } : {}
-      },
-      prepareSendMessagesRequest: ({
-        messages,
-      }: {
-        messages: { role: string; parts: unknown[] }[]
-      }) => {
-        const lastMessage = messages.at(-1)
-        const parts = lastMessage?.role === 'user' ? lastMessage.parts : []
-        return { body: { parts } }
-      },
-      fetch: async (url: string | URL | globalThis.Request, init: RequestInit | undefined) => {
-        const res = await fetch(url, init)
-        const threadId = res.headers.get('X-Thread-Id')
-        if (threadId) {
-          threadIdRef.current = threadId
-          queryClient.invalidateQueries({ queryKey: THREADS_KEY })
-        }
-        return res
-      },
-    }),
+    onThreadCreated: (id) => {
+      threadIdRef.current = id
+    },
     onFinish: () => {
       if (threadIdRef.current) {
         const id = threadIdRef.current
         threadIdRef.current = null
-        queryClient.invalidateQueries({ queryKey: THREADS_KEY })
         router.push(`/chat/${id}`)
       }
     },
