@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
-import type { PluginRegistry } from './plugin-registry'
-import { createPluginRegistry } from './plugin-registry'
+import { DEFAULTS, getConfig } from '../../config'
+import { loadTools } from '../load-tools'
+import { createRuntime } from '../pandora-runtime'
+import type { PluginRegistry } from '../plugin-registry'
+import { createPluginRegistry } from '../plugin-registry'
 
 // ── Hoisted stubs (available inside vi.mock factories) ─────────────────
 
@@ -68,12 +71,12 @@ const {
 
 // ── Mocks ──────────────────────────────────────────────────────────────
 
-vi.mock('../storage', () => ({
+vi.mock('../../storage', () => ({
   createStorage: vi.fn().mockResolvedValue(stubStorage),
 }))
 
-vi.mock('../config', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../config')>()
+vi.mock('../../config', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../config')>()
   const stubConfig = { ...actual.DEFAULTS }
   return {
     ...actual,
@@ -82,58 +85,58 @@ vi.mock('../config', async (importOriginal) => {
   }
 })
 
-vi.mock('../mcp', () => ({
+vi.mock('../../mcp', () => ({
   createMcpManager: vi.fn().mockResolvedValue(stubMcpManager),
 }))
 
-vi.mock('../memory', () => ({
+vi.mock('../../memory', () => ({
   createMemory: vi.fn().mockReturnValue({}),
 }))
 
-vi.mock('../scheduler', () => ({
+vi.mock('../../scheduler', () => ({
   createScheduler: vi.fn().mockReturnValue(stubScheduler),
 }))
 
-vi.mock('../scheduler/tools', () => ({
+vi.mock('../../scheduler/tools', () => ({
   createScheduleTools: vi.fn().mockReturnValue({}),
 }))
 
-vi.mock('../scheduler/heartbeat', () => ({
+vi.mock('../../scheduler/heartbeat', () => ({
   HEARTBEAT_TASK_ID: '__heartbeat__',
   createHeartbeatTask: vi.fn().mockReturnValue({ id: '__heartbeat__', cron: '*/30 * * * *' }),
   isWithinActiveHours: vi.fn().mockReturnValue(true),
   buildHeartbeatPrompt: vi.fn().mockReturnValue('heartbeat prompt'),
 }))
 
-vi.mock('../inbox/tools', () => ({
+vi.mock('../../inbox/tools', () => ({
   createSendToTools: vi.fn().mockReturnValue({}),
 }))
 
-vi.mock('../tools/current-time', () => ({
+vi.mock('../../tools/current-time', () => ({
   createCurrentTimeTool: vi.fn().mockReturnValue({ id: 'current_time' }),
 }))
 
-vi.mock('./load-tools', () => ({
+vi.mock('../load-tools', () => ({
   loadTools: vi.fn().mockResolvedValue({}),
 }))
 
-vi.mock('./load-agents', () => ({
+vi.mock('../load-agents', () => ({
   loadAgents: vi.fn().mockResolvedValue({}),
 }))
 
-vi.mock('./load-channels', () => ({
+vi.mock('../load-channels', () => ({
   loadChannels: vi.fn().mockResolvedValue({ channels: new Map(), channelNames: new Map() }),
 }))
 
-vi.mock('./web-gateway', () => ({
+vi.mock('../web-gateway', () => ({
   createWebGateway: vi.fn().mockReturnValue(stubWebGateway),
 }))
 
-vi.mock('./channel-gateway', () => ({
+vi.mock('../channel-gateway', () => ({
   createChannelGateway: vi.fn().mockReturnValue(vi.fn()),
 }))
 
-vi.mock('../agents/operator', () => ({
+vi.mock('../../agents/operator', () => ({
   createOperator: vi.fn().mockReturnValue({ id: 'operator' }),
 }))
 
@@ -141,13 +144,13 @@ vi.mock('@mastra/core', () => ({
   Mastra: vi.fn().mockImplementation(() => stubMastra),
 }))
 
-vi.mock('./stream-store', () => ({
+vi.mock('../stream-store', () => ({
   storeStream: vi.fn(),
   getResumeStream: vi.fn(),
   getActiveStreamIds: vi.fn().mockReturnValue([]),
 }))
 
-vi.mock('../logger', () => ({
+vi.mock('../../logger', () => ({
   getLogger: vi.fn().mockReturnValue({
     info: vi.fn(),
     error: vi.fn(),
@@ -155,9 +158,6 @@ vi.mock('../logger', () => ({
     debug: vi.fn(),
   }),
 }))
-
-const { createRuntime } = await import('./pandora-runtime')
-const { DEFAULTS } = await import('../config')
 
 // ── Helpers ────────────────────────────────────────────────────────────
 
@@ -247,7 +247,6 @@ describe('runtime.close', () => {
 
 describe('runtime.reload', () => {
   it('re-reads config and rebuilds state', async () => {
-    const { getConfig } = await import('../config')
     const runtime = await createRuntime(makeRegistry(), {})
 
     vi.mocked(getConfig).mockClear()
@@ -270,7 +269,6 @@ describe('runtime.reload', () => {
     const runtime = await createRuntime(makeRegistry(), {})
 
     const order: number[] = []
-    const { getConfig } = await import('../config')
     let callCount = 0
     vi.mocked(getConfig).mockImplementation(async () => {
       const n = ++callCount
@@ -297,7 +295,6 @@ describe('runtime.reload', () => {
 
 describe('getBackgroundTools (via runtime)', () => {
   it('interactive tools exclude background-only tools', async () => {
-    const { loadTools } = await import('./load-tools')
     vi.mocked(loadTools).mockResolvedValueOnce({
       'mcp:readonly-tool': {
         id: 'readonly-tool',

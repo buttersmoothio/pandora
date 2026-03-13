@@ -30,6 +30,43 @@ Biome — single quotes, no semicolons, 2-space indent, trailing commas, 100 cha
 
 Run `bun run check:fix` before committing.
 
+## Coding Standards
+
+### Types
+
+- Use `interface` for contracts and object shapes (stores, registries, component props). Use `type` for unions, intersections, mapped types, and inferred types.
+- Derive types from Zod schemas with `z.infer<typeof Schema>`. Export both the schema and the type.
+- Use union types (`'a' | 'b'`) instead of `enum`. Use `as const` arrays with `ReadonlySet` when you need runtime membership checks.
+- Avoid `as` casts — restructure code or use type guards to narrow naturally. Never use `as any` or `as unknown as T`.
+- Let TypeScript infer return types. Only annotate when inference is wrong or too wide.
+- Avoid non-null assertions (`!`).
+- Use `??` instead of `||` for defaults — `||` swallows `0`, `''`, and `false`.
+- Never silently swallow errors in catch blocks. At minimum, log them.
+- No wildcard re-exports (`export *`). Use explicit named exports.
+
+### Module Organization
+
+- No default exports (except where framework requires it, e.g. Next.js pages).
+- File suffixes: `-store` (persistence interfaces), `-provider` (implementations), `-types` (type exports).
+- Private/cached mutable refs: leading underscore (`_runtime`, `_cached`).
+- Tests live in a `tests/` subfolder within each module directory (e.g. `runtime/tests/`, `auth/tests/`).
+
+### Logging
+
+- Use `getLogger()` from `../logger` — never use `console.log` / `console.error` directly.
+- Prefix log messages with the module name in brackets: `[runtime]`, `[scheduler]`, `[stream-store]`.
+- Structured data goes in the second argument: `log.info('[runtime] loaded tools', { toolIds })`.
+
+### Patterns
+
+- Use `HTTPException` for errors in Hono routes.
+- Async factory functions instead of constructors when initialization requires async work (e.g. `Agent.create()`, `createRuntime()`).
+- Provider pattern for pluggable implementations: abstract interface + concrete implementations in a `providers/` directory.
+- Higher-order functions for middleware: return `createMiddleware(...)` from a factory that accepts dependencies.
+- Promise deduplication for concurrent requests: cache the in-flight promise and clear it in `.finally()`.
+- Discriminated unions with a `type` field for polymorphic data.
+- Dynamic imports are only acceptable for SES lockdown conflicts, optional peer dependencies, or plugin entry points. Use static imports everywhere else.
+
 ## Documentation
 
 Docs live in `packages/docs/content/`. Run locally with `cd packages/docs && bun run dev`.

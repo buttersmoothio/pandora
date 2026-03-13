@@ -1,9 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
+import { createChannelGateway } from '../channel-gateway'
 
 const mockGetAgent = vi.fn()
 const mockMastra = { getAgent: mockGetAgent }
-
-const { createChannelGateway } = await import('./channel-gateway')
 
 describe('channel gateway', () => {
   it('creates a gateway with env and logger', () => {

@@ -8,7 +8,6 @@ import type {
   ToolCallChunk,
   ToolResultChunk,
 } from '@mastra/core/stream'
-import type { Memory } from '@mastra/memory'
 import type {
   FileData,
   GenerateResult,
@@ -25,24 +24,36 @@ import { getLogger } from '../logger'
 // Message construction
 // ---------------------------------------------------------------------------
 
+interface ChannelFilePart {
+  type: 'file'
+  data: string | ArrayBuffer | Uint8Array
+  mimeType: string
+  filename?: string
+}
+
+function isChannelFilePart(part: MessagePart): part is MessagePart & ChannelFilePart {
+  return part.type === 'file' && 'data' in part && 'mimeType' in part && !('url' in part)
+}
+
 /**
  * Normalize parts so both web UI (FileUIPart with url) and channel adapters
  * (FilePart with binary data) produce a consistent format for the agent.
  */
 function normalizePart(part: MessagePart): unknown {
   // Channel format: { type: 'file', data, mimeType } — convert binary to data: URL
-  if (part.type === 'file' && 'data' in part && !('url' in part)) {
-    const fp = part as {
-      data: string | ArrayBuffer | Uint8Array
-      mimeType: string
-      filename?: string
-    }
-    const base64 = Buffer.from(fp.data as ArrayBuffer).toString('base64')
+  if (isChannelFilePart(part)) {
+    const raw = part.data
+    const base64 =
+      raw instanceof Uint8Array
+        ? Buffer.from(raw).toString('base64')
+        : raw instanceof ArrayBuffer
+          ? Buffer.from(new Uint8Array(raw)).toString('base64')
+          : Buffer.from(String(raw)).toString('base64')
     return {
       type: 'file',
-      data: `data:${fp.mimeType};base64,${base64}`,
-      mimeType: fp.mimeType,
-      filename: fp.filename,
+      data: `data:${part.mimeType};base64,${base64}`,
+      mimeType: part.mimeType,
+      filename: part.filename,
     }
   }
   return part
@@ -53,10 +64,10 @@ export function buildMessages(parts: MessagePart[]): any[] {
   return [{ id: crypto.randomUUID(), role: 'user' as const, parts: parts.map(normalizePart) }]
 }
 
-export async function getMemory(mastra: Mastra): Promise<Memory> {
+export async function getMemory(mastra: Mastra) {
   const memory = await mastra.getAgent('operator').getMemory()
   if (!memory) throw new Error('Memory not configured')
-  return memory as Memory
+  return memory
 }
 
 // ---------------------------------------------------------------------------

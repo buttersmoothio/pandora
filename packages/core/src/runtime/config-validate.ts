@@ -24,12 +24,12 @@ export function validatePluginConfig(
   const schema = plugin.schema
 
   if (!rawConfig) {
-    log.debug(`Plugin ${plugin.id} skipped (not configured)`)
+    log.debug('[config-validate] plugin skipped (not configured)', { pluginId: plugin.id })
     return { config: null, errors: [] }
   }
 
   if (rawConfig.enabled === false) {
-    log.debug(`Plugin ${plugin.id} disabled by config`)
+    log.debug('[config-validate] plugin disabled by config', { pluginId: plugin.id })
     return { config: null, errors: [] }
   }
 
@@ -37,7 +37,10 @@ export function validatePluginConfig(
     const result = basePluginSchema.extend(schema.shape).safeParse(rawConfig)
     if (!result.success) {
       const errors = result.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`)
-      log.error(`Plugin ${plugin.id} disabled (invalid config)`, { issues: errors })
+      log.error('[config-validate] plugin disabled (invalid config)', {
+        pluginId: plugin.id,
+        issues: errors,
+      })
       return { config: null, errors }
     }
   }

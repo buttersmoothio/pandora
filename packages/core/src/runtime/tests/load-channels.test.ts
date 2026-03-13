@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { DEFAULTS } from '../config'
-import { loadChannels } from './load-channels'
-import type { RegisteredPlugin } from './plugin-registry'
-import { createPluginRegistry } from './plugin-registry'
+import { DEFAULTS } from '../../config'
+import { loadChannels } from '../load-channels'
+import type { RegisteredPlugin } from '../plugin-registry'
+import { createPluginRegistry } from '../plugin-registry'
 
 function configWith(...pluginIds: string[]) {
   const plugins: Record<string, { enabled: boolean }> = {}

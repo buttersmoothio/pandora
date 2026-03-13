@@ -32,7 +32,7 @@ export async function loadChannels(
     try {
       const adapter = plugin.channels.factory(env, pluginConfig)
       if (!adapter) {
-        log.debug(`Channel ${plugin.id} skipped (missing env vars)`)
+        log.debug('[load-channels] channel skipped (missing env vars)', { pluginId: plugin.id })
         continue
       }
 
@@ -46,10 +46,10 @@ export async function loadChannels(
       const friendlyName = count > 0 ? `${adapter.name} (${plugin.id})` : adapter.name
       channelNames.set(friendlyName, nsKey)
 
-      log.info(`Channel loaded: ${adapter.name} (${nsKey})`)
+      log.info('[load-channels] channel loaded', { name: adapter.name, nsKey })
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error'
-      log.error(`Failed to load channel ${plugin.id}`, { error: message })
+      log.error('[load-channels] failed to load channel', { pluginId: plugin.id, error: message })
     }
   }
 

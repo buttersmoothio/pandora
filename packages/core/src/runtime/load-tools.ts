@@ -47,9 +47,10 @@ export async function loadTools(
       (v) => v.required !== false && !envVars[v.name],
     )
     if (missingEnv.length > 0) {
-      log.debug(
-        `Plugin ${plugin.id} tools skipped (missing env: ${missingEnv.map((v) => v.name).join(', ')})`,
-      )
+      log.debug('[load-tools] plugin tools skipped (missing env)', {
+        pluginId: plugin.id,
+        missingEnv: missingEnv.map((v) => v.name),
+      })
       continue
     }
 

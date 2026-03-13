@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { decodeNsKey, encodeNsKey, namespacedKey, validateEntityId } from './namespace'
+import { decodeNsKey, encodeNsKey, namespacedKey, validateEntityId } from '../namespace'
 
 describe('validateEntityId', () => {
   it('passes for valid IDs', () => {

@@ -59,9 +59,10 @@ export async function loadAgents(
       (v) => v.required !== false && !envVars[v.name],
     )
     if (missingEnv.length > 0) {
-      log.debug(
-        `Plugin ${plugin.id} agents skipped (missing env: ${missingEnv.map((v) => v.name).join(', ')})`,
-      )
+      log.debug('[load-agents] plugin agents skipped (missing env)', {
+        pluginId: plugin.id,
+        missingEnv: missingEnv.map((v) => v.name),
+      })
       continue
     }
 

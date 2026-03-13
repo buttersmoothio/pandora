@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import type { RegisteredPlugin } from './plugin-registry'
-import { createPluginRegistry } from './plugin-registry'
+import type { RegisteredPlugin } from '../plugin-registry'
+import { createPluginRegistry } from '../plugin-registry'
 
 describe('createPluginRegistry', () => {
   it('returns a registry with an empty plugins map', () => {

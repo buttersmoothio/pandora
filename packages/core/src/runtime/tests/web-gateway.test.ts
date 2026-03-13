@@ -1,4 +1,6 @@
+import { toAISdkStream } from '@mastra/ai-sdk'
 import { describe, expect, it, vi } from 'vitest'
+import { createWebGateway } from '../web-gateway'
 
 const mockGetAgent = vi.fn()
 const mockMastra = { getAgent: mockGetAgent }
@@ -12,9 +14,6 @@ vi.mock('@mastra/ai-sdk', () => ({
     })
   }),
 }))
-
-const { createWebGateway } = await import('./web-gateway')
-const { toAISdkStream } = await import('@mastra/ai-sdk')
 
 describe('web gateway', () => {
   it('stream calls agent.stream with correct memory for new thread', async () => {

@@ -14,7 +14,7 @@
     },
     "packages/brave-search": {
       "name": "@pandorakit/brave-search",
-      "version": "0.0.1",
+      "version": "0.1.0",
       "devDependencies": {
         "@pandorakit/sdk": "workspace:*",
         "@types/bun": "^1.3.9",
@@ -72,7 +72,7 @@
     },
     "packages/exa-search": {
       "name": "@pandorakit/exa-search",
-      "version": "0.0.1",
+      "version": "0.1.0",
       "devDependencies": {
         "@pandorakit/sdk": "workspace:*",
         "@types/bun": "^1.3.9",
@@ -85,7 +85,7 @@
     },
     "packages/perplexity-search": {
       "name": "@pandorakit/perplexity-search",
-      "version": "0.0.1",
+      "version": "0.1.0",
       "devDependencies": {
         "@pandorakit/sdk": "workspace:*",
         "@types/bun": "^1.3.9",
@@ -98,7 +98,7 @@
     },
     "packages/research-agent": {
       "name": "@pandorakit/research-agent",
-      "version": "0.0.1",
+      "version": "0.1.0",
       "devDependencies": {
         "@pandorakit/sdk": "workspace:*",
         "@types/bun": "^1.3.9",
@@ -111,7 +111,7 @@
     },
     "packages/sdk": {
       "name": "@pandorakit/sdk",
-      "version": "0.0.1",
+      "version": "0.1.0",
       "devDependencies": {
         "@types/bun": "^1.3.9",
         "typescript": "^5.9.3",
@@ -119,7 +119,7 @@
     },
     "packages/tavily-search": {
       "name": "@pandorakit/tavily-search",
-      "version": "0.0.1",
+      "version": "0.1.0",
       "devDependencies": {
         "@pandorakit/sdk": "workspace:*",
         "@types/bun": "^1.3.9",
@@ -132,7 +132,7 @@
     },
     "packages/telegram": {
       "name": "@pandorakit/telegram",
-      "version": "0.0.1",
+      "version": "0.1.0",
       "dependencies": {
         "grammy": "^1.36.3",
         "rehype-stringify": "^10.0.1",

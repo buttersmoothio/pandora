@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getActiveStreamIds, getResumeStream, storeStream } from './stream-store'
+import { getActiveStreamIds, getResumeStream, storeStream } from '../stream-store'
 
 /** Create a ReadableStream from an array of string chunks. */
 function chunkedStream(chunks: string[]): ReadableStream<string> {
@@ -21,7 +21,7 @@ const tick = () => new Promise((r) => setTimeout(r, 10))
 describe('storeStream', () => {
   it('marks stream as active until reader completes', async () => {
     // Create a manually-controlled stream
-    let closeStream!: () => void
+    let closeStream: () => void = () => {}
     const manual = new ReadableStream<string>({
       start(controller) {
         closeStream = () => controller.close()
@@ -40,7 +40,7 @@ describe('storeStream', () => {
   })
 
   it('replaces an existing entry for the same chatId', async () => {
-    let closeFirst!: () => void
+    let closeFirst: () => void = () => {}
     const first = new ReadableStream<string>({
       start(controller) {
         closeFirst = () => controller.close()
@@ -51,7 +51,7 @@ describe('storeStream', () => {
     await tick()
 
     // Replace with a new stream
-    let closeSecond!: () => void
+    let closeSecond: () => void = () => {}
     const second = new ReadableStream<string>({
       start(controller) {
         closeSecond = () => controller.close()
@@ -84,8 +84,8 @@ describe('getResumeStream', () => {
   })
 
   it('replays buffered chunks then follows live chunks', async () => {
-    let enqueue!: (v: string) => void
-    let close!: () => void
+    let enqueue: (v: string) => void = () => {}
+    let close: () => void = () => {}
     const manual = new ReadableStream<string>({
       start(controller) {
         enqueue = (v) => controller.enqueue(v)
@@ -103,10 +103,9 @@ describe('getResumeStream', () => {
 
     // Get resume stream — should see buffered + future chunks
     const resume = getResumeStream('resume-replay')
-    expect(resume).not.toBeNull()
+    if (!resume) throw new Error('expected resume stream')
 
-    // biome-ignore lint/style/noNonNullAssertion: asserted non-null on line above
-    const reader = resume!.getReader()
+    const reader = resume.getReader()
 
     // Should immediately replay buffered chunks
     expect(await reader.read()).toEqual({ done: false, value: 'a' })
@@ -124,7 +123,7 @@ describe('getResumeStream', () => {
   })
 
   it('allows cancel without error', async () => {
-    let close!: () => void
+    let close: () => void = () => {}
     const manual = new ReadableStream<string>({
       start(controller) {
         close = () => controller.close()
@@ -135,11 +134,10 @@ describe('getResumeStream', () => {
     await tick()
 
     const resume = getResumeStream('resume-cancel')
-    expect(resume).not.toBeNull()
+    if (!resume) throw new Error('expected resume stream')
 
     // Cancel the resume stream
-    // biome-ignore lint/style/noNonNullAssertion: asserted non-null on line above
-    await resume!.cancel()
+    await resume.cancel()
 
     // Cleanup
     close()
@@ -149,7 +147,7 @@ describe('getResumeStream', () => {
 
 describe('getActiveStreamIds', () => {
   it('only returns in-flight stream IDs', async () => {
-    let closeActive!: () => void
+    let closeActive: () => void = () => {}
     const active = new ReadableStream<string>({
       start(controller) {
         closeActive = () => controller.close()

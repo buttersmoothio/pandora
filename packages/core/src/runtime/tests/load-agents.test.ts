@@ -1,9 +1,9 @@
 import type { MastraMemory } from '@mastra/core/memory'
 import { describe, expect, it, vi } from 'vitest'
-import { DEFAULTS } from '../config'
-import { loadAgents } from './load-agents'
-import type { RegisteredPlugin } from './plugin-registry'
-import { createPluginRegistry } from './plugin-registry'
+import { DEFAULTS } from '../../config'
+import { loadAgents } from '../load-agents'
+import type { RegisteredPlugin } from '../plugin-registry'
+import { createPluginRegistry } from '../plugin-registry'
 
 // Mock MastraAgent to capture constructor calls
 const mockAgentConstructor = vi.fn()
@@ -12,17 +12,18 @@ vi.mock('@mastra/core/agent', () => ({
     id: string
     constructor(config: Record<string, unknown>) {
       mockAgentConstructor(config)
-      this.id = config.id as string
+      this.id = String(config.id)
     }
   },
 }))
 
 // Mock model-tools to avoid dynamic imports
-vi.mock('../agents/model-tools', () => ({
+vi.mock('../../agents/model-tools', () => ({
   resolveModelTools: vi.fn().mockResolvedValue({ tools: {}, alerts: [] }),
 }))
 
-const mockMemory = {} as MastraMemory
+// @ts-expect-error minimal stub — MastraAgent constructor is mocked
+const mockMemory: MastraMemory = {}
 
 function configWith(...pluginIds: string[]) {
   const plugins: Record<string, { enabled: boolean }> = {}

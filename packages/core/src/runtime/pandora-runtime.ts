@@ -1,7 +1,8 @@
-import type { Mastra } from '@mastra/core'
+import { Mastra } from '@mastra/core'
 import type { Channel } from '@pandorakit/sdk/channels'
 import type { Disk } from 'flydrive'
-import type { Config } from '../config'
+import { createOperator } from '../agents/operator'
+import type { Config, ScheduledTask } from '../config'
 import { getConfig, updateConfig } from '../config'
 import { createFileDisk } from '../files/disk'
 import { createSendToTools } from '../inbox/tools'
@@ -125,7 +126,7 @@ export async function createRuntime(
 
     async reload() {
       const prev = reloadLock
-      let resolve!: () => void
+      let resolve: (() => void) | undefined
       reloadLock = new Promise((r) => {
         resolve = r
       })
@@ -158,7 +159,7 @@ export async function createRuntime(
         // Start realtime channels
         await startRealtimeChannels(runtime)
       } finally {
-        resolve()
+        resolve?.()
       }
     },
 
@@ -201,7 +202,7 @@ async function buildState(
     const channel = channels.get(nsKey)
     if (channel?.notify) notifiableNames.push(friendlyName)
   }
-  const destinations = ['Web Inbox', ...notifiableNames] as [string, ...string[]]
+  const destinations: [string, ...string[]] = ['Web Inbox', ...notifiableNames]
 
   // 4. Tools (built-in + plugin + MCP + schedule tools)
   const builtinTools = { current_time: createCurrentTimeTool(config.timezone) }
@@ -225,8 +226,8 @@ async function buildState(
 
   // 5. File storage
   const fileDisk = createFileDisk(env)
-  const port = env.PORT || '4111'
-  const baseUrl = env.BASE_URL || `http://localhost:${port}`
+  const port = env.PORT ?? '4111'
+  const baseUrl = env.BASE_URL ?? `http://localhost:${port}`
 
   // 6. Memory
   const memory = createMemory(config)
@@ -238,11 +239,9 @@ async function buildState(
   }
 
   // 7. Operator agent (background-only tools; interactive tools added via toolsets)
-  const { createOperator } = await import('../agents/operator')
   const operator = createOperator(config, backgroundTools, memory, fileDisk, baseUrl, subagents)
 
   // 8. Mastra instance
-  const { Mastra } = await import('@mastra/core')
   const mastra = new Mastra({
     agents: { operator, ...subagents },
     storage: storage.mastra,
@@ -261,7 +260,7 @@ function createTaskHandler(
   env: Record<string, string | undefined>,
 ) {
   const log = getLogger(env)
-  return async (task: import('../config').ScheduledTask) => {
+  return async (task: ScheduledTask) => {
     const runtime = runtimeRef.current
     if (!runtime) {
       log.error('[scheduler] runtime not available for task', { taskId: task.id })
@@ -341,15 +340,24 @@ function createTaskHandler(
 function getBackgroundTools(tools: ToolRecord): ToolRecord {
   const result: ToolRecord = {}
   for (const [key, tool] of Object.entries(tools)) {
-    const t = tool as {
-      requireApproval?: boolean
-      mcp?: { annotations?: { readOnlyHint?: boolean } }
+    if (hasProperty(tool, 'requireApproval') && tool.requireApproval) continue
+    if (
+      !(
+        hasProperty(tool, 'mcp') &&
+        hasProperty(tool.mcp, 'annotations') &&
+        hasProperty(tool.mcp.annotations, 'readOnlyHint') &&
+        tool.mcp.annotations.readOnlyHint
+      )
+    ) {
+      continue
     }
-    if (t.requireApproval) continue
-    if (!t.mcp?.annotations?.readOnlyHint) continue
     result[key] = tool
   }
   return result
+}
+
+function hasProperty<K extends string>(obj: unknown, key: K): obj is Record<K, unknown> {
+  return typeof obj === 'object' && obj !== null && key in obj
 }
 
 async function startRealtimeChannels(runtime: PandoraRuntime): Promise<void> {
@@ -364,10 +372,13 @@ async function startRealtimeChannels(runtime: PandoraRuntime): Promise<void> {
     if (!adapter.realtime) continue
     try {
       await adapter.realtime.start(channel(nsKey))
-      log.info(`Realtime channel started: ${adapter.name}`)
+      log.info('[runtime] realtime channel started', { name: adapter.name })
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error'
-      log.error(`Failed to start realtime channel ${adapter.name}`, { error: message })
+      log.error('[runtime] failed to start realtime channel', {
+        name: adapter.name,
+        error: message,
+      })
     }
   }
 }
@@ -378,10 +389,10 @@ async function stopRealtimeChannels(channels: Map<string, Channel>): Promise<voi
     if (!adapter.realtime) continue
     try {
       await adapter.realtime.stop()
-      log.info(`Realtime channel stopped: ${adapter.name}`)
+      log.info('[runtime] realtime channel stopped', { name: adapter.name })
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error'
-      log.error(`Failed to stop realtime channel ${adapter.name}`, { error: message })
+      log.error('[runtime] failed to stop realtime channel', { name: adapter.name, error: message })
     }
   }
 }

@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { DEFAULTS } from '../config'
-import { loadTools } from './load-tools'
-import type { RegisteredPlugin } from './plugin-registry'
-import { createPluginRegistry } from './plugin-registry'
+import { DEFAULTS } from '../../config'
+import { loadTools } from '../load-tools'
+import type { RegisteredPlugin } from '../plugin-registry'
+import { createPluginRegistry } from '../plugin-registry'
 
 function makeToolPlugin(overrides?: Partial<RegisteredPlugin>): RegisteredPlugin {
   return {
@@ -152,8 +152,7 @@ describe('loadTools', () => {
     )
 
     const tools = await loadTools(registry, configWith('test-tools'), {})
-    // biome-ignore lint/suspicious/noExplicitAny: requireApproval is set dynamically
-    expect((tools['test-tools:greet'] as any).requireApproval).toBe(true)
+    expect(tools['test-tools:greet']).toHaveProperty('requireApproval', true)
   })
 
   it('applies per-tool requireApproval override from plugin config', async () => {
@@ -167,8 +166,7 @@ describe('loadTools', () => {
       },
     }
     const tools = await loadTools(registry, config, {})
-    // biome-ignore lint/suspicious/noExplicitAny: requireApproval is set dynamically
-    expect((tools['test-tools:greet'] as any).requireApproval).toBe(true)
+    expect(tools['test-tools:greet']).toHaveProperty('requireApproval', true)
   })
 
   it('loads tools from multiple plugins', async () => {

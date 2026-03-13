@@ -1,3 +1,5 @@
+import { getLogger } from '../logger'
+
 interface BufferedStream {
   chunks: string[]
   done: boolean
@@ -5,7 +7,7 @@ interface BufferedStream {
   listeners: Set<() => void>
 }
 
-const streams = new Map<string, BufferedStream>()
+const _streams = new Map<string, BufferedStream>()
 
 const CLEANUP_DELAY = 60_000
 
@@ -15,29 +17,37 @@ const CLEANUP_DELAY = 60_000
  */
 export function storeStream(chatId: string, sseStream: ReadableStream<string>): void {
   // Replace any prior entry
-  streams.delete(chatId)
+  _streams.delete(chatId)
 
   const entry: BufferedStream = { chunks: [], done: false, error: false, listeners: new Set() }
-  streams.set(chatId, entry)
+  _streams.set(chatId, entry)
 
-  const reader = sseStream.getReader()
+  void drainStream(chatId, entry, sseStream)
+}
 
-  void (async () => {
-    try {
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        entry.chunks.push(value)
-        for (const notify of entry.listeners) notify()
-      }
-    } catch {
-      entry.error = true
-    } finally {
-      entry.done = true
+async function drainStream(
+  chatId: string,
+  entry: BufferedStream,
+  stream: ReadableStream<string>,
+) {
+  const reader = stream.getReader()
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      entry.chunks.push(value)
       for (const notify of entry.listeners) notify()
-      setTimeout(() => streams.delete(chatId), CLEANUP_DELAY)
     }
-  })()
+  } catch (err) {
+    entry.error = true
+    getLogger().error('[stream-store] stream read error', {
+      error: err instanceof Error ? err.message : String(err),
+    })
+  } finally {
+    entry.done = true
+    for (const notify of entry.listeners) notify()
+    setTimeout(() => _streams.delete(chatId), CLEANUP_DELAY)
+  }
 }
 
 /**
@@ -45,7 +55,7 @@ export function storeStream(chatId: string, sseStream: ReadableStream<string>): 
  * Returns null if no entry exists.
  */
 export function getResumeStream(chatId: string): ReadableStream<string> | null {
-  const entry = streams.get(chatId)
+  const entry = _streams.get(chatId)
   // Only serve in-flight streams. Completed streams return null — the
   // client already has the full response via its initial messages query.
   if (!entry || entry.done) return null
@@ -81,7 +91,7 @@ export function getResumeStream(chatId: string): ReadableStream<string> | null {
  */
 export function getActiveStreamIds(): string[] {
   const ids: string[] = []
-  for (const [id, entry] of streams) {
+  for (const [id, entry] of _streams) {
     if (!entry.done) ids.push(id)
   }
   return ids
