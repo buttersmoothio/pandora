@@ -1,0 +1,158 @@
+# SDK Client
+
+`@pandorakit/sdk/client` provides a typed HTTP client for Pandora. It wraps every REST endpoint with type-safe methods, handles authentication headers, and supports automatic token refresh.
+
+## Installation
+
+```bash
+npm install @pandorakit/sdk
+```
+
+## Creating a Client
+
+```ts
+import { createClient } from '@pandorakit/sdk/client'
+
+const client = createClient({
+  baseUrl: 'http://localhost:4111',
+  getToken: () => localStorage.getItem('pandora_token'),
+})
+```
+
+`createClient` is synchronous — safe to call at module scope.
+
+### ClientOptions
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `baseUrl` | `string` | `"http://localhost:4111"` | Pandora server URL |
+| `getToken` | `() => string \| null \| Promise<string \| null>` | — | Called before every request to get the access token |
+| `refreshToken` | `{ get, onRefresh }` | — | Opt-in automatic token refresh (see below) |
+| `fetch` | `(url, init?) => Promise<Response>` | `globalThis.fetch` | Custom fetch implementation (for testing, proxies, or non-standard runtimes) |
+
+## Authentication
+
+Pass `getToken` to attach a bearer token to every request. For automatic token refresh on 401 responses, configure `refreshToken`:
+
+```ts
+const client = createClient({
+  baseUrl: 'http://localhost:4111',
+  getToken: () => localStorage.getItem('pandora_token'),
+  refreshToken: {
+    get: () => localStorage.getItem('pandora_refresh_token'),
+    onRefresh: (tokens) => {
+      localStorage.setItem('pandora_token', tokens.token)
+      localStorage.setItem('pandora_refresh_token', tokens.refreshToken)
+    },
+  },
+})
+```
+
+When a request gets a 401, the client automatically exchanges the refresh token for a new pair, calls `onRefresh` to persist the rotated tokens, and retries the original request. Concurrent 401s are deduplicated into a single refresh call.
+
+## Client Namespaces
+
+The client is organized into namespace objects that group related operations:
+
+| Namespace | Methods | API Reference |
+|---|---|---|
+| `client.health()` | Server health check (no auth required) | — |
+| `client.auth` | `setup`, `login`, `logout`, `refresh`, `changePassword`, `sessions`, `revokeSession`, `revokeAllSessions` | [Authentication](/api-reference/auth) |
+| `client.chat` | `send`, `approve`, `resume` | [Chat](/api-reference/chat) |
+| `client.threads` | `list`, `get`, `fork`, `delete` | [Threads](/api-reference/threads) |
+| `client.config` | `get`, `update` | [Configuration](/api-reference/configuration) |
+| `client.plugins` | `list` | [Plugins](/api-reference/plugins) |
+| `client.mcpServers` | `list`, `add` | [MCP Servers](/api-reference/mcp-servers) |
+| `client.models` | `list` | [Plugins](/api-reference/plugins) |
+| `client.schedule` | `destinations`, `list`, `get`, `create`, `update`, `delete`, `heartbeat`, `updateHeartbeat` | [Schedule](/api-reference/schedule) |
+| `client.inbox` | `list`, `get`, `update`, `delete` | [Inbox](/api-reference/inbox) |
+| `client.memory` | `getWorkingMemory`, `updateWorkingMemory`, `getObservations`, `getRecord` | [Memory](/api-reference/memory) |
+
+## Error Handling
+
+Non-2xx responses throw a `PandoraApiError` with `status` and `body` properties:
+
+```ts
+import { createClient, PandoraApiError } from '@pandorakit/sdk/client'
+
+const client = createClient({ /* ... */ })
+
+try {
+  await client.threads.get('nonexistent')
+} catch (err) {
+  if (err instanceof PandoraApiError && err.status === 404) {
+    console.log('Thread not found')
+  }
+}
+```
+
+The `chat` namespace methods (`send`, `approve`, `resume`) return a raw `Response` with an SSE stream body instead of parsed JSON. These do not throw on non-2xx — check `response.ok` yourself.
+
+## API Types
+
+All request and response types are also available from `@pandorakit/sdk/api` as a types-only entrypoint (zero runtime code):
+
+```ts
+import type {
+  Config,
+  Thread,
+  ThreadListResponse,
+  ThreadDetailResponse,
+  UnifiedPluginInfo,
+  ScheduleTask,
+  InboxMessage,
+} from '@pandorakit/sdk/api'
+```
+
+See each [API Reference](/api-reference) page for the types relevant to that endpoint.
+
+## Examples
+
+### Listing threads
+
+```ts
+const { threads } = await client.threads.list()
+
+for (const thread of threads) {
+  console.log(thread.id, thread.title)
+}
+```
+
+### Updating configuration
+
+```ts
+const config = await client.config.update({
+  identity: { name: 'My Agent' },
+  models: { operator: { provider: 'anthropic', model: 'claude-sonnet-4-20250514' } },
+})
+```
+
+Pass `null` for an optional field to delete it:
+
+```ts
+await client.config.update({
+  models: { operator: { temperature: null } },
+})
+```
+
+### Sending a chat message
+
+The `chat.send` method returns a raw `Response` with an SSE stream. The thread ID is in the `X-Thread-Id` header:
+
+```ts
+const response = await client.chat.send({
+  parts: [{ type: 'text', text: 'Hello!' }],
+})
+
+const threadId = response.headers.get('X-Thread-Id')
+
+// Read the stream
+const reader = response.body.getReader()
+const decoder = new TextDecoder()
+
+while (true) {
+  const { done, value } = await reader.read()
+  if (done) break
+  console.log(decoder.decode(value, { stream: true }))
+}
+```

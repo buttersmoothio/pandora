@@ -1,0 +1,139 @@
+# Reference
+
+All types are exported from `@pandorakit/sdk/channels`:
+
+```ts
+import type {
+  Channel,
+  ChannelFactory,
+  ChannelGateway,
+  ChannelRealtime,
+  ChannelWebhook,
+  GenerateResult,
+  MessagePart,
+  PendingToolApproval,
+  StreamResult,
+} from '@pandorakit/sdk/channels'
+```
+
+## `ChannelFactory`
+
+```ts
+type ChannelFactory = (
+  env: Record<string, string | undefined>,
+  config: PluginConfig,
+) => Channel | null
+```
+
+Returns `null` when required env vars are missing.
+
+## `Channel`
+
+The object your factory returns:
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `id` | `string` | Yes | Channel identifier, e.g. `'telegram'` |
+| `name` | `string` | Yes | Display name, e.g. `'Telegram'` |
+| `webhook` | `ChannelWebhook` | No | Webhook mode handler |
+| `realtime` | `ChannelRealtime` | No | Realtime mode handler |
+| `notify` | `(message: { subject: string; body: string }) => Promise<void>` | No | Send a one-way notification (no conversation context) |
+
+## `ChannelWebhook`
+
+```ts
+interface ChannelWebhook {
+  /** Verify request signature. Return false to reject with 401. */
+  verify(
+    request: Request,
+    env: Record<string, string | undefined>,
+  ): Promise<boolean>
+
+  /** Handle the webhook request and return a Response. */
+  handle(request: Request, runtime: ChannelGateway): Promise<Response>
+}
+```
+
+## `ChannelRealtime`
+
+```ts
+interface ChannelRealtime {
+  /** Open a persistent connection to the platform. */
+  start(runtime: ChannelGateway): Promise<void>
+
+  /** Tear down the connection. */
+  stop(): Promise<void>
+}
+```
+
+## `ChannelGateway`
+
+The object passed to your `start()`, `handle()`, and `stop()` methods:
+
+| Method | Signature | Description |
+|---|---|---|
+| `generate` | `(opts: { threadId: string; parts: MessagePart[]; channelId?: string; externalId?: string }) => Promise<GenerateResult>` | Non-streaming: send message, get full response |
+| `stream` | `(opts: { threadId: string; parts: MessagePart[]; channelId?: string; externalId?: string }) => Promise<StreamResult>` | Streaming: send message, get live text stream |
+| `approveToolCall` | `(opts: { runId: string; toolCallId?: string }) => Promise<GenerateResult>` | Approve a pending tool call and resume |
+| `declineToolCall` | `(opts: { runId: string; toolCallId?: string }) => Promise<GenerateResult>` | Decline a pending tool call and resume |
+| `resolveThread` | `(channelId: string, externalId: string) => Promise<string>` | Get or create a thread for a platform conversation |
+| `newThread` | `(channelId: string, externalId: string) => string` | Start a fresh thread, returns new threadId (synchronous) |
+| `env` | `Record<string, string \| undefined>` | Environment variables |
+| `logger` | `Logger` | Structured logger (`log`, `warn`, `error`) |
+
+Pass `channelId` and `externalId` to `generate`/`stream` when your adapter has just created a thread via `newThread`.
+
+## `GenerateResult`
+
+Non-streaming response — all fields resolved:
+
+| Field | Type | Description |
+|---|---|---|
+| `text` | `string` | Generated text response |
+| `sources` | `Source[]` | Referenced sources |
+| `toolCalls` | `ToolCall[]` | Tool calls made during generation |
+| `toolResults` | `ToolResult[]` | Results from tool executions |
+| `files` | `FileData[]` | Generated files |
+| `reasoning` | `Reasoning[]` | Reasoning steps |
+| `reasoningText` | `string?` | Combined reasoning text |
+| `usage` | `Usage` | Token usage statistics |
+| `runId` | `string?` | Run ID — pass to `approveToolCall`/`declineToolCall` when approval is pending |
+| `pendingToolApproval` | `PendingToolApproval?` | Present when a tool requires user approval before running |
+
+### `PendingToolApproval`
+
+| Field | Type | Description |
+|---|---|---|
+| `toolCallId` | `string` | ID of the pending tool call |
+| `toolName` | `string` | Name of the tool awaiting approval |
+| `args` | `Record<string, unknown>` | Arguments the tool will be called with |
+
+## `StreamResult`
+
+Streaming response — live text stream plus promise-based fields:
+
+| Field | Type | Description |
+|---|---|---|
+| `textStream` | `ReadableStream<string>` | Live text stream |
+| `text` | `Promise<string>` | Full text when complete |
+| `sources` | `Promise<Source[]>` | Sources when complete |
+| `toolCalls` | `Promise<ToolCall[]>` | Tool calls when complete |
+| `toolResults` | `Promise<ToolResult[]>` | Tool results when complete |
+| `files` | `Promise<FileData[]>` | Files when complete |
+| `reasoning` | `Promise<Reasoning[]>` | Reasoning when complete |
+| `reasoningText` | `Promise<string \| undefined>` | Reasoning text when complete |
+| `usage` | `Promise<Usage>` | Usage when complete |
+
+## `ConfigFieldDescriptor`
+
+Describes a config field for UI rendering (declared in the manifest's `configFields`):
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `key` | `string` | Yes | Field key in config object |
+| `label` | `string` | Yes | Human-readable label |
+| `type` | `'text' \| 'number' \| 'password' \| 'enum'` | Yes | Input type hint. `'enum'` renders a dropdown select. |
+| `required` | `boolean` | No | Whether this field is required |
+| `placeholder` | `string` | No | Placeholder text |
+| `description` | `string` | No | Help text shown below the input |
+| `options` | `{ value: string; label: string }[]` | No | Allowed values for `type: 'enum'` |

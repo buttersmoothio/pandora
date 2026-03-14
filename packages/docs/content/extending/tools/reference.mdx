@@ -1,0 +1,66 @@
+# Reference
+
+All types are exported from `@pandorakit/sdk/tools`:
+
+```ts
+import type {
+  ResolveToolsContext,
+  ResolveToolsResult,
+  Tool,
+  ToolAnnotations,
+  ToolPermissions,
+  SandboxMode,
+} from '@pandorakit/sdk/tools'
+```
+
+## `Tool`
+
+The standard tool export interface. All plugins use this — no framework dependencies required.
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `id` | `string` | Yes | Unique tool identifier (within the plugin) |
+| `name` | `string` | Yes | Human-readable display name |
+| `description` | `string` | Yes | What the tool does (shown to the LLM) |
+| `parameters` | `Record<string, unknown>` | No | JSON Schema for input validation |
+| `execute` | `(input, context: { env, logger }) => Promise` | Yes | The tool's handler function |
+| `timeout` | `number` | No | Execution timeout in milliseconds. Defaults to `60000` (60 s) |
+| `sandbox` | `SandboxMode` | No | Override sandbox mode (`'compartment'` or `'host'`). Normally set from the manifest |
+| `permissions` | `ToolPermissions` | No | Override permissions. Normally set from the manifest |
+| `annotations` | `ToolAnnotations` | Yes | MCP-compatible behavior hints. `readOnlyHint` determines whether the tool is available during background execution (scheduled tasks, heartbeat) |
+
+## `ToolAnnotations`
+
+```ts
+interface ToolAnnotations {
+  title?: string              // Display title in UI
+  readOnlyHint: boolean       // Required — true if the tool only reads data, false if it modifies state
+  destructiveHint?: boolean   // May perform irreversible operations
+  idempotentHint?: boolean    // Same args = no additional effect
+}
+```
+
+Tools with `readOnlyHint: true` are available during both interactive and background execution (scheduled tasks, heartbeat). Tools with `readOnlyHint: false` are only available during interactive sessions (web, channels).
+
+## `EnvVarDescriptor`
+
+Describes an environment variable a plugin depends on (declared in the manifest's `envVars`):
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `name` | `string` | Yes | Environment variable name |
+| `required` | `boolean` | No | Whether this variable is required. Defaults to `true` |
+
+## `ConfigFieldDescriptor`
+
+Describes a config field for UI rendering (declared in the manifest's `configFields`):
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `key` | `string` | Yes | Field key in config object |
+| `label` | `string` | Yes | Human-readable label |
+| `type` | `'text' \| 'number' \| 'password' \| 'enum'` | Yes | Input type. `'enum'` renders a dropdown. |
+| `required` | `boolean` | No | Whether this field is required |
+| `placeholder` | `string` | No | Placeholder text |
+| `description` | `string` | No | Help text shown below the input |
+| `options` | `{ value: string; label: string }[]` | No | Allowed values for `type: 'enum'` |

@@ -1,0 +1,37 @@
+---
+sidebarTitle: Getting Started
+asIndexPage: true
+---
+
+# React SDK
+
+`@pandorakit/react-sdk` provides React hooks for building custom UIs against Pandora. It handles authentication, streaming chat, thread management, configuration, and more — so you can focus on your interface rather than wiring up API calls.
+
+This is the recommended approach for React apps. For non-React consumers, use the [SDK Client](/api-reference/sdk-client) directly.
+
+## Installation
+
+```bash
+npm install @pandorakit/react-sdk @pandorakit/sdk ai @ai-sdk/react @tanstack/react-query
+```
+
+## Setup
+
+Wrap your app with `PandoraProvider`. All SDK hooks must be rendered inside this provider.
+
+```tsx
+import { PandoraProvider } from '@pandorakit/react-sdk'
+
+function App() {
+  return (
+    <PandoraProvider baseUrl="http://localhost:4111">
+      <YourApp />
+    </PandoraProvider>
+  )
+}
+```
+
+| Prop | Type | Description |
+|---|---|---|
+| `baseUrl` | `string` | Pandora server URL. Defaults to `"http://localhost:4111"`. |
+| `queryClient` | `QueryClient` | Optional. Bring your own React Query client for apps that already use React Query. When omitted, an internal client is created. |

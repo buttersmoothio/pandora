@@ -72,3 +72,13 @@ Plugin configuration is stored under the `plugins` key, keyed by plugin ID (the 
 ```
 
 Each plugin's config is validated against its declared `configFields`. Plugins with required fields that aren't configured are skipped at load time.
+
+## SDK Types
+
+These types are available from `@pandorakit/sdk/api`:
+
+```ts
+import type { Config, ModelConfig, DeepPartial } from '@pandorakit/sdk/api'
+```
+
+See [SDK Client](/api-reference/sdk-client) for the typed client that wraps these endpoints.

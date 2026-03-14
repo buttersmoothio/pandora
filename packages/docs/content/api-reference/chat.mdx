@@ -114,3 +114,13 @@ Authorization: Bearer <token>
 | `204` | No active stream (already finished, or serverless mode) |
 
 The server buffers each SSE stream in memory so clients can reconnect mid-stream. Buffers are cleaned up 60 seconds after the stream completes. In serverless mode (e.g. Cloudflare Workers), this endpoint always returns `204`.
+
+## SDK Types
+
+These types are available from `@pandorakit/sdk/client`:
+
+```ts
+import type { ChatSendInput, ChatApproveInput } from '@pandorakit/sdk/client'
+```
+
+See [SDK Client](/api-reference/sdk-client) for the typed client that wraps these endpoints.

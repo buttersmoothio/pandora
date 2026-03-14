@@ -1,0 +1,192 @@
+---
+sidebarTitle: Getting Started
+asIndexPage: true
+---
+
+import { Steps, FileTree, Callout } from 'nextra/components'
+
+# Building a Channel
+
+A channel connects Pandora to an external messaging platform. Each channel is a standalone package with a `pandora.manifest.json` that declares its capabilities and a factory function that creates the adapter.
+
+This tutorial walks through building a hypothetical Discord channel to illustrate the full process.
+
+<Steps>
+
+### Set up the package
+
+<FileTree>
+  <FileTree.Folder name="discord" defaultOpen>
+    <FileTree.File name="package.json" />
+    <FileTree.File name="pandora.manifest.json" />
+    <FileTree.Folder name="src" defaultOpen>
+      <FileTree.File name="index.ts" />
+      <FileTree.File name="adapter.ts" />
+    </FileTree.Folder>
+    <FileTree.File name="tsconfig.json" />
+  </FileTree.Folder>
+</FileTree>
+
+Channel plugins typically have runtime dependencies (SDKs for the platform) and `@pandorakit/sdk` as a peer dependency:
+
+```json
+{
+  "name": "@pandorakit/discord",
+  "type": "module",
+  "exports": { ".": "./src/index.ts" },
+  "dependencies": {
+    "discord.js": "^14.0.0"
+  },
+  "peerDependencies": {
+    "@pandorakit/sdk": "*"
+  }
+}
+```
+
+### Write the manifest
+
+The `pandora.manifest.json` declares the channel's identity, environment variables, and config fields:
+
+```json
+{
+  "manifestVersion": 1,
+  "id": "@pandorakit/discord",
+  "name": "Discord",
+  "description": "Chat with your assistant through Discord",
+  "author": "You",
+  "version": "0.1.0",
+  "license": "MIT",
+  "pandora": ">=0.0.1",
+  "provides": {
+    "channels": {
+      "entry": "./src/index.ts",
+      "sandbox": "host"
+    }
+  },
+  "envVars": [{ "name": "DISCORD_BOT_TOKEN" }],
+  "configFields": [
+    {
+      "key": "guildId",
+      "label": "Server ID",
+      "type": "text",
+      "required": true,
+      "placeholder": "123456789012345678",
+      "description": "The Discord server (guild) ID to listen in."
+    },
+    {
+      "key": "channelId",
+      "label": "Channel ID",
+      "type": "text",
+      "required": true,
+      "placeholder": "123456789012345678",
+      "description": "The text channel ID to respond in."
+    }
+  ]
+}
+```
+
+Channel plugins typically use `"sandbox": "host"` because they need native dependencies (WebSocket connections, platform SDKs) that can't run in a sandboxed compartment.
+
+### Create the adapter
+
+The adapter implements `Channel` with either `webhook`, `realtime`, or both:
+
+```ts
+// src/adapter.ts
+import type { Channel, ChannelRealtime } from '@pandorakit/sdk/channels'
+import { Client, GatewayIntentBits } from 'discord.js'
+
+export function createDiscordAdapter(
+  token: string,
+  guildId: string,
+  channelId: string,
+): Channel {
+  let client: Client | null = null
+
+  const realtime: ChannelRealtime = {
+    async start(runtime) {
+      client = new Client({
+        intents: [
+          GatewayIntentBits.Guilds,
+          GatewayIntentBits.GuildMessages,
+          GatewayIntentBits.MessageContent,
+        ],
+      })
+
+      client.on('messageCreate', async (message) => {
+        if (message.author.bot) return
+        if (message.guildId !== guildId) return
+        if (message.channelId !== channelId) return
+
+        const externalId = message.channelId
+        const threadId = await runtime.resolveThread('discord', externalId)
+
+        try {
+          const result = await runtime.generate({
+            threadId,
+            channelId: 'discord',
+            externalId,
+            parts: [{ type: 'text', text: message.content }],
+          })
+
+          if (result.text) {
+            await message.reply(result.text)
+          }
+        } catch (err) {
+          const text = err instanceof Error ? err.message : 'Something went wrong.'
+          await message.reply(text)
+        }
+      })
+
+      await client.login(token)
+    },
+
+    async stop() {
+      if (client) {
+        await client.destroy()
+        client = null
+      }
+    },
+  }
+
+  return {
+    id: 'discord',
+    name: 'Discord',
+    realtime,
+  }
+}
+```
+
+### Export the factory
+
+The entry point (declared in the manifest's `provides.channels.entry`) exports a named `factory` function:
+
+```ts
+// src/index.ts
+import type { ChannelFactory } from '@pandorakit/sdk/channels'
+import { createDiscordAdapter } from './adapter'
+
+export const factory: ChannelFactory = (env, config) => {
+  const token = env.DISCORD_BOT_TOKEN
+  if (!token) return null
+  return createDiscordAdapter(
+    token,
+    config.guildId as string,
+    config.channelId as string,
+  )
+}
+```
+
+The factory receives env vars and validated config. Return `null` if required env vars are missing.
+
+### Test it
+
+Set the environment variable and start Pandora:
+
+```bash
+DISCORD_BOT_TOKEN=your-token-here bun run dev
+```
+
+Then enable the channel on the **Plugins** page in the web UI.
+
+</Steps>

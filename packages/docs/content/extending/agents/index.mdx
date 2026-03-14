@@ -1,3 +1,8 @@
+---
+sidebarTitle: Getting Started
+asIndexPage: true
+---
+
 import { Steps, FileTree } from 'nextra/components'
 
 # Building an Agent
@@ -109,30 +114,3 @@ Pandora automatically discovers your plugin via its manifest. Users control it f
 - **Agent level** — within the plugin's settings dialog, users can configure per-agent model overrides
 
 </Steps>
-
-## How routing works
-
-Pandora reads each agent's `description` and decides whether to handle a request directly or hand it off to a specialist. The routing decision is made by the LLM, not by rules — adding a new specialist is just installing a plugin, no routing configuration needed.
-
-With zero agents registered, Pandora handles all requests directly — behavior is unchanged from a standard setup.
-
-## Reference
-
-All types are exported from `@pandorakit/sdk/agents`:
-
-```ts
-import type { Agent } from '@pandorakit/sdk/agents'
-```
-
-### `Agent`
-
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `id` | `string` | Yes | Unique agent identifier |
-| `name` | `string` | Yes | Human-readable display name |
-| `description` | `string` | Yes | What the agent does (used for routing decisions) |
-| `instructions` | `string` | Yes | System instructions for the agent |
-| `useTools` | `string[]` | No | Tool IDs to pull from the global registry (set from manifest at load time) |
-| `modelTools` | `string[]` | No | Model-native tool keys like `'search'` (set from manifest at load time) |
-
-`useTools` and `modelTools` are typically declared in the manifest's `provides.agents` entries rather than in the agent code. They are set automatically at load time.

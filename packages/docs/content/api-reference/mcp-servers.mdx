@@ -153,3 +153,13 @@ Content-Type: application/json
 | `requireApproval` | No | Whether tool calls need approval (default: `true`) |
 | `headers` | No | Key-value pairs sent as HTTP headers to remote servers |
 | `oauth` | No | Enable OAuth authentication for remote servers (default: `false`) |
+
+## SDK Types
+
+These types are available from `@pandorakit/sdk/api`:
+
+```ts
+import type { McpServerInfo, McpToolOverview, AddMcpServerInput } from '@pandorakit/sdk/api'
+```
+
+See [SDK Client](/api-reference/sdk-client) for the typed client that wraps these endpoints.

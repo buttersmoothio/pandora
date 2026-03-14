@@ -172,3 +172,13 @@ Authorization: Bearer <token>
 | Status | Error | Cause |
 |---|---|---|
 | `404` | `Thread not found` | No thread with this ID exists |
+
+## SDK Types
+
+These types are available from `@pandorakit/sdk/api`:
+
+```ts
+import type { Thread, ThreadListResponse, ThreadDetailResponse, ThreadForkResponse, ServerMessage, BranchRef, ForkInfo } from '@pandorakit/sdk/api'
+```
+
+See [SDK Client](/api-reference/sdk-client) for the typed client that wraps these endpoints.

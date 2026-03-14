@@ -179,3 +179,13 @@ When a task fires:
 1. Pandora processes the prompt in a dedicated thread
 2. If a destination is set, results are delivered via the [Inbox](/api-reference/inbox) system
 3. One-time tasks and tasks that reach their `maxRuns` limit are automatically removed
+
+## SDK Types
+
+These types are available from `@pandorakit/sdk/api`:
+
+```ts
+import type { ScheduleTask, CreateScheduleInput, UpdateScheduleInput, HeartbeatConfig } from '@pandorakit/sdk/api'
+```
+
+See [SDK Client](/api-reference/sdk-client) for the typed client that wraps these endpoints.

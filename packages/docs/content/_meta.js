@@ -1,16 +1,19 @@
 export default {
-  index: 'Introduction',
-  'getting-started': 'Getting Started',
-  chat: 'Chat',
-  configuration: 'Configuration',
-  models: 'Models',
-  memory: 'Memory',
-  scheduling: 'Scheduling',
-  inbox: 'Inbox',
-  plugins: 'Plugins',
-  'mcp-servers': 'MCP Servers',
-  'extending-pandora': 'Extending Pandora',
-  security: 'Security',
-  deployment: 'Deployment',
-  'api-reference': 'API Reference',
+  index: {
+    title: 'Pandora',
+    type: 'page',
+    display: 'hidden',
+  },
+  'user-guide': {
+    title: 'User Guide',
+    type: 'page',
+  },
+  extending: {
+    title: 'Extending',
+    type: 'page',
+  },
+  'api-reference': {
+    title: 'API Reference',
+    type: 'page',
+  },
 }

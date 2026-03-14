@@ -1,0 +1,135 @@
+import { Callout } from 'nextra/components'
+
+# Channel Runtime
+
+The `ChannelGateway` object passed to your adapter provides everything you need:
+
+- **`generate(opts)`** — send a message and wait for the full response. Best for platforms where you reply once per message (like Telegram and Discord).
+- **`stream(opts)`** — send a message and get a streaming response. Returns a `textStream` you can read incrementally, plus promise-based fields for the final values.
+- **`approveToolCall(opts)`** — approve a pending tool call and resume generation. Returns a new `GenerateResult`.
+- **`declineToolCall(opts)`** — decline a pending tool call and resume generation. Returns a new `GenerateResult`.
+- **`resolveThread(channelId, externalId)`** — map a platform conversation to a Pandora thread. Creates one if it doesn't exist yet.
+- **`newThread(channelId, externalId)`** — start a fresh conversation (synchronous, returns the new thread ID immediately).
+- **`env`** — access to environment variables.
+- **`logger`** — structured logger with `log`, `warn`, and `error` methods.
+
+<Callout type="info">
+  Use `generate()` when the platform expects a single reply. Use `stream()` when you can edit messages in real-time (e.g. updating a Discord message as tokens arrive).
+</Callout>
+
+## Sending File Attachments
+
+If your platform supports file uploads (images, documents, etc.), include them as `file` parts alongside text. You can send raw binary data or a data URL string — both work:
+
+```ts
+const parts = [
+  { type: 'text', text: message.content },
+]
+
+// Add any attached files from the platform
+for (const attachment of message.attachments) {
+  const response = await fetch(attachment.url)
+  const buffer = new Uint8Array(await response.arrayBuffer())
+  parts.push({
+    type: 'file',
+    data: buffer,
+    mimeType: attachment.contentType,
+    filename: attachment.name,
+  })
+}
+
+const result = await runtime.generate({ threadId, parts })
+```
+
+The `data` field accepts a `Uint8Array`, `ArrayBuffer`, or a `data:` URL string. Binary data is automatically converted to a data URL before processing.
+
+File attachments are uploaded to storage and replaced with a storage URL before persisting, so large files don't bloat the database.
+
+## Tool Approval
+
+When a tool has **Require Approval** enabled, `generate()` may return with `pendingToolApproval` set instead of a text response. Your adapter should present the user with a way to approve or deny, then call `approveToolCall` or `declineToolCall` to resume. The resumed result may itself require approval (if the agent calls another protected tool), so handle it in a loop or recursively.
+
+```ts
+async function handleResult(ctx: PlatformContext, runtime: ChannelGateway, result: GenerateResult) {
+  if (result.pendingToolApproval) {
+    const { toolCallId, toolName, args } = result.pendingToolApproval
+    // Show approval UI to the user (platform-specific)
+    const approved = await askUser(ctx, toolName, args)
+
+    const resumed = approved
+      ? await runtime.approveToolCall({ runId: result.runId!, toolCallId })
+      : await runtime.declineToolCall({ runId: result.runId!, toolCallId })
+
+    // The resumed result may need approval again
+    return handleResult(ctx, runtime, resumed)
+  }
+
+  if (result.text) {
+    await ctx.reply(result.text)
+  }
+}
+```
+
+## Error Handling
+
+Gateway methods (`generate`, `stream`, `approveToolCall`, `declineToolCall`) throw when something goes wrong — for example, an unsupported file type, a rate limit, or a misconfigured API key. Your adapter must catch these errors and present them to the user in a way that fits your platform.
+
+```ts
+client.on('messageCreate', async (message) => {
+  const threadId = await runtime.resolveThread('discord', message.channelId)
+
+  try {
+    const result = await runtime.generate({
+      threadId,
+      channelId: 'discord',
+      externalId: message.channelId,
+      parts: [{ type: 'text', text: message.content }],
+    })
+
+    if (result.text) {
+      await message.reply(result.text)
+    }
+  } catch (err) {
+    const text = err instanceof Error ? err.message : 'Something went wrong.'
+    await message.reply(text)
+  }
+})
+```
+
+The same applies to tool approval flows — wrap `approveToolCall` and `declineToolCall` in try/catch so the user always gets feedback:
+
+```ts
+try {
+  const result = approved
+    ? await runtime.approveToolCall({ runId, toolCallId })
+    : await runtime.declineToolCall({ runId, toolCallId })
+
+  await handleResult(ctx, runtime, result)
+} catch (err) {
+  const text = err instanceof Error ? err.message : 'Something went wrong.'
+  await ctx.reply(text)
+}
+```
+
+<Callout type="warning">
+  Never let gateway errors go unhandled. If an error isn't caught, the user's message silently disappears — they send a message and get no response. Always wrap gateway calls in try/catch and reply with the error.
+</Callout>
+
+The thrown errors are standard AI SDK error classes (e.g. `UnsupportedFunctionalityError`, `APICallError`). If you need fine-grained handling, you can import them from `ai` and use their `.isInstance()` method:
+
+```ts
+import { UnsupportedFunctionalityError, APICallError } from 'ai'
+
+try {
+  const result = await runtime.generate({ threadId, parts })
+  // ...
+} catch (err) {
+  if (UnsupportedFunctionalityError.isInstance(err)) {
+    await ctx.reply('That file type is not supported.')
+  } else if (APICallError.isInstance(err)) {
+    await ctx.reply('The model provider returned an error. Try again later.')
+  } else {
+    await ctx.reply(err instanceof Error ? err.message : 'Something went wrong.')
+  }
+}
+```

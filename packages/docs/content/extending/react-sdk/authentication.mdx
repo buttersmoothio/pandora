@@ -1,0 +1,58 @@
+# Authentication
+
+The `useAuth()` hook manages the full authentication lifecycle: initial setup, login, logout, and session management.
+
+## Auth Gate
+
+Authentication follows a status-driven flow. Your app should render different UI based on the current status:
+
+```tsx
+import { useAuth } from '@pandorakit/react-sdk'
+
+function AuthGate({ children }: { children: React.ReactNode }) {
+  const { status, login, setup } = useAuth()
+
+  if (status === 'loading') return <div>Loading...</div>
+
+  if (status === 'setup_required') {
+    return (
+      <form onSubmit={async (e) => {
+        e.preventDefault()
+        const password = new FormData(e.currentTarget).get('password') as string
+        await setup(password)
+      }}>
+        <input name="password" type="password" placeholder="Create a password" />
+        <button type="submit">Set Up</button>
+      </form>
+    )
+  }
+
+  if (status === 'login_required') {
+    return (
+      <form onSubmit={async (e) => {
+        e.preventDefault()
+        const password = new FormData(e.currentTarget).get('password') as string
+        await login(password)
+      }}>
+        <input name="password" type="password" placeholder="Password" />
+        <button type="submit">Log In</button>
+      </form>
+    )
+  }
+
+  return <>{children}</>
+}
+```
+
+## UseAuthReturn
+
+| Property | Type | Description |
+|---|---|---|
+| `status` | `'loading' \| 'setup_required' \| 'login_required' \| 'authenticated'` | Current auth state. Starts as `'loading'` and resolves on mount. |
+| `login` | `(password: string) => Promise<void>` | Log in with a password. |
+| `setup` | `(password: string) => Promise<void>` | First-run password creation. |
+| `logout` | `() => Promise<void>` | Log out and clear stored credentials. |
+| `changePassword` | `(currentPassword: string, newPassword: string) => Promise<void>` | Change the account password. |
+| `sessions` | `UseQueryResult<Session[]>` | Active sessions. Only fetches when authenticated. |
+| `revokeSession` | `(id: string) => Promise<{ loggedOut: boolean }>` | Revoke a specific session. Returns whether the current session was revoked. |
+| `revokeAllSessions` | `() => Promise<void>` | Revoke all sessions (logs out everywhere). |

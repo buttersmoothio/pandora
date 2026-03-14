@@ -91,3 +91,13 @@ Permanently deletes the message. Returns `{ "deleted": "<id>" }`.
 Messages are created automatically when scheduled tasks with destinations run, or when the agent sends notifications during conversations.
 
 For web inbox messages, the status is immediately `"sent"`. For channel destinations, the status starts as `"pending"`, then updates to `"sent"` or `"failed"` after delivery.
+
+## SDK Types
+
+These types are available from `@pandorakit/sdk/api`:
+
+```ts
+import type { InboxMessage, DeliveryStatus } from '@pandorakit/sdk/api'
+```
+
+See [SDK Client](/api-reference/sdk-client) for the typed client that wraps these endpoints.

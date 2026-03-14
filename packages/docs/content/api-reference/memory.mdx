@@ -110,3 +110,13 @@ Use the record and thresholds together to calculate fill percentages:
 
 - **Observer proximity**: `pendingMessageTokens / messageTokens` — how close to triggering observation
 - **Reflector proximity**: `observationTokenCount / observationTokens` — how close to triggering reflection
+
+## SDK Types
+
+These types are available from `@pandorakit/sdk/api`:
+
+```ts
+import type { OMRecord, OMThresholds, RecordResponse } from '@pandorakit/sdk/api'
+```
+
+See [SDK Client](/api-reference/sdk-client) for the typed client that wraps these endpoints.

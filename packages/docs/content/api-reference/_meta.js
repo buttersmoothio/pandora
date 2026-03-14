@@ -1,5 +1,6 @@
 export default {
   conventions: 'API Conventions',
+  'sdk-client': 'SDK Client',
   auth: 'Authentication API',
   chat: 'Chat API',
   threads: 'Threads API',
@@ -7,6 +8,7 @@ export default {
   configuration: 'Configuration API',
   plugins: 'Plugins API',
   'mcp-servers': 'MCP Servers API',
+  memory: 'Memory API',
   schedule: 'Schedule API',
   inbox: 'Inbox API',
 }

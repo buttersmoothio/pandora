@@ -1,0 +1,48 @@
+# Rendering Messages
+
+The `messages` array returned by `useChat()` contains `UIMessage` objects, each with a `parts` array of different content types. Here's how to render them:
+
+```tsx
+import type { UIMessage } from 'ai'
+
+function MessageParts({ message }: { message: UIMessage }) {
+  return (
+    <>
+      {message.parts.map((part, i) => {
+        switch (part.type) {
+          case 'text':
+            return <p key={i}>{part.text}</p>
+          case 'reasoning':
+            return (
+              <details key={i}>
+                <summary>Thinking...</summary>
+                {part.text}
+              </details>
+            )
+          case 'file':
+            return part.mediaType?.startsWith('image/') ? (
+              <img key={i} src={part.url} alt={part.filename || 'attachment'} />
+            ) : (
+              <a key={i} href={part.url} download>{part.filename || 'File'}</a>
+            )
+          case 'source-url':
+            return <a key={i} href={part.url}>{part.title || part.url}</a>
+          default:
+            // Tool parts have dynamic types like "tool-web-search"
+            if (part.type.startsWith('tool-')) {
+              return (
+                <pre key={i}>
+                  Tool: {part.type} ({part.state})
+                  {part.state === 'output-available' && JSON.stringify(part.output, null, 2)}
+                </pre>
+              )
+            }
+            return null
+        }
+      })}
+    </>
+  )
+}
+```
+
+See the [Message Part Types reference](/api-reference/message-parts) for the full list of part types and their fields.
