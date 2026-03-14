@@ -1,4 +1,5 @@
 export default {
+  index: 'Overview',
   conventions: 'API Conventions',
   'sdk-client': 'SDK Client',
   auth: 'Authentication API',

@@ -1,4 +1,5 @@
 export default {
+  index: 'Getting Started',
   chat: 'Chat',
   configuration: 'Configuration',
   models: 'Models',
