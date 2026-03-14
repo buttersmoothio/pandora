@@ -13,6 +13,9 @@ concurrency:
 jobs:
   ci:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
     steps:
       - uses: actions/checkout@v4
 
@@ -33,3 +36,25 @@ jobs:
 
       - name: Test
         run: bun run test
+
+      - name: Setup git user
+        if: github.event_name == 'push'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Setup npmrc
+        if: github.event_name == 'push'
+        run: echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > .npmrc
+
+      - name: Create Release PR or Publish
+        if: github.event_name == 'push'
+        uses: changesets/action@v1
+        with:
+          version: bun run version
+          publish: bun run release
+          title: 'chore: version packages'
+          commit: 'chore: version packages'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
