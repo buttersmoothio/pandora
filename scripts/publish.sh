@@ -14,7 +14,17 @@ for pkg in $PACKAGES; do
       exit 0
     fi
 
-    bun publish || true
+    NAME=$(jq -r '.name' package.json)
+    VERSION=$(jq -r '.version' package.json)
+
+    # Skip if this version is already published
+    if npm view "${NAME}@${VERSION}" version &>/dev/null; then
+      echo "Skipping ${NAME}@${VERSION} (already published)"
+      exit 0
+    fi
+
+    echo "Publishing ${NAME}@${VERSION}"
+    bun publish
   )
 done
 

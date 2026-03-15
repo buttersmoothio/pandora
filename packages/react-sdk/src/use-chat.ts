@@ -91,7 +91,7 @@ export function useChat(options?: UseChatOptions): UseChatReturn {
         baseUrl,
         getToken,
         threadId,
-        onThreadId: (id) => {
+        onThreadId: (id: string) => {
           threadIdRef.current = id
           invalidateThreads()
           onThreadCreated?.(id)
