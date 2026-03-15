@@ -1,32 +1,78 @@
 ---
-title: Overview
+title: Introduction
 ---
 
-import { Cards } from 'nextra/components'
+import { Cards, Callout } from 'nextra/components'
 
 # Extending Pandora
 
-Pandora's plugin system lets you add new tools, specialist agents, and messaging channels. Plugins are standalone packages -- drop one into the `packages/` directory and it appears in the UI automatically.
+Plugins add new capabilities to your agent — tools it can use, specialist agents it can delegate to, and channels that connect it to external platforms. Everything is a package: drop it in, enable it, done.
 
-A plugin can provide any combination of:
+<Callout type="info">
+  New to plugin development? Start with [Create Your First Plugin](/extending/quickstart).
+</Callout>
 
-- **Tools** -- abilities the agent can use (web search, file operations, API calls)
-- **Agents** -- specialist sub-agents that can be delegated to (research, coding)
-- **Channels** -- connections to external messaging platforms (Telegram, Discord)
+## What You Can Build
 
-You can also build a completely custom chat frontend using the React SDK, or use the SDK client directly for non-React apps.
+| Type | What it does | Example |
+|---|---|---|
+| **[Tool](/extending/tools)** | Gives the agent a new ability | Web search, weather lookup, file conversion |
+| **[Agent](/extending/agents)** | A specialist sub-agent the main agent can delegate to | Deep research, code review, data analysis |
+| **[Channel](/extending/channels)** | Connects Pandora to an external messaging platform | Telegram, Discord, Slack |
+
+You can also build a custom chat frontend using the [React SDK](/extending/react-sdk), or use the [SDK Client](/api-reference/sdk-client) directly for non-React apps.
+
+## Key Concepts
+
+**Plugin** — A standalone package with a [`pandora.manifest.json`](/extending/manifest) at its root. Plugins are installed in the `packages/` directory and must be explicitly enabled on the **Plugins** page.
+
+**Entry Point** — The TypeScript file that exports a plugin's capabilities. Tool entry points export a `tools` array, agent entry points export an `agent` object, and channel entry points export a `factory` function.
+
+**Sandbox** — The security boundary for tool execution. Tools default to **compartment** mode (sandboxed, zero capabilities by default). Tools that need native dependencies use **host** mode (full process access). Agents and channels always run in host mode.
+
+**Namespacing** — All tools, agents, and channels are registered as `pluginId:entityId` (e.g. `@pandorakit/tavily-search:tavily_search`). This prevents collisions between plugins.
+
+**Config Fields** — User-configurable settings declared in the manifest. These render as form inputs on the **Plugins** page and are passed to your plugin at runtime.
+
+**Environment Variables** — Secrets declared in the manifest's `envVars` array. Set on the server, not through the UI. Plugins with missing required env vars are skipped at load time.
+
+## Plugin Lifecycle
+
+A plugin goes through four stages:
+
+1. **Discovery** — Pandora scans `packages/` for `pandora.manifest.json` files at startup
+2. **Loading** — Entry points are imported (compartment mode for sandboxed tools, host mode for agents/channels)
+3. **Validation** — Required env vars and config fields are checked
+4. **Activation** — Tools, agents, and channels are registered and become available
+
+Plugins support **hot reload** — when configuration changes on the Plugins page, the runtime re-validates all plugins and rebuilds the registries without a server restart.
+
+| Symptom | Likely cause |
+|---|---|
+| Plugin not listed on Plugins page | Manifest missing, malformed, or not in `packages/` |
+| Plugin listed but greyed out | Missing required env vars or config fields |
+| Plugin enabled but tools not available | Entry point exports don't match expected shape, or sandbox permissions too restrictive |
+
+Check the server logs for `[manifest]` and `[runtime]` prefixed messages.
+
+## Choose Your Path
 
 <Cards num={2}>
-  <Cards.Card title="Building a Tool" href="/extending/tools" arrow />
-  <Cards.Card title="Building an Agent" href="/extending/agents" arrow />
-  <Cards.Card title="Building a Channel" href="/extending/channels" arrow />
-  <Cards.Card title="React SDK" href="/extending/react-sdk" arrow />
+  <Cards.Card title="Create Your First Plugin" href="/extending/quickstart" arrow />
+  <Cards.Card title="Plugin Manifest" href="/extending/manifest" arrow />
 </Cards>
 
-## How Plugins Work
+### Build a Plugin
 
-Every plugin has a `pandora.manifest.json` at its package root that declares its identity, capabilities, and requirements. Pandora discovers plugins automatically -- no manual registration needed.
+<Cards num={3}>
+  <Cards.Card title="Tools" href="/extending/tools" arrow />
+  <Cards.Card title="Agents" href="/extending/agents" arrow />
+  <Cards.Card title="Channels" href="/extending/channels" arrow />
+</Cards>
 
-Tools, agents, and channels are registered with namespaced IDs: `pluginId:entityId` (e.g. `@pandorakit/tavily-search:tavily_search`). This prevents collisions between plugins that use similar names.
+### Build a Custom UI
 
-Each plugin must be explicitly enabled on the **Plugins** page. Plugins with missing required environment variables or config fields are skipped at load time.
+<Cards num={2}>
+  <Cards.Card title="React SDK" href="/extending/react-sdk" arrow />
+  <Cards.Card title="SDK Client" href="/api-reference/sdk-client" arrow />
+</Cards>

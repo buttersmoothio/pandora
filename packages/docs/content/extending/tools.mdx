@@ -1,0 +1,165 @@
+import { Callout } from 'nextra/components'
+
+# Tools
+
+Tools are functions the agent can call during a conversation — searching the web, fetching data from APIs, performing calculations, and more. They're the most common way to extend Pandora.
+
+<Callout type="info">
+  For a complete walkthrough of creating a tool plugin from scratch, see [Create Your First Plugin](/extending/quickstart).
+</Callout>
+
+## Tool Definition
+
+A tool is a plain object with metadata, JSON Schema parameters, and an `execute` function:
+
+```ts
+import type { Tool } from '@pandorakit/sdk/tools'
+
+export const weatherTool: Tool = {
+  id: 'weather',
+  name: 'Weather',
+  description: 'Get current weather for a city',
+  parameters: {
+    type: 'object',
+    properties: {
+      city: { type: 'string', description: 'City name' },
+    },
+    required: ['city'],
+  },
+  annotations: {
+    readOnlyHint: true,
+    destructiveHint: false,
+    idempotentHint: true,
+  },
+  execute: async (input: { city: string }, { env, logger }) => {
+    const key = env.OPENWEATHER_API_KEY
+    logger.log(`Fetching weather for ${input.city}`)
+    const res = await fetch(
+      `https://api.openweathermap.org/data/2.5/weather?q=${input.city}&units=metric&appid=${key}`
+    )
+    return res.json()
+  },
+}
+```
+
+The entry point exports a named `tools` array:
+
+```ts
+import { weatherTool } from './weather'
+
+export const tools = [weatherTool]
+```
+
+Tools are registered with namespaced IDs: `pluginId:toolId` (e.g. `@pandorakit/weather:weather`).
+
+### Manifest Fields
+
+The `provides.tools` section of your [manifest](/extending/manifest) controls how tools are loaded:
+
+| Field | Description |
+|---|---|
+| `entry` | Relative path to the entry module |
+| `sandbox` | `"compartment"` (default) or `"host"` |
+| `permissions` | Capabilities to grant in compartment mode |
+| `requireApproval` | Default approval requirement for all tools in this entry |
+
+### Annotations
+
+Annotations are MCP-compatible hints that help the UI decide whether to auto-approve or prompt for confirmation:
+
+| Field | Type | Description |
+|---|---|---|
+| `title` | `string?` | Display title in UI |
+| `readOnlyHint` | `boolean` | **Required.** `true` if the tool only reads data. Read-only tools are available during scheduled tasks. |
+| `destructiveHint` | `boolean?` | May perform irreversible operations |
+| `idempotentHint` | `boolean?` | Same args = no additional effect |
+
+## Sandbox & Permissions
+
+Tool plugins can run in two modes:
+
+- **`compartment`** (default) — sandboxed with no capabilities by default. Each capability is individually granted via `permissions` in the manifest.
+- **`host`** — full process access. Use for tools that need native dependencies.
+
+Compartment-sandboxed tools declare what they need:
+
+| Permission | Type | What it grants |
+|---|---|---|
+| `time` | `boolean` | Access to `Date`, `Date.now()`, and `Intl.DateTimeFormat` |
+| `network` | `string[]` | `fetch` scoped to declared hostnames only. SSRF-protected. |
+| `env` | `string[]` | Access to declared environment variable keys only (snapshot at load time) |
+| `fs` | `string[]` | Filesystem read access scoped to declared path prefixes only |
+| `random` | `boolean` | Access to `Math.random()` (cryptographic randomness is never available) |
+
+All sandboxed tools also receive safe globals: `console`, `URL`, `URLSearchParams`, `TextEncoder`, `TextDecoder`, `setTimeout`, `clearTimeout`, `setInterval`, `clearInterval`, `atob`, `btoa`, `queueMicrotask`, `AbortController`, and `AbortSignal`.
+
+## Dynamic Tool Resolution
+
+Some tools can't be defined statically — they depend on which API keys are available or user configuration. Export an async `resolveTools` function alongside your `tools` array:
+
+```ts
+import type { ResolveToolsContext, ResolveToolsResult } from '@pandorakit/sdk/tools'
+
+export const tools = []
+
+export async function resolveTools(ctx: ResolveToolsContext): Promise<ResolveToolsResult> {
+  const preferred = ctx.pluginConfig?.searchBackend as string | undefined
+  const result = resolveSearchTool({ preferred, env: ctx.env })
+  return { tools: result.tool ? [result.tool] : [], alerts: result.alerts }
+}
+```
+
+Both static `tools` and dynamically resolved tools are loaded when the plugin is active.
+
+### ResolveToolsContext
+
+```ts
+interface ResolveToolsContext {
+  pluginConfig: PluginConfig
+  env: Record<string, string | undefined>
+}
+```
+
+### Alerts
+
+`resolveTools` can return diagnostic alerts alongside tools. Alerts are surfaced on the Plugins page and the `/api/plugins` endpoint:
+
+```ts
+return {
+  tools: [myTool],
+  alerts: [{ level: 'info', message: 'Using MyService' }],
+}
+```
+
+Levels: `'info'` (informational) and `'warning'` (actionable).
+
+## Reference
+
+All types are exported from `@pandorakit/sdk/tools`:
+
+```ts
+import type {
+  ResolveToolsContext,
+  ResolveToolsResult,
+  Tool,
+  ToolAnnotations,
+  ToolPermissions,
+  SandboxMode,
+} from '@pandorakit/sdk/tools'
+```
+
+### `Tool`
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `id` | `string` | Yes | Unique tool identifier (within the plugin) |
+| `name` | `string` | Yes | Human-readable display name |
+| `description` | `string` | Yes | What the tool does (shown to the LLM) |
+| `parameters` | `Record<string, unknown>` | No | JSON Schema for input validation |
+| `execute` | `(input, context: { env, logger }) => Promise` | Yes | The tool's handler function |
+| `timeout` | `number` | No | Execution timeout in milliseconds. Defaults to `60000` (60 s) |
+| `sandbox` | `SandboxMode` | No | Override sandbox mode. Normally set from the manifest |
+| `permissions` | `ToolPermissions` | No | Override permissions. Normally set from the manifest |
+| `annotations` | `ToolAnnotations` | Yes | MCP-compatible behavior hints |
+
+For `EnvVarDescriptor` and `ConfigFieldDescriptor` types, see the [manifest reference](/extending/manifest).

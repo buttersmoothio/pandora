@@ -1,8 +1,5 @@
 export default {
-  authentication: 'Authentication',
-  chat: 'Chat',
-  threads: 'Threads & Forking',
+  chat: 'Chat & Threads',
   'data-hooks': 'Data Hooks',
-  'rendering-messages': 'Rendering Messages',
   security: 'Security',
 }

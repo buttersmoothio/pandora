@@ -1,13 +1,12 @@
 ---
-sidebarTitle: Getting Started
 asIndexPage: true
 ---
 
 # React SDK
 
-`@pandorakit/react-sdk` provides React hooks for building custom UIs against Pandora. It handles authentication, streaming chat, thread management, configuration, and more — so you can focus on your interface rather than wiring up API calls.
+`@pandorakit/react-sdk` provides React hooks for building custom UIs against Pandora. It handles authentication, streaming chat, thread management, configuration, and more.
 
-This is the recommended approach for React apps. For non-React consumers, use the [SDK Client](/api-reference/sdk-client) directly.
+For non-React consumers, use the [SDK Client](/api-reference/sdk-client) directly.
 
 ## Installation
 
@@ -34,4 +33,59 @@ function App() {
 | Prop | Type | Description |
 |---|---|---|
 | `baseUrl` | `string` | Pandora server URL. Defaults to `"http://localhost:4111"`. |
-| `queryClient` | `QueryClient` | Optional. Bring your own React Query client for apps that already use React Query. When omitted, an internal client is created. |
+| `queryClient` | `QueryClient` | Optional. Bring your own React Query client. |
+
+## Authentication
+
+The `useAuth()` hook manages the full authentication lifecycle:
+
+```tsx
+import { useAuth } from '@pandorakit/react-sdk'
+
+function AuthGate({ children }: { children: React.ReactNode }) {
+  const { status, login, setup } = useAuth()
+
+  if (status === 'loading') return <div>Loading...</div>
+
+  if (status === 'setup_required') {
+    return (
+      <form onSubmit={async (e) => {
+        e.preventDefault()
+        const password = new FormData(e.currentTarget).get('password') as string
+        await setup(password)
+      }}>
+        <input name="password" type="password" placeholder="Create a password" />
+        <button type="submit">Set Up</button>
+      </form>
+    )
+  }
+
+  if (status === 'login_required') {
+    return (
+      <form onSubmit={async (e) => {
+        e.preventDefault()
+        const password = new FormData(e.currentTarget).get('password') as string
+        await login(password)
+      }}>
+        <input name="password" type="password" placeholder="Password" />
+        <button type="submit">Log In</button>
+      </form>
+    )
+  }
+
+  return <>{children}</>
+}
+```
+
+### UseAuthReturn
+
+| Property | Type | Description |
+|---|---|---|
+| `status` | `'loading' \| 'setup_required' \| 'login_required' \| 'authenticated'` | Current auth state |
+| `login` | `(password: string) => Promise<void>` | Log in with a password |
+| `setup` | `(password: string) => Promise<void>` | First-run password creation |
+| `logout` | `() => Promise<void>` | Log out and clear stored credentials |
+| `changePassword` | `(currentPassword: string, newPassword: string) => Promise<void>` | Change the account password |
+| `sessions` | `UseQueryResult<Session[]>` | Active sessions (fetches when authenticated) |
+| `revokeSession` | `(id: string) => Promise<{ loggedOut: boolean }>` | Revoke a specific session |
+| `revokeAllSessions` | `() => Promise<void>` | Revoke all sessions |

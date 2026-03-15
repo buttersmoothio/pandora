@@ -1,0 +1,177 @@
+import { Callout } from 'nextra/components'
+
+# Plugin Manifest
+
+Every plugin requires a `pandora.manifest.json` at its package root. This file declares the plugin's identity, what it provides, and what it needs to run. Pandora reads the manifest to discover, validate, and load plugins automatically.
+
+## Example
+
+```json
+{
+  "manifestVersion": 1,
+  "id": "@pandorakit/weather",
+  "name": "Weather",
+  "description": "Get current weather for any city",
+  "author": "You",
+  "version": "0.1.0",
+  "license": "MIT",
+  "pandora": ">=0.0.1",
+  "provides": {
+    "tools": {
+      "entry": "./src/index.ts",
+      "sandbox": "compartment",
+      "permissions": {
+        "network": ["api.openweathermap.org"],
+        "env": ["OPENWEATHER_API_KEY"]
+      }
+    }
+  },
+  "envVars": [{ "name": "OPENWEATHER_API_KEY" }],
+  "configFields": [
+    {
+      "key": "units",
+      "label": "Units",
+      "type": "enum",
+      "options": [
+        { "value": "metric", "label": "Metric" },
+        { "value": "imperial", "label": "Imperial" }
+      ]
+    }
+  ]
+}
+```
+
+## Metadata
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `manifestVersion` | `1` | Yes | Schema version. Currently always `1`. |
+| `id` | `string` | Yes | Unique plugin identifier. Use your npm package name (e.g. `@pandorakit/weather`). Must not contain colons. |
+| `name` | `string` | Yes | Human-readable display name shown on the Plugins page. |
+| `description` | `string` | No | Short description of what the plugin does. |
+| `author` | `string` | No | Author name. |
+| `icon` | `string` | No | Icon URL or reference. |
+| `version` | `string` | No | Plugin version (semver). |
+| `homepage` | `string` | No | Homepage URL. |
+| `repository` | `string` | No | Source code repository URL. |
+| `license` | `string` | No | License identifier (e.g. `MIT`). |
+| `pandora` | `string` | Yes | Semver range specifying compatible Pandora versions (e.g. `>=0.0.1`). |
+
+<Callout type="info">
+  The `id` field should match your npm package name. This ID is used for namespacing — all tools, agents, and channels are registered as `pluginId:entityId`.
+</Callout>
+
+## Provides
+
+The `provides` object declares what your plugin contributes. Each key maps to a capability type:
+
+```json
+{
+  "provides": {
+    "tools": { ... },
+    "agents": [{ ... }],
+    "channels": { ... }
+  }
+}
+```
+
+Each capability accepts either a single entry object or an array of entries.
+
+### Tool / Channel Entry
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `entry` | `string` | Yes | Relative path to the entry module (e.g. `./src/index.ts`). |
+| `sandbox` | `'compartment' \| 'host'` | No | Execution mode. `compartment` (default) runs sandboxed with no capabilities by default. `host` gives full process access. |
+| `permissions` | `object` | No | Capabilities granted in compartment mode. Ignored in host mode. |
+| `requireApproval` | `boolean` | No | Default approval requirement for all tools in this entry. |
+
+### Agent Entry
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `entry` | `string` | Yes | Path to the file that exports the agent definition. |
+| `useTools` | `string[]` | No | Tool IDs from the global registry. Use fully-qualified names: `pluginId:toolId`. |
+| `modelTools` | `string[]` | No | Model-native capability keys (e.g. `"search"` for the provider's built-in web search). |
+
+## Permissions
+
+Compartment-sandboxed tools declare what they need. All capabilities are off by default:
+
+| Permission | Type | What it grants |
+|---|---|---|
+| `time` | `boolean` | Access to `Date`, `Date.now()`, and `Intl.DateTimeFormat`. |
+| `network` | `string[]` | `fetch` scoped to declared hostnames only (e.g. `["api.example.com"]`). SSRF-protected. |
+| `env` | `string[]` | Access to declared environment variable keys only (snapshot at load time). |
+| `fs` | `string[]` | Filesystem read access scoped to declared path prefixes only. |
+| `random` | `boolean` | Access to `Math.random()`. Cryptographic randomness is never available in compartments. |
+
+```json
+{
+  "permissions": {
+    "time": true,
+    "network": ["api.openweathermap.org"],
+    "env": ["API_KEY"],
+    "random": true
+  }
+}
+```
+
+## Environment Variables
+
+The `envVars` array declares environment variables the plugin depends on:
+
+```json
+{
+  "envVars": [
+    { "name": "OPENWEATHER_API_KEY" },
+    { "name": "OPTIONAL_KEY", "required": false }
+  ]
+}
+```
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `name` | `string` | Yes | Environment variable name. |
+| `required` | `boolean` | No | Whether this variable is required. Defaults to `true`. |
+
+Plugins with missing required env vars are skipped at load time.
+
+## Config Fields
+
+The `configFields` array declares user-configurable settings that render on the **Plugins** page:
+
+```json
+{
+  "configFields": [
+    {
+      "key": "units",
+      "label": "Temperature Units",
+      "type": "enum",
+      "description": "Choose metric or imperial",
+      "options": [
+        { "value": "metric", "label": "Metric (°C)" },
+        { "value": "imperial", "label": "Imperial (°F)" }
+      ]
+    },
+    {
+      "key": "maxResults",
+      "label": "Max Results",
+      "type": "number",
+      "placeholder": "10"
+    }
+  ]
+}
+```
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `key` | `string` | Yes | Field key in the config object passed to your plugin. |
+| `label` | `string` | Yes | Human-readable label shown in the UI. |
+| `type` | `'text' \| 'number' \| 'password' \| 'enum'` | Yes | Input type. `enum` renders a dropdown select. |
+| `required` | `boolean` | No | Whether the field is required. |
+| `placeholder` | `string` | No | Placeholder text for the input. |
+| `description` | `string` | No | Help text shown below the input. |
+| `options` | `{ value: string; label: string }[]` | No | Allowed values for `type: 'enum'`. |
+
+Plugins with missing required config fields are skipped until the user fills them in on the Plugins page.

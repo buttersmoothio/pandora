@@ -1,7 +1,21 @@
 export default {
-  index: 'Overview',
+  index: 'Introduction',
+  '-- basics': {
+    type: 'separator',
+    title: 'Basics',
+  },
+  quickstart: 'Create Your First Plugin',
+  manifest: 'Plugin Manifest',
+  '-- build': {
+    type: 'separator',
+    title: 'Build',
+  },
   tools: 'Tools',
   agents: 'Agents',
   channels: 'Channels',
+  '-- ui': {
+    type: 'separator',
+    title: 'Custom UI',
+  },
   'react-sdk': 'React SDK',
 }

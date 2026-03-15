@@ -1,0 +1,197 @@
+---
+title: Create Your First Plugin
+---
+
+import { Steps, FileTree, Callout, Tabs } from 'nextra/components'
+
+# Create Your First Plugin
+
+This guide walks you through building a complete plugin from scratch — a simple "Greeting" tool that generates personalized greetings.
+
+<Steps>
+
+### Create the package
+
+Every plugin is a standalone package in the `packages/` directory:
+
+<FileTree>
+  <FileTree.Folder name="packages" defaultOpen>
+    <FileTree.Folder name="greeting" defaultOpen>
+      <FileTree.File name="package.json" />
+      <FileTree.File name="pandora.manifest.json" />
+      <FileTree.Folder name="src" defaultOpen>
+        <FileTree.File name="index.ts" />
+        <FileTree.File name="greet.ts" />
+      </FileTree.Folder>
+      <FileTree.File name="tsconfig.json" />
+    </FileTree.Folder>
+  </FileTree.Folder>
+</FileTree>
+
+Start with `package.json`. The SDK is a dev dependency — only type-only imports are used at runtime:
+
+```json
+{
+  "name": "@pandorakit/greeting",
+  "version": "0.1.0",
+  "type": "module",
+  "exports": { ".": "./src/index.ts" },
+  "devDependencies": {
+    "@pandorakit/sdk": "*"
+  }
+}
+```
+
+And a minimal `tsconfig.json`:
+
+```json
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "noEmit": true
+  },
+  "include": ["src"]
+}
+```
+
+### Write the manifest
+
+The `pandora.manifest.json` tells Pandora what your plugin is, what it provides, and what it needs:
+
+```json
+{
+  "manifestVersion": 1,
+  "id": "@pandorakit/greeting",
+  "name": "Greeting",
+  "description": "Generate personalized greetings in different styles",
+  "author": "You",
+  "version": "0.1.0",
+  "license": "MIT",
+  "pandora": ">=0.0.1",
+  "provides": {
+    "tools": {
+      "entry": "./src/index.ts",
+      "sandbox": "compartment",
+      "permissions": {
+        "time": true
+      }
+    }
+  },
+  "configFields": [
+    {
+      "key": "defaultStyle",
+      "label": "Default Style",
+      "type": "enum",
+      "description": "The greeting style to use when none is specified",
+      "options": [
+        { "value": "formal", "label": "Formal" },
+        { "value": "casual", "label": "Casual" },
+        { "value": "enthusiastic", "label": "Enthusiastic" }
+      ]
+    }
+  ]
+}
+```
+
+- **`id`** matches the npm package name — becomes the namespace prefix for all tools
+- **`provides.tools`** points to the entry module and declares the sandbox mode
+- **`permissions.time`** grants access to `Date` for time-appropriate greetings
+- **`configFields`** defines settings the user can configure on the Plugins page
+
+See the full [manifest reference](/extending/manifest) for all available fields.
+
+### Define the tool
+
+A tool is a plain object — metadata, JSON Schema parameters, and an `execute` function:
+
+```ts
+// src/greet.ts
+import type { Tool } from '@pandorakit/sdk/tools'
+
+export const greetTool: Tool = {
+  id: 'greet',
+  name: 'Greet',
+  description: 'Generate a personalized greeting for someone',
+  parameters: {
+    type: 'object',
+    properties: {
+      name: {
+        type: 'string',
+        description: 'The name of the person to greet',
+      },
+      style: {
+        type: 'string',
+        enum: ['formal', 'casual', 'enthusiastic'],
+        description: 'Greeting style (defaults to plugin config)',
+      },
+    },
+    required: ['name'],
+  },
+  annotations: {
+    readOnlyHint: true,
+    destructiveHint: false,
+    idempotentHint: true,
+  },
+  execute: async (input: { name: string; style?: string }, { logger }) => {
+    const style = input.style || 'casual'
+    const hour = new Date().getHours()
+
+    let timeOfDay = 'Hello'
+    if (hour < 12) timeOfDay = 'Good morning'
+    else if (hour < 18) timeOfDay = 'Good afternoon'
+    else timeOfDay = 'Good evening'
+
+    logger.log(`Generating ${style} greeting for ${input.name}`)
+
+    const greetings = {
+      formal: `${timeOfDay}, ${input.name}. How may I assist you today?`,
+      casual: `Hey ${input.name}! ${timeOfDay}.`,
+      enthusiastic: `${timeOfDay}, ${input.name}!!! So great to see you! 🎉`,
+    }
+
+    return { greeting: greetings[style as keyof typeof greetings] }
+  },
+}
+```
+
+### Export the tools
+
+The entry point exports a named `tools` array:
+
+```ts
+// src/index.ts
+import { greetTool } from './greet'
+
+export const tools = [greetTool]
+```
+
+Pandora registers each tool with a namespaced ID — in this case, `@pandorakit/greeting:greet`.
+
+### Install and run
+
+```bash
+bun install
+bun run dev
+```
+
+Open the web UI, go to the **Plugins** page, and toggle your "Greeting" plugin on.
+
+### Try it
+
+Go to **Chat** and ask:
+
+> "Greet Alice in a formal style"
+
+The agent will call your `greet` tool and return the personalized greeting.
+
+</Steps>
+
+## What's Next
+
+- [Tools](/extending/tools) — sandbox, dynamic resolution, and full type reference
+- [Agents](/extending/agents) — create specialist sub-agents
+- [Channels](/extending/channels) — connect to messaging platforms
+- [Plugin Manifest](/extending/manifest) — full manifest reference

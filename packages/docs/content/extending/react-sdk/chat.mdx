@@ -1,10 +1,12 @@
-# Chat
+# Chat & Threads
+
+## useChat
 
 The `useChat()` hook is the core hook for sending and receiving messages. It handles streaming, thread creation, message editing, and tool approvals.
 
-## New Conversation
+### New Conversation
 
-Omit `threadId` to start a new conversation. Use `onThreadCreated` to capture the new thread ID (e.g. for navigation):
+Omit `threadId` to start a new conversation. Use `onThreadCreated` to capture the new thread ID:
 
 ```tsx
 import { useChat } from '@pandorakit/react-sdk'
@@ -13,7 +15,6 @@ function NewChat() {
   const router = useRouter()
   const { messages, sendMessage, status } = useChat({
     onThreadCreated: (threadId) => {
-      // Navigate to the new thread after creation
       router.push(`/chat/${threadId}`)
     },
   })
@@ -37,9 +38,9 @@ function NewChat() {
 }
 ```
 
-## Existing Thread
+### Existing Thread
 
-Pass `threadId` and `initialMessages` (from `useThread`) to continue an existing conversation. The hook automatically resumes active streams when returning to a thread:
+Pass `threadId` and `initialMessages` (from `useThread`) to continue a conversation. The hook automatically resumes active streams:
 
 ```tsx
 import { useChat, useThread } from '@pandorakit/react-sdk'
@@ -56,9 +57,9 @@ function ExistingChat({ threadId }: { threadId: string }) {
 }
 ```
 
-## Editing a Message
+### Editing a Message
 
-`editMessage` forks the conversation at the specified message and sends the edited text. It returns the new thread ID:
+`editMessage` forks the conversation at the specified message and sends the edited text:
 
 ```tsx
 const { editMessage } = useChat({ threadId })
@@ -69,21 +70,19 @@ async function handleEdit(messageId: string, newText: string) {
 }
 ```
 
-## Tool Approvals
+### Tool Approvals
 
-When the agent requests approval for a tool call, use `addToolApprovalResponse` to approve or deny it:
+When the agent requests approval for a tool call, use `addToolApprovalResponse`:
 
 ```tsx
 const { messages, addToolApprovalResponse } = useChat({ threadId })
 
-// Find tool parts awaiting approval and render approve/deny buttons
-// When approved:
 addToolApprovalResponse({ toolCallId, approved: true })
-// When denied:
+// or
 addToolApprovalResponse({ toolCallId, approved: false })
 ```
 
-## Error Handling
+### Error Handling
 
 ```tsx
 const { messages, error } = useChat({
@@ -92,13 +91,9 @@ const { messages, error } = useChat({
     toast.error(err.message || 'Something went wrong')
   },
 })
-
-if (error) {
-  return <p>Error: {error.message}</p>
-}
 ```
 
-## UseChatOptions
+### UseChatOptions
 
 | Property | Type | Description |
 |---|---|---|
@@ -108,17 +103,125 @@ if (error) {
 | `onFinish` | `() => void` | Called when the assistant response stream finishes. |
 | `onError` | `(error: Error) => void` | Called on streaming errors. |
 
-## UseChatReturn
+### UseChatReturn
 
 | Property | Type | Description |
 |---|---|---|
 | `messages` | `UIMessage[]` | The conversation messages. |
-| `sendMessage` | `(message: { text: string; files?: FileUIPart[] }) => Promise<void>` | Send a user message, optionally with file attachments. |
+| `sendMessage` | `(message: { text: string; files?: FileUIPart[] }) => Promise<void>` | Send a user message, optionally with files. |
 | `status` | `ChatStatus` | `'ready'` \| `'submitted'` \| `'streaming'` \| `'error'` |
 | `stop` | `() => Promise<void>` | Stop the current stream. |
 | `error` | `Error \| undefined` | The last error, if any. |
-| `setMessages` | `(messages: UIMessage[] \| ((msgs: UIMessage[]) => UIMessage[])) => void` | Manually set messages (e.g. for optimistic updates). |
-| `editMessage` | `(messageId: string, newText: string) => Promise<string>` | Fork the thread at the message and send edited text. Returns the new thread ID. |
+| `setMessages` | `(messages: UIMessage[] \| ((msgs: UIMessage[]) => UIMessage[])) => void` | Manually set messages. |
+| `editMessage` | `(messageId: string, newText: string) => Promise<string>` | Fork and send edited text. Returns new thread ID. |
 | `addToolApprovalResponse` | `ChatAddToolApproveResponseFunction` | Approve or deny a pending tool call. |
 
-For rendering the different message part types (text, reasoning, files, tool calls, sources), see [Message Part Types](/api-reference/message-parts).
+For rendering message part types, see [Message Part Types](/api-reference/message-parts).
+
+## useThreads
+
+Lists all threads, with support for forking and deletion.
+
+```tsx
+import { useThreads } from '@pandorakit/react-sdk'
+
+function ThreadSidebar() {
+  const { data, remove } = useThreads()
+
+  return (
+    <nav>
+      {data?.threads.map((thread) => (
+        <div key={thread.id}>
+          <a href={`/chat/${thread.id}`}>{thread.title || 'New Chat'}</a>
+          <button onClick={() => remove(thread.id)}>Delete</button>
+        </div>
+      ))}
+    </nav>
+  )
+}
+```
+
+| Property | Type | Description |
+|---|---|---|
+| `data` | `ThreadListResponse \| undefined` | Thread list including `threads` and `activeStreamIds`. |
+| `isLoading` | `boolean` | Whether the initial fetch is in progress. |
+| `error` | `Error \| null` | Fetch error, if any. |
+| `fork` | `(args: { threadId: string; messageId: string }) => Promise<ThreadForkResponse>` | Fork a thread at a specific message. |
+| `remove` | `(threadId: string) => Promise<void>` | Delete a thread. |
+
+## useThread
+
+Fetches a single thread with its full message history and fork metadata.
+
+```tsx
+import { useThread } from '@pandorakit/react-sdk'
+
+function ThreadView({ threadId }: { threadId: string }) {
+  const { data, isLoading } = useThread(threadId)
+
+  if (isLoading) return <div>Loading...</div>
+
+  return (
+    <div>
+      <h2>{data?.thread.title}</h2>
+      {data?.messages.map((msg) => (
+        <div key={msg.id}>{/* render message */}</div>
+      ))}
+    </div>
+  )
+}
+```
+
+| Property | Type | Description |
+|---|---|---|
+| `data` | `ThreadDetailResponse \| undefined` | Thread details including `thread`, `messages`, `forks`, and `forkInfo`. |
+| `isLoading` | `boolean` | Whether the fetch is in progress. |
+| `error` | `Error \| null` | Fetch error, if any. |
+
+## Rendering Messages
+
+The `messages` array from `useChat()` contains `UIMessage` objects with a `parts` array:
+
+```tsx
+import type { UIMessage } from 'ai'
+
+function MessageParts({ message }: { message: UIMessage }) {
+  return (
+    <>
+      {message.parts.map((part, i) => {
+        switch (part.type) {
+          case 'text':
+            return <p key={i}>{part.text}</p>
+          case 'reasoning':
+            return (
+              <details key={i}>
+                <summary>Thinking...</summary>
+                {part.text}
+              </details>
+            )
+          case 'file':
+            return part.mediaType?.startsWith('image/') ? (
+              <img key={i} src={part.url} alt={part.filename || 'attachment'} />
+            ) : (
+              <a key={i} href={part.url} download>{part.filename || 'File'}</a>
+            )
+          case 'source-url':
+            return <a key={i} href={part.url}>{part.title || part.url}</a>
+          default:
+            if (part.type.startsWith('tool-')) {
+              return (
+                <pre key={i}>
+                  Tool: {part.type} ({part.state})
+                  {part.state === 'output-available' && JSON.stringify(part.output, null, 2)}
+                </pre>
+              )
+            }
+            return null
+        }
+      })}
+    </>
+  )
+}
+```
+
+See the [Message Part Types reference](/api-reference/message-parts) for the full list.
