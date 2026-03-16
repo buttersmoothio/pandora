@@ -206,9 +206,7 @@ export const ReasoningContent: React.NamedExoticComponent<ReasoningContentProps>
       )}
       {...props}
     >
-      <Streamdown plugins={streamdownPlugins} {...props}>
-        {children}
-      </Streamdown>
+      <Streamdown plugins={streamdownPlugins}>{children}</Streamdown>
     </CollapsibleContent>
   ),
 )
