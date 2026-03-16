@@ -29,6 +29,7 @@ data/
 
 # config with secrets
 config.jsonc
+.npmrc
 
 # dotenv environment variable files
 .env

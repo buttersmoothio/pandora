@@ -45,7 +45,7 @@ jobs:
 
       - name: Setup npmrc
         if: github.event_name == 'push'
-        run: echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > .npmrc
+        run: echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > "$HOME/.npmrc"
 
       - name: Create Release PR or Publish
         if: github.event_name == 'push'
