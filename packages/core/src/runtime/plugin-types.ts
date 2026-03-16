@@ -18,7 +18,7 @@ export function buildSchemaFromFields(fields: ConfigFieldDescriptor[]): z.ZodObj
         break
       case 'enum': {
         const [first, ...rest] = (field.options ?? []).map((o) => o.value)
-        fieldSchema = first !== undefined ? z.enum([first, ...rest]) : z.string()
+        fieldSchema = first === undefined ? z.string() : z.enum([first, ...rest])
         break
       }
       default:

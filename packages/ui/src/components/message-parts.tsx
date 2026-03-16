@@ -135,9 +135,9 @@ export function MessageParts({
                 const state = part.state
                 const isAwaitingApproval = state === 'approval-requested'
                 const resolvedName =
-                  part.type !== 'dynamic-tool'
-                    ? toolNames.get(part.type.replace(/^tool-/, ''))
-                    : undefined
+                  part.type === 'dynamic-tool'
+                    ? undefined
+                    : toolNames.get(part.type.replace(/^tool-/, ''))
 
                 return (
                   <Tool

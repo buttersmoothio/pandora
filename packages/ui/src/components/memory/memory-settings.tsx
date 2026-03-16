@@ -34,14 +34,14 @@ export function MemorySection(): React.JSX.Element {
       setEnabled(config.memory.enabled)
       const m = config.memory.model ?? ''
       const slashIdx = m.indexOf('/')
-      if (slashIdx !== -1) {
-        setOverride(true)
-        setProvider(m.slice(0, slashIdx))
-        setModel(m.slice(slashIdx + 1))
-      } else {
+      if (slashIdx === -1) {
         setOverride(false)
         setProvider('')
         setModel('')
+      } else {
+        setOverride(true)
+        setProvider(m.slice(0, slashIdx))
+        setModel(m.slice(slashIdx + 1))
       }
     }
   }, [config])

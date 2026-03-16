@@ -103,7 +103,7 @@ function AgentModelOverride({
           ...agents,
           [agentId]: {
             ...(agents[agentId] ?? {}),
-            ...(modelValue !== undefined ? { model: modelValue } : {}),
+            ...(modelValue === undefined ? {} : { model: modelValue }),
           },
         },
       }

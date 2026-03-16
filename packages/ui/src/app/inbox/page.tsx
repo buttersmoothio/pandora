@@ -33,7 +33,7 @@ function resolveDestinationName(destination: string, channelNames: Map<string, s
       return name
     }
   }
-  return colonIdx !== -1 ? destination.slice(colonIdx + 1) : destination
+  return colonIdx === -1 ? destination : destination.slice(colonIdx + 1)
 }
 
 function MessageRow({

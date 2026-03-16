@@ -76,7 +76,7 @@ function createMockCtx(chatId: number, opts?: { text?: string; fromId?: number }
   return {
     chat: { id: chatId },
     from: { id: opts?.fromId ?? chatId },
-    message: opts?.text !== undefined ? { text: opts.text } : { text: '' },
+    message: opts?.text === undefined ? { text: '' } : { text: opts.text },
     api: mockApi,
     reply: vi.fn(),
     replyWithChatAction: vi.fn(),
