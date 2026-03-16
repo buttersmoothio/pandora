@@ -1,6 +1,6 @@
-# @pandorakit/react-sdk
+# @pandorakit/telegram
 
-## 0.1.2
+## 0.1.1
 
 ### Patch Changes
 
@@ -8,9 +8,3 @@
 
 - Updated dependencies [[`c8821a9`](https://github.com/buttersmoothio/pandora/commit/c8821a9558154637d0694ed697c477d042fc5c66)]:
   - @pandorakit/sdk@0.1.1
-
-## 0.1.1
-
-### Patch Changes
-
-- Update React SDK types.
