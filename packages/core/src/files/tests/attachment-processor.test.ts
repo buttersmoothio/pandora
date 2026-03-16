@@ -76,6 +76,12 @@ async function processOutputResult(
   const result = await fn({
     messages,
     messageList: mockMessageList,
+    result: {
+      text: '',
+      usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+      finishReason: 'stop',
+      steps: [],
+    },
     state: {},
     abort: () => {
       throw new Error('aborted')
