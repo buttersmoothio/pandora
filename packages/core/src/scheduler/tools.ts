@@ -125,7 +125,7 @@ export function createScheduleTools(deps: ScheduleToolDeps): ToolRecord {
       if (!parsed) {
         return { error: `Could not parse time: "${input.runAt}"` }
       }
-      return createTask({ ...input, runAt: parsed.toISOString() })
+      return createTask({ ...input, enabled: input.enabled ?? true, runAt: parsed.toISOString() })
     },
   })
 
@@ -153,7 +153,8 @@ export function createScheduleTools(deps: ScheduleToolDeps): ToolRecord {
       destination: destinationSchema,
     }),
     // biome-ignore lint/nursery/useExplicitType: input type inferred from inputSchema
-    execute: async (input): Promise<Record<string, unknown>> => createTask(input),
+    execute: async (input): Promise<Record<string, unknown>> =>
+      createTask({ ...input, enabled: input.enabled ?? true }),
   })
 
   const update_schedule = createTool({
