@@ -1,10 +1,17 @@
 import { FadeIn } from './fade-in'
 
-const features = [
+interface Feature {
+  title: string
+  description: string
+  span: string
+  featured: boolean
+}
+
+const features: Feature[] = [
   {
     title: 'Any model, your choice',
     description:
-      'OpenAI, Anthropic, Google, Mistral — pick the AI that works for you. Switch whenever you want.',
+      'Pick the AI that works for you. Switch providers whenever you want — no lock-in.',
     span: 'md:col-span-2',
     featured: true,
   },
@@ -18,20 +25,20 @@ const features = [
   {
     title: 'Runs on a schedule',
     description:
-      'Daily briefings, weekly check-ins, simple reminders. Set them up once, get results without asking.',
+      'Automate the things you check on regularly. Set them up once, get results without asking.',
     span: '',
     featured: false,
   },
   {
     title: 'A growing toolkit',
     description:
-      'Add abilities through plugins — web search, research, custom tools. A small ecosystem that keeps getting better.',
+      'Add new abilities through plugins. A small ecosystem that keeps getting better.',
     span: 'md:col-span-2',
     featured: true,
   },
   {
     title: 'Chat from anywhere',
-    description: 'Use the web UI, or connect Telegram. More channels coming.',
+    description: 'Use the web UI, or connect your favorite messaging apps. More channels coming.',
     span: 'md:col-span-2',
     featured: true,
   },
@@ -49,9 +56,9 @@ export function Features(): React.JSX.Element {
       <div className="mx-auto max-w-5xl">
         <FadeIn>
           <h2 className="display-heading font-display text-3xl leading-tight tracking-normal md:text-5xl md:leading-tight">
-            Built around you.
+            <span className="text-muted">Built around you.</span>
             <br />
-            <span className="text-muted">Not the other way around.</span>
+            Not the other way around.
           </h2>
         </FadeIn>
 

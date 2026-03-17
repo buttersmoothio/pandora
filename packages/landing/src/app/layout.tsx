@@ -1,13 +1,14 @@
 import type { Metadata } from 'next'
+import type { NextFontWithVariable } from 'next/dist/compiled/@next/font'
 import { DM_Sans, Fraunces } from 'next/font/google'
 import './globals.css'
 
-const dmSans = DM_Sans({
+const dmSans: NextFontWithVariable = DM_Sans({
   variable: '--font-dm-sans',
   subsets: ['latin'],
 })
 
-const fraunces = Fraunces({
+const fraunces: NextFontWithVariable = Fraunces({
   variable: '--font-fraunces',
   subsets: ['latin'],
   axes: ['WONK', 'SOFT', 'opsz'],

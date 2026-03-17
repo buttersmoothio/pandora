@@ -1,6 +1,6 @@
 import { FadeIn } from './fade-in'
 
-const items = [
+const items: string[] = [
   'Runs on your machine',
   'Any AI provider',
   'Just yours',

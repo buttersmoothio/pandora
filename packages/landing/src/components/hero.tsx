@@ -30,7 +30,7 @@ export function Hero(): React.JSX.Element {
       </FadeIn>
 
       <FadeIn delay={0.3} className="mt-10">
-        <PrimaryButton href="https://docs.pandorakit.dev/user-guide" size="lg">
+        <PrimaryButton href="https://docs.pandorakit.com/user-guide" size="lg">
           Get Started
         </PrimaryButton>
       </FadeIn>

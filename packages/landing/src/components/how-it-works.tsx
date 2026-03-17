@@ -1,6 +1,13 @@
 import { FadeIn } from './fade-in'
 
-const steps = [
+interface Step {
+  number: string
+  title: string
+  description: string
+  code: string | null
+}
+
+const steps: Step[] = [
   {
     number: '01',
     title: 'Run it',
@@ -28,9 +35,9 @@ export function HowItWorks(): React.JSX.Element {
       <div className="mx-auto max-w-5xl">
         <FadeIn>
           <h2 className="display-heading font-display text-3xl leading-tight tracking-normal md:text-5xl md:leading-tight">
-            Up and running
+            <span className="text-muted">Up and running</span>
             <br />
-            <span className="text-muted">in minutes.</span>
+            in minutes.
           </h2>
         </FadeIn>
 

@@ -8,7 +8,7 @@ export function Footer(): React.JSX.Element {
 
         <div className="flex items-center gap-6">
           <a
-            href="https://docs.pandorakit.dev"
+            href="https://docs.pandorakit.com"
             className="text-muted text-sm transition-colors hover:text-foreground"
           >
             Docs
@@ -20,7 +20,7 @@ export function Footer(): React.JSX.Element {
             GitHub
           </a>
           <a
-            href="https://docs.pandorakit.dev/extending"
+            href="https://docs.pandorakit.com/extending"
             className="text-muted text-sm transition-colors hover:text-foreground"
           >
             Build a Plugin

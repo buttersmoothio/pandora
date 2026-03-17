@@ -26,7 +26,7 @@ export function Nav(): React.JSX.Element {
 
       <div className="flex items-center gap-6">
         <a
-          href="https://docs.pandorakit.dev"
+          href="https://docs.pandorakit.com"
           className="text-muted text-sm transition-colors hover:text-foreground"
         >
           Docs
@@ -37,7 +37,7 @@ export function Nav(): React.JSX.Element {
         >
           GitHub
         </a>
-        <PrimaryButton href="https://docs.pandorakit.dev/user-guide" size="sm">
+        <PrimaryButton href="https://docs.pandorakit.com/user-guide" size="sm">
           Get Started
         </PrimaryButton>
       </div>

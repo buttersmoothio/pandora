@@ -30,11 +30,11 @@ export function OpenSourceCta(): React.JSX.Element {
 
         <FadeIn delay={0.2}>
           <div className="relative mt-10 flex items-center justify-center gap-5">
-            <PrimaryButton href="https://docs.pandorakit.dev/user-guide" size="lg">
+            <PrimaryButton href="https://docs.pandorakit.com/user-guide" size="lg">
               Get Started
             </PrimaryButton>
             <a
-              href="https://docs.pandorakit.dev"
+              href="https://docs.pandorakit.com"
               className="rounded-full border border-border px-8 py-4 font-medium text-base text-foreground transition-colors hover:border-muted"
             >
               Read the Docs
