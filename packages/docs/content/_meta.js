@@ -3,6 +3,14 @@ export default {
     title: 'Pandora',
     type: 'page',
     display: 'hidden',
+    theme: {
+      layout: 'full',
+      sidebar: false,
+      toc: false,
+      breadcrumb: false,
+      pagination: false,
+      timestamp: false,
+    },
   },
   'user-guide': {
     title: 'User Guide',

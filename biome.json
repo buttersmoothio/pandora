@@ -17,7 +17,8 @@
       "**/*.cjs",
       "**/*.json",
       "**/*.jsonc",
-      "!**/.claude"
+      "!**/.claude",
+      "!**/next-env.d.ts"
     ]
   },
   "formatter": {
