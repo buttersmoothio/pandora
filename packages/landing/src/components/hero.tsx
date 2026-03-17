@@ -13,10 +13,7 @@ export function Hero(): React.JSX.Element {
       />
 
       <FadeIn>
-        <h1
-          className="relative font-display text-5xl leading-[1.1] tracking-normal md:text-7xl md:leading-[1.1]"
-          style={{ fontVariationSettings: "'SOFT' 64, 'WONK' 1, 'opsz' 144, 'wght' 411" }}
-        >
+        <h1 className="display-heading relative font-display text-5xl leading-[1.1] tracking-normal md:text-7xl md:leading-[1.1]">
           Your AI agent.
           <br />
           <span className="text-accent">Fully yours.</span>

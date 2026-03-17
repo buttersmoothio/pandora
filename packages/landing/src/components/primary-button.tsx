@@ -1,18 +1,18 @@
 interface PrimaryButtonProps extends React.AnchorHTMLAttributes<HTMLAnchorElement> {
   children: React.ReactNode
-  size?: "default" | "sm" | "lg"
+  size?: 'default' | 'sm' | 'lg'
 }
 
 const sizeClasses = {
-  sm: "px-4 py-2 text-sm",
-  default: "px-6 py-3 text-sm",
-  lg: "px-8 py-4 text-base",
+  sm: 'px-4 py-2 text-sm',
+  default: 'px-6 py-3 text-sm',
+  lg: 'px-8 py-4 text-base',
 }
 
 export function PrimaryButton({
   children,
-  size = "default",
-  className = "",
+  size = 'default',
+  className = '',
   ...props
 }: PrimaryButtonProps): React.JSX.Element {
   return (

@@ -30,6 +30,15 @@ body {
   font-family: var(--font-sans), system-ui, sans-serif;
 }
 
+/* Fraunces display heading — reusable utility */
+.display-heading {
+  font-variation-settings: 'SOFT' 64, 'WONK' 1, 'opsz' 144, 'wght' 411;
+}
+
+.display-heading-medium {
+  font-variation-settings: 'SOFT' 20, 'WONK' 0, 'opsz' 48, 'wght' 500;
+}
+
 /* Noise overlay to break gradient banding */
 body::after {
   content: "";
