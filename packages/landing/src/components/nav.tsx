@@ -20,20 +20,20 @@ export function Nav(): React.JSX.Element {
         scrolled ? 'bg-background/80 backdrop-blur-lg' : ''
       }`}
     >
-      <a href="/" className="display-heading font-display text-xl text-foreground">
-        Pandora<span className="text-accent">.</span>
+      <a href="/" className="display-heading logo-shimmer font-display text-xl">
+        Pandora.
       </a>
 
       <div className="flex items-center gap-6">
         <a
           href="https://docs.pandorakit.dev"
-          className="text-sm text-muted transition-colors hover:text-foreground"
+          className="text-muted text-sm transition-colors hover:text-foreground"
         >
           Docs
         </a>
         <a
           href="https://github.com/buttersmoothio/pandora"
-          className="text-sm text-muted transition-colors hover:text-foreground"
+          className="text-muted text-sm transition-colors hover:text-foreground"
         >
           GitHub
         </a>

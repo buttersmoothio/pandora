@@ -13,9 +13,18 @@ const items = [
 
 export function FeatureList(): React.JSX.Element {
   return (
-    <section className="px-6 py-24 md:py-32">
-      <div className="mx-auto max-w-4xl">
-        <ul className="flex flex-col items-center gap-2 text-center">
+    <section className="relative px-6 py-24 md:py-32">
+      {/* Subtle background to set section apart */}
+      <div
+        className="pointer-events-none absolute inset-0 opacity-40"
+        style={{
+          background:
+            'radial-gradient(ellipse at center, var(--surface-raised) 0%, transparent 70%)',
+        }}
+      />
+
+      <div className="relative mx-auto max-w-4xl">
+        <ul className="flex flex-col items-center gap-3 text-center">
           {items.map((item, i) => {
             const opacity = Math.max(0.15, 1 - i * 0.12)
             return (

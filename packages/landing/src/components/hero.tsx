@@ -3,7 +3,7 @@ import { PrimaryButton } from './primary-button'
 
 export function Hero(): React.JSX.Element {
   return (
-    <section className="flex min-h-screen flex-col items-center justify-center px-6 pt-24 text-center">
+    <section className="flex min-h-screen flex-col items-center justify-center px-6 pt-32 md:pt-40 text-center">
       {/* Ambient glow — subtle, low opacity to avoid banding */}
       <div
         className="pointer-events-none absolute top-0 left-1/2 h-[600px] w-[800px] -translate-x-1/2 opacity-[0.08]"
@@ -21,7 +21,7 @@ export function Hero(): React.JSX.Element {
       </FadeIn>
 
       <FadeIn delay={0.15}>
-        <p className="relative mt-6 max-w-xl text-base leading-relaxed text-muted md:text-lg">
+        <p className="relative mt-6 max-w-xl text-base text-muted leading-relaxed md:text-lg">
           A personal AI assistant that lives on your hardware, remembers what matters, and works on
           your schedule.
           <br />
