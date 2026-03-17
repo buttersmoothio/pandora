@@ -38,7 +38,14 @@ const navbar = (
       </span>
     }
     projectLink="https://github.com/buttersmoothio/pandora"
-  />
+  >
+    <a
+      href="https://pandorakit.com"
+      style={{ fontSize: '0.875rem', opacity: 0.6 }}
+    >
+      Home
+    </a>
+  </Navbar>
 )
 
 const footer = (
