@@ -51,8 +51,8 @@ export function Welcome() {
           <span style={{ color: 'hsl(34, 78%, 60%)' }}>.</span>
         </h1>
         <p style={{ fontSize: '1.125rem', opacity: 0.6, maxWidth: '36rem', lineHeight: 1.7 }}>
-          Your personal AI agent — self-hosted, extensible, and fully under your control.
-          Find everything you need to get started, build plugins, or integrate with the API.
+          Your personal AI agent — self-hosted, extensible, and fully under your control. Find
+          everything you need to get started, build plugins, or integrate with the API.
         </p>
       </div>
 
@@ -94,8 +94,8 @@ export function Welcome() {
           <a href="/user-guide" style={{ color: 'hsl(34, 78%, 60%)', textDecoration: 'underline' }}>
             Getting Started
           </a>{' '}
-          guide — it walks you through deployment, configuration, and your first conversation.
-          The whole thing takes a few minutes.
+          guide — it walks you through deployment, configuration, and your first conversation. The
+          whole thing takes a few minutes.
         </p>
       </div>
     </div>

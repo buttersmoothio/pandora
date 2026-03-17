@@ -34,7 +34,6 @@ const props: ValueProp[] = [
 export function ValueProps(): React.JSX.Element {
   return (
     <section className="relative px-6 py-24 md:py-32">
-
       <div className="relative mx-auto max-w-5xl">
         <FadeIn>
           <h2 className="display-heading font-display text-3xl leading-tight tracking-normal md:text-5xl md:leading-tight">
@@ -48,7 +47,9 @@ export function ValueProps(): React.JSX.Element {
           {props.map((prop, i) => (
             <FadeIn key={prop.title} delay={i * 0.1} className={prop.offset}>
               <div className="rounded-2xl border border-border border-t-2 border-t-accent/40 bg-surface p-8 transition-colors hover:border-accent/20 hover:border-t-accent/60">
-                <span className="flex h-8 w-8 items-center justify-center text-[28px] leading-none text-accent">{prop.icon}</span>
+                <span className="flex h-8 w-8 items-center justify-center text-[28px] text-accent leading-none">
+                  {prop.icon}
+                </span>
                 <h3 className="display-heading-medium mt-4 font-display text-2xl text-foreground">
                   {prop.title}
                 </h3>

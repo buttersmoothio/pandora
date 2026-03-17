@@ -10,8 +10,7 @@ interface Feature {
 const features: Feature[] = [
   {
     title: 'Any model, your choice',
-    description:
-      'Pick the AI that works for you. Switch providers whenever you want — no lock-in.',
+    description: 'Pick the AI that works for you. Switch providers whenever you want — no lock-in.',
     span: 'md:col-span-2',
     featured: true,
   },
@@ -31,8 +30,7 @@ const features: Feature[] = [
   },
   {
     title: 'A growing toolkit',
-    description:
-      'Add new abilities through plugins. A small ecosystem that keeps getting better.',
+    description: 'Add new abilities through plugins. A small ecosystem that keeps getting better.',
     span: 'md:col-span-2',
     featured: true,
   },

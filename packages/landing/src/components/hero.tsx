@@ -3,7 +3,7 @@ import { PrimaryButton } from './primary-button'
 
 export function Hero(): React.JSX.Element {
   return (
-    <section className="flex min-h-screen flex-col items-center justify-center px-6 pt-32 md:pt-40 text-center">
+    <section className="flex min-h-screen flex-col items-center justify-center px-6 pt-32 text-center md:pt-40">
       {/* Ambient glow — subtle, low opacity to avoid banding */}
       <div
         className="pointer-events-none absolute top-0 left-1/2 h-[600px] w-[800px] -translate-x-1/2 opacity-[0.08]"

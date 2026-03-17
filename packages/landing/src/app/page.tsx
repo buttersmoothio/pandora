@@ -17,8 +17,7 @@ export default function Home(): React.JSX.Element {
         <div
           className="absolute -top-48 left-0 h-[800px] w-full"
           style={{
-            background:
-              'radial-gradient(ellipse at 30% 50%, var(--accent) 0%, transparent 50%)',
+            background: 'radial-gradient(ellipse at 30% 50%, var(--accent) 0%, transparent 50%)',
             opacity: 0.04,
           }}
         />
