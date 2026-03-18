@@ -6,7 +6,6 @@ import { useMemo } from 'react'
 import { Streamdown } from 'streamdown'
 import { MemoryProgress } from '@/components/memory/memory-progress'
 import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatTokens, timeAgo } from '@/lib/memory-utils'
 
 export function LongTermSection(): React.JSX.Element {
@@ -24,13 +23,13 @@ export function LongTermSection(): React.JSX.Element {
   )
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-start justify-between space-y-0">
-        <div className="flex flex-col gap-1.5">
-          <CardTitle>Long-term Memory</CardTitle>
-          <CardDescription>
+    <div>
+      <div className="flex items-start justify-between">
+        <div>
+          <h2 className="display-heading-medium font-display text-base">Long-term Memory</h2>
+          <p className="mt-1 text-muted-foreground text-sm">
             Observations built up over time from your conversations.
-          </CardDescription>
+          </p>
         </div>
         <div className="flex items-center gap-2">
           {record?.isObserving && (
@@ -49,8 +48,8 @@ export function LongTermSection(): React.JSX.Element {
             <Badge variant="outline">Idle</Badge>
           )}
         </div>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">
+      </div>
+      <div className="mt-4 flex flex-col gap-4">
         {record && thresholds && (
           <div className="flex flex-col gap-3 rounded-md border bg-muted/50 p-4">
             <MemoryProgress
@@ -96,7 +95,7 @@ export function LongTermSection(): React.JSX.Element {
             Nothing here yet. Observations are created once enough conversation has accumulated.
           </p>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   )
 }

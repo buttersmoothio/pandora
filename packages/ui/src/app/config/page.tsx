@@ -2,12 +2,12 @@
 
 import { useConfig, useModels } from '@pandorakit/react-sdk'
 import { CheckIcon, ChevronsUpDownIcon, ExternalLinkIcon, Loader2Icon } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { Streamdown } from 'streamdown'
 import { ProviderLogo } from '@/components/provider-logo'
+import { SaveIndicator } from '@/components/save-indicator'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Command,
   CommandEmpty,
@@ -19,10 +19,11 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Textarea } from '@/components/ui/textarea'
+import { useAutoSave } from '@/hooks/use-auto-save'
 import { cn } from '@/lib/utils'
 
 function IdentitySection(): React.JSX.Element {
-  const { data: config, update: updateConfig, isUpdating } = useConfig()
+  const { data: config, update: updateConfig } = useConfig()
   const [name, setName] = useState('')
 
   useEffect(() => {
@@ -31,43 +32,43 @@ function IdentitySection(): React.JSX.Element {
     }
   }, [config])
 
+  const onSave = useCallback(
+    (val: string) => updateConfig({ identity: { name: val } }),
+    [updateConfig],
+  )
+  const { status } = useAutoSave({
+    value: name,
+    serverValue: config?.identity.name ?? '',
+    onSave,
+    enabled: !!name.trim(),
+  })
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Identity</CardTitle>
-        <CardDescription>Configure your agent&apos;s name.</CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="identity-name">Name</Label>
-          <Input
-            id="identity-name"
-            value={name}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>): void => setName(e.target.value)}
-          />
+    <div>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="display-heading-medium font-display text-base">Identity</h2>
+          <p className="mt-1 text-muted-foreground text-sm">Configure your agent&apos;s name.</p>
         </div>
-        <Button
-          className="self-end"
-          disabled={isUpdating || !name.trim()}
-          onClick={async (): Promise<void> => {
-            try {
-              await updateConfig({ identity: { name } })
-            } catch (err) {
-              toast.error(err instanceof Error ? err.message : 'Failed to update config')
-            }
-          }}
-        >
-          {isUpdating ? <Loader2Icon className="size-4 animate-spin" /> : 'Save'}
-        </Button>
-      </CardContent>
-    </Card>
+        <SaveIndicator status={status} />
+      </div>
+      <div className="mt-4">
+        <Label htmlFor="identity-name">Name</Label>
+        <Input
+          id="identity-name"
+          className="mt-2"
+          value={name}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>): void => setName(e.target.value)}
+        />
+      </div>
+    </div>
   )
 }
 
 const TIMEZONES: string[] = ['UTC', ...Intl.supportedValuesOf('timeZone')]
 
 function TimezoneSection(): React.JSX.Element {
-  const { data: config, update: updateConfig, isUpdating } = useConfig()
+  const { data: config, update: updateConfig } = useConfig()
   const [timezone, setTimezone] = useState('')
   const [open, setOpen] = useState(false)
 
@@ -77,64 +78,61 @@ function TimezoneSection(): React.JSX.Element {
     }
   }, [config])
 
+  const onSave = useCallback((val: string) => updateConfig({ timezone: val }), [updateConfig])
+  const { status } = useAutoSave({
+    value: timezone,
+    serverValue: config?.timezone ?? '',
+    onSave,
+    delay: 0,
+    enabled: !!timezone,
+  })
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Timezone</CardTitle>
-        <CardDescription>
-          Set your timezone for scheduling, time awareness, and date formatting.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">
-        <div className="flex flex-col gap-2">
-          <Label>Timezone</Label>
-          <Popover open={open} onOpenChange={setOpen}>
-            <PopoverTrigger asChild>
-              <Button variant="outline" className="justify-between font-normal">
-                {timezone || 'Select timezone...'}
-                <ChevronsUpDownIcon className="ml-2 size-4 shrink-0 opacity-50" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="p-0">
-              <Command>
-                <CommandInput placeholder="Search timezones..." />
-                <CommandList>
-                  <CommandEmpty>No timezone found.</CommandEmpty>
-                  {TIMEZONES.map((tz) => (
-                    <CommandItem
-                      key={tz}
-                      value={tz}
-                      onSelect={(): void => {
-                        setTimezone(tz)
-                        setOpen(false)
-                      }}
-                    >
-                      <CheckIcon
-                        className={cn('mr-2 size-4', timezone === tz ? 'opacity-100' : 'opacity-0')}
-                      />
-                      {tz}
-                    </CommandItem>
-                  ))}
-                </CommandList>
-              </Command>
-            </PopoverContent>
-          </Popover>
+    <div>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="display-heading-medium font-display text-base">Timezone</h2>
+          <p className="mt-1 text-muted-foreground text-sm">
+            Set your timezone for scheduling, time awareness, and date formatting.
+          </p>
         </div>
-        <Button
-          className="self-end"
-          disabled={isUpdating || !timezone}
-          onClick={async (): Promise<void> => {
-            try {
-              await updateConfig({ timezone })
-            } catch (err) {
-              toast.error(err instanceof Error ? err.message : 'Failed to update config')
-            }
-          }}
-        >
-          {isUpdating ? <Loader2Icon className="size-4 animate-spin" /> : 'Save'}
-        </Button>
-      </CardContent>
-    </Card>
+        <SaveIndicator status={status} />
+      </div>
+      <div className="mt-4">
+        <Label>Timezone</Label>
+        <Popover open={open} onOpenChange={setOpen}>
+          <PopoverTrigger asChild>
+            <Button variant="outline" className="mt-2 w-full justify-between font-normal">
+              {timezone || 'Select timezone...'}
+              <ChevronsUpDownIcon className="ml-2 size-4 shrink-0 opacity-50" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="p-0">
+            <Command>
+              <CommandInput placeholder="Search timezones..." />
+              <CommandList>
+                <CommandEmpty>No timezone found.</CommandEmpty>
+                {TIMEZONES.map((tz) => (
+                  <CommandItem
+                    key={tz}
+                    value={tz}
+                    onSelect={(): void => {
+                      setTimezone(tz)
+                      setOpen(false)
+                    }}
+                  >
+                    <CheckIcon
+                      className={cn('mr-2 size-4', timezone === tz ? 'opacity-100' : 'opacity-0')}
+                    />
+                    {tz}
+                  </CommandItem>
+                ))}
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
+      </div>
+    </div>
   )
 }
 
@@ -150,14 +148,14 @@ function PersonalitySection(): React.JSX.Element {
   }, [config])
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Personality</CardTitle>
-        <CardDescription>Define how your agent behaves and communicates.</CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">
+    <div>
+      <h2 className="display-heading-medium font-display text-base">Personality</h2>
+      <p className="mt-1 text-muted-foreground text-sm">
+        Define how your agent behaves and communicates.
+      </p>
+      <div className="mt-4">
         {editing ? (
-          <>
+          <div className="flex flex-col gap-4">
             <Textarea
               id="system-prompt"
               rows={16}
@@ -192,9 +190,9 @@ function PersonalitySection(): React.JSX.Element {
                 {isUpdating ? <Loader2Icon className="size-4 animate-spin" /> : 'Save'}
               </Button>
             </div>
-          </>
+          </div>
         ) : (
-          <>
+          <div className="flex flex-col gap-4">
             <div className="max-h-80 overflow-y-auto rounded-md border bg-muted/50 p-4">
               <Streamdown className="[&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
                 {systemPrompt}
@@ -203,15 +201,15 @@ function PersonalitySection(): React.JSX.Element {
             <Button variant="outline" className="self-end" onClick={(): void => setEditing(true)}>
               Edit
             </Button>
-          </>
+          </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   )
 }
 
 function ModelsSection(): React.JSX.Element {
-  const { data: config, update: updateConfig, isUpdating } = useConfig()
+  const { data: config, update: updateConfig } = useConfig()
   const { data: modelsData } = useModels()
   const [provider, setProvider] = useState('')
   const [model, setModel] = useState('')
@@ -229,8 +227,35 @@ function ModelsSection(): React.JSX.Element {
     }
   }, [config])
 
+  const modelConfig = { provider, model, temperature, maxTokens }
+  const serverModelConfig = {
+    provider: config?.models.operator.provider ?? '',
+    model: config?.models.operator.model ?? '',
+    temperature: config?.models.operator.temperature?.toString() ?? '',
+    maxTokens: config?.models.operator.maxTokens?.toString() ?? '',
+  }
+  const onSave = useCallback(
+    (val: typeof modelConfig) =>
+      updateConfig({
+        models: {
+          operator: {
+            provider: val.provider,
+            model: val.model,
+            temperature: val.temperature ? Number(val.temperature) : undefined,
+            maxTokens: val.maxTokens ? Number(val.maxTokens) : undefined,
+          },
+        },
+      }),
+    [updateConfig],
+  )
+  const { status } = useAutoSave({
+    value: modelConfig,
+    serverValue: serverModelConfig,
+    onSave,
+    enabled: !!provider && !!model,
+  })
+
   const allProviders = modelsData?.providers ?? []
-  // Show configured providers first
   const providers = [...allProviders].sort((a, b) => {
     if (a.configured !== b.configured) {
       return a.configured ? -1 : 1
@@ -241,12 +266,15 @@ function ModelsSection(): React.JSX.Element {
   const models = selectedProvider?.models ?? []
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Models</CardTitle>
-        <CardDescription>Configure the operator model.</CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">
+    <div>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="display-heading-medium font-display text-base">Models</h2>
+          <p className="mt-1 text-muted-foreground text-sm">Configure the operator model.</p>
+        </div>
+        <SaveIndicator status={status} />
+      </div>
+      <div className="mt-4 flex flex-col gap-4">
         <div className="grid grid-cols-2 gap-4">
           <div className="flex flex-col gap-2">
             <Label>Provider</Label>
@@ -402,30 +430,8 @@ function ModelsSection(): React.JSX.Element {
             </ol>
           </div>
         )}
-        <Button
-          className="self-end"
-          disabled={isUpdating || !provider || !model}
-          onClick={async (): Promise<void> => {
-            try {
-              await updateConfig({
-                models: {
-                  operator: {
-                    provider,
-                    model,
-                    temperature: temperature ? Number(temperature) : undefined,
-                    maxTokens: maxTokens ? Number(maxTokens) : undefined,
-                  },
-                },
-              })
-            } catch (err) {
-              toast.error(err instanceof Error ? err.message : 'Failed to update config')
-            }
-          }}
-        >
-          {isUpdating ? <Loader2Icon className="size-4 animate-spin" /> : 'Save'}
-        </Button>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   )
 }
 
@@ -433,14 +439,12 @@ function SetupWizardSection(): React.JSX.Element {
   const { update: updateConfig, isUpdating } = useConfig()
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Setup Wizard</CardTitle>
-        <CardDescription>
-          Re-run the first-run setup wizard to reconfigure your agent.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
+    <div>
+      <h2 className="display-heading-medium font-display text-base">Setup Wizard</h2>
+      <p className="mt-1 text-muted-foreground text-sm">
+        Re-run the first-run setup wizard to reconfigure your agent.
+      </p>
+      <div className="mt-4">
         <Button
           variant="outline"
           disabled={isUpdating}
@@ -454,8 +458,8 @@ function SetupWizardSection(): React.JSX.Element {
         >
           {isUpdating ? <Loader2Icon className="size-4 animate-spin" /> : 'Run Setup Wizard'}
         </Button>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   )
 }
 
@@ -483,7 +487,7 @@ export default function ConfigPage(): React.JSX.Element | null {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 p-6">
+    <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-10 p-6">
       <h1 className="display-heading-medium font-display text-2xl">Configuration</h1>
       <IdentitySection />
       <TimezoneSection />

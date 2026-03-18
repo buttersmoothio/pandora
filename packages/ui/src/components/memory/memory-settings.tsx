@@ -6,7 +6,6 @@ import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { ProviderLogo } from '@/components/provider-logo'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Command,
   CommandEmpty,
@@ -58,13 +57,13 @@ export function MemorySection(): React.JSX.Element {
   const memoryModel = provider && model ? `${provider}/${model}` : undefined
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-start justify-between space-y-0">
-        <div className="flex flex-col gap-1.5">
-          <CardTitle>Memory</CardTitle>
-          <CardDescription>
+    <div>
+      <div className="flex items-start justify-between">
+        <div>
+          <h2 className="display-heading-medium font-display text-base">Memory</h2>
+          <p className="mt-1 text-muted-foreground text-sm">
             Automatically remembers important details across all your conversations.
-          </CardDescription>
+          </p>
         </div>
         <Switch
           id="memory-enabled"
@@ -76,9 +75,9 @@ export function MemorySection(): React.JSX.Element {
             )
           }}
         />
-      </CardHeader>
+      </div>
       {enabled && (
-        <CardContent className="flex flex-col gap-4">
+        <div className="mt-4 flex flex-col gap-4">
           <div className="flex items-center justify-between">
             <div className="flex flex-col gap-1">
               <Label htmlFor="model-override">Use a different model</Label>
@@ -211,8 +210,8 @@ export function MemorySection(): React.JSX.Element {
               </Button>
             </>
           )}
-        </CardContent>
+        </div>
       )}
-    </Card>
+    </div>
   )
 }

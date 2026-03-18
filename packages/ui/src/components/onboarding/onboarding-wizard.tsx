@@ -610,7 +610,11 @@ export function OnboardingWizard(): React.JSX.Element {
                 Skip
               </Button>
             )}
-            <Button onClick={saveAndAdvance} disabled={isSaving || !(isComplete || canContinue)}>
+            <Button
+              variant="brand"
+              onClick={saveAndAdvance}
+              disabled={isSaving || !(isComplete || canContinue)}
+            >
               {isSaving && <Loader2Icon className="size-4 animate-spin" />}
               {isComplete ? 'Start chatting' : 'Continue'}
             </Button>

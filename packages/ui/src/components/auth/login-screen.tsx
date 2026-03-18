@@ -58,7 +58,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps): React.JSX.Element {
               />
             </div>
             {error && <p className="text-destructive text-sm">{error}</p>}
-            <Button type="submit" disabled={loading} className="w-full">
+            <Button type="submit" variant="brand" disabled={loading} className="w-full">
               {loading && <Loader2Icon className="animate-spin" />}
               Sign in
             </Button>

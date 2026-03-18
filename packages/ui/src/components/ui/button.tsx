@@ -17,6 +17,8 @@ const buttonVariants = cva(
         secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/80',
         ghost: 'hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50',
         link: 'text-primary underline-offset-4 hover:underline',
+        brand:
+          'font-semibold text-[#0f0f0f] [background:linear-gradient(180deg,#f0b060_0%,#e8a04a_40%,#c47a30_100%)] [box-shadow:inset_0_1px_1px_rgba(255,255,255,0.3),inset_0_-2px_4px_rgba(0,0,0,0.15)] hover:brightness-110',
       },
       size: {
         default: 'h-9 px-4 py-2 has-[>svg]:px-3',

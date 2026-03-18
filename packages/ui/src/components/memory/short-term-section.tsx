@@ -6,7 +6,6 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 import { Streamdown } from 'streamdown'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
 
 export function ShortTermSection(): React.JSX.Element {
@@ -45,14 +44,12 @@ export function ShortTermSection(): React.JSX.Element {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Short-term Memory</CardTitle>
-        <CardDescription>
-          Key facts and context, available immediately in every conversation.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
+    <div>
+      <h2 className="display-heading-medium font-display text-base">Short-term Memory</h2>
+      <p className="mt-1 text-muted-foreground text-sm">
+        Key facts and context, available immediately in every conversation.
+      </p>
+      <div className="mt-4">
         {isLoading ? (
           <div className="flex items-center gap-2 text-muted-foreground text-sm">
             <Loader2Icon className="size-4 animate-spin" />
@@ -96,7 +93,7 @@ export function ShortTermSection(): React.JSX.Element {
             Nothing here yet. Key facts will appear as your agent learns more about you.
           </p>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   )
 }

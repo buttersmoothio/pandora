@@ -7,7 +7,6 @@ import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -80,40 +79,34 @@ export function HeartbeatCard(): React.JSX.Element {
 
   if (isLoading) {
     return (
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-center py-4">
-            <Loader2Icon className="size-5 animate-spin text-muted-foreground" />
-          </div>
-        </CardHeader>
-      </Card>
+      <div className="flex items-center justify-center py-4">
+        <Loader2Icon className="size-5 animate-spin text-muted-foreground" />
+      </div>
     )
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div className="flex flex-col gap-1.5">
-            <div className="flex items-center gap-2">
-              <CardTitle>Heartbeat</CardTitle>
-              {heartbeat?.isRunning && <Badge>Running</Badge>}
-            </div>
-            <CardDescription>
-              Periodic awareness checks. The agent evaluates a checklist and only notifies you when
-              something needs attention.
-            </CardDescription>
+    <div>
+      <div className="flex items-center justify-between">
+        <div>
+          <div className="flex items-center gap-2">
+            <h2 className="display-heading-medium font-display text-base">Heartbeat</h2>
+            {heartbeat?.isRunning && <Badge>Running</Badge>}
           </div>
-          <Switch
-            checked={enabled}
-            disabled={isUpdating}
-            onCheckedChange={(checked: boolean): void => save({ enabled: checked })}
-          />
+          <p className="mt-1 text-muted-foreground text-sm">
+            Periodic awareness checks. The agent evaluates a checklist and only notifies you when
+            something needs attention.
+          </p>
         </div>
-      </CardHeader>
+        <Switch
+          checked={enabled}
+          disabled={isUpdating}
+          onCheckedChange={(checked: boolean): void => save({ enabled: checked })}
+        />
+      </div>
 
       {enabled && (
-        <CardContent className="flex flex-col gap-4">
+        <div className="mt-4 flex flex-col gap-4">
           <div className="flex flex-col gap-2">
             <Label htmlFor="heartbeat-cron">Interval ({timezone})</Label>
             <Input
@@ -272,8 +265,8 @@ export function HeartbeatCard(): React.JSX.Element {
               skipped.
             </p>
           </div>
-        </CardContent>
+        </div>
       )}
-    </Card>
+    </div>
   )
 }

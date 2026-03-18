@@ -219,7 +219,7 @@ function EmptyDetail(): React.JSX.Element {
   return (
     <div className="flex flex-1 flex-col items-center justify-center text-muted-foreground">
       <InboxIcon className="mb-3 size-10 opacity-30" />
-      <p className="text-sm">Select a message to read</p>
+      <p className="font-display text-sm">Select a message to read</p>
     </div>
   )
 }
@@ -264,7 +264,7 @@ export default function InboxPage(): React.JSX.Element {
         {showArchived ? (
           <>
             <ArchiveIcon className="mb-3 size-10 opacity-30" />
-            <p className="font-medium text-foreground text-sm">No archived messages</p>
+            <p className="font-display font-medium text-foreground text-sm">No archived messages</p>
             <Button
               variant="ghost"
               size="sm"
@@ -277,7 +277,7 @@ export default function InboxPage(): React.JSX.Element {
         ) : (
           <>
             <CheckCheckIcon className="mb-3 size-10 opacity-30" />
-            <p className="font-medium text-foreground text-sm">Inbox zero</p>
+            <p className="font-display font-medium text-foreground text-sm">Inbox zero</p>
             <p className="mt-1 text-xs">You're all caught up.</p>
             <Button
               variant="ghost"

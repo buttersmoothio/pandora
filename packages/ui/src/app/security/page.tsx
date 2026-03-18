@@ -6,7 +6,6 @@ import { type FormEvent, useState } from 'react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Dialog,
   DialogClose,
@@ -28,93 +27,83 @@ function ChangePasswordSection(): React.JSX.Element {
   const [error, setError] = useState('')
   const [isPending, setIsPending] = useState(false)
 
-  function validate(): string | null {
-    if (newPassword.length < 8) {
-      return 'New password must be at least 8 characters'
-    }
-    if (newPassword !== confirmPassword) {
-      return 'Passwords do not match'
-    }
-    return null
-  }
-
   async function handleSubmit(e: FormEvent): Promise<void> {
     e.preventDefault()
     setError('')
 
-    const validationError = validate()
-    if (validationError) {
-      setError(validationError)
+    if (newPassword !== confirmPassword) {
+      setError('Passwords do not match')
+      return
+    }
+
+    if (newPassword.length < 8) {
+      setError('Password must be at least 8 characters')
       return
     }
 
     setIsPending(true)
     try {
       await changePassword(currentPassword, newPassword)
+      toast.success('Password changed successfully')
       setCurrentPassword('')
       setNewPassword('')
       setConfirmPassword('')
-      toast.success('Password changed successfully')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An unexpected error occurred')
+      setError(err instanceof Error ? err.message : 'Failed to change password')
     } finally {
       setIsPending(false)
     }
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Change Password</CardTitle>
-        <CardDescription>
-          Update your account password. All other sessions will be invalidated.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="current-password">Current Password</Label>
-            <Input
-              id="current-password"
-              type="password"
-              value={currentPassword}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                setCurrentPassword(e.target.value)
-              }
-              required
-            />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="new-password">New Password</Label>
-            <Input
-              id="new-password"
-              type="password"
-              value={newPassword}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewPassword(e.target.value)}
-              required
-              minLength={8}
-            />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="confirm-password">Confirm New Password</Label>
-            <Input
-              id="confirm-password"
-              type="password"
-              value={confirmPassword}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                setConfirmPassword(e.target.value)
-              }
-              required
-              minLength={8}
-            />
-          </div>
-          {error && <p className="text-destructive text-sm">{error}</p>}
-          <Button type="submit" className="self-end" disabled={isPending}>
-            {isPending ? <Loader2Icon className="size-4 animate-spin" /> : 'Change Password'}
-          </Button>
-        </form>
-      </CardContent>
-    </Card>
+    <div>
+      <h2 className="display-heading-medium font-display text-base">Change Password</h2>
+      <p className="mt-1 text-muted-foreground text-sm">
+        Update your account password. All other sessions will be invalidated.
+      </p>
+      <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-4">
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="current-password">Current Password</Label>
+          <Input
+            id="current-password"
+            type="password"
+            value={currentPassword}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+              setCurrentPassword(e.target.value)
+            }
+            required
+          />
+        </div>
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="new-password">New Password</Label>
+          <Input
+            id="new-password"
+            type="password"
+            value={newPassword}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewPassword(e.target.value)}
+            required
+            minLength={8}
+          />
+        </div>
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="confirm-password">Confirm New Password</Label>
+          <Input
+            id="confirm-password"
+            type="password"
+            value={confirmPassword}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+              setConfirmPassword(e.target.value)
+            }
+            required
+            minLength={8}
+          />
+        </div>
+        {error && <p className="text-destructive text-sm">{error}</p>}
+        <Button type="submit" className="self-end" disabled={isPending}>
+          {isPending ? <Loader2Icon className="size-4 animate-spin" /> : 'Change Password'}
+        </Button>
+      </form>
+    </div>
   )
 }
 
@@ -146,12 +135,10 @@ function SessionsSection(): React.JSX.Element {
     }
     setRevokingId(revokeTarget.id)
     try {
-      const data = await revokeSession(revokeTarget.id)
-
+      await revokeSession(revokeTarget.id)
       setRevokeTarget(null)
       toast.success('Session revoked')
-
-      if (data.loggedOut) {
+      if (revokeTarget.current) {
         await logout()
       }
     } catch {
@@ -172,40 +159,39 @@ function SessionsSection(): React.JSX.Element {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div className="flex flex-col gap-1.5">
-            <CardTitle>Active Sessions</CardTitle>
-            <CardDescription>Manage your active login sessions.</CardDescription>
-          </div>
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <Button variant="destructive" size="sm" disabled={!sessionList?.length}>
-                Revoke All
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Revoke all sessions?</DialogTitle>
-                <DialogDescription>
-                  This will invalidate all active sessions, including your current one. You will be
-                  logged out immediately.
-                </DialogDescription>
-              </DialogHeader>
-              <DialogFooter>
-                <DialogClose asChild>
-                  <Button variant="outline">Cancel</Button>
-                </DialogClose>
-                <Button variant="destructive" disabled={isRevoking} onClick={handleRevokeAll}>
-                  {isRevoking ? <Loader2Icon className="size-4 animate-spin" /> : 'Revoke All'}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+    <div>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="display-heading-medium font-display text-base">Active Sessions</h2>
+          <p className="mt-1 text-muted-foreground text-sm">Manage your active login sessions.</p>
         </div>
-      </CardHeader>
-      <CardContent>
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <DialogTrigger asChild>
+            <Button variant="destructive" size="sm" disabled={!sessionList?.length}>
+              Revoke All
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Revoke all sessions?</DialogTitle>
+              <DialogDescription>
+                This will invalidate all active sessions, including your current one. You will be
+                logged out immediately.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <DialogClose asChild>
+                <Button variant="outline">Cancel</Button>
+              </DialogClose>
+              <Button variant="destructive" disabled={isRevoking} onClick={handleRevokeAll}>
+                {isRevoking ? <Loader2Icon className="size-4 animate-spin" /> : 'Revoke All'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      <div className="mt-4">
         {isLoading && (
           <div className="flex items-center justify-center py-8">
             <Loader2Icon className="size-5 animate-spin text-muted-foreground" />
@@ -220,7 +206,7 @@ function SessionsSection(): React.JSX.Element {
         {sessionList && sessionList.length > 0 && (
           <div className="flex flex-col gap-3">
             {sessionList.map((session) => (
-              <div key={session.id} className="flex items-center gap-3 rounded-md border p-3">
+              <div key={session.id} className="flex items-center gap-3 rounded-lg bg-card p-3">
                 <div className="flex min-w-0 flex-1 flex-col gap-1">
                   <div className="flex items-center gap-2">
                     <span className="truncate font-medium text-sm">
@@ -251,7 +237,7 @@ function SessionsSection(): React.JSX.Element {
             ))}
           </div>
         )}
-      </CardContent>
+      </div>
 
       <Dialog
         open={!!revokeTarget}
@@ -276,13 +262,13 @@ function SessionsSection(): React.JSX.Element {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </Card>
+    </div>
   )
 }
 
 export default function SecurityPage(): React.JSX.Element {
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 p-6">
+    <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-10 p-6">
       <h1 className="display-heading-medium font-display text-2xl">Security</h1>
       <ChangePasswordSection />
       <SessionsSection />

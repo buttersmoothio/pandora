@@ -26,7 +26,7 @@ export default function MemoryPage(): React.JSX.Element {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 p-6">
+    <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-10 p-6">
       <h1 className="display-heading-medium font-display text-2xl">Memory</h1>
       <MemorySection />
       {config?.memory.enabled && (

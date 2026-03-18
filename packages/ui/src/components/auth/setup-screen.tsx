@@ -80,7 +80,7 @@ export function SetupScreen({ onSetup }: SetupScreenProps): React.JSX.Element {
               />
             </div>
             {error && <p className="text-destructive text-sm">{error}</p>}
-            <Button type="submit" disabled={loading} className="w-full">
+            <Button type="submit" variant="brand" disabled={loading} className="w-full">
               {loading && <Loader2Icon className="animate-spin" />}
               Set password
             </Button>
