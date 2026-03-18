@@ -47,7 +47,9 @@ export function SetupScreen({ onSetup }: SetupScreenProps): React.JSX.Element {
           <div className="mx-auto mb-2 flex size-10 items-center justify-center rounded-full bg-primary/10">
             <LockKeyholeIcon className="size-5 text-primary" />
           </div>
-          <CardTitle>Set up Pandora</CardTitle>
+          <CardTitle className="display-heading-medium font-display text-xl">
+            Set up Pandora<span className="text-primary">.</span>
+          </CardTitle>
           <CardDescription>Create a password to secure your instance.</CardDescription>
         </CardHeader>
         <CardContent>

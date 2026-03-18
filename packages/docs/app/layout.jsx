@@ -35,7 +35,7 @@ const navbar = (
         className="display-heading"
         style={{ fontFamily: 'var(--font-fraunces)', fontSize: '1.25rem' }}
       >
-        Pandora<span style={{ color: 'hsl(34, 78%, 60%)' }}>.</span>
+        Pandora<span style={{ color: 'var(--brand-accent)' }}>.</span>
       </span>
     }
     projectLink="https://github.com/buttersmoothio/pandora"
@@ -61,7 +61,7 @@ const footer = (
         className="display-heading"
         style={{ fontFamily: 'var(--font-fraunces)', fontSize: '1.1rem' }}
       >
-        Pandora<span style={{ color: 'hsl(34, 78%, 60%)' }}>.</span>
+        Pandora<span style={{ color: 'var(--brand-accent)' }}>.</span>
       </span>
       <span style={{ opacity: 0.4, fontSize: '0.75rem' }}>
         MIT {new Date().getFullYear()} ©{' '}

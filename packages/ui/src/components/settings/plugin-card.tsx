@@ -107,8 +107,8 @@ function requiredFieldsFilled(
 // ---------------------------------------------------------------------------
 
 const INITIAL_COLORS: string[] = [
-  'bg-blue-500/15 text-blue-600 dark:text-blue-400',
-  'bg-purple-500/15 text-purple-600 dark:text-purple-400',
+  'bg-teal-500/15 text-teal-600 dark:text-teal-400',
+  'bg-orange-500/15 text-orange-600 dark:text-orange-400',
   'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
   'bg-amber-500/15 text-amber-600 dark:text-amber-400',
   'bg-rose-500/15 text-rose-600 dark:text-rose-400',
@@ -218,7 +218,7 @@ function PluginMetadataSidebar({
             href={plugin.homepage}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 text-blue-600 text-sm hover:underline dark:text-blue-400"
+            className="inline-flex items-center gap-1 text-primary text-sm hover:underline"
           >
             Visit
             <ExternalLinkIcon className="size-3.5" />
@@ -231,7 +231,7 @@ function PluginMetadataSidebar({
             href={plugin.repository}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 text-blue-600 text-sm hover:underline dark:text-blue-400"
+            className="inline-flex items-center gap-1 text-primary text-sm hover:underline"
           >
             Source
             <ExternalLinkIcon className="size-3.5" />

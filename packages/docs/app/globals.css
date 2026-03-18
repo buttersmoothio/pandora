@@ -1,5 +1,9 @@
 /* Override Nextra theme with Pandora design language */
 
+:root {
+  --brand-accent: #e8a04a;
+}
+
 /* Font overrides */
 body {
   font-family: var(--font-dm-sans), ui-sans-serif, system-ui, sans-serif;

@@ -50,6 +50,13 @@ export function AppSidebar(): React.JSX.Element {
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
+            <div className="flex items-center px-2 py-1">
+              <span className="display-heading font-display text-lg group-data-[collapsible=icon]:hidden">
+                Pandora<span className="text-primary">.</span>
+              </span>
+            </div>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
             <SidebarMenuButton asChild tooltip="New Chat">
               <Link href="/">
                 <PlusIcon />

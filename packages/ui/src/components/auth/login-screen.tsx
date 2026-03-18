@@ -37,7 +37,9 @@ export function LoginScreen({ onLogin }: LoginScreenProps): React.JSX.Element {
           <div className="mx-auto mb-2 flex size-10 items-center justify-center rounded-full bg-primary/10">
             <LockKeyholeIcon className="size-5 text-primary" />
           </div>
-          <CardTitle>Pandora</CardTitle>
+          <CardTitle className="display-heading font-display text-2xl">
+            Pandora<span className="text-primary">.</span>
+          </CardTitle>
           <CardDescription>Enter your password to continue.</CardDescription>
         </CardHeader>
         <CardContent>

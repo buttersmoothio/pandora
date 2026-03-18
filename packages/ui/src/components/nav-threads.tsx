@@ -75,8 +75,8 @@ export function NavThreads(): React.JSX.Element | null {
                   <Link href={href}>
                     {activeStreamIds.includes(streamId) ? (
                       <span className="relative flex size-4 items-center justify-center">
-                        <span className="absolute size-2.5 animate-ping rounded-full bg-blue-400 opacity-75" />
-                        <span className="size-2 rounded-full bg-blue-500" />
+                        <span className="absolute size-2.5 animate-ping rounded-full bg-amber-400 opacity-75" />
+                        <span className="size-2 rounded-full bg-amber-500" />
                       </span>
                     ) : (
                       (() => {

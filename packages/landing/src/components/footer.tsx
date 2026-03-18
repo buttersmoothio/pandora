@@ -19,10 +19,7 @@ export function Footer(): React.JSX.Element {
           >
             GitHub
           </a>
-          <a
-            href="/brand"
-            className="text-muted text-sm transition-colors hover:text-foreground"
-          >
+          <a href="/brand" className="text-muted text-sm transition-colors hover:text-foreground">
             Brand Kit
           </a>
         </div>

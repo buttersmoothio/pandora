@@ -34,7 +34,7 @@ export function MemoryProgress({
                   'bg-destructive/20 [&>[data-slot=progress-indicator]]:bg-destructive',
                 percent >= 70 &&
                   percent < 90 &&
-                  'bg-yellow-500/20 [&>[data-slot=progress-indicator]]:bg-yellow-500',
+                  'bg-amber-500/20 [&>[data-slot=progress-indicator]]:bg-amber-500',
               )}
             />
           </div>

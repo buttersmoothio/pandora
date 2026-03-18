@@ -365,8 +365,8 @@ function ModelsSection(): React.JSX.Element {
           </div>
         </div>
         {selectedProvider && !selectedProvider.configured && (
-          <div className="rounded-md border border-yellow-500/30 bg-yellow-500/5 p-4 text-sm">
-            <p className="font-medium text-yellow-600 dark:text-yellow-400">
+          <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-4 text-sm">
+            <p className="font-medium text-amber-600 dark:text-amber-400">
               {selectedProvider.name} is not configured
             </p>
             <ol className="mt-2 list-inside list-decimal space-y-1.5 text-muted-foreground">
@@ -378,7 +378,7 @@ function ModelsSection(): React.JSX.Element {
                       href={selectedProvider.docUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-foreground underline underline-offset-4 hover:text-yellow-600 dark:hover:text-yellow-400"
+                      className="inline-flex items-center gap-1 text-foreground underline underline-offset-4 hover:text-amber-600 dark:hover:text-amber-400"
                     >
                       {selectedProvider.name} docs
                       <ExternalLinkIcon className="size-3" />
@@ -484,7 +484,7 @@ export default function ConfigPage(): React.JSX.Element | null {
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 p-6">
-      <h1 className="font-semibold text-2xl">Configuration</h1>
+      <h1 className="display-heading-medium font-display text-2xl">Configuration</h1>
       <IdentitySection />
       <TimezoneSection />
       <PersonalitySection />

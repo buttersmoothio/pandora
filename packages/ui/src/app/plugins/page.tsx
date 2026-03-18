@@ -80,7 +80,7 @@ export default function PluginsPage(): React.JSX.Element {
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 p-6">
-      <h1 className="font-semibold text-2xl">Plugins</h1>
+      <h1 className="display-heading-medium font-display text-2xl">Plugins</h1>
 
       <div className="flex gap-2">
         {FILTERS.map(({ key, label, icon: Icon }) => (

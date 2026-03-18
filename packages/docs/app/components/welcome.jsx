@@ -48,7 +48,7 @@ export function Welcome() {
           }}
         >
           Welcome to Pandora
-          <span style={{ color: 'hsl(34, 78%, 60%)' }}>.</span>
+          <span style={{ color: 'var(--brand-accent)' }}>.</span>
         </h1>
         <p style={{ fontSize: '1.125rem', opacity: 0.6, maxWidth: '36rem', lineHeight: 1.7 }}>
           Your personal AI agent — self-hosted, extensible, and fully under your control. Find
@@ -73,7 +73,10 @@ export function Welcome() {
       <div style={{ marginTop: '3rem' }}>
         <p style={{ fontSize: '0.9375rem', opacity: 0.5, lineHeight: 1.7, margin: 0 }}>
           New here? Start with the{' '}
-          <a href="/user-guide" style={{ color: 'hsl(34, 78%, 60%)', textDecoration: 'underline' }}>
+          <a
+            href="/user-guide"
+            style={{ color: 'var(--brand-accent)', textDecoration: 'underline' }}
+          >
             Getting Started
           </a>{' '}
           guide — it walks you through deployment, configuration, and your first conversation. The

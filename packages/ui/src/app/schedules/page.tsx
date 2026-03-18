@@ -18,7 +18,7 @@ export default function SchedulesPage(): React.JSX.Element {
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 p-6">
       <div className="flex items-center justify-between">
-        <h1 className="font-semibold text-2xl">Schedules</h1>
+        <h1 className="display-heading-medium font-display text-2xl">Schedules</h1>
         <Button size="sm" onClick={(): void => setCreateOpen(true)}>
           <PlusIcon className="mr-1 size-4" />
           New Schedule

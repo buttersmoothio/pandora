@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { Geist, Geist_Mono } from 'next/font/google'
+import { DM_Sans, Fraunces, JetBrains_Mono } from 'next/font/google'
 import { headers } from 'next/headers'
 import './globals.css'
 
@@ -11,19 +11,25 @@ import { Toaster } from '@/components/ui/sonner'
 import { AuthGuard } from '@/providers/auth-guard'
 import { ThemeProvider } from '@/providers/theme-provider'
 
-const geistSans = Geist({
-  variable: '--font-geist-sans',
+const dmSans = DM_Sans({
+  variable: '--font-dm-sans',
   subsets: ['latin'],
 })
 
-const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
+const fraunces = Fraunces({
+  variable: '--font-fraunces',
+  subsets: ['latin'],
+  axes: ['WONK', 'SOFT', 'opsz'],
+})
+
+const jetbrainsMono = JetBrains_Mono({
+  variable: '--font-jetbrains-mono',
   subsets: ['latin'],
 })
 
 export const metadata: Metadata = {
   title: 'Pandora',
-  description: 'Pandora AI Assistant',
+  description: 'Your personal AI agent — self-hosted, extensible, and fully under your control.',
 }
 
 export default async function RootLayout({
@@ -35,7 +41,9 @@ export default async function RootLayout({
 
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+      <body
+        className={`${dmSans.variable} ${fraunces.variable} ${jetbrainsMono.variable} antialiased`}
+      >
         <ThemeProvider nonce={nonce}>
           <PandoraProvider baseUrl={process.env.NEXT_PUBLIC_API_URL}>
             <AuthGuard>

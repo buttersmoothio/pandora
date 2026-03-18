@@ -89,7 +89,7 @@ function StepLayout({
           <Icon className="size-6 text-primary" />
         </div>
         <div className="flex flex-col gap-1">
-          <h2 className="font-semibold text-xl">{title}</h2>
+          <h2 className="display-heading-medium font-display text-xl">{title}</h2>
           <p className="text-muted-foreground text-sm">{subtitle}</p>
         </div>
       </div>
@@ -254,8 +254,8 @@ function ModelStep({
         </div>
 
         {selectedProvider && !selectedProvider.configured && (
-          <div className="rounded-md border border-yellow-500/30 bg-yellow-500/5 p-3 text-sm">
-            <p className="font-medium text-yellow-600 dark:text-yellow-400">
+          <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-3 text-sm">
+            <p className="font-medium text-amber-600 dark:text-amber-400">
               {selectedProvider.name} is not configured yet
             </p>
             <p className="mt-1 text-muted-foreground text-xs">
