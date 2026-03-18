@@ -70,27 +70,9 @@ export function Welcome() {
       </div>
 
       {/* New here */}
-      <div
-        style={{
-          marginTop: '3rem',
-          padding: '2rem',
-          borderRadius: '1rem',
-          background: '#1a1a1a',
-          border: '1px solid #2a2a2a',
-        }}
-      >
-        <h2
-          style={{
-            fontFamily: 'var(--font-fraunces)',
-            fontSize: '1.25rem',
-            marginBottom: '0.75rem',
-            fontVariationSettings: "'SOFT' 20, 'WONK' 0, 'opsz' 48, 'wght' 500",
-          }}
-        >
-          New here?
-        </h2>
-        <p style={{ fontSize: '0.9375rem', opacity: 0.6, lineHeight: 1.7, margin: 0 }}>
-          Start with the{' '}
+      <div style={{ marginTop: '3rem' }}>
+        <p style={{ fontSize: '0.9375rem', opacity: 0.5, lineHeight: 1.7, margin: 0 }}>
+          New here? Start with the{' '}
           <a href="/user-guide" style={{ color: 'hsl(34, 78%, 60%)', textDecoration: 'underline' }}>
             Getting Started
           </a>{' '}

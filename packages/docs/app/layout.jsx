@@ -48,7 +48,13 @@ const navbar = (
 const footer = (
   <Footer>
     <div style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
-      MIT {new Date().getFullYear()} © Pandora
+      MIT {new Date().getFullYear()} ©{' '}
+      <a
+        href="https://buttersmooth.io"
+        style={{ textDecoration: 'underline', opacity: 0.8, marginLeft: '4px' }}
+      >
+        Buttersmooth
+      </a>
     </div>
   </Footer>
 )
