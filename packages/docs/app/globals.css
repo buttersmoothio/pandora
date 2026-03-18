@@ -5,9 +5,14 @@ body {
   font-family: var(--font-dm-sans), ui-sans-serif, system-ui, sans-serif;
 }
 
-/* Fraunces display heading utility */
+/* Fraunces display heading — matches landing */
 .display-heading {
   font-variation-settings: 'SOFT' 64, 'WONK' 1, 'opsz' 144, 'wght' 411;
+}
+
+/* Fraunces display heading medium — for card titles, smaller headings */
+.display-heading-medium {
+  font-variation-settings: 'SOFT' 20, 'WONK' 0, 'opsz' 48, 'wght' 500;
 }
 
 /* Fraunces for content headings */

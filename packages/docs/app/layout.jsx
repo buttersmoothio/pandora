@@ -21,7 +21,8 @@ export const metadata = {
     default: 'Pandora Documentation',
     template: '%s | Pandora Docs',
   },
-  description: 'Documentation for Pandora - Your extensible AI assistant',
+  description:
+    'Documentation for Pandora — your personal AI agent. Self-hosted, extensible, and fully under your control.',
   icons: {
     icon: '/favicon.ico',
   },
@@ -47,14 +48,27 @@ const navbar = (
 
 const footer = (
   <Footer>
-    <div style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
-      MIT {new Date().getFullYear()} ©{' '}
-      <a
-        href="https://buttersmooth.io"
-        style={{ textDecoration: 'underline', opacity: 0.8, marginLeft: '4px' }}
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: '0.5rem',
+        width: '100%',
+      }}
+    >
+      <span
+        className="display-heading"
+        style={{ fontFamily: 'var(--font-fraunces)', fontSize: '1.1rem' }}
       >
-        Buttersmooth
-      </a>
+        Pandora<span style={{ color: 'hsl(34, 78%, 60%)' }}>.</span>
+      </span>
+      <span style={{ opacity: 0.4, fontSize: '0.75rem' }}>
+        MIT {new Date().getFullYear()} ©{' '}
+        <a href="https://buttersmooth.io" style={{ textDecoration: 'underline' }}>
+          Buttersmooth
+        </a>
+      </span>
     </div>
   </Footer>
 )
@@ -75,7 +89,7 @@ export default async function RootLayout({ children }) {
       >
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
       </Head>
-      <body className={`${dmSans.variable} ${fraunces.variable}`}>
+      <body className={`${dmSans.variable} ${fraunces.variable} antialiased`}>
         <Layout
           navbar={navbar}
           pageMap={await getPageMap()}

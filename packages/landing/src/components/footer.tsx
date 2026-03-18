@@ -20,10 +20,10 @@ export function Footer(): React.JSX.Element {
             GitHub
           </a>
           <a
-            href="https://docs.pandorakit.com/extending"
+            href="/brand"
             className="text-muted text-sm transition-colors hover:text-foreground"
           >
-            Build a Plugin
+            Brand Kit
           </a>
         </div>
 
