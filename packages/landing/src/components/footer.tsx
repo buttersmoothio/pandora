@@ -27,7 +27,15 @@ export function Footer(): React.JSX.Element {
           </a>
         </div>
 
-        <span className="text-muted text-xs">MIT {new Date().getFullYear()} &copy; Pandora</span>
+        <span className="text-muted text-xs">
+          MIT {new Date().getFullYear()} &copy;{' '}
+          <a
+            href="https://buttersmooth.io"
+            className="ml-1 transition-colors hover:text-foreground"
+          >
+            Buttersmooth
+          </a>
+        </span>
       </div>
     </footer>
   )

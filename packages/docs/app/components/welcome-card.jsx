@@ -8,17 +8,20 @@ export function WelcomeCard({ title, description, href }) {
         display: 'block',
         padding: '1.5rem',
         borderRadius: '1rem',
-        border: '1px solid #2a2a2a',
-        background: '#1a1a1a',
+        border: '1px solid currentColor',
+        borderColor: 'color-mix(in srgb, currentColor 15%, transparent)',
+        background: 'color-mix(in srgb, currentColor 5%, transparent)',
         textDecoration: 'none',
         color: 'inherit',
-        transition: 'border-color 0.2s',
+        transition: 'border-color 0.2s, background 0.2s',
       }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.borderColor = 'hsl(34, 78%, 60%, 0.3)'
+        e.currentTarget.style.borderColor = 'color-mix(in srgb, currentColor 25%, transparent)'
+        e.currentTarget.style.background = 'color-mix(in srgb, currentColor 10%, transparent)'
       }}
       onMouseLeave={(e) => {
-        e.currentTarget.style.borderColor = '#2a2a2a'
+        e.currentTarget.style.borderColor = 'color-mix(in srgb, currentColor 15%, transparent)'
+        e.currentTarget.style.background = 'color-mix(in srgb, currentColor 5%, transparent)'
       }}
     >
       <h3
