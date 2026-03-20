@@ -7,13 +7,13 @@ import { pluginsKey } from './keys'
 import { usePandoraClient } from './provider'
 
 interface PluginsResponse {
-  plugins: UnifiedPluginInfo[]
+  data: UnifiedPluginInfo[]
 }
 
 export interface UsePluginsReturn {
   /** Full plugins response, or `undefined` while loading. */
   data: PluginsResponse | undefined
-  /** Shorthand for `data.plugins`. */
+  /** Shorthand for `data.data`. */
   plugins: UnifiedPluginInfo[] | undefined
   isLoading: boolean
   error: Error | null
@@ -70,7 +70,7 @@ export function usePlugins(): UsePluginsReturn {
     queryFn: () => client.plugins.list(),
   })
 
-  const plugins = query.data?.plugins
+  const plugins = query.data?.data
 
   const toolNames = useMemo(
     () => (plugins ? buildToolNameMap(plugins) : new Map<string, string>()),

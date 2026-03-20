@@ -139,8 +139,8 @@ export function useAuth(): UseAuthReturn {
   const sessions = useQuery({
     queryKey: sessionsKey,
     queryFn: async () => {
-      const data = await client.auth.sessions()
-      return data.sessions
+      const res = await client.auth.sessions()
+      return res.data
     },
     enabled: status === 'authenticated',
   })

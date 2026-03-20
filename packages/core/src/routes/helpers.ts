@@ -85,6 +85,44 @@ export function createRuntimeMiddleware(registry: PluginRegistry): MiddlewareHan
   })
 }
 
+// ---------------------------------------------------------------------------
+// Pagination & error formatting helpers
+// ---------------------------------------------------------------------------
+
+export interface PaginatedResponse<T> {
+  data: T[]
+  total: number
+  page: number
+  perPage: number
+  hasMore: boolean
+}
+
+/** Parse page/perPage query params with sensible defaults and bounds. */
+export function parsePagination(c: Context<Env>): { page: number; perPage: number } {
+  const page = Math.max(0, Number(c.req.query('page') ?? 0))
+  const perPage = Math.min(100, Math.max(1, Number(c.req.query('perPage') ?? 50)))
+  return { page, perPage }
+}
+
+/** Slice an array into a paginated response envelope. */
+export function paginate<T>(items: T[], page: number, perPage: number): PaginatedResponse<T> {
+  const start = page * perPage
+  const data = items.slice(start, start + perPage)
+  return { data, total: items.length, page, perPage, hasMore: start + perPage < items.length }
+}
+
+/** Format a ZodError into a structured validation error response. */
+export function formatValidationError(error: {
+  issues: { path: PropertyKey[]; message: string }[]
+}): { error: string; issues: { path: string[]; message: string }[] } {
+  return {
+    error: 'validation_error',
+    issues: error.issues.map((i) => ({ path: i.path.map(String), message: i.message })),
+  }
+}
+
+// ---------------------------------------------------------------------------
+
 /** Helper to get auth store from request context */
 export async function getAuthStore(c: Context<Env>): Promise<AuthStore> {
   return c.var.runtime.storage.auth

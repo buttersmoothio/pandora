@@ -1,6 +1,5 @@
 'use client'
 
-import { useThreads } from '@pandorakit/react-sdk'
 import {
   ClockIcon,
   HeartPulseIcon,
@@ -38,6 +37,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from '@/components/ui/sidebar'
+import { useThreads } from '@/hooks/use-threads'
 
 const SOURCE_ICONS: Record<string, typeof MessageSquareIcon> = {
   heartbeat: HeartPulseIcon,
@@ -50,7 +50,7 @@ export function NavThreads(): React.JSX.Element | null {
   const router = useRouter()
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
 
-  const threads = data?.threads ?? []
+  const threads = data?.data ?? []
   const activeStreamIds = data?.activeStreamIds ?? []
   const currentThreadId = pathname.startsWith('/chat/') ? pathname.split('/')[2] : null
 

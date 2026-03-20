@@ -250,7 +250,7 @@ export interface ServerMessage {
 /** Paginated thread list response. */
 export interface ThreadListResponse {
   /** Array of thread summaries. */
-  threads: Thread[]
+  data: Thread[]
   /** Total number of threads. */
   total: number
   /** Current page number (1-based). */

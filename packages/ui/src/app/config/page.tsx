@@ -1,6 +1,5 @@
 'use client'
 
-import { useConfig, useModels } from '@pandorakit/react-sdk'
 import { CheckIcon, ChevronsUpDownIcon, ExternalLinkIcon, Loader2Icon } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { toast } from 'sonner'
@@ -20,6 +19,8 @@ import { Label } from '@/components/ui/label'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Textarea } from '@/components/ui/textarea'
 import { useAutoSave } from '@/hooks/use-auto-save'
+import { useConfig } from '@/hooks/use-config'
+import { useModels } from '@/hooks/use-models'
 import { cn } from '@/lib/utils'
 
 function IdentitySection(): React.JSX.Element {
@@ -65,7 +66,7 @@ function IdentitySection(): React.JSX.Element {
   )
 }
 
-const TIMEZONES: string[] = ['UTC', ...Intl.supportedValuesOf('timeZone')]
+const TIMEZONES: string[] = [...new Set(['UTC', ...Intl.supportedValuesOf('timeZone')])]
 
 function TimezoneSection(): React.JSX.Element {
   const { data: config, update: updateConfig } = useConfig()
@@ -210,7 +211,7 @@ function PersonalitySection(): React.JSX.Element {
 
 function ModelsSection(): React.JSX.Element {
   const { data: config, update: updateConfig } = useConfig()
-  const { data: modelsData } = useModels()
+  const { providers: allModelProviders } = useModels()
   const [provider, setProvider] = useState('')
   const [model, setModel] = useState('')
   const [temperature, setTemperature] = useState<string>('')
@@ -255,7 +256,7 @@ function ModelsSection(): React.JSX.Element {
     enabled: !!provider && !!model,
   })
 
-  const allProviders = modelsData?.providers ?? []
+  const allProviders = allModelProviders ?? []
   const providers = [...allProviders].sort((a, b) => {
     if (a.configured !== b.configured) {
       return a.configured ? -1 : 1

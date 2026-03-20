@@ -16,7 +16,7 @@ export interface InboxClient {
    * @param options - Filter options.
    * @param options.archived - If `true`, return archived messages instead of active ones.
    */
-  list(options?: { archived?: boolean }): Promise<{ messages: InboxMessage[] }>
+  list(options?: { archived?: boolean }): Promise<{ data: InboxMessage[] }>
 
   /**
    * Get a single inbox message.
@@ -39,13 +39,13 @@ export interface InboxClient {
    * @param id - Message ID.
    * @throws {@link PandoraApiError} with status `404` if not found.
    */
-  delete(id: string): Promise<{ deleted: string }>
+  delete(id: string): Promise<{ id: string }>
 }
 
 /** @internal */
 export function createInboxClient(ctx: FetchContext): InboxClient {
   return {
-    list(options?: { archived?: boolean }): Promise<{ messages: InboxMessage[] }> {
+    list(options?: { archived?: boolean }): Promise<{ data: InboxMessage[] }> {
       const query = options?.archived ? '?archived=true' : ''
       return fetchJson(ctx, `/api/inbox${query}`)
     },
@@ -58,7 +58,7 @@ export function createInboxClient(ctx: FetchContext): InboxClient {
         body: JSON.stringify(patch),
       })
     },
-    delete(id: string): Promise<{ deleted: string }> {
+    delete(id: string): Promise<{ id: string }> {
       return fetchJson(ctx, `/api/inbox/${id}`, { method: 'DELETE' })
     },
   }

@@ -13,9 +13,4 @@ export default {
   tools: 'Tools',
   agents: 'Agents',
   channels: 'Channels',
-  '-- ui': {
-    type: 'separator',
-    title: 'Custom UI',
-  },
-  'react-sdk': 'React SDK',
 }

@@ -7,8 +7,12 @@ import { destinationsKey, schedulesKey } from './keys'
 import { usePandoraClient } from './provider'
 
 interface ScheduleListResponse {
+  data: ScheduleTask[]
+  total: number
+  page: number
+  perPage: number | false
+  hasMore: boolean
   enabled: boolean
-  tasks: ScheduleTask[]
 }
 
 export interface UseSchedulesReturn {
@@ -17,13 +21,13 @@ export interface UseSchedulesReturn {
   isLoading: boolean
   error: Error | null
   /** Available delivery destinations (e.g. channel plugin IDs). */
-  destinations: UseQueryResult<{ destinations: string[] }>
+  destinations: UseQueryResult<{ data: string[] }>
   /** Create a new scheduled task. */
   create: (input: CreateScheduleInput) => Promise<ScheduleTask>
   /** Update an existing scheduled task. */
   update: (input: UpdateScheduleInput & { id: string }) => Promise<ScheduleTask>
   /** Delete a scheduled task by ID. */
-  remove: (id: string) => Promise<{ deleted: string }>
+  remove: (id: string) => Promise<{ id: string }>
 }
 
 /** Manage scheduled tasks — list, create, update, and delete. */

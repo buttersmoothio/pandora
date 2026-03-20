@@ -1,6 +1,5 @@
 'use client'
 
-import { useConfig } from '@pandorakit/react-sdk'
 import { PlusIcon } from 'lucide-react'
 import { useState } from 'react'
 import { HeartbeatCard } from '@/components/schedules/heartbeat-card'
@@ -8,6 +7,7 @@ import { MasterToggle } from '@/components/schedules/master-toggle'
 import { TaskDialog } from '@/components/schedules/task-dialog'
 import { TaskList } from '@/components/schedules/task-list'
 import { Button } from '@/components/ui/button'
+import { useConfig } from '@/hooks/use-config'
 
 export default function SchedulesPage(): React.JSX.Element {
   const [createOpen, setCreateOpen] = useState(false)

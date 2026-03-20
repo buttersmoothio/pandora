@@ -1,4 +1,4 @@
-import type { ToolPermissions } from '@pandorakit/react-sdk'
+import type { ToolPermissions } from '@pandorakit/sdk/client'
 import {
   ChevronDownIcon,
   ClockIcon,

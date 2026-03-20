@@ -14,10 +14,17 @@ import { fetchJson } from './fetch-wrapper'
  */
 export interface ScheduleClient {
   /** List available notification destinations (e.g. `"Web Inbox"`, channel names). */
-  destinations(): Promise<{ destinations: string[] }>
+  destinations(): Promise<{ data: string[] }>
 
   /** List all scheduled tasks with their enabled/running status. */
-  list(): Promise<{ enabled: boolean; tasks: ScheduleTask[] }>
+  list(): Promise<{
+    data: ScheduleTask[]
+    total: number
+    page: number
+    perPage: number | false
+    hasMore: boolean
+    enabled: boolean
+  }>
 
   /**
    * Get a single scheduled task.
@@ -46,7 +53,7 @@ export interface ScheduleClient {
    * @param id - Task ID.
    * @throws {@link PandoraApiError} with status `404` if not found.
    */
-  delete(id: string): Promise<{ deleted: string }>
+  delete(id: string): Promise<{ id: string }>
 
   /** Get the heartbeat configuration. */
   heartbeat(): Promise<HeartbeatConfig>
@@ -61,10 +68,17 @@ export interface ScheduleClient {
 /** @internal */
 export function createScheduleClient(ctx: FetchContext): ScheduleClient {
   return {
-    destinations(): Promise<{ destinations: string[] }> {
+    destinations(): Promise<{ data: string[] }> {
       return fetchJson(ctx, '/api/schedule/destinations')
     },
-    list(): Promise<{ enabled: boolean; tasks: ScheduleTask[] }> {
+    list(): Promise<{
+      data: ScheduleTask[]
+      total: number
+      page: number
+      perPage: number | false
+      hasMore: boolean
+      enabled: boolean
+    }> {
       return fetchJson(ctx, '/api/schedule')
     },
     get(id: string): Promise<ScheduleTask> {
@@ -82,7 +96,7 @@ export function createScheduleClient(ctx: FetchContext): ScheduleClient {
         body: JSON.stringify(patch),
       })
     },
-    delete(id: string): Promise<{ deleted: string }> {
+    delete(id: string): Promise<{ id: string }> {
       return fetchJson(ctx, `/api/schedule/${id}`, { method: 'DELETE' })
     },
     heartbeat(): Promise<HeartbeatConfig> {

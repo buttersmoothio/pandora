@@ -5,6 +5,7 @@ import { applyTaskPatch, HeartbeatCheckSchema, updateConfig } from '../config'
 import { getLogger } from '../logger'
 import { HEARTBEAT_TASK_ID } from '../scheduler/heartbeat'
 import type { Env } from './helpers'
+import { formatValidationError, paginate, parsePagination } from './helpers'
 
 const CreateTaskSchema: z.ZodType<{
   name: string
@@ -62,18 +63,19 @@ scheduleRoutes.get('/destinations', (c) => {
       destinations.push(friendlyName)
     }
   }
-  return c.json({ destinations })
+  return c.json({ data: destinations })
 })
 
-// List all tasks
+// List all tasks (paginated)
 scheduleRoutes.get('/', (c) => {
   const runtime = c.var.runtime
+  const { page, perPage } = parsePagination(c)
   const tasks = runtime.config.schedule.tasks.map((task) => ({
     ...task,
     nextRun: runtime.scheduler.nextRun(task.id)?.toISOString() ?? null,
     isRunning: runtime.scheduler.isRunning(task.id),
   }))
-  return c.json({ enabled: runtime.config.schedule.enabled, tasks })
+  return c.json({ ...paginate(tasks, page, perPage), enabled: runtime.config.schedule.enabled })
 })
 
 // -- Heartbeat --
@@ -155,8 +157,7 @@ scheduleRoutes.patch('/heartbeat', async (c) => {
     return c.json(config.schedule.heartbeat)
   } catch (err) {
     if (err instanceof z.ZodError) {
-      const messages = err.issues.map((i) => `${i.path.join('.')}: ${i.message}`)
-      return c.json({ error: messages.join(', ') }, 400)
+      return c.json(formatValidationError(err), 400)
     }
     const message = err instanceof Error ? err.message : 'Unknown error'
     log.error('[schedule] heartbeat update failed', { error: message })
@@ -201,8 +202,7 @@ scheduleRoutes.post('/', async (c) => {
     return c.json(task, 201)
   } catch (err) {
     if (err instanceof z.ZodError) {
-      const messages = err.issues.map((i) => `${i.path.join('.')}: ${i.message}`)
-      return c.json({ error: messages.join(', ') }, 400)
+      return c.json(formatValidationError(err), 400)
     }
     const message = err instanceof Error ? err.message : 'Unknown error'
     log.error('[schedule] create failed', { error: message })
@@ -243,8 +243,7 @@ scheduleRoutes.patch('/:id', async (c) => {
     return c.json(tasks.find((t) => t.id === id))
   } catch (err) {
     if (err instanceof z.ZodError) {
-      const messages = err.issues.map((i) => `${i.path.join('.')}: ${i.message}`)
-      return c.json({ error: messages.join(', ') }, 400)
+      return c.json(formatValidationError(err), 400)
     }
     const message = err instanceof Error ? err.message : 'Unknown error'
     log.error('[schedule] update failed', { error: message })
@@ -273,7 +272,7 @@ scheduleRoutes.delete('/:id', async (c) => {
     runtime.config = config
     runtime.syncSchedule()
 
-    return c.json({ deleted: id })
+    return c.json({ id })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error'
     log.error('[schedule] delete failed', { error: message })

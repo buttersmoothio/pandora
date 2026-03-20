@@ -54,9 +54,15 @@ describe('inbox routes', () => {
       const res = await app.request('/api/inbox')
       expect(res.status).toBe(200)
 
-      const body = (await res.json()) as { messages: InboxMessage[] }
-      expect(body.messages).toHaveLength(1)
-      expect(body.messages[0].id).toBe('msg-1')
+      const body = (await res.json()) as {
+        data: InboxMessage[]
+        total: number
+        page: number
+        perPage: number
+        hasMore: boolean
+      }
+      expect(body.data).toHaveLength(1)
+      expect(body.data[0].id).toBe('msg-1')
       expect(inbox.list).toHaveBeenCalledWith({ archived: false })
     })
 
@@ -169,8 +175,8 @@ describe('inbox routes', () => {
       )
       expect(res.status).toBe(200)
 
-      const body = (await res.json()) as { deleted: string }
-      expect(body.deleted).toBe('msg-1')
+      const body = (await res.json()) as { id: string }
+      expect(body.id).toBe('msg-1')
       expect(inbox.delete).toHaveBeenCalledWith('msg-1')
     })
 

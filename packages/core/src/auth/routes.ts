@@ -171,7 +171,7 @@ export function createAuthRoutes(getAuthStore: (c: Context<Env>) => Promise<Auth
     const currentHash = token ? await hashToken(token) : null
 
     return c.json({
-      sessions: sessions.map((s) => ({
+      data: sessions.map((s) => ({
         id: s.tokenHash,
         createdAt: s.createdAt,
         expiresAt: s.expiresAt,
@@ -198,7 +198,7 @@ export function createAuthRoutes(getAuthStore: (c: Context<Env>) => Promise<Auth
 
     await store.deleteSession(targetHash)
 
-    return c.json({ success: true, loggedOut: isCurrent })
+    return c.json({ id: targetHash, loggedOut: isCurrent })
   })
 
   // DELETE /api/auth/sessions — revoke all sessions and refresh tokens

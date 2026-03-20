@@ -1,3 +1,5 @@
+import { Tabs } from 'nextra/components'
+
 # Configuration API
 
 Manage Pandora's agent configuration programmatically via the REST API.
@@ -6,34 +8,59 @@ Manage Pandora's agent configuration programmatically via the REST API.
 
 ### Get Current Config
 
-```
-GET /api/config
-Authorization: Bearer <token>
-```
-
 Returns the fully resolved config object (defaults merged with stored values).
+
+<Tabs items={['API', 'SDK']}>
+  <Tabs.Tab>
+```bash
+curl http://localhost:4111/api/config \
+  -H "Authorization: Bearer <token>"
+```
+  </Tabs.Tab>
+  <Tabs.Tab>
+```ts
+const config = await client.config.get()
+```
+  </Tabs.Tab>
+</Tabs>
 
 ### Update Config
 
-```
-PATCH /api/config
-Authorization: Bearer <token>
-Content-Type: application/json
-
-{
-  "identity": { "name": "My Assistant" },
-  "models": {
-    "operator": {
-      "provider": "openai",
-      "model": "gpt-4o"
-    }
-  }
-}
-```
-
 Accepts a partial config object. Values are deep-merged with the existing config, validated, and persisted to storage. Returns the fully resolved config on success.
 
-Returns `400` if validation fails, with validation errors in the `error` field.
+Returns `400` if validation fails, with a structured [validation error](/api-reference/conventions#error-format).
+
+<Tabs items={['API', 'SDK']}>
+  <Tabs.Tab>
+```bash
+curl -X PATCH http://localhost:4111/api/config \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "identity": { "name": "My Assistant" },
+    "models": {
+      "operator": {
+        "provider": "openai",
+        "model": "gpt-4o"
+      }
+    }
+  }'
+```
+  </Tabs.Tab>
+  <Tabs.Tab>
+```ts
+const config = await client.config.update({
+  identity: { name: 'My Assistant' },
+  models: {
+    operator: {
+      provider: 'openai',
+      model: 'gpt-4o',
+    },
+  },
+})
+```
+  </Tabs.Tab>
+</Tabs>
 
 ## Config Schema
 
@@ -73,12 +100,10 @@ Plugin configuration is stored under the `plugins` key, keyed by plugin ID (the 
 
 Each plugin's config is validated against its declared `configFields`. Plugins with required fields that aren't configured are skipped at load time.
 
-## SDK Types
+## Types
 
 These types are available from `@pandorakit/sdk/api`:
 
 ```ts
 import type { Config, ModelConfig, DeepPartial } from '@pandorakit/sdk/api'
 ```
-
-See [SDK Client](/api-reference/sdk-client) for the typed client that wraps these endpoints.

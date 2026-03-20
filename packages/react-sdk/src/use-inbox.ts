@@ -7,7 +7,7 @@ import { inboxKey } from './keys'
 import { usePandoraClient } from './provider'
 
 interface InboxListResponse {
-  messages: InboxMessage[]
+  data: InboxMessage[]
 }
 
 export interface UseInboxOptions {
@@ -27,7 +27,7 @@ export interface UseInboxReturn {
   /** Restore an archived message. */
   unarchive: (id: string) => Promise<InboxMessage>
   /** Permanently delete a message. */
-  remove: (id: string) => Promise<{ deleted: string }>
+  remove: (id: string) => Promise<{ id: string }>
 }
 
 /**

@@ -14,7 +14,7 @@ import { fetchJson } from './fetch-wrapper'
  */
 export interface PluginsClient {
   /** List all plugins with their tools, agents, channels, and configuration status. */
-  list(): Promise<{ plugins: UnifiedPluginInfo[] }>
+  list(): Promise<{ data: UnifiedPluginInfo[] }>
 }
 
 /**
@@ -24,7 +24,7 @@ export interface PluginsClient {
  */
 export interface McpServersClient {
   /** List all configured MCP servers with their tools and connection status. */
-  list(): Promise<{ servers: McpServerInfo[] }>
+  list(): Promise<{ data: McpServerInfo[] }>
 
   /**
    * Add a new MCP server.
@@ -42,13 +42,13 @@ export interface McpServersClient {
  */
 export interface ModelsClient {
   /** List all registered LLM providers with their available models and configuration status. */
-  list(): Promise<{ providers: ProviderInfo[] }>
+  list(): Promise<{ data: ProviderInfo[] }>
 }
 
 /** @internal */
 export function createPluginsClient(ctx: FetchContext): PluginsClient {
   return {
-    list(): Promise<{ plugins: UnifiedPluginInfo[] }> {
+    list(): Promise<{ data: UnifiedPluginInfo[] }> {
       return fetchJson(ctx, '/api/plugins')
     },
   }
@@ -57,7 +57,7 @@ export function createPluginsClient(ctx: FetchContext): PluginsClient {
 /** @internal */
 export function createMcpServersClient(ctx: FetchContext): McpServersClient {
   return {
-    list(): Promise<{ servers: McpServerInfo[] }> {
+    list(): Promise<{ data: McpServerInfo[] }> {
       return fetchJson(ctx, '/api/mcp-servers')
     },
     add(config: AddMcpServerInput): Promise<{ id: string }> {
@@ -72,7 +72,7 @@ export function createMcpServersClient(ctx: FetchContext): McpServersClient {
 /** @internal */
 export function createModelsClient(ctx: FetchContext): ModelsClient {
   return {
-    list(): Promise<{ providers: ProviderInfo[] }> {
+    list(): Promise<{ data: ProviderInfo[] }> {
       return fetchJson(ctx, '/api/models')
     },
   }

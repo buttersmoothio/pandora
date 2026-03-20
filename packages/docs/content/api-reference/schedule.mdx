@@ -1,3 +1,5 @@
+import { Tabs } from 'nextra/components'
+
 # Schedule API
 
 Manage scheduled tasks programmatically.
@@ -6,17 +8,26 @@ Manage scheduled tasks programmatically.
 
 ### List Tasks
 
-```
-GET /api/schedule
-Authorization: Bearer <token>
-```
+Returns all scheduled tasks and the master enabled flag. Supports pagination via `?page=0&perPage=50` query parameters.
 
-Returns all scheduled tasks and the master enabled flag.
+<Tabs items={['API', 'SDK']}>
+  <Tabs.Tab>
+```bash
+curl http://localhost:4111/api/schedule \
+  -H "Authorization: Bearer <token>"
+```
+  </Tabs.Tab>
+  <Tabs.Tab>
+```ts
+const { enabled, data } = await client.schedule.list()
+```
+  </Tabs.Tab>
+</Tabs>
 
 ```json
 {
   "enabled": true,
-  "tasks": [
+  "data": [
     {
       "id": "a1b2c3d4-...",
       "name": "Daily summary",
@@ -28,76 +39,129 @@ Returns all scheduled tasks and the master enabled flag.
       "nextRun": "2026-03-05T08:00:00.000Z",
       "isRunning": false
     }
-  ]
+  ],
+  "total": 1,
+  "page": 0,
+  "perPage": 50,
+  "hasMore": false
 }
 ```
 
 ### Create Task
 
-```
-POST /api/schedule
-Authorization: Bearer <token>
-Content-Type: application/json
-
-{
-  "name": "Daily summary",
-  "cron": "0 8 * * *",
-  "prompt": "Summarize my calendar for today",
-  "timezone": "America/New_York",
-  "destination": "Web Inbox"
-}
-```
-
-Returns `201` with the created task.
+Creates a new scheduled task. Returns `201` with the created task.
 
 Exactly one of `cron` or `runAt` must be provided.
 
-### Get Task
+<Tabs items={['API', 'SDK']}>
+  <Tabs.Tab>
+```bash
+curl -X POST http://localhost:4111/api/schedule \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Daily summary",
+    "cron": "0 8 * * *",
+    "prompt": "Summarize my calendar for today",
+    "timezone": "America/New_York",
+    "destination": "Web Inbox"
+  }'
+```
+  </Tabs.Tab>
+  <Tabs.Tab>
+```ts
+const task = await client.schedule.create({
+  name: 'Daily summary',
+  cron: '0 8 * * *',
+  prompt: 'Summarize my calendar for today',
+  timezone: 'America/New_York',
+  destination: 'Web Inbox',
+})
+```
+  </Tabs.Tab>
+</Tabs>
 
-```
-GET /api/schedule/:id
-Authorization: Bearer <token>
-```
+### Get Task
 
 Returns a single task with computed `nextRun` and `isRunning` fields.
 
+<Tabs items={['API', 'SDK']}>
+  <Tabs.Tab>
+```bash
+curl http://localhost:4111/api/schedule/a1b2c3d4 \
+  -H "Authorization: Bearer <token>"
+```
+  </Tabs.Tab>
+  <Tabs.Tab>
+```ts
+const task = await client.schedule.get('a1b2c3d4')
+```
+  </Tabs.Tab>
+</Tabs>
+
 ### Update Task
-
-```
-PATCH /api/schedule/:id
-Authorization: Bearer <token>
-Content-Type: application/json
-
-{
-  "enabled": false
-}
-```
 
 Accepts a partial task object. Set optional fields to `null` to clear them (e.g., `"maxRuns": null`).
 
 Setting `cron` clears `runAt` and vice versa.
 
+<Tabs items={['API', 'SDK']}>
+  <Tabs.Tab>
+```bash
+curl -X PATCH http://localhost:4111/api/schedule/a1b2c3d4 \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"enabled": false}'
+```
+  </Tabs.Tab>
+  <Tabs.Tab>
+```ts
+const task = await client.schedule.update('a1b2c3d4', { enabled: false })
+```
+  </Tabs.Tab>
+</Tabs>
+
 ### Delete Task
 
+<Tabs items={['API', 'SDK']}>
+  <Tabs.Tab>
+```bash
+curl -X DELETE http://localhost:4111/api/schedule/a1b2c3d4 \
+  -H "Authorization: Bearer <token>"
 ```
-DELETE /api/schedule/:id
-Authorization: Bearer <token>
+  </Tabs.Tab>
+  <Tabs.Tab>
+```ts
+await client.schedule.delete('a1b2c3d4')
 ```
+  </Tabs.Tab>
+</Tabs>
 
-Returns `{ "deleted": "<id>" }`.
+```json
+{ "id": "a1b2c3d4" }
+```
 
 ### List Destinations
 
-```
-GET /api/schedule/destinations
-Authorization: Bearer <token>
-```
+Returns available notification destinations.
 
-Returns available notification destinations:
+<Tabs items={['API', 'SDK']}>
+  <Tabs.Tab>
+```bash
+curl http://localhost:4111/api/schedule/destinations \
+  -H "Authorization: Bearer <token>"
+```
+  </Tabs.Tab>
+  <Tabs.Tab>
+```ts
+const { data } = await client.schedule.destinations()
+```
+  </Tabs.Tab>
+</Tabs>
 
 ```json
 {
-  "destinations": ["Web Inbox", "Telegram"]
+  "data": ["Web Inbox", "Telegram"]
 }
 ```
 
@@ -107,12 +171,21 @@ Always includes `"Web Inbox"`. Channel destinations appear when a channel plugin
 
 ### Get Heartbeat
 
-```
-GET /api/schedule/heartbeat
-Authorization: Bearer <token>
-```
-
 Returns the heartbeat configuration and runtime status.
+
+<Tabs items={['API', 'SDK']}>
+  <Tabs.Tab>
+```bash
+curl http://localhost:4111/api/schedule/heartbeat \
+  -H "Authorization: Bearer <token>"
+```
+  </Tabs.Tab>
+  <Tabs.Tab>
+```ts
+const heartbeat = await client.schedule.heartbeat()
+```
+  </Tabs.Tab>
+</Tabs>
 
 ```json
 {
@@ -130,21 +203,35 @@ Returns the heartbeat configuration and runtime status.
 
 ### Update Heartbeat
 
-```
-PATCH /api/schedule/heartbeat
-Authorization: Bearer <token>
-Content-Type: application/json
-
-{
-  "enabled": true,
-  "cron": "*/15 * * * *",
-  "tasks": [
-    { "id": "a1b2c3d4-...", "description": "Check inbox for urgent emails", "enabled": true }
-  ]
-}
-```
-
 Accepts a partial heartbeat config. Set optional fields to `null` to clear them (e.g., `"activeHours": null`).
+
+<Tabs items={['API', 'SDK']}>
+  <Tabs.Tab>
+```bash
+curl -X PATCH http://localhost:4111/api/schedule/heartbeat \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "enabled": true,
+    "cron": "*/15 * * * *",
+    "tasks": [
+      { "id": "a1b2c3d4-...", "description": "Check inbox for urgent emails", "enabled": true }
+    ]
+  }'
+```
+  </Tabs.Tab>
+  <Tabs.Tab>
+```ts
+const heartbeat = await client.schedule.updateHeartbeat({
+  enabled: true,
+  cron: '*/15 * * * *',
+  tasks: [
+    { id: 'a1b2c3d4-...', description: 'Check inbox for urgent emails', enabled: true },
+  ],
+})
+```
+  </Tabs.Tab>
+</Tabs>
 
 | Field | Type | Description |
 |---|---|---|
@@ -180,12 +267,10 @@ When a task fires:
 2. If a destination is set, results are delivered via the [Inbox](/api-reference/inbox) system
 3. One-time tasks and tasks that reach their `maxRuns` limit are automatically removed
 
-## SDK Types
+## Types
 
 These types are available from `@pandorakit/sdk/api`:
 
 ```ts
 import type { ScheduleTask, CreateScheduleInput, UpdateScheduleInput, HeartbeatConfig } from '@pandorakit/sdk/api'
 ```
-
-See [SDK Client](/api-reference/sdk-client) for the typed client that wraps these endpoints.

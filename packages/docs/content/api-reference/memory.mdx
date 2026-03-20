@@ -1,3 +1,5 @@
+import { Tabs } from 'nextra/components'
+
 # Memory API
 
 Read and update working memory, observations, and monitoring status.
@@ -6,12 +8,21 @@ Read and update working memory, observations, and monitoring status.
 
 ### Get Working Memory
 
-```
-GET /api/memory/working
-Authorization: Bearer <token>
-```
-
 Returns the current working memory content, or `null` if no working memory exists yet.
+
+<Tabs items={['API', 'SDK']}>
+  <Tabs.Tab>
+```bash
+curl http://localhost:4111/api/memory/working \
+  -H "Authorization: Bearer <token>"
+```
+  </Tabs.Tab>
+  <Tabs.Tab>
+```ts
+const { content } = await client.memory.getWorkingMemory()
+```
+  </Tabs.Tab>
+</Tabs>
 
 ```json
 {
@@ -21,28 +32,43 @@ Returns the current working memory content, or `null` if no working memory exist
 
 ### Update Working Memory
 
-```
-PUT /api/memory/working
-Authorization: Bearer <token>
-Content-Type: application/json
-```
-
 Overwrites working memory content.
 
-```json
-{
-  "content": "<working_memory_data>\n- User's name is Alex\n- Prefers TypeScript\n</working_memory_data>"
-}
+<Tabs items={['API', 'SDK']}>
+  <Tabs.Tab>
+```bash
+curl -X PUT http://localhost:4111/api/memory/working \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"content": "<working_memory_data>\n- User'\''s name is Alex\n- Prefers TypeScript\n</working_memory_data>"}'
 ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+```ts
+await client.memory.updateWorkingMemory({
+  content: '<working_memory_data>\n- User\'s name is Alex\n- Prefers TypeScript\n</working_memory_data>',
+})
+```
+  </Tabs.Tab>
+</Tabs>
 
 ### Get Observations
 
-```
-GET /api/memory/observations
-Authorization: Bearer <token>
-```
-
 Returns the current observation text, or `null` if memory is disabled or no observations exist yet.
+
+<Tabs items={['API', 'SDK']}>
+  <Tabs.Tab>
+```bash
+curl http://localhost:4111/api/memory/observations \
+  -H "Authorization: Bearer <token>"
+```
+  </Tabs.Tab>
+  <Tabs.Tab>
+```ts
+const { observations } = await client.memory.getObservations()
+```
+  </Tabs.Tab>
+</Tabs>
 
 ```json
 {
@@ -52,12 +78,21 @@ Returns the current observation text, or `null` if memory is disabled or no obse
 
 ### Get Record
 
-```
-GET /api/memory/record
-Authorization: Bearer <token>
-```
-
 Returns the full memory record and threshold configuration, or `null` values if memory is disabled.
+
+<Tabs items={['API', 'SDK']}>
+  <Tabs.Tab>
+```bash
+curl http://localhost:4111/api/memory/record \
+  -H "Authorization: Bearer <token>"
+```
+  </Tabs.Tab>
+  <Tabs.Tab>
+```ts
+const { record, thresholds } = await client.memory.getRecord()
+```
+  </Tabs.Tab>
+</Tabs>
 
 ```json
 {
@@ -111,12 +146,10 @@ Use the record and thresholds together to calculate fill percentages:
 - **Observer proximity**: `pendingMessageTokens / messageTokens` — how close to triggering observation
 - **Reflector proximity**: `observationTokenCount / observationTokens` — how close to triggering reflection
 
-## SDK Types
+## Types
 
 These types are available from `@pandorakit/sdk/api`:
 
 ```ts
 import type { OMRecord, OMThresholds, RecordResponse } from '@pandorakit/sdk/api'
 ```
-
-See [SDK Client](/api-reference/sdk-client) for the typed client that wraps these endpoints.

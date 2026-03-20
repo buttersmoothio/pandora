@@ -1,6 +1,5 @@
 'use client'
 
-import { useConfig, useModels } from '@pandorakit/react-sdk'
 import { CheckIcon, ChevronsUpDownIcon, Loader2Icon } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
@@ -16,11 +15,13 @@ import {
 import { Label } from '@/components/ui/label'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Switch } from '@/components/ui/switch'
+import { useConfig } from '@/hooks/use-config'
+import { useModels } from '@/hooks/use-models'
 import { cn } from '@/lib/utils'
 
 export function MemorySection(): React.JSX.Element {
   const { data: config, update, isUpdating } = useConfig()
-  const { data: modelsData } = useModels()
+  const { providers: allModelProviders } = useModels()
   const [enabled, setEnabled] = useState(true)
   const [override, setOverride] = useState(false)
   const [provider, setProvider] = useState('')
@@ -45,7 +46,7 @@ export function MemorySection(): React.JSX.Element {
     }
   }, [config])
 
-  const allProviders = modelsData?.providers ?? []
+  const allProviders = allModelProviders ?? []
   const providers = [...allProviders].sort((a, b) => {
     if (a.configured !== b.configured) {
       return a.configured ? -1 : 1

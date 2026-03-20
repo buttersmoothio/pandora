@@ -1,3 +1,5 @@
+import { Tabs } from 'nextra/components'
+
 # Plugins API
 
 Discovery endpoints for plugins and AI model providers.
@@ -6,14 +8,23 @@ Discovery endpoints for plugins and AI model providers.
 
 Returns all discovered plugins with their metadata, capabilities, and config state.
 
+<Tabs items={['API', 'SDK']}>
+  <Tabs.Tab>
+```bash
+curl http://localhost:4111/api/plugins \
+  -H "Authorization: Bearer <token>"
 ```
-GET /api/plugins
-Authorization: Bearer <token>
+  </Tabs.Tab>
+  <Tabs.Tab>
+```ts
+const { data } = await client.plugins.list()
 ```
+  </Tabs.Tab>
+</Tabs>
 
 ```json
 {
-  "plugins": [
+  "data": [
     {
       "id": "@pandorakit/tavily-search",
       "name": "Tavily Search",
@@ -114,39 +125,14 @@ Present when the plugin provides a channel:
 | `realtime` | `boolean \| null` | Whether the channel supports realtime connections. `null` if not loaded. |
 | `webhookPath` | `string \| null` | The webhook URL path. `null` if not loaded. |
 
-## GET /api/models
-
-Returns all supported providers, their models, and whether the required API key is configured.
-
-```
-GET /api/models
-Authorization: Bearer <token>
-```
-
-```json
-{
-  "providers": [
-    {
-      "id": "anthropic",
-      "name": "Anthropic",
-      "models": ["claude-sonnet-4-20250514", "..."],
-      "configured": true,
-      "docUrl": "https://docs.anthropic.com",
-      "gateway": null,
-      "envVars": ["ANTHROPIC_API_KEY"]
-    }
-  ]
-}
-```
-
-Use this endpoint to build model selection UIs. Providers with `configured: false` are missing their API key.
-
-## SDK Types
-
-These types are available from `@pandorakit/sdk/api`:
+## Types
 
 ```ts
-import type { UnifiedPluginInfo, PluginProvides, ToolsProvides, AgentsProvides, ChannelsProvides, ProviderInfo } from '@pandorakit/sdk/api'
+import type {
+  UnifiedPluginInfo,
+  PluginProvides,
+  ToolsProvides,
+  AgentsProvides,
+  ChannelsProvides,
+} from '@pandorakit/sdk/api'
 ```
-
-See [SDK Client](/api-reference/sdk-client) for the typed client that wraps these endpoints.

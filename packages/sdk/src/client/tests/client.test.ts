@@ -125,17 +125,17 @@ describe('auth', () => {
   })
 
   test('sessions sends GET', async () => {
-    fetchMock.mockResolvedValueOnce(jsonResponse({ sessions: [] }))
+    fetchMock.mockResolvedValueOnce(jsonResponse({ data: [] }))
 
     const result = await client().auth.sessions()
 
-    expect(result).toEqual({ sessions: [] })
+    expect(result).toEqual({ data: [] })
     const [url] = fetchMock.mock.calls[0]
     expect(url).toBe('http://test:4111/api/auth/sessions')
   })
 
   test('revokeSession sends DELETE /:id', async () => {
-    fetchMock.mockResolvedValueOnce(jsonResponse({ success: true, loggedOut: false }))
+    fetchMock.mockResolvedValueOnce(jsonResponse({ id: 'sess-1', loggedOut: false }))
 
     await client().auth.revokeSession('sess-1')
 
@@ -196,7 +196,7 @@ describe('auth', () => {
 
 describe('threads', () => {
   test('list sends GET /api/threads', async () => {
-    const body = { threads: [], total: 0, page: 1, perPage: 50, hasMore: false }
+    const body = { data: [], total: 0, page: 1, perPage: 50, hasMore: false }
     fetchMock.mockResolvedValueOnce(jsonResponse(body))
 
     const result = await client().threads.list()
@@ -269,7 +269,7 @@ describe('config', () => {
 
 describe('plugins', () => {
   test('list sends GET /api/plugins', async () => {
-    fetchMock.mockResolvedValueOnce(jsonResponse({ plugins: [] }))
+    fetchMock.mockResolvedValueOnce(jsonResponse({ data: [] }))
 
     await client().plugins.list()
 
@@ -280,7 +280,7 @@ describe('plugins', () => {
 
 describe('mcpServers', () => {
   test('list sends GET /api/mcp-servers', async () => {
-    fetchMock.mockResolvedValueOnce(jsonResponse({ servers: [] }))
+    fetchMock.mockResolvedValueOnce(jsonResponse({ data: [] }))
 
     await client().mcpServers.list()
 
@@ -301,7 +301,7 @@ describe('mcpServers', () => {
 
 describe('models', () => {
   test('list sends GET /api/models', async () => {
-    fetchMock.mockResolvedValueOnce(jsonResponse({ providers: [] }))
+    fetchMock.mockResolvedValueOnce(jsonResponse({ data: [] }))
 
     await client().models.list()
 
@@ -316,7 +316,9 @@ describe('models', () => {
 
 describe('schedule', () => {
   test('list sends GET /api/schedule', async () => {
-    fetchMock.mockResolvedValueOnce(jsonResponse({ enabled: true, tasks: [] }))
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({ data: [], total: 0, page: 1, perPage: 50, hasMore: false, enabled: true }),
+    )
 
     await client().schedule.list()
 
@@ -345,7 +347,7 @@ describe('schedule', () => {
   })
 
   test('delete sends DELETE /api/schedule/:id', async () => {
-    fetchMock.mockResolvedValueOnce(jsonResponse({ deleted: 's1' }))
+    fetchMock.mockResolvedValueOnce(jsonResponse({ id: 's1' }))
 
     await client().schedule.delete('s1')
 
@@ -355,7 +357,7 @@ describe('schedule', () => {
   })
 
   test('destinations sends GET /api/schedule/destinations', async () => {
-    fetchMock.mockResolvedValueOnce(jsonResponse({ destinations: ['Web Inbox'] }))
+    fetchMock.mockResolvedValueOnce(jsonResponse({ data: ['Web Inbox'] }))
 
     await client().schedule.destinations()
 
@@ -389,7 +391,7 @@ describe('schedule', () => {
 
 describe('inbox', () => {
   test('list sends GET /api/inbox', async () => {
-    fetchMock.mockResolvedValueOnce(jsonResponse({ messages: [] }))
+    fetchMock.mockResolvedValueOnce(jsonResponse({ data: [] }))
 
     await client().inbox.list()
 
@@ -398,7 +400,7 @@ describe('inbox', () => {
   })
 
   test('list with archived sends ?archived=true', async () => {
-    fetchMock.mockResolvedValueOnce(jsonResponse({ messages: [] }))
+    fetchMock.mockResolvedValueOnce(jsonResponse({ data: [] }))
 
     await client().inbox.list({ archived: true })
 
@@ -426,7 +428,7 @@ describe('inbox', () => {
   })
 
   test('delete sends DELETE /api/inbox/:id', async () => {
-    fetchMock.mockResolvedValueOnce(jsonResponse({ deleted: 'i1' }))
+    fetchMock.mockResolvedValueOnce(jsonResponse({ id: 'i1' }))
 
     await client().inbox.delete('i1')
 
@@ -567,7 +569,7 @@ describe('error handling', () => {
 
 describe('auth headers', () => {
   test('includes Authorization header when getToken returns a token', async () => {
-    fetchMock.mockResolvedValueOnce(jsonResponse({ plugins: [] }))
+    fetchMock.mockResolvedValueOnce(jsonResponse({ data: [] }))
 
     await client({ getToken: () => 'my-token' }).plugins.list()
 
@@ -577,7 +579,7 @@ describe('auth headers', () => {
   })
 
   test('omits Authorization header when getToken returns null', async () => {
-    fetchMock.mockResolvedValueOnce(jsonResponse({ plugins: [] }))
+    fetchMock.mockResolvedValueOnce(jsonResponse({ data: [] }))
 
     await client({ getToken: () => null }).plugins.list()
 
@@ -607,7 +609,7 @@ describe('token refresh', () => {
     fetchMock
       .mockResolvedValueOnce(textResponse('Unauthorized', 401))
       .mockResolvedValueOnce(jsonResponse(refreshedTokens))
-      .mockResolvedValueOnce(jsonResponse({ plugins: [] }))
+      .mockResolvedValueOnce(jsonResponse({ data: [] }))
 
     const c = client({
       getToken: () => currentToken,
@@ -621,7 +623,7 @@ describe('token refresh', () => {
 
     const result = await c.plugins.list()
 
-    expect(result).toEqual({ plugins: [] })
+    expect(result).toEqual({ data: [] })
     expect(fetchMock).toHaveBeenCalledTimes(3)
 
     // Verify refresh was called correctly

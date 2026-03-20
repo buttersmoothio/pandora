@@ -1,6 +1,6 @@
 'use client'
 
-import type { ConfigFieldDescriptor } from '@pandorakit/react-sdk'
+import type { ConfigFieldDescriptor } from '@pandorakit/sdk/client'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {

@@ -34,9 +34,9 @@ describe('Plugins routes', () => {
     expect(res.status).toBe(200)
 
     const body = (await res.json()) as {
-      plugins: { id: string; provides: Record<string, unknown> }[]
+      data: { id: string; provides: Record<string, unknown> }[]
     }
-    expect(Array.isArray(body.plugins)).toBe(true)
+    expect(Array.isArray(body.data)).toBe(true)
   })
 })
 

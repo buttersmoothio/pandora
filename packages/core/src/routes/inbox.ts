@@ -1,13 +1,15 @@
 import { Hono } from 'hono'
 import type { Env } from './helpers'
+import { paginate, parsePagination } from './helpers'
 
 const inboxRoutes: Hono<Env> = new Hono<Env>()
 
-// List messages (newest first)
+// List messages (newest first, paginated)
 inboxRoutes.get('/', async (c) => {
   const archived = c.req.query('archived') === 'true'
+  const { page, perPage } = parsePagination(c)
   const messages = await c.var.runtime.storage.inbox.list({ archived })
-  return c.json({ messages })
+  return c.json(paginate(messages, page, perPage))
 })
 
 // Get single message
@@ -50,7 +52,7 @@ inboxRoutes.delete('/:id', async (c) => {
   }
 
   await c.var.runtime.storage.inbox.delete(id)
-  return c.json({ deleted: id })
+  return c.json({ id })
 })
 
 export { inboxRoutes }

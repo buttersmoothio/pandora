@@ -378,8 +378,8 @@ describe('auth routes', () => {
 
       const res = await app.request('/api/auth/sessions')
       expect(res.status).toBe(200)
-      const body = (await res.json()) as { sessions: unknown[] }
-      expect(body.sessions).toHaveLength(1)
+      const body = (await res.json()) as { data: unknown[] }
+      expect(body.data).toHaveLength(1)
     })
   })
 
@@ -404,8 +404,8 @@ describe('auth routes', () => {
 
       const res = await app.request('/api/auth/sessions/target_hash', { method: 'DELETE' })
       expect(res.status).toBe(200)
-      const body = (await res.json()) as { success: boolean }
-      expect(body.success).toBe(true)
+      const body = (await res.json()) as { id: string; loggedOut: boolean }
+      expect(body.id).toBe('target_hash')
       expect(store.deleteSession).toHaveBeenCalledWith('target_hash')
     })
   })

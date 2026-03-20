@@ -1,12 +1,13 @@
 'use client'
 
-import { parseObservationSections, useMemory, useToolNames } from '@pandorakit/react-sdk'
 import { Loader2Icon } from 'lucide-react'
 import { useMemo } from 'react'
 import { Streamdown } from 'streamdown'
 import { MemoryProgress } from '@/components/memory/memory-progress'
 import { Badge } from '@/components/ui/badge'
-import { formatTokens, timeAgo } from '@/lib/memory-utils'
+import { useMemory } from '@/hooks/use-memory'
+import { useToolNames } from '@/hooks/use-tool-names'
+import { formatTokens, parseObservationSections, timeAgo } from '@/lib/memory-utils'
 
 export function LongTermSection(): React.JSX.Element {
   const { observations, record: recordQuery } = useMemory()

@@ -1,0 +1,61 @@
+import { Tabs } from 'nextra/components'
+
+# Models API
+
+Endpoints for discovering available AI providers and models.
+
+## GET /api/models
+
+Returns all supported providers, their models, and whether the required API key is configured.
+
+<Tabs items={['API', 'SDK']}>
+  <Tabs.Tab>
+```bash
+curl http://localhost:4111/api/models \
+  -H "Authorization: Bearer <token>"
+```
+  </Tabs.Tab>
+  <Tabs.Tab>
+```ts
+const { data } = await client.models.list()
+
+data.forEach(p => {
+  console.log(p.name, p.configured ? '(ready)' : '(needs API key)')
+})
+```
+  </Tabs.Tab>
+</Tabs>
+
+```json
+{
+  "data": [
+    {
+      "id": "anthropic",
+      "name": "Anthropic",
+      "models": ["claude-sonnet-4-20250514", "..."],
+      "configured": true,
+      "docUrl": "https://docs.anthropic.com",
+      "gateway": null,
+      "envVars": ["ANTHROPIC_API_KEY"]
+    }
+  ]
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | `string` | Provider identifier |
+| `name` | `string` | Display name |
+| `models` | `string[]` | Available model IDs |
+| `configured` | `boolean` | Whether the required API key is set |
+| `docUrl` | `string \| null` | Link to provider documentation |
+| `gateway` | `string \| null` | Custom gateway URL if configured |
+| `envVars` | `string[]` | Required environment variables |
+
+Use this endpoint to build model selection UIs. Providers with `configured: false` are missing their API key.
+
+## Types
+
+```ts
+import type { ProviderInfo } from '@pandorakit/sdk/api'
+```

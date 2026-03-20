@@ -1,6 +1,5 @@
 'use client'
 
-import { useAuth } from '@pandorakit/react-sdk'
 import { Loader2Icon } from 'lucide-react'
 import { type FormEvent, useState } from 'react'
 import { toast } from 'sonner'
@@ -18,6 +17,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { useAuth } from '@/hooks/use-auth'
 
 function ChangePasswordSection(): React.JSX.Element {
   const { changePassword } = useAuth()

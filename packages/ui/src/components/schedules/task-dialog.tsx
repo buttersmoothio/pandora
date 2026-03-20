@@ -1,6 +1,6 @@
 'use client'
 
-import { type ScheduleTask, useConfig, useSchedules } from '@pandorakit/react-sdk'
+import type { ScheduleTask } from '@pandorakit/sdk/client'
 import { Loader2Icon } from 'lucide-react'
 import type React from 'react'
 import { useEffect, useState } from 'react'
@@ -27,6 +27,8 @@ import {
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
+import { useConfig } from '@/hooks/use-config'
+import { useSchedules } from '@/hooks/use-schedules'
 import { localInputToUtc, utcToLocalInput } from '@/lib/timezone'
 
 interface TaskFormState {
@@ -222,7 +224,7 @@ export function TaskDialog({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">No notification</SelectItem>
-                {destinationsData?.destinations.map((dest) => (
+                {destinationsData?.data.map((dest) => (
                   <SelectItem key={dest} value={dest}>
                     {dest}
                   </SelectItem>

@@ -1,12 +1,13 @@
 'use client'
 
-import { parseWorkingMemoryData, replaceWorkingMemoryData, useMemory } from '@pandorakit/react-sdk'
 import { Loader2Icon } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { Streamdown } from 'streamdown'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
+import { useMemory } from '@/hooks/use-memory'
+import { parseWorkingMemoryData, replaceWorkingMemoryData } from '@/lib/memory-utils'
 
 export function ShortTermSection(): React.JSX.Element {
   const { workingMemory, updateWorkingMemory } = useMemory()

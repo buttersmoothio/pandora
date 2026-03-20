@@ -14,7 +14,7 @@
  * })
  *
  * const config = await client.config.get()
- * const { threads } = await client.threads.list()
+ * const { data: threads } = await client.threads.list()
  * ```
  *
  * @packageDocumentation

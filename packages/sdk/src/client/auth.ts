@@ -42,7 +42,7 @@ export interface AuthClient {
   changePassword(currentPassword: string, newPassword: string): Promise<AuthTokenPair>
 
   /** List all active sessions. */
-  sessions(): Promise<{ sessions: Session[] }>
+  sessions(): Promise<{ data: Session[] }>
 
   /**
    * Revoke a specific session.
@@ -50,7 +50,7 @@ export interface AuthClient {
    * @returns `loggedOut` is `true` if the revoked session was the current one.
    * @throws {@link PandoraApiError} with status `404` if session not found.
    */
-  revokeSession(id: string): Promise<{ success: true; loggedOut: boolean }>
+  revokeSession(id: string): Promise<{ id: string; loggedOut: boolean }>
 
   /** Revoke all sessions and refresh tokens. */
   revokeAllSessions(): Promise<{ success: true }>
@@ -86,10 +86,10 @@ export function createAuthClient(ctx: FetchContext): AuthClient {
         body: JSON.stringify({ currentPassword, newPassword }),
       })
     },
-    sessions(): Promise<{ sessions: Session[] }> {
+    sessions(): Promise<{ data: Session[] }> {
       return fetchJson(ctx, '/api/auth/sessions')
     },
-    revokeSession(id: string): Promise<{ success: true; loggedOut: boolean }> {
+    revokeSession(id: string): Promise<{ id: string; loggedOut: boolean }> {
       return fetchJson(ctx, `/api/auth/sessions/${id}`, { method: 'DELETE' })
     },
     revokeAllSessions(): Promise<{ success: true }> {

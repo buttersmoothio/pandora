@@ -7,13 +7,13 @@ import { configKey, mcpServersKey } from './keys'
 import { usePandoraClient } from './provider'
 
 interface McpServersResponse {
-  servers: McpServerInfo[]
+  data: McpServerInfo[]
 }
 
 export interface UseMcpServersReturn {
   /** Raw response, or `undefined` while loading. */
   data: McpServersResponse | undefined
-  /** Shorthand for `data.servers`. */
+  /** Shorthand for `data.data`. */
   servers: McpServerInfo[] | undefined
   isLoading: boolean
   error: Error | null
@@ -48,7 +48,7 @@ export function useMcpServers(): UseMcpServersReturn {
 
   return {
     data: query.data,
-    servers: query.data?.servers,
+    servers: query.data?.data,
     isLoading: query.isLoading,
     error: query.error,
     add,

@@ -7,9 +7,16 @@ describe('Schedule routes', () => {
       const res = await authRequest('/api/schedule')
       expect(res.status).toBe(200)
 
-      const body = (await res.json()) as { enabled: boolean; tasks: unknown[] }
+      const body = (await res.json()) as {
+        enabled: boolean
+        data: unknown[]
+        total: number
+        page: number
+        perPage: number
+        hasMore: boolean
+      }
       expect(body.enabled).toBe(true)
-      expect(body.tasks).toEqual([])
+      expect(body.data).toEqual([])
     })
   })
 
@@ -92,8 +99,8 @@ describe('Schedule routes', () => {
       })
       expect(deleteRes.status).toBe(200)
 
-      const body = (await deleteRes.json()) as { deleted: string }
-      expect(body.deleted).toBe(created.id)
+      const body = (await deleteRes.json()) as { id: string }
+      expect(body.id).toBe(created.id)
     })
 
     it('returns 404 for missing task', async () => {

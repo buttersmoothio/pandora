@@ -1,7 +1,6 @@
 'use client'
 
-import type { ModelConfig, UnifiedPluginInfo } from '@pandorakit/react-sdk'
-import { useModels } from '@pandorakit/react-sdk'
+import type { ModelConfig, UnifiedPluginInfo } from '@pandorakit/sdk/client'
 import { CheckIcon, ChevronsUpDownIcon } from 'lucide-react'
 import type React from 'react'
 import { useEffect, useState } from 'react'
@@ -17,6 +16,7 @@ import {
 import { Label } from '@/components/ui/label'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Switch } from '@/components/ui/switch'
+import { useModels } from '@/hooks/use-models'
 import { cn } from '@/lib/utils'
 import { PluginCard, usePluginConfigDraft } from './plugin-card'
 
@@ -71,7 +71,7 @@ function AgentModelOverride({
   currentModel?: { provider: string; model: string }
 }): React.JSX.Element {
   const { setConfig: setDraft } = usePluginConfigDraft()
-  const { data: modelsData } = useModels()
+  const { providers: allModelProviders } = useModels()
   const [customModel, setCustomModel] = useState(!!currentModel)
   const [provider, setProvider] = useState(currentModel?.provider ?? '')
   const [model, setModel] = useState(currentModel?.model ?? '')
@@ -84,7 +84,7 @@ function AgentModelOverride({
     setModel(currentModel?.model ?? '')
   }, [currentModel])
 
-  const allProviders = modelsData?.providers ?? []
+  const allProviders = allModelProviders ?? []
   const providers = [...allProviders].sort((a, b) => {
     if (a.configured !== b.configured) {
       return a.configured ? -1 : 1

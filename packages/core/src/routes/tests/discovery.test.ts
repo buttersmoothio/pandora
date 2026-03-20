@@ -16,15 +16,15 @@ describe('Discovery routes', () => {
       const res = await authRequest('/api/plugins')
       expect(res.status).toBe(200)
 
-      const body = (await res.json()) as { plugins: Record<string, unknown>[] }
-      expect(Array.isArray(body.plugins)).toBe(true)
+      const body = (await res.json()) as { data: Record<string, unknown>[] }
+      expect(Array.isArray(body.data)).toBe(true)
     })
 
     it('each plugin has required fields', async () => {
       const res = await authRequest('/api/plugins')
-      const body = (await res.json()) as { plugins: Record<string, unknown>[] }
+      const body = (await res.json()) as { data: Record<string, unknown>[] }
 
-      for (const plugin of body.plugins) {
+      for (const plugin of body.data) {
         expect(plugin.id).toBeDefined()
         expect(plugin.name).toBeDefined()
         expect(typeof plugin.enabled).toBe('boolean')
@@ -41,19 +41,19 @@ describe('Discovery routes', () => {
       expect(res.status).toBe(200)
 
       const body = (await res.json()) as {
-        providers: { id: string; name: string; models: unknown[]; configured: boolean }[]
+        data: { id: string; name: string; models: unknown[]; configured: boolean }[]
       }
-      expect(Array.isArray(body.providers)).toBe(true)
-      expect(body.providers.length).toBeGreaterThan(0)
+      expect(Array.isArray(body.data)).toBe(true)
+      expect(body.data.length).toBeGreaterThan(0)
     })
 
     it('each provider has required fields', async () => {
       const res = await authRequest('/api/models')
       const body = (await res.json()) as {
-        providers: Record<string, unknown>[]
+        data: Record<string, unknown>[]
       }
 
-      for (const provider of body.providers) {
+      for (const provider of body.data) {
         expect(provider.id).toBeDefined()
         expect(provider.name).toBeDefined()
         expect(Array.isArray(provider.models)).toBe(true)
@@ -67,8 +67,8 @@ describe('Discovery routes', () => {
       const res = await authRequest('/api/mcp-servers')
       expect(res.status).toBe(200)
 
-      const body = (await res.json()) as { servers: McpServer[] }
-      expect(Array.isArray(body.servers)).toBe(true)
+      const body = (await res.json()) as { data: McpServer[] }
+      expect(Array.isArray(body.data)).toBe(true)
     })
   })
 
@@ -112,8 +112,8 @@ describe('Discovery routes', () => {
 
       // Verify it appears in GET with correct defaults
       const listRes = await authRequest('/api/mcp-servers')
-      const body = (await listRes.json()) as { servers: McpServer[] }
-      const found = body.servers.find((s) => s.id === created.id)
+      const body = (await listRes.json()) as { data: McpServer[] }
+      const found = body.data.find((s) => s.id === created.id)
       expect(found).toBeDefined()
       expect(found?.name).toBe('Test Server')
       expect(found?.type).toBe('stdio')

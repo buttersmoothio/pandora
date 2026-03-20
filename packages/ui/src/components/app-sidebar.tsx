@@ -1,6 +1,5 @@
 'use client'
 
-import { useAuth } from '@pandorakit/react-sdk'
 import {
   BlocksIcon,
   BrainIcon,
@@ -30,6 +29,7 @@ import {
   SidebarMenuItem,
   SidebarRail,
 } from '@/components/ui/sidebar'
+import { useAuth } from '@/hooks/use-auth'
 
 const NAV_ITEMS: { title: string; href: string; icon: typeof InboxIcon }[] = [
   { title: 'Inbox', href: '/inbox', icon: InboxIcon },

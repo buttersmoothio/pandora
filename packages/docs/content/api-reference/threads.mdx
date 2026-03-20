@@ -1,21 +1,34 @@
+import { Tabs } from 'nextra/components'
+
 # Threads API
 
 Endpoints for listing, reading, forking, and deleting conversation threads. See [API Conventions](/api-reference/conventions) for authentication and error format.
 
 ## GET /api/threads
 
-List root threads, ordered by most recently updated.
+List root threads, ordered by most recently updated. Supports pagination via `?page=0&perPage=50` query parameters.
 
+<Tabs items={['API', 'SDK']}>
+  <Tabs.Tab>
+```bash
+curl http://localhost:4111/api/threads \
+  -H "Authorization: Bearer <token>"
 ```
-GET /api/threads
-Authorization: Bearer <token>
-```
+  </Tabs.Tab>
+  <Tabs.Tab>
+```ts
+const response = await client.threads.list()
 
-### Response
+console.log(response.data)
+console.log(response.activeStreamIds)
+```
+  </Tabs.Tab>
+</Tabs>
+
 
 ```json
 {
-  "threads": [
+  "data": [
     {
       "id": "abc123",
       "title": "Getting started with Pandora",
@@ -27,7 +40,7 @@ Authorization: Bearer <token>
   ],
   "total": 1,
   "page": 0,
-  "perPage": 100,
+  "perPage": 50,
   "hasMore": false,
   "activeStreamIds": ["abc123"]
 }
@@ -35,11 +48,11 @@ Authorization: Bearer <token>
 
 | Field | Type | Description |
 |---|---|---|
-| `threads` | `array` | Thread objects, ordered by `updatedAt` descending |
-| `threads[].id` | `string` | Root thread ID |
-| `threads[].title` | `string \| null` | Auto-generated title (set after first assistant response) |
-| `threads[].activeThreadId` | `string` | ID of the most recently updated thread in the family (root or any branch) |
-| `threads[].threadIds` | `string[]` | All thread IDs in the family (root + branches) |
+| `data` | `array` | Thread objects, ordered by `updatedAt` descending |
+| `data[].id` | `string` | Root thread ID |
+| `data[].title` | `string \| null` | Auto-generated title (set after first assistant response) |
+| `data[].activeThreadId` | `string` | ID of the most recently updated thread in the family (root or any branch) |
+| `data[].threadIds` | `string[]` | All thread IDs in the family (root + branches) |
 | `total` | `number` | Total root thread count |
 | `page` | `number` | Current page index |
 | `perPage` | `number \| false` | Page size |
@@ -52,12 +65,25 @@ Only root threads appear in the list. Branches are accessible through the `threa
 
 Get a single thread with its full message history and branching context.
 
+<Tabs items={['API', 'SDK']}>
+  <Tabs.Tab>
+```bash
+curl http://localhost:4111/api/threads/abc123 \
+  -H "Authorization: Bearer <token>"
 ```
-GET /api/threads/:id
-Authorization: Bearer <token>
-```
+  </Tabs.Tab>
+  <Tabs.Tab>
+```ts
+const detail = await client.threads.get('abc123')
 
-### Response
+console.log(detail.thread)
+console.log(detail.messages)
+console.log(detail.forks)
+console.log(detail.forkInfo)
+```
+  </Tabs.Tab>
+</Tabs>
+
 
 ```json
 {
@@ -106,7 +132,6 @@ When a thread is a branch (created via fork), `forkInfo` describes its relations
 
 A `BranchRef` is `{ id: string, title?: string }`.
 
-### Errors
 
 | Status | Error | Cause |
 |---|---|---|
@@ -114,23 +139,31 @@ A `BranchRef` is `{ id: string, title?: string }`.
 
 ## POST /api/threads/:id/fork
 
-Create a new branch from an existing thread at a specific message. All messages **before** the fork point are cloned into the new thread.
+Create a new branch from an existing thread at a specific message. All messages **before** the fork point are cloned into the new thread. Returns `201`.
 
+<Tabs items={['API', 'SDK']}>
+  <Tabs.Tab>
+```bash
+curl -X POST http://localhost:4111/api/threads/abc123/fork \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"messageId": "msg-3"}'
 ```
-POST /api/threads/:id/fork
-Content-Type: application/json
-Authorization: Bearer <token>
-```
+  </Tabs.Tab>
+  <Tabs.Tab>
+```ts
+const result = await client.threads.fork('abc123', 'msg-3')
 
-```json
-{ "messageId": "msg-3" }
+console.log(result.thread.id)         // new branch ID
+console.log(result.clonedMessageCount) // messages copied
 ```
+  </Tabs.Tab>
+</Tabs>
 
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `messageId` | `string` | Yes | ID of the message to fork at. Messages before this point are included in the branch. |
 
-### Response
 
 ```json
 {
@@ -145,7 +178,6 @@ Authorization: Bearer <token>
 
 After forking, send a [`POST /api/chat`](/api-reference/chat#post-apichat) with the new thread's ID to continue the conversation from the fork point.
 
-### Errors
 
 | Status | Error | Cause |
 |---|---|---|
@@ -156,29 +188,40 @@ After forking, send a [`POST /api/chat`](/api-reference/chat#post-apichat) with 
 
 Permanently delete a thread and all its messages.
 
+<Tabs items={['API', 'SDK']}>
+  <Tabs.Tab>
+```bash
+curl -X DELETE http://localhost:4111/api/threads/abc123 \
+  -H "Authorization: Bearer <token>"
 ```
-DELETE /api/threads/:id
-Authorization: Bearer <token>
+  </Tabs.Tab>
+  <Tabs.Tab>
+```ts
+await client.threads.delete('abc123')
 ```
+  </Tabs.Tab>
+</Tabs>
 
-### Response
 
 ```json
-{ "success": true }
+{ "id": "abc123" }
 ```
 
-### Errors
 
 | Status | Error | Cause |
 |---|---|---|
 | `404` | `Thread not found` | No thread with this ID exists |
 
-## SDK Types
-
-These types are available from `@pandorakit/sdk/api`:
+## Types
 
 ```ts
-import type { Thread, ThreadListResponse, ThreadDetailResponse, ThreadForkResponse, ServerMessage, BranchRef, ForkInfo } from '@pandorakit/sdk/api'
+import type {
+  Thread,
+  ThreadListResponse,
+  ThreadDetailResponse,
+  ThreadForkResponse,
+  ServerMessage,
+  BranchRef,
+  ForkInfo,
+} from '@pandorakit/sdk/api'
 ```
-
-See [SDK Client](/api-reference/sdk-client) for the typed client that wraps these endpoints.

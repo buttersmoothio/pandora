@@ -5,7 +5,7 @@ import type {
   EnvVarDescriptor as BaseEnvVarDescriptor,
   Config,
   ConfigFieldDescriptor,
-} from '@pandorakit/react-sdk'
+} from '@pandorakit/sdk/client'
 import {
   AlertTriangleIcon,
   CheckCircle2Icon,
@@ -21,7 +21,7 @@ import { toast } from 'sonner'
 
 type EnvVarDescriptor = BaseEnvVarDescriptor & { configured?: boolean }
 
-import { useConfig } from '@pandorakit/react-sdk'
+import { useConfig } from '@/hooks/use-config'
 import { Badge } from '../ui/badge'
 import { Button } from '../ui/button'
 import {

@@ -27,9 +27,9 @@ const links = [
     href: '/api-reference',
   },
   {
-    title: 'React SDK',
-    description: 'Build custom UIs with the React integration.',
-    href: '/extending/react-sdk',
+    title: 'SDK Client',
+    description: 'Build custom UIs with the TypeScript SDK.',
+    href: '/api-reference/sdk-client',
   },
 ]
 

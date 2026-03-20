@@ -14,6 +14,18 @@ All error responses return JSON with an `error` field:
 { "error": "description of what went wrong" }
 ```
 
+Validation errors return a structured format with individual field issues:
+
+```json
+{
+  "error": "validation_error",
+  "issues": [
+    { "path": ["name"], "message": "Required" },
+    { "path": ["model"], "message": "Invalid" }
+  ]
+}
+```
+
 Unhandled server errors include a `message` field:
 
 ```json

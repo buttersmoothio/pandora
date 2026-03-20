@@ -1,4 +1,4 @@
-import type { EnvVarDescriptor as BaseEnvVarDescriptor } from '@pandorakit/react-sdk'
+import type { EnvVarDescriptor as BaseEnvVarDescriptor } from '@pandorakit/sdk/client'
 import { CheckCircle2Icon, CircleDotIcon, XCircleIcon } from 'lucide-react'
 
 type EnvVarDescriptor = BaseEnvVarDescriptor & { configured?: boolean }

@@ -1,6 +1,6 @@
 'use client'
 
-import type { ForkInfo } from '@pandorakit/react-sdk'
+import type { ForkInfo } from '@pandorakit/sdk/client'
 import type { UIMessage } from 'ai'
 import { ChevronLeftIcon, ChevronRightIcon } from 'lucide-react'
 import { useRouter } from 'next/navigation'

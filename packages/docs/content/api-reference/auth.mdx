@@ -1,3 +1,5 @@
+import { Tabs } from 'nextra/components'
+
 # Authentication API
 
 Endpoint reference for authenticating requests and managing sessions. See [API Conventions](/api-reference/conventions) for the shared error format and status codes.
@@ -8,9 +10,21 @@ All auth routes are mounted at `/api/auth`. The setup, login, and refresh endpoi
 
 Check whether auth has been set up and if the current request is authenticated:
 
+<Tabs items={['API', 'SDK']}>
+  <Tabs.Tab>
 ```bash
 curl http://localhost:4111/
 ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+```ts
+const health = await client.health()
+
+console.log(health.auth.setup)         // true if password configured
+console.log(health.auth.authenticated) // true if token is valid
+```
+  </Tabs.Tab>
+</Tabs>
 
 ```json
 {
@@ -24,73 +38,161 @@ curl http://localhost:4111/
 
 Use `auth.setup` to decide whether to show a setup or login flow.
 
-## Endpoints
-
-### Setup
-
-```
-POST /api/auth/setup
-Content-Type: application/json
-
-{ "password": "my-secure-password" }
-```
+## POST /api/auth/setup
 
 Sets the initial password. Returns `201` with a token pair on success, `409` if already configured. Password must be at least 8 characters.
 
-### Login
-
+<Tabs items={['API', 'SDK']}>
+  <Tabs.Tab>
+```bash
+curl -X POST http://localhost:4111/api/auth/setup \
+  -H "Content-Type: application/json" \
+  -d '{"password": "my-secure-password"}'
 ```
-POST /api/auth/login
-Content-Type: application/json
+  </Tabs.Tab>
+  <Tabs.Tab>
+```ts
+const tokens = await client.auth.setup('my-secure-password')
 
-{ "password": "my-secure-password" }
+console.log(tokens.token)        // access token
+console.log(tokens.refreshToken) // refresh token
 ```
+  </Tabs.Tab>
+</Tabs>
+
+## POST /api/auth/login
 
 Returns a token pair on success, `401` on wrong password, `403` if setup hasn't been completed.
 
-### Refresh
-
+<Tabs items={['API', 'SDK']}>
+  <Tabs.Tab>
+```bash
+curl -X POST http://localhost:4111/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"password": "my-secure-password"}'
 ```
-POST /api/auth/refresh
-Content-Type: application/json
-
-{ "refreshToken": "..." }
+  </Tabs.Tab>
+  <Tabs.Tab>
+```ts
+const tokens = await client.auth.login('my-secure-password')
 ```
+  </Tabs.Tab>
+</Tabs>
+
+## POST /api/auth/refresh
 
 Rotates the refresh token and issues a new access token. The old refresh token is invalidated. Returns `401` if the token is expired, invalid, or reused.
 
-### Logout
+<Tabs items={['API', 'SDK']}>
+  <Tabs.Tab>
+```bash
+curl -X POST http://localhost:4111/api/auth/refresh \
+  -H "Content-Type: application/json" \
+  -d '{"refreshToken": "..."}'
+```
+  </Tabs.Tab>
+  <Tabs.Tab>
+```ts
+const tokens = await client.auth.refresh('...')
+```
+  </Tabs.Tab>
+</Tabs>
 
-```
-POST /api/auth/logout
-Authorization: Bearer <token>
-```
+## POST /api/auth/logout
 
 Revokes the current session.
 
-### Change Password
-
+<Tabs items={['API', 'SDK']}>
+  <Tabs.Tab>
+```bash
+curl -X POST http://localhost:4111/api/auth/logout \
+  -H "Authorization: Bearer <token>"
 ```
-POST /api/auth/change-password
-Authorization: Bearer <token>
-Content-Type: application/json
-
-{ "currentPassword": "old", "newPassword": "new" }
+  </Tabs.Tab>
+  <Tabs.Tab>
+```ts
+await client.auth.logout()
 ```
+  </Tabs.Tab>
+</Tabs>
+
+## POST /api/auth/change-password
 
 Invalidates all sessions and refresh tokens, then returns a new token pair.
 
-### Sessions
-
+<Tabs items={['API', 'SDK']}>
+  <Tabs.Tab>
+```bash
+curl -X POST http://localhost:4111/api/auth/change-password \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"currentPassword": "old", "newPassword": "new"}'
 ```
-GET    /api/auth/sessions          — list active sessions
-DELETE /api/auth/sessions/:id      — revoke a specific session
-DELETE /api/auth/sessions          — revoke all sessions
+  </Tabs.Tab>
+  <Tabs.Tab>
+```ts
+const tokens = await client.auth.changePassword('old', 'new')
 ```
+  </Tabs.Tab>
+</Tabs>
 
-All session endpoints require `Authorization: Bearer <token>`.
+## GET /api/auth/sessions
 
-Revoking a specific session returns `{ "success": true, "loggedOut": false }` — `loggedOut` is `true` when you revoke your own session. Returns `404` with `session_not_found` if the session ID doesn't exist.
+List active sessions.
+
+<Tabs items={['API', 'SDK']}>
+  <Tabs.Tab>
+```bash
+curl http://localhost:4111/api/auth/sessions \
+  -H "Authorization: Bearer <token>"
+```
+  </Tabs.Tab>
+  <Tabs.Tab>
+```ts
+const { data } = await client.auth.sessions()
+
+data.forEach(s => {
+  console.log(s.userAgent, s.current ? '(current)' : '')
+})
+```
+  </Tabs.Tab>
+</Tabs>
+
+## DELETE /api/auth/sessions/:id
+
+Revoke a specific session. Returns `{ "id": "abc123", "loggedOut": false }` — `loggedOut` is `true` when you revoke your own session.
+
+<Tabs items={['API', 'SDK']}>
+  <Tabs.Tab>
+```bash
+curl -X DELETE http://localhost:4111/api/auth/sessions/abc123 \
+  -H "Authorization: Bearer <token>"
+```
+  </Tabs.Tab>
+  <Tabs.Tab>
+```ts
+const { loggedOut } = await client.auth.revokeSession('abc123')
+```
+  </Tabs.Tab>
+</Tabs>
+
+## DELETE /api/auth/sessions
+
+Revoke all sessions and refresh tokens.
+
+<Tabs items={['API', 'SDK']}>
+  <Tabs.Tab>
+```bash
+curl -X DELETE http://localhost:4111/api/auth/sessions \
+  -H "Authorization: Bearer <token>"
+```
+  </Tabs.Tab>
+  <Tabs.Tab>
+```ts
+await client.auth.revokeAllSessions()
+```
+  </Tabs.Tab>
+</Tabs>
 
 ## Response Formats
 
@@ -118,7 +220,7 @@ All successful auth responses (`setup`, `login`, `refresh`, `change-password`) r
 
 ```json
 {
-  "sessions": [
+  "data": [
     {
       "id": "abc123...",
       "createdAt": "2025-01-01T00:00:00.000Z",
@@ -131,9 +233,6 @@ All successful auth responses (`setup`, `login`, `refresh`, `change-password`) r
 }
 ```
 
-### Errors
-
-Auth errors return a JSON body with an `error` field containing a machine-readable code:
 
 | Code | Status | Meaning |
 |---|---|---|
@@ -145,8 +244,6 @@ Auth errors return a JSON body with an `error` field containing a machine-readab
 
 ## Rate Limits
 
-Auth endpoints are rate-limited per IP address:
-
 | Endpoint | Limit | Window |
 |---|---|---|
 | `/api/auth/setup` | 3 requests | 1 minute |
@@ -156,12 +253,8 @@ Auth endpoints are rate-limited per IP address:
 
 Rate-limited responses include `X-RateLimit-Limit`, `X-RateLimit-Remaining`, and `Retry-After` headers.
 
-## SDK Types
-
-These types are available from `@pandorakit/sdk/api`:
+## Types
 
 ```ts
 import type { AuthTokenPair, Session } from '@pandorakit/sdk/api'
 ```
-
-See [SDK Client](/api-reference/sdk-client) for the typed client that wraps these endpoints.

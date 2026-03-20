@@ -6,13 +6,13 @@ import { modelsKey } from './keys'
 import { usePandoraClient } from './provider'
 
 interface ModelsResponse {
-  providers: ProviderInfo[]
+  data: ProviderInfo[]
 }
 
 export interface UseModelsReturn {
   /** Full models response, or `undefined` while loading. */
   data: ModelsResponse | undefined
-  /** Shorthand for `data.providers`. */
+  /** Shorthand for `data.data`. */
   providers: ProviderInfo[] | undefined
   isLoading: boolean
   error: Error | null
@@ -29,7 +29,7 @@ export function useModels(): UseModelsReturn {
 
   return {
     data: query.data,
-    providers: query.data?.providers,
+    providers: query.data?.data,
     isLoading: query.isLoading,
     error: query.error,
   }

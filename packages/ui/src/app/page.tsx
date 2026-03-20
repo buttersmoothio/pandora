@@ -1,6 +1,5 @@
 'use client'
 
-import { useChat, useConfig } from '@pandorakit/react-sdk'
 import { MessageSquareIcon } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useRef } from 'react'
@@ -27,6 +26,8 @@ import {
 } from '@/components/ai-elements/prompt-input'
 import { InputAttachments } from '@/components/chat/input-attachments'
 import { MessageParts } from '@/components/message-parts'
+import { useChat } from '@/hooks/use-chat'
+import { useConfig } from '@/hooks/use-config'
 
 export default function Home(): React.JSX.Element {
   const { data: config } = useConfig()

@@ -1,11 +1,12 @@
 'use client'
 
-import { useMcpServers, usePlugins } from '@pandorakit/react-sdk'
 import { BotIcon, CableIcon, Loader2Icon, PlugIcon, RadioIcon, WrenchIcon } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { AddMcpServerDialog } from '@/components/settings/add-mcp-server-dialog'
 import { McpServerCard } from '@/components/settings/mcp-server-card'
 import { UnifiedPluginCard } from '@/components/settings/unified-plugin-card'
+import { useMcpServers } from '@/hooks/use-mcp'
+import { usePlugins } from '@/hooks/use-plugins'
 import { cn } from '@/lib/utils'
 
 // ---------------------------------------------------------------------------

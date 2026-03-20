@@ -3,12 +3,12 @@ import { DM_Sans, Fraunces, JetBrains_Mono } from 'next/font/google'
 import { headers } from 'next/headers'
 import './globals.css'
 
-import { PandoraProvider } from '@pandorakit/react-sdk'
 import { AppSidebar } from '@/components/app-sidebar'
 import { OnboardingGuard } from '@/components/onboarding/onboarding-guard'
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar'
 import { Toaster } from '@/components/ui/sonner'
 import { AuthGuard } from '@/providers/auth-guard'
+import { PandoraProvider } from '@/providers/pandora-provider'
 import { ThemeProvider } from '@/providers/theme-provider'
 
 const dmSans = DM_Sans({

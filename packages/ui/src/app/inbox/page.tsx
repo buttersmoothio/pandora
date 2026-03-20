@@ -1,6 +1,6 @@
 'use client'
 
-import { type InboxMessage, useInbox, usePlugins } from '@pandorakit/react-sdk'
+import type { InboxMessage } from '@pandorakit/sdk/client'
 import {
   AlertCircleIcon,
   ArchiveIcon,
@@ -18,6 +18,8 @@ import { toast } from 'sonner'
 import { MessageResponse } from '@/components/ai-elements/message'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { useInbox } from '@/hooks/use-inbox'
+import { usePlugins } from '@/hooks/use-plugins'
 import { timeAgo } from '@/lib/memory-utils'
 
 /** Resolve a destination nsKey to a human-friendly name. */
@@ -100,7 +102,7 @@ function MessageDetail({
   onDismiss: () => void
   archive: (id: string) => Promise<InboxMessage>
   unarchive: (id: string) => Promise<InboxMessage>
-  remove: (id: string) => Promise<{ deleted: string }>
+  remove: (id: string) => Promise<{ id: string }>
 }): React.JSX.Element {
   const [isArchiving, setIsArchiving] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
@@ -230,7 +232,7 @@ export default function InboxPage(): React.JSX.Element {
   const { channelNames } = usePlugins()
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
-  const messages = data?.messages ?? []
+  const messages = data?.data ?? []
   const selected = messages.find((m) => m.id === selectedId) ?? null
 
   const handleSelect = (msg: InboxMessage): void => {

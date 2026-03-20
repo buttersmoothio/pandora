@@ -11,7 +11,7 @@ import type { McpServerConfig } from '../mcp/types'
 import { validatePluginConfig } from '../runtime/config-validate'
 import { encodeNsKey, namespacedKey } from '../runtime/namespace'
 import type { PluginRegistry, RegisteredPlugin } from '../runtime/plugin-registry'
-import type { Env } from './helpers'
+import { type Env, formatValidationError } from './helpers'
 
 interface ToolsProvides {
   toolIds: string[]
@@ -157,7 +157,7 @@ discoveryRoutes.get('/plugins', (c) => {
     }
   })
 
-  return c.json({ plugins: result })
+  return c.json({ data: result })
 })
 
 // MCP servers endpoint
@@ -179,7 +179,7 @@ discoveryRoutes.get('/mcp-servers', (c) => {
     }
   })
 
-  return c.json({ servers })
+  return c.json({ data: servers })
 })
 
 // Add a new MCP server — generates UUID server-side
@@ -202,8 +202,7 @@ discoveryRoutes.post('/mcp-servers', async (c) => {
     return c.json({ id, ...serverConfig }, 201)
   } catch (err) {
     if (err instanceof z.ZodError) {
-      const messages = err.issues.map((i) => `${i.path.join('.')}: ${i.message}`)
-      return c.json({ error: messages.join(', ') }, 400)
+      return c.json(formatValidationError(err), 400)
     }
     const message = err instanceof Error ? err.message : 'Invalid server config'
     return c.json({ error: message }, 400)
@@ -225,7 +224,7 @@ discoveryRoutes.get('/models', (c) => {
       envVars: keys,
     }
   })
-  return c.json({ providers })
+  return c.json({ data: providers })
 })
 
 export { discoveryRoutes }

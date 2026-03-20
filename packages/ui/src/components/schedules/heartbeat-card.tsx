@@ -1,6 +1,6 @@
 'use client'
 
-import { type HeartbeatCheck, useConfig, useHeartbeat, useSchedules } from '@pandorakit/react-sdk'
+import type { HeartbeatCheck } from '@pandorakit/sdk/client'
 import { Loader2Icon, PlusIcon, XIcon } from 'lucide-react'
 import type React from 'react'
 import { useEffect, useState } from 'react'
@@ -17,6 +17,9 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
+import { useConfig } from '@/hooks/use-config'
+import { useHeartbeat } from '@/hooks/use-heartbeat'
+import { useSchedules } from '@/hooks/use-schedules'
 
 export function HeartbeatCard(): React.JSX.Element {
   const { data: heartbeat, isLoading, update: updateHeartbeat, isUpdating } = useHeartbeat()
@@ -208,7 +211,7 @@ export function HeartbeatCard(): React.JSX.Element {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">No notification</SelectItem>
-                {destinationsData?.destinations.map((dest) => (
+                {destinationsData?.data.map((dest) => (
                   <SelectItem key={dest} value={dest}>
                     {dest}
                   </SelectItem>

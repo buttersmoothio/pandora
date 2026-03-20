@@ -1,21 +1,38 @@
+import { Tabs } from 'nextra/components'
+
 # Inbox API
 
 Read, archive, and delete inbox messages.
 
-## Endpoints
+## GET /api/inbox
 
-### List Messages
+Returns active (non-archived) messages, newest first. Add `?archived=true` to list archived messages instead. Supports pagination via `?page=0&perPage=50` query parameters.
 
+<Tabs items={['API', 'SDK']}>
+  <Tabs.Tab>
+```bash
+curl http://localhost:4111/api/inbox \
+  -H "Authorization: Bearer <token>"
+
+# Archived messages
+curl "http://localhost:4111/api/inbox?archived=true" \
+  -H "Authorization: Bearer <token>"
 ```
-GET /api/inbox
-Authorization: Bearer <token>
-```
+  </Tabs.Tab>
+  <Tabs.Tab>
+```ts
+const { data } = await client.inbox.list()
 
-Returns active (non-archived) messages, newest first.
+// Archived messages
+const archived = await client.inbox.list({ archived: true })
+```
+  </Tabs.Tab>
+</Tabs>
+
 
 ```json
 {
-  "messages": [
+  "data": [
     {
       "id": "a1b2c3d4-...",
       "subject": "Daily Summary",
@@ -27,34 +44,65 @@ Returns active (non-archived) messages, newest first.
       "createdAt": "2026-03-04T08:00:12.000Z",
       "archivedAt": null
     }
-  ]
+  ],
+  "total": 1,
+  "page": 0,
+  "perPage": 50,
+  "hasMore": false
 }
 ```
 
-Add `?archived=true` to list archived messages instead.
-
-### Get Message
-
-```
-GET /api/inbox/:id
-Authorization: Bearer <token>
-```
+## GET /api/inbox/:id
 
 Returns a single message, or `404` if not found.
 
-### Update Message
-
+<Tabs items={['API', 'SDK']}>
+  <Tabs.Tab>
+```bash
+curl http://localhost:4111/api/inbox/a1b2c3d4 \
+  -H "Authorization: Bearer <token>"
 ```
-PATCH /api/inbox/:id
-Authorization: Bearer <token>
-Content-Type: application/json
-
-{
-  "read": true
-}
+  </Tabs.Tab>
+  <Tabs.Tab>
+```ts
+const message = await client.inbox.get('a1b2c3d4')
 ```
+  </Tabs.Tab>
+</Tabs>
 
-Supports two fields:
+## PATCH /api/inbox/:id
+
+Update a message's read or archive status.
+
+<Tabs items={['API', 'SDK']}>
+  <Tabs.Tab>
+```bash
+# Mark as read
+curl -X PATCH http://localhost:4111/api/inbox/a1b2c3d4 \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"read": true}'
+
+# Archive
+curl -X PATCH http://localhost:4111/api/inbox/a1b2c3d4 \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"archived": true}'
+```
+  </Tabs.Tab>
+  <Tabs.Tab>
+```ts
+// Mark as read
+await client.inbox.update('a1b2c3d4', { read: true })
+
+// Archive
+await client.inbox.update('a1b2c3d4', { archived: true })
+
+// Unarchive
+await client.inbox.update('a1b2c3d4', { archived: false })
+```
+  </Tabs.Tab>
+</Tabs>
 
 | Field | Type | Effect |
 |---|---|---|
@@ -63,14 +111,28 @@ Supports two fields:
 
 Returns the updated message.
 
-### Delete Message
+## DELETE /api/inbox/:id
 
-```
-DELETE /api/inbox/:id
-Authorization: Bearer <token>
-```
+Permanently deletes the message.
 
-Permanently deletes the message. Returns `{ "deleted": "<id>" }`.
+<Tabs items={['API', 'SDK']}>
+  <Tabs.Tab>
+```bash
+curl -X DELETE http://localhost:4111/api/inbox/a1b2c3d4 \
+  -H "Authorization: Bearer <token>"
+```
+  </Tabs.Tab>
+  <Tabs.Tab>
+```ts
+await client.inbox.delete('a1b2c3d4')
+```
+  </Tabs.Tab>
+</Tabs>
+
+
+```json
+{ "id": "a1b2c3d4" }
+```
 
 ## Message Schema
 
@@ -92,12 +154,8 @@ Messages are created automatically when scheduled tasks with destinations run, o
 
 For web inbox messages, the status is immediately `"sent"`. For channel destinations, the status starts as `"pending"`, then updates to `"sent"` or `"failed"` after delivery.
 
-## SDK Types
-
-These types are available from `@pandorakit/sdk/api`:
+## Types
 
 ```ts
 import type { InboxMessage, DeliveryStatus } from '@pandorakit/sdk/api'
 ```
-
-See [SDK Client](/api-reference/sdk-client) for the typed client that wraps these endpoints.

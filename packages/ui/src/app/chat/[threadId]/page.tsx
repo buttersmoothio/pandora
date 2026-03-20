@@ -1,9 +1,9 @@
 'use client'
 
-import { useThread } from '@pandorakit/react-sdk'
 import { LoaderIcon } from 'lucide-react'
 import { useParams } from 'next/navigation'
 import { ThreadChat } from '@/components/chat/thread-chat'
+import { useThread } from '@/hooks/use-threads'
 
 export default function ThreadPage(): React.JSX.Element {
   const { threadId } = useParams<{ threadId: string }>()

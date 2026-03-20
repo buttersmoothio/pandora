@@ -1,3 +1,5 @@
+import { Tabs } from 'nextra/components'
+
 # Chat API
 
 Endpoints for sending messages and receiving streaming responses. See [API Conventions](/api-reference/conventions) for authentication and error format.
@@ -6,20 +8,39 @@ Endpoints for sending messages and receiving streaming responses. See [API Conve
 
 Send a message and receive a streaming response.
 
-### Request
-
+<Tabs items={['API', 'SDK']}>
+  <Tabs.Tab>
+```bash
+curl -X POST http://localhost:4111/api/chat \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "parts": [{ "type": "text", "text": "Hello" }],
+    "threadId": "abc123"
+  }'
 ```
-POST /api/chat
-Content-Type: application/json
-Authorization: Bearer <token>
-```
+  </Tabs.Tab>
+  <Tabs.Tab>
+```ts
+const response = await client.chat.send({
+  parts: [{ type: 'text', text: 'Hello' }],
+  threadId: 'abc123',
+})
 
-```json
-{
-  "parts": [{ "type": "text", "text": "Hello" }],
-  "threadId": "abc123"
+const threadId = response.headers.get('X-Thread-Id')
+
+// Read the SSE stream
+const reader = response.body.getReader()
+const decoder = new TextDecoder()
+
+while (true) {
+  const { done, value } = await reader.read()
+  if (done) break
+  console.log(decoder.decode(value, { stream: true }))
 }
 ```
+  </Tabs.Tab>
+</Tabs>
 
 To include file attachments, add `file` parts alongside the text. Files must be sent as data URLs:
 
@@ -38,8 +59,6 @@ To include file attachments, add `file` parts alongside the text. Files must be 
 | `parts` | `ContentPart[]` | Yes | User message parts — see [request parts](/api-reference/message-parts#request-parts). At minimum one text part. |
 | `threadId` | `string` | No | Thread to continue. Omit to start a new conversation (server generates a UUID). |
 
-### Response
-
 **Status `200`** — Server-Sent Events (SSE) stream.
 
 **Headers:**
@@ -51,7 +70,6 @@ To include file attachments, add `file` parts alongside the text. Files must be 
 
 The stream body is a [`UIMessageStream`](https://ai-sdk.dev/docs/ai-sdk-ui/reading-ui-message-streams) delivering [response parts](/api-reference/message-parts#response-parts) (text, tool calls, reasoning, citations, etc.). AI SDK client libraries can consume it directly.
 
-### Errors
 
 | Status | Format | Cause |
 |---|---|---|
@@ -62,23 +80,33 @@ The stream body is a [`UIMessageStream`](https://ai-sdk.dev/docs/ai-sdk-ui/readi
 
 Approve or deny a pending tool call. When a tool requires user approval, the stream pauses and the tool part enters the `approval-requested` state. Use this endpoint to resume.
 
-### Request
-
+<Tabs items={['API', 'SDK']}>
+  <Tabs.Tab>
+```bash
+curl -X POST http://localhost:4111/api/chat/approve \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "runId": "run-abc123",
+    "toolCallId": "tc-456",
+    "approved": true,
+    "threadId": "thread-789",
+    "messageId": "msg-012"
+  }'
 ```
-POST /api/chat/approve
-Content-Type: application/json
-Authorization: Bearer <token>
+  </Tabs.Tab>
+  <Tabs.Tab>
+```ts
+const response = await client.chat.approve({
+  runId: 'run-abc123',
+  toolCallId: 'tc-456',
+  approved: true,
+  threadId: 'thread-789',
+  messageId: 'msg-012',
+})
 ```
-
-```json
-{
-  "runId": "run-abc123",
-  "toolCallId": "tc-456",
-  "approved": true,
-  "threadId": "thread-789",
-  "messageId": "msg-012"
-}
-```
+  </Tabs.Tab>
+</Tabs>
 
 | Field | Type | Required | Description |
 |---|---|---|---|
@@ -88,11 +116,8 @@ Authorization: Bearer <token>
 | `approved` | `boolean` | No | `true` to approve, `false` to deny. Defaults to `undefined`. |
 | `messageId` | `string` | No | The message containing the tool call |
 
-### Response
-
 **Status `200`** -- Server-Sent Events (SSE) stream, same format as `POST /api/chat`.
 
-### Errors
 
 | Status | Format | Cause |
 |---|---|---|
@@ -103,10 +128,19 @@ Authorization: Bearer <token>
 
 Reconnect to an in-progress stream. This is the server-side half of the AI SDK [resumable streams](https://ai-sdk.dev/docs/ai-sdk-ui/resumable-streams) protocol.
 
+<Tabs items={['API', 'SDK']}>
+  <Tabs.Tab>
+```bash
+curl http://localhost:4111/api/chat/abc123/stream \
+  -H "Authorization: Bearer <token>"
 ```
-GET /api/chat/:threadId/stream
-Authorization: Bearer <token>
+  </Tabs.Tab>
+  <Tabs.Tab>
+```ts
+const response = await client.chat.resume('abc123')
 ```
+  </Tabs.Tab>
+</Tabs>
 
 | Status | Meaning |
 |---|---|
@@ -115,12 +149,10 @@ Authorization: Bearer <token>
 
 The server buffers each SSE stream in memory so clients can reconnect mid-stream. Buffers are cleaned up 60 seconds after the stream completes. In serverless mode (e.g. Cloudflare Workers), this endpoint always returns `204`.
 
-## SDK Types
+## Types
 
 These types are available from `@pandorakit/sdk/client`:
 
 ```ts
 import type { ChatSendInput, ChatApproveInput } from '@pandorakit/sdk/client'
 ```
-
-See [SDK Client](/api-reference/sdk-client) for the typed client that wraps these endpoints.

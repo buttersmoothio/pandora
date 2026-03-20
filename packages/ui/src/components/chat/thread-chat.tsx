@@ -1,12 +1,7 @@
 'use client'
 
-import {
-  type ForkInfo,
-  type ServerMessage,
-  type UIMessage,
-  useChat,
-  useConfig,
-} from '@pandorakit/react-sdk'
+import type { ForkInfo, ServerMessage } from '@pandorakit/sdk/client'
+import type { UIMessage } from 'ai'
 import { MessageSquareIcon, PencilIcon } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import type React from 'react'
@@ -38,6 +33,8 @@ import { EditMessageForm } from '@/components/chat/edit-message-form'
 import { InputAttachments } from '@/components/chat/input-attachments'
 import { MessageParts } from '@/components/message-parts'
 import { Button } from '@/components/ui/button'
+import { useChat } from '@/hooks/use-chat'
+import { useConfig } from '@/hooks/use-config'
 
 export function ThreadChat({
   threadId,

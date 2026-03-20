@@ -1,10 +1,10 @@
 'use client'
 
-import { useAuth } from '@pandorakit/react-sdk'
 import type React from 'react'
 import type { ReactNode } from 'react'
 import { LoginScreen } from '@/components/auth/login-screen'
 import { SetupScreen } from '@/components/auth/setup-screen'
+import { useAuth } from '@/hooks/use-auth'
 
 export function AuthGuard({ children }: { children: ReactNode }): React.JSX.Element {
   const { status, login, setup } = useAuth()

@@ -1,3 +1,5 @@
+import { Tabs } from 'nextra/components'
+
 # MCP Servers API
 
 Endpoints for discovering MCP server state.
@@ -6,14 +8,23 @@ Endpoints for discovering MCP server state.
 
 Returns all configured MCP servers with their runtime state and loaded tools.
 
+<Tabs items={['API', 'SDK']}>
+  <Tabs.Tab>
+```bash
+curl http://localhost:4111/api/mcp-servers \
+  -H "Authorization: Bearer <token>"
 ```
-GET /api/mcp-servers
-Authorization: Bearer <token>
+  </Tabs.Tab>
+  <Tabs.Tab>
+```ts
+const { data } = await client.mcpServers.list()
 ```
+  </Tabs.Tab>
+</Tabs>
 
 ```json
 {
-  "servers": [
+  "data": [
     {
       "id": "github",
       "name": "GitHub",
@@ -45,100 +56,157 @@ Each server object contains:
 
 ## Managing MCP Servers
 
-MCP servers are managed through the [Configuration API](/api-reference/configuration). Add, update, or remove servers by patching the `mcpServers` key:
+MCP servers are managed through the [Configuration API](/api-reference/configuration). Add, update, or remove servers by patching the `mcpServers` key.
 
 ### Adding a server
 
-```
-PATCH /api/config
-Authorization: Bearer <token>
-Content-Type: application/json
-
-{
-  "mcpServers": {
-    "github": {
-      "command": "bunx",
-      "args": ["@modelcontextprotocol/server-github"],
-      "name": "GitHub",
-      "env": ["GITHUB_PERSONAL_ACCESS_TOKEN"],
-      "enabled": true,
-      "requireApproval": true
+<Tabs items={['API', 'SDK']}>
+  <Tabs.Tab>
+```bash
+curl -X PATCH http://localhost:4111/api/config \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "mcpServers": {
+      "github": {
+        "command": "bunx",
+        "args": ["@modelcontextprotocol/server-github"],
+        "name": "GitHub",
+        "env": ["GITHUB_PERSONAL_ACCESS_TOKEN"],
+        "enabled": true,
+        "requireApproval": true
+      }
     }
-  }
-}
+  }'
 ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+```ts
+await client.mcpServers.add('github', {
+  command: 'bunx',
+  args: ['@modelcontextprotocol/server-github'],
+  name: 'GitHub',
+  env: ['GITHUB_PERSONAL_ACCESS_TOKEN'],
+  enabled: true,
+  requireApproval: true,
+})
+```
+  </Tabs.Tab>
+</Tabs>
 
 ### Adding a remote server with headers
 
-```
-PATCH /api/config
-Authorization: Bearer <token>
-Content-Type: application/json
-
-{
-  "mcpServers": {
-    "remote-tools": {
-      "url": "https://example.com/mcp",
-      "name": "Remote Tools",
-      "headers": {
-        "Authorization": "Bearer sk-abc123"
-      },
-      "enabled": true,
-      "requireApproval": true
+<Tabs items={['API', 'SDK']}>
+  <Tabs.Tab>
+```bash
+curl -X PATCH http://localhost:4111/api/config \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "mcpServers": {
+      "remote-tools": {
+        "url": "https://example.com/mcp",
+        "name": "Remote Tools",
+        "headers": {
+          "Authorization": "Bearer sk-abc123"
+        },
+        "enabled": true,
+        "requireApproval": true
+      }
     }
-  }
-}
+  }'
 ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+```ts
+await client.mcpServers.add('remote-tools', {
+  url: 'https://example.com/mcp',
+  name: 'Remote Tools',
+  headers: {
+    Authorization: 'Bearer sk-abc123',
+  },
+  enabled: true,
+  requireApproval: true,
+})
+```
+  </Tabs.Tab>
+</Tabs>
 
 ### Adding a remote server with OAuth
 
-```
-PATCH /api/config
-Authorization: Bearer <token>
-Content-Type: application/json
-
-{
-  "mcpServers": {
-    "oauth-server": {
-      "url": "https://example.com/mcp",
-      "name": "OAuth Server",
-      "oauth": true,
-      "enabled": true,
-      "requireApproval": true
+<Tabs items={['API', 'SDK']}>
+  <Tabs.Tab>
+```bash
+curl -X PATCH http://localhost:4111/api/config \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "mcpServers": {
+      "oauth-server": {
+        "url": "https://example.com/mcp",
+        "name": "OAuth Server",
+        "oauth": true,
+        "enabled": true,
+        "requireApproval": true
+      }
     }
-  }
-}
+  }'
 ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+```ts
+await client.mcpServers.add('oauth-server', {
+  url: 'https://example.com/mcp',
+  name: 'OAuth Server',
+  oauth: true,
+  enabled: true,
+  requireApproval: true,
+})
+```
+  </Tabs.Tab>
+</Tabs>
 
 After adding, check `GET /api/mcp-servers` for the `authUrl` field. Direct the user to that URL to complete authorization.
 
 ### Disabling a server
 
+<Tabs items={['API', 'SDK']}>
+  <Tabs.Tab>
+```bash
+curl -X PATCH http://localhost:4111/api/config \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"mcpServers": {"github": {"enabled": false}}}'
 ```
-PATCH /api/config
-Authorization: Bearer <token>
-Content-Type: application/json
-
-{
-  "mcpServers": {
-    "github": { "enabled": false }
-  }
-}
+  </Tabs.Tab>
+  <Tabs.Tab>
+```ts
+await client.config.update({
+  mcpServers: { github: { enabled: false } },
+})
 ```
+  </Tabs.Tab>
+</Tabs>
 
 ### Removing a server
 
+<Tabs items={['API', 'SDK']}>
+  <Tabs.Tab>
+```bash
+curl -X PATCH http://localhost:4111/api/config \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"mcpServers": {"github": null}}'
 ```
-PATCH /api/config
-Authorization: Bearer <token>
-Content-Type: application/json
-
-{
-  "mcpServers": {
-    "github": null
-  }
-}
+  </Tabs.Tab>
+  <Tabs.Tab>
+```ts
+await client.config.update({
+  mcpServers: { github: null },
+})
 ```
+  </Tabs.Tab>
+</Tabs>
 
 ### Server config fields
 
@@ -154,12 +222,10 @@ Content-Type: application/json
 | `headers` | No | Key-value pairs sent as HTTP headers to remote servers |
 | `oauth` | No | Enable OAuth authentication for remote servers (default: `false`) |
 
-## SDK Types
+## Types
 
 These types are available from `@pandorakit/sdk/api`:
 
 ```ts
 import type { McpServerInfo, McpToolOverview, AddMcpServerInput } from '@pandorakit/sdk/api'
 ```
-
-See [SDK Client](/api-reference/sdk-client) for the typed client that wraps these endpoints.

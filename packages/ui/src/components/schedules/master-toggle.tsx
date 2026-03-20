@@ -1,8 +1,8 @@
 'use client'
 
-import { useConfig } from '@pandorakit/react-sdk'
 import { toast } from 'sonner'
 import { Switch } from '@/components/ui/switch'
+import { useConfig } from '@/hooks/use-config'
 
 export function MasterToggle(): React.JSX.Element {
   const { data: config, update, isUpdating } = useConfig()

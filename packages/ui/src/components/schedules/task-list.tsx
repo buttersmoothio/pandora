@@ -1,6 +1,6 @@
 'use client'
 
-import { type ScheduleTask, useConfig, useSchedules } from '@pandorakit/react-sdk'
+import type { ScheduleTask } from '@pandorakit/sdk/client'
 import { Loader2Icon, Trash2Icon } from 'lucide-react'
 import type React from 'react'
 import { useState } from 'react'
@@ -16,6 +16,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { useConfig } from '@/hooks/use-config'
+import { useSchedules } from '@/hooks/use-schedules'
 import { formatInTimezone } from '@/lib/timezone'
 
 export function TaskList(): React.JSX.Element {
@@ -44,7 +46,7 @@ export function TaskList(): React.JSX.Element {
     return <p className="text-destructive text-sm">Failed to load schedules: {error.message}</p>
   }
 
-  const tasks = data?.tasks ?? []
+  const tasks = data?.data ?? []
 
   if (tasks.length === 0) {
     return <p className="text-muted-foreground text-sm">No scheduled tasks yet.</p>

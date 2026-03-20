@@ -1,10 +1,10 @@
 'use client'
 
-import { useConfig } from '@pandorakit/react-sdk'
 import { Loader2Icon } from 'lucide-react'
 import { LongTermSection } from '@/components/memory/long-term-section'
 import { MemorySection } from '@/components/memory/memory-settings'
 import { ShortTermSection } from '@/components/memory/short-term-section'
+import { useConfig } from '@/hooks/use-config'
 
 export default function MemoryPage(): React.JSX.Element {
   const { data: config, isLoading, error } = useConfig()

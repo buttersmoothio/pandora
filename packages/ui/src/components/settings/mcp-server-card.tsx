@@ -1,7 +1,6 @@
 'use client'
 
-import type { McpServerInfo } from '@pandorakit/react-sdk'
-import { useConfig } from '@pandorakit/react-sdk'
+import type { McpServerInfo } from '@pandorakit/sdk/client'
 import {
   AlertTriangleIcon,
   CheckCircle2Icon,
@@ -26,6 +25,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import { Switch } from '@/components/ui/switch'
+import { useConfig } from '@/hooks/use-config'
 import { MetadataItem, PluginIcon, Section } from './plugin-card'
 
 // ---------------------------------------------------------------------------

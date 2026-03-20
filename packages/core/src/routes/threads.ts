@@ -108,7 +108,7 @@ threadRoutes.get('/', async (c) => {
 
     return c.json({
       ...result,
-      threads: enriched,
+      data: enriched,
       activeStreamIds: isServerless() ? [] : c.var.runtime.streams.getActiveIds(),
     })
   } catch (err) {
@@ -210,7 +210,7 @@ threadRoutes.post('/:id/fork', async (c) => {
 
     const { resourceId: _, ...thread } = clonedThread
 
-    return c.json({ thread, clonedMessageCount: clonedMessages.length })
+    return c.json({ thread, clonedMessageCount: clonedMessages.length }, 201)
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error'
     log.error('[threads] fork failed', { error: message })
@@ -230,7 +230,7 @@ threadRoutes.delete('/:id', async (c) => {
     }
 
     await memory.deleteThread(threadId)
-    return c.json({ success: true })
+    return c.json({ id: threadId })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error'
     log.error('[threads] delete failed', { error: message })

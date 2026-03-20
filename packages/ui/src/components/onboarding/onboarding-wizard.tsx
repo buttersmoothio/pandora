@@ -1,13 +1,6 @@
 'use client'
 
-import {
-  type Config,
-  type DeepPartial,
-  type UnifiedPluginInfo,
-  useConfig,
-  useModels,
-  usePlugins,
-} from '@pandorakit/react-sdk'
+import type { Config, DeepPartial, UnifiedPluginInfo } from '@pandorakit/sdk/client'
 import {
   BotIcon,
   BrainIcon,
@@ -35,6 +28,9 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Switch } from '@/components/ui/switch'
+import { useConfig } from '@/hooks/use-config'
+import { useModels } from '@/hooks/use-models'
+import { usePlugins } from '@/hooks/use-plugins'
 import { cn } from '@/lib/utils'
 
 const TOTAL_STEPS: number = 5
@@ -143,11 +139,11 @@ function ModelStep({
   onProviderChange: (provider: string) => void
   onModelChange: (model: string) => void
 }): React.JSX.Element {
-  const { data: modelsData } = useModels()
+  const { providers: allModelProviders } = useModels()
   const [providerOpen, setProviderOpen] = useState(false)
   const [modelOpen, setModelOpen] = useState(false)
 
-  const allProviders = modelsData?.providers ?? []
+  const allProviders = allModelProviders ?? []
   const providers = [...allProviders].sort((a, b) => {
     if (a.configured !== b.configured) {
       return a.configured ? -1 : 1
