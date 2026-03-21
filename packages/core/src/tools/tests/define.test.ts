@@ -28,7 +28,7 @@ describe('bindTool', () => {
   it('returns a Mastra Tool with correct id and description', () => {
     const def = makeTestTool()
     const tool = bindTool(def, defaultEnv, defaultConfig, `test-plugin:${def.id}`)
-    expect(tool.id).toBe('test-plugin:test-tool')
+    expect(tool.id).toBe('test-plugin_test-tool')
     expect(tool.description).toBe('A test tool')
   })
 
@@ -90,7 +90,7 @@ describe('bindTool', () => {
     })
     const tool = bindTool(def, defaultEnv, defaultConfig, `test-plugin:${def.id}`)
     await expect(tool.execute?.({ value: 'hi' }, {} as never)).rejects.toThrow(
-      "Tool 'test-plugin:slow-tool' timed out after 50ms",
+      "Tool 'test-plugin_slow-tool' timed out after 50ms",
     )
   })
 
@@ -107,7 +107,7 @@ describe('bindTool', () => {
   it('handles Tool with no parameters (empty schema)', async () => {
     const def = makeTestTool({ parameters: undefined })
     const tool = bindTool(def, defaultEnv, defaultConfig, `test-plugin:${def.id}`)
-    expect(tool.id).toBe('test-plugin:test-tool')
+    expect(tool.id).toBe('test-plugin_test-tool')
   })
 })
 

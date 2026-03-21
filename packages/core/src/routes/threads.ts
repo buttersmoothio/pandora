@@ -1,6 +1,5 @@
 import { AIV5Adapter } from '@mastra/core/agent/message-list'
 import type { Memory } from '@mastra/memory'
-import type { UIMessage } from 'ai'
 import { Hono } from 'hono'
 import { resolveFileUrls } from '../files/attachment-processor'
 import { getLogger } from '../logger'
@@ -147,12 +146,13 @@ threadRoutes.get('/:id', async (c) => {
       // Mastra sets `pendingToolApprovals` metadata when the agent is suspended
       // awaiting approval. Patch matching tool parts to `approval-requested`
       // so the approve/deny buttons render immediately on page load.
-      const pendingMap = uiMsg.metadata?.pendingToolApprovals as
+      const metadata = uiMsg.metadata as Record<string, unknown> | undefined
+      const pendingMap = metadata?.pendingToolApprovals as
         | Record<string, { toolCallId: string; runId: string }>
         | undefined
       if (pendingMap) {
         const pending = Object.values(pendingMap)
-        uiMsg.parts = uiMsg.parts.map((part: UIMessage['parts'][number]) => {
+        for (const part of uiMsg.parts) {
           if (
             'toolCallId' in part &&
             part.type.startsWith('tool-') &&
@@ -161,11 +161,12 @@ threadRoutes.get('/:id', async (c) => {
           ) {
             const approval = pending.find((a) => a.toolCallId === part.toolCallId)
             if (approval) {
-              return { ...part, state: 'approval-requested', approval: { id: approval.runId } }
+              // Mutate in place — `approval-requested` is an AI SDK UI state,
+              // not part of Mastra's type, so we assign directly.
+              Object.assign(part, { state: 'approval-requested', approval: { id: approval.runId } })
             }
           }
-          return part
-        })
+        }
       }
       return uiMsg
     })

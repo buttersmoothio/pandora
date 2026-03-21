@@ -173,7 +173,6 @@ describe('web gateway approve/decline', () => {
     expect(mockApprove).toHaveBeenCalledWith({
       runId: 'run-1',
       toolCallId: 'tc-1',
-      memory: { thread: 'thread-1', resource: 'default' },
     })
     expect(stream).toBeInstanceOf(ReadableStream)
   })
@@ -187,7 +186,6 @@ describe('web gateway approve/decline', () => {
 
     expect(mockApprove).toHaveBeenCalledWith({
       runId: 'run-1',
-      memory: { thread: 'thread-1', resource: 'default' },
     })
   })
 
@@ -222,7 +220,6 @@ describe('web gateway approve/decline', () => {
     expect(mockDecline).toHaveBeenCalledWith({
       runId: 'run-1',
       toolCallId: 'tc-1',
-      memory: { thread: 'thread-1', resource: 'default' },
     })
     expect(stream).toBeInstanceOf(ReadableStream)
   })
@@ -236,7 +233,6 @@ describe('web gateway approve/decline', () => {
 
     expect(mockDecline).toHaveBeenCalledWith({
       runId: 'run-1',
-      memory: { thread: 'thread-1', resource: 'default' },
     })
   })
 })

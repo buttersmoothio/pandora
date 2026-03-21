@@ -5,7 +5,7 @@ import type { ServerMessage, ThreadDetailResponse } from '@pandorakit/sdk/client
 import { useQueryClient } from '@tanstack/react-query'
 import type { ChatAddToolApproveResponseFunction, ChatStatus, FileUIPart, UIMessage } from 'ai'
 import { isToolUIPart } from 'ai'
-import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useInsertionEffect, useMemo, useRef } from 'react'
 import { convertServerMessages } from './convert-server-messages'
 import { createPandoraTransport } from './create-pandora-transport'
 import { threadsKey } from './keys'
@@ -78,6 +78,16 @@ export function useChat(options?: UseChatOptions): UseChatReturn {
   const client = usePandoraClient()
   const queryClient = useQueryClient()
 
+  // Stable refs for callbacks to avoid transport/hook recreation on every render
+  const onThreadCreatedRef = useRef(onThreadCreated)
+  const onFinishRef = useRef(onFinish)
+  const onErrorRef = useRef(onError)
+  useInsertionEffect(() => {
+    onThreadCreatedRef.current = onThreadCreated
+    onFinishRef.current = onFinish
+    onErrorRef.current = onError
+  })
+
   // Ref for thread ID in new-chat flow (set from X-Thread-Id header)
   const threadIdRef = useRef<string | null>(null)
 
@@ -94,11 +104,11 @@ export function useChat(options?: UseChatOptions): UseChatReturn {
         onThreadId: (id: string) => {
           threadIdRef.current = id
           invalidateThreads()
-          onThreadCreated?.(id)
+          onThreadCreatedRef.current?.(id)
         },
         onResponse: invalidateThreads,
       }),
-    [baseUrl, getToken, threadId, invalidateThreads, onThreadCreated],
+    [baseUrl, getToken, threadId, invalidateThreads],
   )
 
   const convertedInitialMessages = useMemo(
@@ -107,9 +117,9 @@ export function useChat(options?: UseChatOptions): UseChatReturn {
   )
 
   const chat = useAiChat({
-    id: threadId,
+    ...(threadId == null ? {} : { id: threadId }),
     transport,
-    messages: convertedInitialMessages,
+    ...(convertedInitialMessages == null ? {} : { messages: convertedInitialMessages }),
     resume: !!threadId,
     sendAutomaticallyWhen: ({ messages: msgs }: { messages: UIMessage[] }): boolean => {
       const lastMessage = msgs.at(-1)
@@ -120,9 +130,11 @@ export function useChat(options?: UseChatOptions): UseChatReturn {
     },
     onFinish: () => {
       invalidateThreads()
-      onFinish?.()
+      onFinishRef.current?.()
     },
-    onError,
+    onError: (error: Error) => {
+      onErrorRef.current?.(error)
+    },
   })
 
   // Auto-send pending fork message once chat is ready

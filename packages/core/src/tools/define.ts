@@ -1,6 +1,7 @@
 import { createTool, type Tool as MastraTool } from '@mastra/core/tools'
 import type { PluginConfig, Tool, ToolManifest } from '@pandorakit/sdk/tools'
 import { z } from 'zod'
+import { toolSafeId } from '../runtime/namespace'
 import { createPluginConsole } from './sandbox/endowments'
 import { DEFAULT_TOOL_TIMEOUT } from './types'
 
@@ -32,14 +33,16 @@ export function bindTool(
   envVars: Record<string, string | undefined>,
   _pluginConfig: PluginConfig,
   namespacedId: string,
+  requireApproval?: boolean,
 ): AnyTool {
-  const toolId = namespacedId
+  const toolId = toolSafeId(namespacedId)
   const timeout = def.timeout ?? DEFAULT_TOOL_TIMEOUT
   const inputSchema = def.parameters ? z.fromJSONSchema(def.parameters) : z.object({})
   return createTool({
     id: toolId,
     description: def.description,
     inputSchema,
+    ...(requireApproval ? { requireApproval: true } : {}),
     // biome-ignore lint/nursery/useExplicitType: input type inferred from inputSchema
     execute: (input): Promise<unknown> => {
       const pluginId = namespacedId.split(':')[0]

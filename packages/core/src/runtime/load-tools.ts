@@ -4,7 +4,7 @@ import { getLogger } from '../logger'
 import { bindTool, buildManifest } from '../tools/define'
 import type { ToolRecord } from '../tools/types'
 import { validatePluginConfig } from './config-validate'
-import { namespacedKey, validateEntityId } from './namespace'
+import { namespacedKey, toolSafeId, validateEntityId } from './namespace'
 import type { PluginRegistry, RegisteredPlugin } from './plugin-registry'
 
 function loadStaticTools(
@@ -21,11 +21,35 @@ function loadStaticTools(
   for (const exp of plugin.tools.entries) {
     validateEntityId('tool', plugin.id, exp.id)
     const nsKey = namespacedKey(plugin.id, exp.id)
-    const tool = bindTool(exp, envVars, pluginConfig, nsKey)
-    if (perTool[exp.id] ?? manifestDefault) {
-      tool.requireApproval = true
-    }
-    tools[nsKey] = tool
+    const safeId = toolSafeId(nsKey)
+    const needsApproval = perTool[safeId] ?? manifestDefault
+    tools[safeId] = bindTool(exp, envVars, pluginConfig, nsKey, needsApproval || undefined)
+  }
+  return tools
+}
+
+async function loadResolvedTools(
+  plugin: RegisteredPlugin,
+  envVars: Record<string, string | undefined>,
+  pluginConfig: PluginConfig,
+): Promise<ToolRecord> {
+  if (!plugin.tools?.resolveTools) {
+    return {}
+  }
+  const tools: ToolRecord = {}
+  const manifestDefault = plugin.tools.requireApproval ?? false
+  const perTool = pluginConfig.requireApproval ?? {}
+  const { tools: resolved } = await plugin.tools.resolveTools({
+    pluginConfig,
+    env: envVars,
+  })
+  for (const exp of resolved) {
+    validateEntityId('tool', plugin.id, exp.id)
+    const nsKey = namespacedKey(plugin.id, exp.id)
+    const safeId = toolSafeId(nsKey)
+    plugin.tools.manifests.set(exp.id, buildManifest(exp))
+    const needsApproval = perTool[safeId] ?? manifestDefault
+    tools[safeId] = bindTool(exp, envVars, pluginConfig, nsKey, needsApproval || undefined)
   }
   return tools
 }
@@ -61,19 +85,7 @@ export async function loadTools(
     }
 
     Object.assign(result, loadStaticTools(plugin, envVars, pluginConfig))
-
-    if (plugin.tools.resolveTools) {
-      const { tools: resolved } = await plugin.tools.resolveTools({
-        pluginConfig,
-        env: envVars,
-      })
-      for (const exp of resolved) {
-        validateEntityId('tool', plugin.id, exp.id)
-        const nsKey = namespacedKey(plugin.id, exp.id)
-        plugin.tools.manifests.set(exp.id, buildManifest(exp))
-        result[nsKey] = bindTool(exp, envVars, pluginConfig, nsKey)
-      }
-    }
+    Object.assign(result, await loadResolvedTools(plugin, envVars, pluginConfig))
   }
 
   return result

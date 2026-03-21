@@ -1,4 +1,5 @@
 import type { MessageList } from '@mastra/core/agent'
+import type { MastraMessagePart } from '@mastra/core/agent/message-list'
 import type { MastraDBMessage } from '@mastra/core/memory'
 import type {
   InputProcessor,
@@ -52,23 +53,19 @@ interface FilePart {
   [key: string]: unknown
 }
 
-function isFilePart(part: unknown): part is FilePart {
-  if (typeof part !== 'object' || part === null) {
-    return false
-  }
-  const record = part as Record<string, unknown>
-  return record.type === 'file' && typeof record.data === 'string'
+function isFilePart(part: MastraMessagePart): part is MastraMessagePart & FilePart {
+  return 'type' in part && part.type === 'file' && 'data' in part && typeof part.data === 'string'
 }
 
 function isUploadable(part: FilePart): boolean {
   return part.data.startsWith('data:')
 }
 
-async function uploadPart(
-  part: FilePart,
+async function uploadPart<T extends FilePart>(
+  part: T,
   disk: Disk,
   log: ReturnType<typeof getLogger>,
-): Promise<FilePart> {
+): Promise<T> {
   const parsed = parseDataUrl(part.data)
   if (!parsed) {
     return part
@@ -101,7 +98,7 @@ async function uploadMessageAttachments(
 
   let modified = false
   const newParts = await Promise.all(
-    parts.map(async (part: unknown) => {
+    parts.map(async (part) => {
       if (!(isFilePart(part) && isUploadable(part))) {
         return part
       }
@@ -124,7 +121,7 @@ function resolveMessageUrls(msg: MastraDBMessage, baseUrl: string): MastraDBMess
   }
 
   let modified = false
-  const newParts = parts.map((part: unknown) => {
+  const newParts = parts.map((part) => {
     if (!(isFilePart(part) && part.data.startsWith(FILE_URL_PREFIX))) {
       return part
     }
@@ -143,7 +140,7 @@ function stripBaseUrlFromMessage(msg: MastraDBMessage, baseUrl: string): MastraD
   }
 
   let modified = false
-  const newParts = parts.map((part: unknown) => {
+  const newParts = parts.map((part) => {
     if (!(isFilePart(part) && part.data.startsWith(prefix))) {
       return part
     }

@@ -41,7 +41,7 @@ describe('loadTools', () => {
     registry.plugins.set('test-tools', makeToolPlugin())
 
     const tools = await loadTools(registry, configWith('test-tools'), {})
-    expect(tools['test-tools:greet']).toBeDefined()
+    expect(tools['test-tools_greet']).toBeDefined()
   })
 
   it('skips disabled plugins', async () => {
@@ -77,7 +77,7 @@ describe('loadTools', () => {
     )
 
     const tools = await loadTools(registry, configWith('test-tools'), {})
-    expect(tools['test-tools:dynamic-tool']).toBeDefined()
+    expect(tools['test-tools_dynamic-tool']).toBeDefined()
   })
 
   it('skips plugins without tools capability', async () => {
@@ -117,7 +117,7 @@ describe('loadTools', () => {
     )
 
     const tools = await loadTools(registry, configWith('test-tools'), { MY_API_KEY: 'secret' })
-    expect(tools['test-tools:greet']).toBeDefined()
+    expect(tools['test-tools_greet']).toBeDefined()
   })
 
   it('loads tools when env var is optional and missing', async () => {
@@ -130,7 +130,7 @@ describe('loadTools', () => {
     )
 
     const tools = await loadTools(registry, configWith('test-tools'), {})
-    expect(tools['test-tools:greet']).toBeDefined()
+    expect(tools['test-tools_greet']).toBeDefined()
   })
 
   it('applies requireApproval from manifest default', async () => {
@@ -155,7 +155,7 @@ describe('loadTools', () => {
     )
 
     const tools = await loadTools(registry, configWith('test-tools'), {})
-    expect(tools['test-tools:greet']).toHaveProperty('requireApproval', true)
+    expect(tools['test-tools_greet']).toHaveProperty('requireApproval', true)
   })
 
   it('applies per-tool requireApproval override from plugin config', async () => {
@@ -165,11 +165,75 @@ describe('loadTools', () => {
     const config = {
       ...DEFAULTS,
       plugins: {
-        'test-tools': { enabled: true, requireApproval: { greet: true } },
+        'test-tools': { enabled: true, requireApproval: { 'test-tools_greet': true } },
       },
     }
     const tools = await loadTools(registry, config, {})
-    expect(tools['test-tools:greet']).toHaveProperty('requireApproval', true)
+    expect(tools['test-tools_greet']).toHaveProperty('requireApproval', true)
+  })
+
+  it('applies requireApproval to resolved tools from manifest default', async () => {
+    const registry = createPluginRegistry()
+    registry.plugins.set(
+      'test-tools',
+      makeToolPlugin({
+        tools: {
+          entries: [],
+          manifests: new Map(),
+          requireApproval: true,
+          resolveTools: async () => ({
+            tools: [
+              {
+                id: 'dynamic-tool',
+                name: 'Dynamic',
+                description: 'Dynamically resolved',
+                annotations: { readOnlyHint: true },
+                execute: async () => ({}),
+              },
+            ],
+          }),
+        },
+      }),
+    )
+
+    const tools = await loadTools(registry, configWith('test-tools'), {})
+    expect(tools['test-tools_dynamic-tool']).toHaveProperty('requireApproval', true)
+  })
+
+  it('applies per-tool requireApproval to resolved tools', async () => {
+    const registry = createPluginRegistry()
+    registry.plugins.set(
+      'test-tools',
+      makeToolPlugin({
+        tools: {
+          entries: [],
+          manifests: new Map(),
+          resolveTools: async () => ({
+            tools: [
+              {
+                id: 'dynamic-tool',
+                name: 'Dynamic',
+                description: 'Dynamically resolved',
+                annotations: { readOnlyHint: true },
+                execute: async () => ({}),
+              },
+            ],
+          }),
+        },
+      }),
+    )
+
+    const config = {
+      ...DEFAULTS,
+      plugins: {
+        'test-tools': {
+          enabled: true,
+          requireApproval: { 'test-tools_dynamic-tool': true },
+        },
+      },
+    }
+    const tools = await loadTools(registry, config, {})
+    expect(tools['test-tools_dynamic-tool']).toHaveProperty('requireApproval', true)
   })
 
   it('loads tools from multiple plugins', async () => {
@@ -212,7 +276,7 @@ describe('loadTools', () => {
     )
 
     const tools = await loadTools(registry, configWith('plugin-a', 'plugin-b'), {})
-    expect(tools['plugin-a:tool-a']).toBeDefined()
-    expect(tools['plugin-b:tool-b']).toBeDefined()
+    expect(tools['plugin-a_tool-a']).toBeDefined()
+    expect(tools['plugin-b_tool-b']).toBeDefined()
   })
 })

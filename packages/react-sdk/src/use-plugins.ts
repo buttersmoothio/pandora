@@ -23,9 +23,9 @@ export interface UsePluginsReturn {
   channelNames: Map<string, string>
 }
 
-/** Sanitise a namespaced tool key to match the format used in tool call parts. */
+/** Sanitise a namespaced tool key to match the LLM-safe format used in tool call parts. */
 export function sanitiseToolId(id: string): string {
-  return id.replace(/[^a-zA-Z0-9_-]/g, '_')
+  return id.replace(/@/g, '').replace(/[/:]/g, '_').replace(/_+/g, '_').replace(/^_/, '')
 }
 
 /** Build a map of sanitised tool/agent ID → display name from a list of plugins. */

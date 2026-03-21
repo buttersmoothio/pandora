@@ -9,7 +9,7 @@ import { getLogger } from '../logger'
 import { McpServerSchema } from '../mcp/schema'
 import type { McpServerConfig } from '../mcp/types'
 import { validatePluginConfig } from '../runtime/config-validate'
-import { encodeNsKey, namespacedKey } from '../runtime/namespace'
+import { encodeNsKey, namespacedKey, toolSafeId } from '../runtime/namespace'
 import type { PluginRegistry, RegisteredPlugin } from '../runtime/plugin-registry'
 import type { Env } from './helpers'
 
@@ -27,9 +27,9 @@ function buildToolsProvides(plugin: RegisteredPlugin): ToolsProvides | undefined
     return undefined
   }
   return {
-    toolIds: plugin.tools.entries.map((t) => namespacedKey(plugin.id, t.id)),
+    toolIds: plugin.tools.entries.map((t) => toolSafeId(namespacedKey(plugin.id, t.id))),
     tools: plugin.tools.entries.map((t) => ({
-      id: namespacedKey(plugin.id, t.id),
+      id: toolSafeId(namespacedKey(plugin.id, t.id)),
       name: t.name,
       description: t.description,
     })),

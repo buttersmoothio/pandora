@@ -23,32 +23,53 @@ import { Button } from '@/components/ui/button'
 
 type ToolPart = ToolUIPart | DynamicToolUIPart
 type TextPart = Extract<UIMessage['parts'][number], { type: 'text' }>
+type ReasoningPart = Extract<UIMessage['parts'][number], { type: 'reasoning' }>
 type PartGroup =
   | { type: 'text'; key: string; part: TextPart }
   | { type: 'tools'; key: string; parts: ToolPart[] }
   | { type: 'files'; key: string; parts: FileUIPart[] }
+  | { type: 'reasoning'; key: string; parts: ReasoningPart[] }
+
+function appendToLastOrPush(
+  groups: PartGroup[],
+  expectedType: string,
+  part: ReasoningPart | FileUIPart | ToolPart,
+  newGroup: PartGroup,
+): void {
+  const last = groups.at(-1)
+  if (last && last.type === expectedType && 'parts' in last) {
+    ;(last.parts as (ReasoningPart | FileUIPart | ToolPart)[]).push(part)
+  } else {
+    groups.push(newGroup)
+  }
+}
 
 export function groupParts(parts: UIMessage['parts']): PartGroup[] {
   const groups: PartGroup[] = []
   let textIdx = 0
   let fileIdx = 0
+  let reasoningIdx = 0
   for (const part of parts) {
     if (part.type === 'text') {
       groups.push({ type: 'text', key: `text-${textIdx++}`, part })
+    } else if (part.type === 'reasoning') {
+      appendToLastOrPush(groups, 'reasoning', part, {
+        type: 'reasoning',
+        key: `reasoning-${reasoningIdx++}`,
+        parts: [part],
+      })
     } else if (part.type === 'file') {
-      const last = groups.at(-1)
-      if (last?.type === 'files') {
-        last.parts.push(part)
-      } else {
-        groups.push({ type: 'files', key: `files-${fileIdx++}`, parts: [part] })
-      }
+      appendToLastOrPush(groups, 'files', part, {
+        type: 'files',
+        key: `files-${fileIdx++}`,
+        parts: [part],
+      })
     } else if (isToolUIPart(part)) {
-      const last = groups.at(-1)
-      if (last?.type === 'tools') {
-        last.parts.push(part)
-      } else {
-        groups.push({ type: 'tools', key: part.toolCallId, parts: [part] })
-      }
+      appendToLastOrPush(groups, 'tools', part, {
+        type: 'tools',
+        key: part.toolCallId,
+        parts: [part],
+      })
     }
   }
   return groups
@@ -66,11 +87,7 @@ export function MessageParts({
   onToolApproval?: ChatAddToolApproveResponseFunction
 }): React.JSX.Element {
   const toolNames = useToolNames()
-  const reasoningParts = message.parts.filter((p) => p.type === 'reasoning')
-  const reasoningText = reasoningParts.map((p) => p.text).join('\n\n')
-  const hasReasoning = reasoningParts.length > 0
   const lastPart = message.parts.at(-1)
-  const isReasoningStreaming = isLastMessage && isStreaming && lastPart?.type === 'reasoning'
 
   const sourceParts = message.parts.filter((p) => p.type === 'source-url')
 
@@ -78,6 +95,8 @@ export function MessageParts({
     (p) => p.type === 'text' || p.type === 'reasoning' || isToolUIPart(p),
   )
   const isThinking = isLastMessage && isStreaming && !hasVisibleContent
+
+  const groups = groupParts(message.parts)
 
   return (
     <div className="flex flex-col gap-2">
@@ -98,14 +117,20 @@ export function MessageParts({
         </Sources>
       )}
 
-      {hasReasoning && (
-        <Reasoning isStreaming={isReasoningStreaming}>
-          <ReasoningTrigger />
-          <ReasoningContent>{reasoningText}</ReasoningContent>
-        </Reasoning>
-      )}
+      {groups.map((group, groupIndex) => {
+        if (group.type === 'reasoning') {
+          const reasoningText = group.parts.map((p) => p.text).join('\n\n')
+          const isLastGroup = groupIndex === groups.length - 1
+          const isReasoningStreaming =
+            isLastMessage && isStreaming && isLastGroup && lastPart?.type === 'reasoning'
+          return (
+            <Reasoning key={`${message.id}-${group.key}`} isStreaming={isReasoningStreaming}>
+              <ReasoningTrigger />
+              <ReasoningContent>{reasoningText}</ReasoningContent>
+            </Reasoning>
+          )
+        }
 
-      {groupParts(message.parts).map((group) => {
         if (group.type === 'text') {
           return (
             <MessageContent key={`${message.id}-${group.key}`}>

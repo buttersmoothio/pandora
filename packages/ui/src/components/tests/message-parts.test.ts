@@ -74,13 +74,14 @@ describe('groupParts', () => {
     expect(groupParts([])).toEqual([])
   })
 
-  it('skips non-text non-tool parts', () => {
+  it('groups reasoning parts in order', () => {
     const parts = [
       textPart('hello'),
       { type: 'reasoning' as const, text: 'thinking...', providerMetadata: undefined },
     ]
     const groups = groupParts(parts as Parameters<typeof groupParts>[0])
-    expect(groups).toHaveLength(1)
+    expect(groups).toHaveLength(2)
     expect(groups[0].type).toBe('text')
+    expect(groups[1].type).toBe('reasoning')
   })
 })

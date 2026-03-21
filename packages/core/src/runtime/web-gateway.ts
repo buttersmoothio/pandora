@@ -70,7 +70,7 @@ export function createWebGateway(deps: WebGatewayDeps): WebGateway {
     async approveToolCall({
       runId,
       toolCallId,
-      threadId,
+      threadId: _threadId,
       messageId,
     }: {
       runId: string
@@ -82,7 +82,7 @@ export function createWebGateway(deps: WebGatewayDeps): WebGateway {
       const result = await agent.approveToolCall({
         runId,
         ...(toolCallId && { toolCallId }),
-        memory: { thread: threadId, resource: RESOURCE_ID },
+        toolsets: interactiveToolset,
       })
 
       return toAISdkStream(result, {
@@ -96,7 +96,7 @@ export function createWebGateway(deps: WebGatewayDeps): WebGateway {
     async declineToolCall({
       runId,
       toolCallId,
-      threadId,
+      threadId: _threadId,
       messageId,
     }: {
       runId: string
@@ -108,7 +108,7 @@ export function createWebGateway(deps: WebGatewayDeps): WebGateway {
       const result = await agent.declineToolCall({
         runId,
         ...(toolCallId && { toolCallId }),
-        memory: { thread: threadId, resource: RESOURCE_ID },
+        toolsets: interactiveToolset,
       })
 
       return toAISdkStream(result, {

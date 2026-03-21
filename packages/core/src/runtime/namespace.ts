@@ -16,6 +16,16 @@ export function namespacedKey(pluginId: string, entityId: string): string {
   return `${pluginId}:${entityId}`
 }
 
+/**
+ * Convert a namespaced key to an LLM-safe tool ID.
+ *
+ * LLM APIs (Anthropic, OpenAI) restrict tool names to `[a-zA-Z0-9_-]`.
+ * Strips `@`, replaces `/` and `:` with `_`, and collapses repeated underscores.
+ */
+export function toolSafeId(nsKey: string): string {
+  return nsKey.replace(/@/g, '').replace(/[/:]/g, '_').replace(/_+/g, '_').replace(/^_/, '')
+}
+
 /** Encode a namespaced key to a URL-safe base64url string. */
 export function encodeNsKey(nsKey: string): string {
   return btoa(nsKey.toLowerCase()).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
